@@ -1,28 +1,23 @@
-import { createSlice } from '@reduxjs/toolkit';
+import { create } from 'zustand';
 
-export const themeSlice = createSlice({
-  name: 'theme',
-  initialState: {
-    value: 'light',
-    modified: false,
-  },
-  reducers: {
-    dark: (state) => {
-      state.value = 'dark';
-      state.modified = true;
-    },
-    light: (state) => {
-      state.value = 'light';
-      state.modified = true;
-    },
-    onBrowserThemeChange: (state, { payload }) => {
+export interface ThemeState {
+  mode: 'light' | 'dark'; // Current theme mode
+  modified: boolean; // Whether the theme has been modified
+  dark: () => void; // Set theme to dark
+  light: () => void; // Set theme to light
+  onBrowserThemeChange: (isDarkMode: boolean) => void; // Handle browser theme change
+}
+
+export const useThemeStore = create<ThemeState>((set) => ({
+  mode: 'light', // Default theme mode
+  modified: false, // Whether the theme has been modified
+  dark: () => set({ mode: 'dark', modified: true }),
+  light: () => set({ mode: 'light', modified: true }),
+  onBrowserThemeChange: (isDarkMode: boolean) =>
+    set((state: ThemeState) => {
       if (!state.modified) {
-        state.value = payload ? 'dark' : 'light';
+        return { mode: isDarkMode ? 'dark' : 'light' };
       }
-    },
-  },
-});
-
-export const { dark, light, onBrowserThemeChange } = themeSlice.actions;
-
-export default themeSlice.reducer;
+      return {};
+    }),
+}));

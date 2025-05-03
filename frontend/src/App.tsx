@@ -1,33 +1,18 @@
 import React from 'react';
-import PropTypes from 'prop-types';
 import 'src/styles/globals.css';
-// import 'src/styles/calendar.css';
-// import 'src/styles/markdown.css';
 import { StyledEngineProvider, ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { Provider, useDispatch, useSelector } from 'react-redux';
-import { store, persistor, RootState } from 'src/store';
 import { darkTheme, lightTheme } from 'src/styles/theme';
 import { IconDefinition, IconName, IconPrefix, library } from '@fortawesome/fontawesome-svg-core';
-// import { fab } from '@fortawesome/free-brands-svg-icons';
-// import { fas } from '@fortawesome/free-solid-svg-icons';
-// import { PersistGate } from 'redux-persist/integration/react';
 import { createTheme } from '@mui/material/styles';
 // import NProgress from 'nprogress';
 // import 'nprogress/nprogress.css';
-import { onBrowserThemeChange } from 'src/store/theme';
-import {
-  createBrowserRouter,
-  Outlet,
-  Router,
-  Route,
-  RouterProvider,
-  useNavigate,
-  Routes,
-  BrowserRouter,
-} from 'react-router-dom';
-import SingingView from './pages/singing';
+import { useThemeStore } from 'src/store/theme';
+import { Route, Routes, BrowserRouter } from 'react-router-dom';
+// import SingingView from './pages/singing';
 import IndexView from './pages';
+import Layout from './layouts/Layout';
+import LyricsView from './pages/lyrics';
 
 // NProgress.configure({
 //   minimum: 0.3,
@@ -35,9 +20,6 @@ import IndexView from './pages';
 //   speed: 800,
 //   showSpinner: false,
 // });
-
-// library.add(fab);
-// library.add(fas);
 
 const faSingStyle = {
   prefix: 'fas' as IconPrefix,
@@ -82,17 +64,18 @@ library.add(faSingStyle);
 library.add(faSingOffStyle);
 
 function App() {
-  const dispatch = useDispatch();
   React.useEffect(() => {
     // theme
     const darkThemeMq = window.matchMedia('(prefers-color-scheme: dark)');
-    dispatch(onBrowserThemeChange(darkThemeMq.matches));
-    darkThemeMq.addEventListener('change', (e) => {
-      dispatch(onBrowserThemeChange(e.matches));
+
+    onBrowserThemeChange(darkThemeMq.matches);
+    darkThemeMq.addEventListener('change', (_) => {
+      onBrowserThemeChange(darkThemeMq.matches);
     });
   }, []);
 
-  const theme = useSelector((state: RootState) => state.theme.value);
+  const onBrowserThemeChange = useThemeStore((state) => state.onBrowserThemeChange);
+  const theme = useThemeStore((state) => state.mode);
 
   const Theme = theme === 'light' ? createTheme(lightTheme) : createTheme(darkTheme);
 
@@ -102,8 +85,10 @@ function App() {
         <CssBaseline />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<IndexView />} />
-            <Route path="/singing" element={<SingingView />} />
+            <Route path="/" element={<Layout />}>
+              <Route index element={<IndexView />} />
+              <Route path="/lyrics" element={<LyricsView />} />
+            </Route>
           </Routes>
         </BrowserRouter>
       </ThemeProvider>

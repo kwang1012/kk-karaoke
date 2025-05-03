@@ -16,24 +16,13 @@ export default function SidebarController() {
   };
 
   const volumeDown = () => {
-    // const instrumental = instrumentalRef.current;
-    // if (instrumental) {
-    //   const newInstrumentalVolume = Math.max(0, instrumental.volume - 0.1);
-    //   instrumental.volume = newInstrumentalVolume;
     setInstrumentalVolume(Math.max(0, instrumentalVolume - 0.1));
-
     showSnackbar();
   };
 
   const volumeUp = () => {
     setInstrumentalVolume(Math.min(1, instrumentalVolume + 0.1));
-    // const instrumental = instrumentalRef.current;
-    // if (instrumental) {
-    //   const newInstrumentalVolume = Math.min(1, instrumental.volume + 0.1);
-    //   instrumental.volume = newInstrumentalVolume;
-    //   setInstrumentalVolume(newInstrumentalVolume);
     showSnackbar();
-    // }
   };
   return (
     <div className="w-20 h-[calc(100vh-152px)] bg-[#1f1f1f] rounded-lg mx-2">

@@ -4,3 +4,9 @@ venv/
 *.pyo
 *.pyd
 *.db
+
+**/.env
+**/*.mp3
+**/*.lrc
+!**/test.mp3
+!**/test.lrc

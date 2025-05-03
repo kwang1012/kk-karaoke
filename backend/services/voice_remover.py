@@ -4,13 +4,14 @@ import sys
 from pathlib import Path
 from typing import Any, List
 import os
+import typing
 import torch as th
 
-from demucs.apply import apply_model, BagOfModels
-from demucs.audio import save_audio
-from demucs.pretrained import get_model_from_args
-from demucs.repo import ModelLoadingError
-from demucs.separate import load_track
+from services.demucs.apply import apply_model, BagOfModels
+from services.demucs.audio import save_audio
+from services.demucs.pretrained import get_model_from_args
+from services.demucs.repo import ModelLoadingError
+from services.demucs.separate import load_track
 
 
 def separator(
@@ -28,6 +29,8 @@ def separator(
     mp3_bitrate: int,
     verbose: bool,
     *args,
+    onProgress: typing.Optional[typing.Callable[[
+        float, float], None]] = None,
     **kwargs,
 ):
     """Separate the sources for the given tracks
@@ -111,7 +114,7 @@ def separator(
         if args.segment is not None:
             model.segment = args.segment
 
-    model.cpu()
+    model.to(device)
     model.eval()
 
     if args.stem is not None and args.stem not in model.sources:
@@ -145,7 +148,7 @@ def separator(
             shifts=args.shifts,
             split=args.split,
             overlap=args.overlap,
-            progress=True,
+            onProgress=onProgress,
             num_workers=args.jobs or 1,
         )[0]
         sources = sources * ref.std() + ref.mean()
@@ -184,8 +187,12 @@ def separator(
 if __name__ == "__main__":
     vocals_path = Path("storage/vocals")
     non_vocals_path = Path("storage/no_vocals")
+
+    def onProgress(progress: float, total: float):
+        print(f"Progress: {progress}/{total} ({(progress/total)*100:.2f}%)")
     separator(
-        tracks=[Path("storage/raw_songs/7eb3ee16-e6dc-4f2e-ad2c-d1ba75408f13.mp3")],
+        tracks=[
+            Path("storage/raw_songs/test.mp3")],
         vocals_path=vocals_path,
         non_vocals_path=non_vocals_path,
         model_name="htdemucs",
@@ -198,4 +205,5 @@ if __name__ == "__main__":
         mp3=True,
         mp3_bitrate=320,
         verbose=True,
+        onProgress=onProgress,
     )

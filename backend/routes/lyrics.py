@@ -8,7 +8,9 @@ router = APIRouter()
 
 # TODO: make it stored in db
 delay_mapping = {
-    "7eb3ee16-e6dc-4f2e-ad2c-d1ba75408f13": 1.5
+    "7eb3ee16-e6dc-4f2e-ad2c-d1ba75408f13": 1.5,
+    "2gug6MRv4xQFYi9LA3PJCS": 1,
+    "2su4MjRcOXVjGjMsylxFXx": 30
 }
 
 
@@ -28,7 +30,8 @@ def get_song(filename: str):
             if match:
                 minutes = int(match.group(1))
                 seconds = float(match.group(2))
-                timestamp = round(minutes * 60 + seconds, 2) + delay_mapping.get(filename, 0)
+                timestamp = round(minutes * 60 + seconds, 2) + \
+                    delay_mapping.get(filename, 0)
                 text = match.group(3).strip()
                 lyrics.append({
                     "time": timestamp,

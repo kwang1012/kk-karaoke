@@ -33,9 +33,10 @@ export interface AudioState {
   addToQueue: (song: Song) => void;
   next: () => void; // Move to the next song in the queue
   previous: () => void; // Move to the previous song in the queue
-  fetchLyrics: (songId: string) => Promise<void>; // Fetch lyrics for the current song
   showSnackbar: () => void; // Set the state of the snackbar
   closeSnackbar: () => void; // Set the state of the snackbar
+  fetchLyrics: (songId: string) => Promise<void>; // Fetch lyrics for the current song
+  fetchDefaultTracks: () => Promise<void>; // Fetch default tracks for testing
 }
 export const useAudioStore = create<AudioState>((set) => ({
   // Define your audio state and actions here
@@ -47,8 +48,8 @@ export const useAudioStore = create<AudioState>((set) => ({
   vocalVolume: DEFAULT_VOCAL_VOLUME, // Default volume
   currentSong: null as Song | null, // Currently playing song
   queue: [
-    { id: 'test', name: '愛錯', artists: ['王力宏'], image: null },
-    { id: '7eb3ee16-e6dc-4f2e-ad2c-d1ba75408f13', name: 'Zombie', artists: ['Day6'], image: null },
+    { id: 'test', name: '愛錯', artists: ['王力宏'] },
+    { id: '7eb3ee16-e6dc-4f2e-ad2c-d1ba75408f13', name: 'Zombie', artists: ['Day6'] },
   ],
   queueIdx: 0,
   lyrics: [],
@@ -104,6 +105,16 @@ export const useAudioStore = create<AudioState>((set) => ({
     } catch (error) {
       console.error('Failed to fetch lyrics:', error);
       set({ lyrics: [] });
+    }
+  },
+  // for testing, remove later
+  fetchDefaultTracks: async () => {
+    try {
+      const response = await api.get('tracks');
+      const data = response.data;
+      set({ queue: data.tracks });
+    } catch (error) {
+      console.error('Failed to fetch default tracks:', error);
     }
   },
 }));

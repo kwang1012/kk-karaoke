@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import WebSocket, WebSocketDisconnect
 from typing import List
 
@@ -6,6 +7,8 @@ class WebSocketService:
     def __init__(self):
         self.connected_clients: List[WebSocket] = []
         self.queue: List[dict] = []
+        self.msg_id = 0
+        self.broadcasting_tasks = set()
 
     def add_client(self, websocket):
         print("New client connected:", websocket.client)
@@ -14,20 +17,28 @@ class WebSocketService:
     def remove_client(self, websocket):
         self.connected_clients.remove(websocket)
 
+    def async_broadcast_task(self, task):
+        task = asyncio.create_task(task)
+        self.broadcasting_tasks.add(task)
+        task.add_done_callback(lambda t: self.broadcasting_tasks.discard(t))
+
     def broadcast(self, message):
-        print("Broadcasting message to all clients:", message)
-        disconnected = []
-        results = []
-        for client in self.connected_clients:
-            try:
-                result = client.send_json(message)
-                results.append(result)
-            except WebSocketDisconnect:
-                disconnected.append(client)
-        # Remove disconnected clients
-        for client in disconnected:
-            self.connected_clients.remove(client)
-        return results
+        async def broadcast_task():
+            print("Broadcasting message to all clients:", message)
+            disconnected = []
+            for client in self.connected_clients:
+                try:
+                    await client.send_json(
+                        {"mid": self.msg_id, "message": message})
+                except WebSocketDisconnect:
+                    disconnected.append(client)
+            # Remove disconnected clients
+            for client in disconnected:
+                self.connected_clients.remove(client)
+            self.msg_id += 1
+        self.async_broadcast_task(broadcast_task())
+        
+        
 
     async def websocket_endpoint(self, websocket: WebSocket):
         await websocket.accept()

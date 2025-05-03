@@ -1,15 +1,23 @@
-/* @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap'); */
 @import url('https://fonts.googleapis.com/css2?family=Cal+Sans&display=swap');
 @import '~material-design-icons/iconfont/material-icons.css';
-/* @tailwind base; */
-@tailwind components;
+
+@import 'tailwindcss/preflight';
 @tailwind utilities;
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
 
 * {
   font-family: 'Cal Sans', sans-serif;
   letter-spacing: normal;
 }
-
 
 html,
 body {

@@ -69,12 +69,6 @@ async def download_lyrics(vid_id: str, song_name: str, save_dir: str = "lyrics")
 
 def search_youtube(query: str, limit: int = 5) -> list:
     ytsearch = f"ytsearch{limit}:{query}"
-    # result = subprocess.run(
-    #     ["yt-dlp", ytsearch, "--print", "id,title", "--skip-download", "--no-warnings", "-j"],
-    #     stdout=subprocess.PIPE,
-    #     stderr=subprocess.PIPE,
-    #     text=True,
-    # )
 
     with yt_dlp.YoutubeDL({
         "quiet": False,
@@ -100,31 +94,39 @@ def search_youtube(query: str, limit: int = 5) -> list:
     return results
 
 
-async def main():
-    query = "Zombie day6"
-    results = search_youtube(query)
-    print(f"Search results for '{query}':")
+async def download_video_and_lyrics(search_term: str, sid: str):
+    results = search_youtube(search_term)
+
+    print(f"Search results for '{search_term}':")
+    if not results:
+        print("No results found.")
+        return None
     for idx, result in enumerate(results):
         print(f"{idx + 1}. {result['title']} - {result['url']}")
 
-    if not results:
-        print("No results found.")
-        return
-
-    vid_id = str(uuid())
     # Download the first result's video and lyrics
     url = results[0]["url"]
-    video_title = results[0]["title"]
 
     raw_video_path = "storage/raw_songs"
     lyrics_path = "storage/lyrics"
 
     download_task = asyncio.create_task(
-        download_video(vid_id, url, save_dir=raw_video_path))
+        download_video(sid, url, save_dir=raw_video_path))
     lyrics_task = asyncio.create_task(download_lyrics(
-        vid_id, video_title, save_dir=lyrics_path))
+        sid, search_term, save_dir=lyrics_path))
 
-    await asyncio.gather(download_task, lyrics_task)
+    try:
+        await asyncio.gather(download_task, lyrics_task)
+    except Exception as e:
+        print(f"Error during download: {e}")
+        return e
+
+    print(f"Downloaded video and lyrics for {search_term}")
+
+
+async def main():
+    query = "背叛 曹格"
+    await download_video_and_lyrics(query, str(uuid()))
 
 if __name__ == "__main__":
     asyncio.run(main())

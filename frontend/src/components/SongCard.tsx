@@ -9,8 +9,8 @@ type SongCardProps = {
 export default function SongCard({ className, song }: SongCardProps) {
   return (
     <div className={`flex items-center cursor-pointer hover:bg-[#2f2f2f] p-2 rounded-md ${className}`}>
-      <div className="w-12 h-12 bg-[#3f3f3f] rounded-md mr-4 overflow-hidden">
-        <img src={song.image || placeholderImage} className="w-full h-full" />
+      <div className="w-10 h-10 bg-[#3f3f3f] rounded-md mr-4 overflow-hidden">
+        <img src={song.album?.image || placeholderImage} className="w-full h-full" />
       </div>
       <div className="flex flex-col justify-between py-1">
         <span className="text-white">{song.name}</span>

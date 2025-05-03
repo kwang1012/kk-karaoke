@@ -1,5 +1,6 @@
 
 import base64
+import time
 from dotenv import load_dotenv
 import httpx
 import os
@@ -20,11 +21,12 @@ def refresh_token(func):
         try:
             return func(*args, **kwargs)
         except httpx.HTTPStatusError as e:
+            print(
+                f"HTTP error occurred: {e.response.status_code} - {e.response.text}")
             if e.response.status_code == 401:  # Unauthorized
-                cached_tokens = None  # Invalidate token
                 cached_tokens = getSpotifyToken()  # Refresh token
+                print("Token expired, refreshing...")
                 return func(*args, **kwargs)  # Retry the function
-            raise e
     return wrapper
 
 
@@ -60,87 +62,92 @@ def getSpotifyToken():
 @refresh_token
 def _get_categories(keyword: str):
     global cached_tokens
-    if not cached_tokens:
-        return None
     with httpx.Client() as client:
         response = client.get("https://api.spotify.com/v1/search", headers={
-            "Authorization": cached_tokens,
+            "Authorization": cached_tokens or "",
         },
             params={
-            "q": keyword + " ktv top songs",
+            "q": keyword + " top songs",
+            "type": "playlist",
             "limit": 5
         })
-    print(response.json())
     return response
 
 
-def getTopCategories():
+def getTopCategories(keyword_str: str = "chinese"):
     """ Fetches the top Chinese songs from Spotify."""
-    categories = []
-    # keywords = ["chinese", "kpop", "japanese", "english"]
-    keywords = ["chinese"]
+    categories = {}
+    keywords = keyword_str.split(",")
     for keyword in keywords:
         response = _get_categories(keyword)
         if response is None:
             continue
+        if response.status_code != 200:
+            print(
+                f"Error fetching categories for {keyword}: {response.status_code}")
+            continue
         results = response.json()
-        if "tracks" in results and "items" in results["tracks"]:
-            tracks = results["tracks"]["items"]
-            if tracks:
+
+        if "playlists" in results and "items" in results["playlists"]:
+            categories[keyword] = []
+            for item in results["playlists"]["items"]:
+                if item is None:
+                    continue
                 category = {
-                    "name": keyword.capitalize(),
-                    "id": tracks[0]["id"],
-                    "image": tracks[0]["album"]["images"][0]["url"] if tracks[0]["album"]["images"] else None,
+                    "id": item["id"],
+                    "name": item["name"],
+                    "image": item["images"][0]["url"] if item["images"] else None,
+                    "description": item.get("description", ""),
                 }
-                categories.append(category)
+                categories[keyword].append(category)
+
     return categories
 
 
 @refresh_token
 def _get_playlist_tracks(playlist_id):
-    global cached_tokens
-    if not cached_tokens:
-        return None
     with httpx.Client() as client:
         response = client.get(f"https://api.spotify.com/v1/playlists/{playlist_id}", headers={
-            "Authorization": cached_tokens,
+            "Authorization": cached_tokens or "",
         }, params={
-            "fields": "tracks(items(track(id,name,artists,album(images))))", })
+            "fields": "id,name,description,images,tracks(items(track(id,name,artists,album(name,images))))", })
     return response
 
 
-def getChineseTopSongs():
-    """
-    Fetches the top Chinese songs from Spotify.
-    Returns a list of dictionaries containing song details.
-    """
-    global cached_tokens
-    if not cached_tokens:
-        cached_tokens = getSpotifyToken()
-    # Example playlist ID for Chinese Top Songs
-    playlist_id = "3qX62JV4oceAk0StyKyhBS"
-
+def getPlaylistTracks(playlist_id: str):
+    """ Fetches tracks from a specific Spotify playlist."""
     response = _get_playlist_tracks(playlist_id)
     if response is None:
-        return []
-
-    results = response.json()
-    songs = []
-    for item in results["tracks"]["items"]:
+        return None
+    if response.status_code != 200:
+        print(f"Error fetching playlist tracks: {response.status_code}")
+        return None
+    result = response.json()
+    tracks = []
+    for item in result["tracks"]["items"]:
         track = item["track"]
-        song = {
+        if track is None:
+            continue
+        tracks.append({
             "id": track["id"],
             "name": track["name"],
             "artists": [artist["name"] for artist in track["artists"]],
-            "image": track["album"]["images"][0]["url"] if track["album"]["images"] else None,
-        }
-        songs.append(song)
-    return songs
+            "album": {
+                "name": track["album"]["name"],
+                "image": track["album"]["images"][0]["url"] if track["album"]["images"] else None,
+            }
+        })
+    playlist = {
+        "id": playlist_id,
+        "name": result["name"],
+        "description": result.get("description", ""),
+        "image": result["images"][0]["url"] if result["images"] else None,
+    }
+    return {"tracks": tracks, "playlist": playlist}
 
 
 if __name__ == "__main__":
     # Example usage
     categories = getTopCategories()
     print(categories)
-    # songs = getChineseTopSongs()
     # print(songs[:5])

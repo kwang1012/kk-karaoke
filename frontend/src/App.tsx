@@ -9,10 +9,12 @@ import { createTheme } from '@mui/material/styles';
 // import 'nprogress/nprogress.css';
 import { useThemeStore } from 'src/store/theme';
 import { Route, Routes, BrowserRouter } from 'react-router-dom';
-// import SingingView from './pages/singing';
-import IndexView from './pages';
+import IndexView, { MainView, PlaylistView } from './pages';
 import Layout from './layouts/Layout';
 import LyricsView from './pages/lyrics';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useWebSocketStore } from './store/ws';
+import { useAudioStore } from './store';
 
 // NProgress.configure({
 //   minimum: 0.3,
@@ -60,8 +62,54 @@ const faSingOffStyle = {
   ],
 } as IconDefinition;
 
+const faSearchStyle: IconDefinition = {
+  prefix: 'fac' as IconPrefix,
+  iconName: 'search' as IconName,
+  icon: [
+    24,
+    24,
+    [],
+    '',
+    `M4 11C4 7.13401 7.13401 4 11 4C14.866 4 18 7.13401 18 11C18 14.866 14.866 18 11 18C7.13401 18 4 14.866 4 11ZM11 2C6.02944 2 2 6.02944 2 11C2 15.9706 6.02944 20 11 20C13.125 20 15.078 19.2635 16.6177 18.0319L20.2929 21.7071C20.6834 22.0976 21.3166 22.0976 21.7071 21.7071C22.0976 21.3166 22.0976 20.6834 21.7071 20.2929L18.0319 16.6177C19.2635 15.078 20 13.125 20 11C20 6.02944 15.9706 2 11 2Z`,
+  ],
+};
+
+const faCrossStyle = {
+  prefix: 'fac' as IconPrefix,
+  iconName: 'circle-x' as IconName,
+  icon: [
+    24,
+    24,
+    [],
+    '',
+    `M16 8L8 16M8.00001 8L16 16M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z`,
+  ],
+} as IconDefinition;
+
 library.add(faSingStyle);
 library.add(faSingOffStyle);
+library.add(faSearchStyle);
+library.add(faCrossStyle);
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    // queries: {
+    //   refetchOnWindowFocus: false,
+    //   refetchOnReconnect: false,
+    //   retry: false,
+    //   staleTime: 1000 * 60 * 5, // 5 minutes
+    //   cacheTime: 1000 * 60 * 60, // 1 hour
+    //   gcTime: 1000 * 60 * 60, // 1 hour
+    // },
+    // mutations: {
+    //   retry: false,
+    //   retryOnMount: false,
+    //   retryOnError: false,
+    //   cacheTime: 1000 * 60 * 60, // 1 hour
+    //   gcTime: 1000 * 60 * 60, // 1 hour
+    // },
+  },
+});
 
 function App() {
   React.useEffect(() => {
@@ -74,25 +122,37 @@ function App() {
     });
   }, []);
 
+  const connect = useWebSocketStore((state) => state.connect);
+  const fetchDefaultTracks = useAudioStore((state) => state.fetchDefaultTracks);
+  React.useEffect(() => {
+    connect();
+    fetchDefaultTracks();
+  }, [connect]);
+
   const onBrowserThemeChange = useThemeStore((state) => state.onBrowserThemeChange);
   const theme = useThemeStore((state) => state.mode);
 
   const Theme = theme === 'light' ? createTheme(lightTheme) : createTheme(darkTheme);
 
   return (
-    <StyledEngineProvider injectFirst>
-      <ThemeProvider theme={Theme}>
-        <CssBaseline />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Layout />}>
-              <Route index element={<IndexView />} />
-              <Route path="/lyrics" element={<LyricsView />} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
-      </ThemeProvider>
-    </StyledEngineProvider>
+    <QueryClientProvider client={queryClient}>
+      <StyledEngineProvider injectFirst>
+        <ThemeProvider theme={Theme}>
+          <CssBaseline />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Layout />}>
+                <Route path="/" element={<IndexView />}>
+                  <Route index element={<MainView />} />
+                  <Route path="/playlist/:id" element={<PlaylistView />} />
+                </Route>
+                <Route path="/lyrics" element={<LyricsView />} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </ThemeProvider>
+      </StyledEngineProvider>
+    </QueryClientProvider>
   );
 }
 

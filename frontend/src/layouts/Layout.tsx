@@ -12,18 +12,16 @@ export default function Layout() {
   const path = location.pathname;
 
   const mainBg = useMemo(() => {
-    if (path === '/') {
-      return 'bg-[#1a1a1a]';
-    } else if (path.startsWith('/lyrics')) {
+    if (path.startsWith('/lyrics')) {
       return 'bg-slate-600';
     } else {
-      return 'bg-[#f0f0f0]';
+      return 'bg-[#1a1a1a]';
     }
   }, [path]);
 
   return (
     <AudioProvider>
-      <div className="flex flex-col items-center justify-between w-full h-screen max-w-screen-lg mx-auto">
+      <div className="flex flex-col items-center justify-between w-full h-screen max-w-[theme(screens.lg)] mx-auto">
         {/* Header */}
         <Nav />
         {/* Center Section */}

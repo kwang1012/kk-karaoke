@@ -144,7 +144,7 @@ def getPlaylistTracks(playlist_id: str):
         "description": result.get("description", ""),
         "image": result["images"][0]["url"] if result["images"] else None,
     }
-    return {"tracks": tracks, "playlist": playlist}
+    return playlist, tracks
 
 
 @refresh_token

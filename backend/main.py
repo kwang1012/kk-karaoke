@@ -4,8 +4,7 @@ from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from services.voice_remover import separate_vocals
-from services.downloader import LYRICS_DIR, NO_VOCALS_DIR, RAW_AUDIO_DIR, download_lyrics, download_audio
+from services import process_request
 from services.spotify import getPlaylistTracks, getTopCategories, searchSpotify
 from services.websocket import WebSocketService
 from routes.song import router as song_router
@@ -47,8 +46,8 @@ async def get_playlist_tracks(playlist_id: str):
     Endpoint to fetch tracks from a specific playlist.
     Returns a list of dictionaries containing track details.
     """
-    content = getPlaylistTracks(playlist_id)
-    return JSONResponse(content=content)
+    playlist, tracks = getPlaylistTracks(playlist_id)
+    return JSONResponse(content={"playlist": playlist, "tracks": tracks})
 
 
 @app.get("/api/tracks")
@@ -102,9 +101,6 @@ class Song(BaseModel):
     album: dict[str, str | None]
 
 
-processing_tasks = set()
-
-
 @app.post("/api/queue/add")
 async def add_to_queue(song: Song):
     """
@@ -117,55 +113,17 @@ async def add_to_queue(song: Song):
     # 2. If it is, add to queue and return success
     # 3. If not, save to database and start downloading
 
-    search_term = f"{song.name} {' '.join(song.artists)}"
-    tasks = []
-    lyrics_exist = Path(LYRICS_DIR, f"{song.sid}.lrc").exists()
-    audio_exist = Path(RAW_AUDIO_DIR, f"{song.sid}.mp3").exists()
-    non_vocals_exist = Path(NO_VOCALS_DIR, f"{song.sid}.mp3").exists()
-
-    if not lyrics_exist:
-        tasks.append(asyncio.create_task(
-            download_lyrics(song.sid, search_term)))
-
-    download_audio_task = None
-    if not audio_exist:
-        download_audio_task = asyncio.create_task(
-            download_audio(song.sid, search_term))
-        tasks.append(download_audio_task)
-
-    if not non_vocals_exist:
-        def on_progress(progress: float, total: float):
-            ws_service.broadcast({
-                "type": "progress",
-                "data": {
-                    "sid": song.sid,
-                    "task": "separating",
-                },
-                "value": progress,
-                "total": total
-            })
-        # If the audio is not downloaded, we will wait for it to finish before starting the separation
-
-        async def start_seperation():
-            separate_vocals(song.sid, on_progress=on_progress)
-        if not download_audio_task:
-            tasks.append(asyncio.create_task(start_seperation()))
-        else:
-            download_audio_task.add_done_callback(
-                lambda _: tasks.append(asyncio.create_task(start_seperation())))
-
-    processing_task = asyncio.gather(*tasks)
-    processing_tasks.add(processing_task)
-    processing_task.add_done_callback(
-        lambda t: processing_tasks.discard(t))
-
-    jobs = []
-    if not lyrics_exist:
-        jobs.append("Downloading lyrics")
-    if not audio_exist:
-        jobs.append("Downloading audio")
-    if not non_vocals_exist:
-        jobs.append("Separating vocals")
+    def on_progress(progress, total):
+        ws_service.broadcast({
+            "type": "progress",
+            "data": {
+                "sid": song.sid,
+                "task": "separating",
+            },
+            "value": progress,
+            "total": total
+        })
+    jobs = process_request(song, on_progress=on_progress)
 
     return JSONResponse(content={"jobs": jobs}, status_code=200)
 

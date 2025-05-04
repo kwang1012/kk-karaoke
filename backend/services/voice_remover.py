@@ -154,6 +154,7 @@ def separate_vocals(
         shifts=args.shifts,
         split=args.split,
         overlap=args.overlap,
+        progress=True,
         on_progress=on_progress,
         num_workers=args.jobs or 1,
     )[0]

@@ -47,10 +47,7 @@ export const useAudioStore = create<AudioState>((set) => ({
   instrumentalVolume: DEFAULT_INSTRUMENTAL_VOLUME, // Default volume
   vocalVolume: DEFAULT_VOCAL_VOLUME, // Default volume
   currentSong: null as Song | null, // Currently playing song
-  queue: [
-    { id: 'test', name: '愛錯', artists: ['王力宏'] },
-    { id: '7eb3ee16-e6dc-4f2e-ad2c-d1ba75408f13', name: 'Zombie', artists: ['Day6'] },
-  ],
+  queue: [],
   queueIdx: 0,
   lyrics: [],
   currentLine: -1,

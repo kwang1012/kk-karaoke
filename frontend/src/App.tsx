@@ -9,9 +9,10 @@ import { createTheme } from '@mui/material/styles';
 // import 'nprogress/nprogress.css';
 import { useThemeStore } from 'src/store/theme';
 import { Route, Routes, BrowserRouter } from 'react-router-dom';
-import IndexView, { MainView, PlaylistView } from './pages';
 import Layout from './layouts/Layout';
 import LyricsView from './pages/lyrics';
+import BrowseView, { MainView, PlaylistView } from './pages/browse';
+
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useWebSocketStore } from './store/ws';
 import { useAudioStore } from './store';
@@ -142,7 +143,7 @@ function App() {
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Layout />}>
-                <Route path="/" element={<IndexView />}>
+                <Route path="/" element={<BrowseView />}>
                   <Route index element={<MainView />} />
                   <Route path="/playlist/:id" element={<PlaylistView />} />
                 </Route>

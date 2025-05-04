@@ -21,7 +21,7 @@ export default function Layout() {
 
   return (
     <AudioProvider>
-      <div className="flex flex-col items-center justify-between w-full h-screen max-w-[theme(screens.lg)] mx-auto">
+      <div className="flex flex-col items-center justify-between w-full h-screen mx-auto">
         {/* Header */}
         <Nav />
         {/* Center Section */}
@@ -29,7 +29,7 @@ export default function Layout() {
           {/* Control Sidebar */}
           <SidebarController />
           {/* Main Content */}
-          <div className={`${mainBg} w-[672px] h-[calc(100vh-152px)] rounded-lg overflow-y-auto scrollbar`}>
+          <div className={`${mainBg} flex-1 h-[calc(100vh-152px)] rounded-lg`}>
             <Outlet />
           </div>
           {/* Queue */}

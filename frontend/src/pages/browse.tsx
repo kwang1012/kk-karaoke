@@ -1,24 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api } from 'src/utils/api';
 import placeholder from 'src/assets/placeholder.png';
 import Carousel from 'src/components/Carousel';
-import { data, Outlet, useLocation, useNavigate, useOutletContext, useParams } from 'react-router-dom';
-import {
-  Table,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableBody,
-  AppBar,
-  Button,
-  IconButton,
-  Toolbar,
-  Typography,
-} from '@mui/material';
-import { Scrollbar } from 'react-scrollbars-custom';
+import { Outlet, useLocation, useNavigate, useOutletContext, useParams } from 'react-router-dom';
+import { Table, TableHead, TableRow, TableCell, TableBody, AppBar, Button, Toolbar } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useAppStore } from 'src/store';
-import { ScrollState } from 'react-scrollbars-custom/dist/types/types';
+import AppScrollbar from 'src/components/Scrollbar';
 
 type Playlist = {
   id: string;
@@ -69,12 +57,7 @@ export function MainView() {
     onClickPlaylist: (playlist: Playlist) => void;
   }>();
   return (
-    <Scrollbar
-      className="h-full"
-      disableTracksWidthCompensation
-      trackYProps={{ style: { zIndex: 3 } }}
-      thumbYProps={{ style: { background: '#ffffff70', width: 8 } }}
-    >
+    <AppScrollbar>
       <div className="pt-6 w-full overflow-hidden">
         {SECTIONS.map((section) => {
           const playlists = categories?.[section.keyword] || [];
@@ -90,7 +73,7 @@ export function MainView() {
           );
         })}
       </div>
-    </Scrollbar>
+    </AppScrollbar>
   );
 }
 
@@ -174,9 +157,8 @@ export function PlaylistView() {
     };
     const getWidth = (key: string) => {
       switch (key) {
-        case 'name':
-        case 'album':
-          return 250;
+        case 'artists':
+          return 120;
         case 'action':
           return 30;
         default:
@@ -193,7 +175,7 @@ export function PlaylistView() {
             sx={{
               color: header.key == 'name' ? 'white' : '#b3b3b3',
               paddingY: 0,
-              paddingX: header.key == 'action' ? 1 : 4,
+              // paddingX: header.key == 'action' ? 2 : 4,
             }}
           >
             {trackRow[header.key]}
@@ -202,7 +184,6 @@ export function PlaylistView() {
       </TableRow>
     );
   };
-  const [hovering, setHovering] = useState(false);
   const [scrollPosition, setScrollPosition] = useState(0);
 
   const handleScroll = (el: any) => {
@@ -217,7 +198,7 @@ export function PlaylistView() {
   }, [scrollPosition]);
 
   return (
-    <div className="h-full relative">
+    <div className="h-full relative pb-4">
       <AppBar position="absolute" sx={{ zIndex: 2, ...toolbarStyle }}>
         <Toolbar variant="dense">
           {scrollPosition > 100 && (
@@ -228,15 +209,7 @@ export function PlaylistView() {
           )}
         </Toolbar>
       </AppBar>
-      <Scrollbar
-        onScroll={handleScroll}
-        onMouseEnter={() => setHovering(true)}
-        onMouseLeave={() => setHovering(false)}
-        className="h-full"
-        disableTracksWidthCompensation
-        trackYProps={{ style: { zIndex: 3 } }}
-        thumbYProps={{ style: { background: hovering ? '#ffffffff' : '#ffffff70', width: 8 } }}
-      >
+      <AppScrollbar onScroll={handleScroll}>
         <div className="h-full">
           {/* Header */}
           <div
@@ -285,7 +258,7 @@ export function PlaylistView() {
             {/* <div></div> */}
           </div>
         </div>
-      </Scrollbar>
+      </AppScrollbar>
     </div>
   );
 }
@@ -307,7 +280,26 @@ const fetchTopCategories = async (): Promise<Categories> => {
     });
 };
 
-function IndexView() {
+function SearchView({ searchValue }: { searchValue: string }) {
+  useEffect(() => {
+    // document.title = `Search Results for ${searchValue}`;
+    api
+      .get('/search', { params: { q: searchValue } })
+      .then(({ data }) => {
+        console.log('Search results:', data);
+      })
+      .catch((error) => {
+        console.error('Error fetching search results:', error);
+      });
+  }, [searchValue]);
+  return (
+    <div className="p-8">
+      Search Results for: <strong>{searchValue}</strong>
+    </div>
+  );
+}
+
+function BrowseView() {
   const {
     data: categories,
     isLoading,
@@ -328,20 +320,16 @@ function IndexView() {
   };
 
   return (
-    <div className="pb-8 text-white overflow-hidden h-full">
-      {!isLoading ? (
-        searching ? (
-          <div className="px-8">
-            Search Results for: <strong>{searchValue}</strong>
-          </div>
-        ) : (
-          <Outlet context={{ categories, onClickPlaylist: handleOnClickPlaylist }} />
-        )
+    <div className="text-white overflow-hidden h-full">
+      {searching ? (
+        <SearchView searchValue={searchValue} />
+      ) : isLoading ? (
+        <div className="p-8">Loading categories...</div>
       ) : (
-        <div className="px-8">Loading categories...</div>
+        <Outlet context={{ categories, onClickPlaylist: handleOnClickPlaylist }} />
       )}
     </div>
   );
 }
 
-export default IndexView;
+export default BrowseView;

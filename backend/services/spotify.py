@@ -1,5 +1,6 @@
 
 import base64
+import json
 import time
 from dotenv import load_dotenv
 import httpx
@@ -144,6 +145,35 @@ def getPlaylistTracks(playlist_id: str):
         "image": result["images"][0]["url"] if result["images"] else None,
     }
     return {"tracks": tracks, "playlist": playlist}
+
+
+@refresh_token
+def _search(keyword: str):
+    with httpx.Client() as client:
+        response = client.get("https://api.spotify.com/v1/search", headers={
+            "Authorization": cached_tokens or "",
+        }, params={
+            "q": keyword,
+            "type": "album,artist,playlist,track",
+            "limit": 10
+        })
+    return response
+
+
+def searchSpotify(keyword: str):
+    """
+    Searches for tracks on Spotify based on a keyword.
+    Returns a list of dictionaries containing track details.
+    """
+    response = _search(keyword)
+    if response is None:
+        return None
+    if response.status_code != 200:
+        print(f"Error searching tracks: {response.status_code}")
+        return None
+    results = response.json()
+    print(json.dumps(results, indent=2, ensure_ascii=False))
+    return results
 
 
 if __name__ == "__main__":

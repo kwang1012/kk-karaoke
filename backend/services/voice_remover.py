@@ -7,6 +7,7 @@ import os
 import typing
 import torch as th
 
+from services.downloader import NO_VOCALS_DIR, RAW_AUDIO_DIR, VOCALS_DIR
 from services.demucs.apply import apply_model, BagOfModels
 from services.demucs.audio import save_audio
 from services.demucs.pretrained import get_model_from_args
@@ -14,33 +15,27 @@ from services.demucs.repo import ModelLoadingError
 from services.demucs.separate import load_track
 
 
-def separator(
-    tracks: List[Path],
-    vocals_path: Path,
-    non_vocals_path: Path,
-    model_name: str,
-    shifts: int,
-    overlap: float,
-    stem: str,
-    int24: bool,
-    float32: bool,
-    clip_mode: str,
-    mp3: bool,
-    mp3_bitrate: int,
-    verbose: bool,
+def separate_vocals(
+    sid: str,
+    model_name: str = "htdemucs",
+    shifts: int = 1,
+    overlap: float = 0.5,
+    stem: str = "vocals",
+    int24: bool = False,
+    float32: bool = False,
+    clip_mode: str = "rescale",
+    mp3: bool = True,
+    mp3_bitrate: int = 320,
+    verbose: bool = True,
     *args,
-    onProgress: typing.Optional[typing.Callable[[
+    on_progress: typing.Optional[typing.Callable[[
         float, float], None]] = None,
     **kwargs,
 ):
-    """Separate the sources for the given tracks
+    """Separate the sources for the song ID
 
     Args:
-        tracks (Path): Path to tracks
-        vocals_path (Path): Folder where to put vocal tracks. A subfolder with the model name will be
-                    created.
-        non_vocals_path (Path): Folder where to put non-vocal tracks. A subfolder with the model name will be
-                    created.
+        sid (Path): Song ID
         model (str): Model name
         shifts (int): Number of random shifts for equivariant stabilization.
                       Increase separation time but improves quality for Demucs.
@@ -69,9 +64,7 @@ def separator(
     else:
         device = "cpu"
     args = argparse.Namespace()
-    args.tracks = tracks
-    args.vocals_path = vocals_path
-    args.non_vocals_path = non_vocals_path
+    args.sid = sid
     args.model = model_name
     args.device = device
     args.shifts = shifts
@@ -84,7 +77,7 @@ def separator(
     args.mp3_bitrate = mp3_bitrate
     args.jobs = jobs
     args.verbose = verbose
-    args.filename = "{track}.{ext}"
+    args.filename = "{sid}.{ext}"
     args.split = True
     args.segment = None
     args.name = model_name
@@ -123,87 +116,67 @@ def separator(
                 stem=args.stem, sources=", ".join(model.sources)
             )
         )
-    # out = args.out / args.name
-    # out.mkdir(parents=True, exist_ok=True)
+
+    if args.mp3:
+        ext = "mp3"
+    else:
+        ext = "wav"
+    vocal_stem = Path(VOCALS_DIR) / args.filename.format(
+        sid=sid,
+        ext=ext,
+    )
+    vocal_stem.parent.mkdir(parents=True, exist_ok=True)
+    non_vocal_stem = Path(NO_VOCALS_DIR) / args.filename.format(
+        sid=sid,
+        ext=ext,
+    )
+    non_vocal_stem.parent.mkdir(parents=True, exist_ok=True)
 
     print(
-        f"Separated tracks will be stored in {non_vocals_path} and {vocals_path}")
-    for track in args.tracks:
-        if not track.exists():
-            print(
-                f"File {track} does not exist. If the path contains spaces, "
-                'please try again after surrounding the entire path with quotes "".',
-                file=sys.stderr,
-            )
-            continue
-        print(f"Separating track {track}")
-        wav = load_track(track, model.audio_channels, model.samplerate)
-
-        ref = wav.mean(0)
-        wav = (wav - ref.mean()) / ref.std()
-        sources = apply_model(
-            model,
-            wav[None],
-            device=args.device,
-            shifts=args.shifts,
-            split=args.split,
-            overlap=args.overlap,
-            onProgress=onProgress,
-            num_workers=args.jobs or 1,
-        )[0]
-        sources = sources * ref.std() + ref.mean()
-
-        if args.mp3:
-            ext = "mp3"
-        else:
-            ext = "wav"
-        kwargs = {
-            "samplerate": model.samplerate,
-            "bitrate": args.mp3_bitrate,
-            "clip": args.clip_mode,
-            "as_float": args.float32,
-            "bits_per_sample": 24 if args.int24 else 16,
-        }
-        sources = list(sources)
-        vocal_stem = vocals_path / args.filename.format(
-            track=track.name.rsplit(".", 1)[0],
-            ext=ext,
+        f"Separated tracks will be stored in {vocal_stem} and {non_vocal_stem}")
+    track = Path(RAW_AUDIO_DIR, f"{sid}.mp3")
+    if not track.exists():
+        print(
+            f"File {track} does not exist. If the path contains spaces, "
+            'please try again after surrounding the entire path with quotes "".',
+            file=sys.stderr,
         )
-        vocal_stem.parent.mkdir(parents=True, exist_ok=True)
-        save_audio(sources.pop(model.sources.index(args.stem)),
-                   str(vocal_stem), **kwargs)
-        # Warning : after poping the stem, selected stem is no longer in the list 'sources'
-        other_stem = th.zeros_like(sources[0])
-        for i in sources:
-            other_stem += i
-        non_vocal_stem = non_vocals_path / args.filename.format(
-            track=track.name.rsplit(".", 1)[0],
-            ext=ext,
-        )
-        non_vocals_path.parent.mkdir(parents=True, exist_ok=True)
-        save_audio(other_stem, str(non_vocal_stem), **kwargs)
+        return
+    print(f"Separating track {track}")
+    wav = load_track(track, model.audio_channels, model.samplerate)
+
+    ref = wav.mean(0)
+    wav = (wav - ref.mean()) / ref.std()
+    sources = apply_model(
+        model,
+        wav[None],
+        device=args.device,
+        shifts=args.shifts,
+        split=args.split,
+        overlap=args.overlap,
+        on_progress=on_progress,
+        num_workers=args.jobs or 1,
+    )[0]
+    sources = sources * ref.std() + ref.mean()
+
+    kwargs = {
+        "samplerate": model.samplerate,
+        "bitrate": args.mp3_bitrate,
+        "clip": args.clip_mode,
+        "as_float": args.float32,
+        "bits_per_sample": 24 if args.int24 else 16,
+    }
+    sources = list(sources)
+    save_audio(sources.pop(model.sources.index(args.stem)),
+               str(vocal_stem), **kwargs)
+    # Warning : after poping the stem, selected stem is no longer in the list 'sources'
+    other_stem = th.zeros_like(sources[0])
+    for i in sources:
+        other_stem += i
+    save_audio(other_stem, str(non_vocal_stem), **kwargs)
 
 
 if __name__ == "__main__":
-    vocals_path = Path("storage/vocals")
-    non_vocals_path = Path("storage/no_vocals")
-
-    def onProgress(progress: float, total: float):
+    def on_progress(progress: float, total: float):
         print(f"Progress: {progress}/{total} ({(progress/total)*100:.2f}%)")
-    separator(
-        tracks=[
-            Path("storage/raw_songs/test.mp3")],
-        vocals_path=vocals_path,
-        non_vocals_path=non_vocals_path,
-        model_name="htdemucs",
-        shifts=1,
-        overlap=0.5,
-        stem="vocals",
-        int24=False,
-        float32=False,
-        clip_mode="rescale",
-        mp3=True,
-        mp3_bitrate=320,
-        verbose=True,
-        onProgress=onProgress,
-    )
+    separate_vocals("test", on_progress=on_progress)

@@ -137,7 +137,7 @@ def apply_model(model: tp.Union[BagOfModels, Model],
                 overlap: float = 0.25, transition_power: float = 1.,
                 progress: bool = False, device=None,
                 num_workers: int = 0, segment: tp.Optional[float] = None,
-                onProgress: tp.Optional[tp.Callable[[
+                on_progress: tp.Optional[tp.Callable[[
                     float, float], None]] = None,
                 pool=None) -> th.Tensor:
     """
@@ -190,7 +190,7 @@ def apply_model(model: tp.Union[BagOfModels, Model],
             original_model_device = next(iter(sub_model.parameters())).device
             sub_model.to(device)
 
-            out = apply_model(sub_model, mix, **kwargs, onProgress=onProgress)
+            out = apply_model(sub_model, mix, **kwargs, on_progress=on_progress)
             sub_model.to(original_model_device)
             for k, inst_weight in enumerate(model_weights):
                 out[:, k, :, :] *= inst_weight
@@ -219,7 +219,7 @@ def apply_model(model: tp.Union[BagOfModels, Model],
             shifted = TensorChunk(padded_mix, offset,
                                   length + max_shift - offset)
             shifted_out = apply_model(
-                model, shifted, **kwargs, onProgress=onProgress)
+                model, shifted, **kwargs, on_progress=on_progress)
             out += shifted_out[..., max_shift - offset:]
         out /= shifts
         assert isinstance(out, th.Tensor)
@@ -249,16 +249,16 @@ def apply_model(model: tp.Union[BagOfModels, Model],
         for offset in offsets:
             chunk = TensorChunk(mix, offset, segment_length)
             future = pool.submit(apply_model, model, chunk,
-                                 **kwargs, onProgress=onProgress)
+                                 **kwargs, on_progress=on_progress)
             futures.append((future, offset))
             offset += segment_length
         if progress:
             futures = tqdm.tqdm(futures, unit_scale=scale,
                                 ncols=120, unit='seconds')
         for future, offset in futures:
-            if onProgress is not None:
+            if on_progress is not None:
                 # We report the progress as the offset in seconds.
-                onProgress(offset / model.samplerate,
+                on_progress(offset / model.samplerate,
                            length / model.samplerate)
             chunk_out = future.result()
             chunk_length = chunk_out.shape[-1]
@@ -267,8 +267,8 @@ def apply_model(model: tp.Union[BagOfModels, Model],
             sum_weight[offset:offset +
                        segment_length] += weight[:chunk_length].to(mix.device)
 
-        if onProgress is not None:
-            onProgress(length / model.samplerate, length / model.samplerate)
+        if on_progress is not None:
+            on_progress(length / model.samplerate, length / model.samplerate)
         assert sum_weight.min() > 0
         out /= sum_weight
         assert isinstance(out, th.Tensor)

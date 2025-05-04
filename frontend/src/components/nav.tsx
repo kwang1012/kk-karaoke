@@ -37,7 +37,7 @@ export default function Nav() {
   };
   return (
     <div className="my-4 h-10 w-full flex items-center px-2">
-      <div className="flex justify-start">
+      <div className="flex justify-start flex-1 items-center">
         <Tooltip title={singing ? 'Back to Home' : 'Go to Lyrics'} placement="right">
           <IconButton
             sx={{
@@ -54,13 +54,13 @@ export default function Nav() {
             {singing ? <FontAwesomeIcon icon={faHome} color="white" size="sm" /> : <SingIcon src={singSvg} />}
           </IconButton>
         </Tooltip>
-      </div>
-      <div className="flex-1">
-        {location.pathname.startsWith('/playlist/') && (
-          <Button variant="text" onClick={() => navigate(-1)}>
-            <span className="underline text-[#b3b3b3]">Back</span>
-          </Button>
-        )}
+        <div>
+          {location.pathname.startsWith('/playlist/') && (
+            <Button variant="text" onClick={() => navigate(-1)}>
+              <span className="underline text-[#b3b3b3]">Back</span>
+            </Button>
+          )}
+        </div>
       </div>
       {singing ? (
         <h1 className="text-2xl font-bold my-0 text-center text-white mx-auto">KKaraoke</h1>

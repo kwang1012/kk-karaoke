@@ -4,9 +4,9 @@ from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from services.voice_remover import separator
-from services.downloader import download_video_and_lyrics, search_youtube
-from services.spotify import getPlaylistTracks, getTopCategories
+from services.voice_remover import separate_vocals
+from services.downloader import LYRICS_DIR, NO_VOCALS_DIR, RAW_AUDIO_DIR, download_lyrics, download_audio
+from services.spotify import getPlaylistTracks, getTopCategories, searchSpotify
 from services.websocket import WebSocketService
 from routes.song import router as song_router
 from routes.lyrics import router as lyrics_router
@@ -54,13 +54,43 @@ async def get_playlist_tracks(playlist_id: str):
 @app.get("/api/tracks")
 async def get_tracks():
     tracks = [
-        {'id': 'test', 'name': '愛錯', 'artists': ['王力宏']},
-        {'id': '7eb3ee16-e6dc-4f2e-ad2c-d1ba75408f13',
-            'name': 'Zombie', 'artists': ['Day6']},
-        {'id': '2gug6MRv4xQFYi9LA3PJCS',
-            'name': '怎麼了', 'artists': ['周興哲']},
-        {'id': '2su4MjRcOXVjGjMsylxFXx',
-            'name': '中國話', 'artists': ['S.H.E']},
+        {
+            'id':
+            'test',
+            'name': '愛錯',
+            'artists': ['王力宏']
+        },
+        {
+            'id':
+            '7eb3ee16-e6dc-4f2e-ad2c-d1ba75408f13',
+            'name': 'Zombie',
+            'artists': ['Day6']
+        },
+        {
+            'id': '2gug6MRv4xQFYi9LA3PJCS',
+            'name': '怎麼了',
+            'artists': ['周興哲']
+        },
+        {
+            'id': '2su4MjRcOXVjGjMsylxFXx',
+            'name': '中國話',
+            'artists': ['S.H.E']
+        },
+        {
+            'id': '0fK7ie6XwGxQTIkpFoWkd1',
+            'name': 'like JENNIE',
+            'artists': ['JENNIE']
+        },
+        {
+            'id': '0qdPpfbrgdBs6ie9bTtQ1d',
+            'name': 'Rebel Heart',
+            'artists': ['IVE']
+        },
+        {
+            'id': '1k68vKHNQXU5CHqcM7Yp7N',
+            'name': 'Happy',
+            'artists': ['Day6']
+        }
     ]
     return JSONResponse(content={"tracks": tracks}, status_code=200)
 
@@ -87,31 +117,24 @@ async def add_to_queue(song: Song):
     # 2. If it is, add to queue and return success
     # 3. If not, save to database and start downloading
 
-    async def start_task():
-        ws_service.broadcast({
-            "type": "progress",
-            "data": {
-                "sid": song.sid,
-                "task": "downloading",
-            },
-            "value": 0,
-            "total": None
+    search_term = f"{song.name} {' '.join(song.artists)}"
+    tasks = []
+    lyrics_exist = Path(LYRICS_DIR, f"{song.sid}.lrc").exists()
+    audio_exist = Path(RAW_AUDIO_DIR, f"{song.sid}.mp3").exists()
+    non_vocals_exist = Path(NO_VOCALS_DIR, f"{song.sid}.mp3").exists()
 
-        })
-        search_term = f"{song.name} {' '.join(song.artists)}"
-        await download_video_and_lyrics(search_term, song.sid)
+    if not lyrics_exist:
+        tasks.append(asyncio.create_task(
+            download_lyrics(song.sid, search_term)))
 
-        ws_service.broadcast({
-            "type": "progress",
-            "data": {
-                "sid": song.sid,
-                "task": "downloaded",
-            },
-            "value": 0,
-            "total": None
-        })
+    download_audio_task = None
+    if not audio_exist:
+        download_audio_task = asyncio.create_task(
+            download_audio(song.sid, search_term))
+        tasks.append(download_audio_task)
 
-        def onProgress(progress: float, total: float):
+    if not non_vocals_exist:
+        def on_progress(progress: float, total: float):
             ws_service.broadcast({
                 "type": "progress",
                 "data": {
@@ -121,46 +144,39 @@ async def add_to_queue(song: Song):
                 "value": progress,
                 "total": total
             })
-        # After downloading, you can call the separator function to process the audio
-        vocals_path = Path("storage/vocals")
-        non_vocals_path = Path("storage/no_vocals")
-        separator(
-            tracks=[
-                Path(f"storage/raw_songs/{song.sid}.mp3")],
-            vocals_path=vocals_path,
-            non_vocals_path=non_vocals_path,
-            model_name="htdemucs",
-            shifts=1,
-            overlap=0.5,
-            stem="vocals",
-            int24=False,
-            float32=False,
-            clip_mode="rescale",
-            mp3=True,
-            mp3_bitrate=320,
-            verbose=True,
-            onProgress=onProgress,
-        )
+        # If the audio is not downloaded, we will wait for it to finish before starting the separation
 
-    # Start the voice separation process
-    # Use ws_service to send progress updates
-    task = asyncio.create_task(start_task())
-    processing_tasks.add(task)
+        async def start_seperation():
+            separate_vocals(song.sid, on_progress=on_progress)
+        if not download_audio_task:
+            tasks.append(asyncio.create_task(start_seperation()))
+        else:
+            download_audio_task.add_done_callback(
+                lambda _: tasks.append(asyncio.create_task(start_seperation())))
 
-    def on_task_done(t: asyncio.Task):
-        if task in processing_tasks:
-            processing_tasks.remove(t)
-        ws_service.broadcast({
-            "type": "progress",
-            "data": {
-                "sid": song.sid,
-                "task": "completed",
-            }
-        })
+    processing_task = asyncio.gather(*tasks)
+    processing_tasks.add(processing_task)
+    processing_task.add_done_callback(
+        lambda t: processing_tasks.discard(t))
 
-    task.add_done_callback(on_task_done)
+    jobs = []
+    if not lyrics_exist:
+        jobs.append("Downloading lyrics")
+    if not audio_exist:
+        jobs.append("Downloading audio")
+    if not non_vocals_exist:
+        jobs.append("Separating vocals")
 
-    return JSONResponse(content=None, status_code=200)
+    return JSONResponse(content={"jobs": jobs}, status_code=200)
+
+
+@app.get("/api/search")
+def search(q: str):
+    """
+    Search for songs based on a keyword.
+    Returns a list of dictionaries containing song details.
+    """
+    return JSONResponse(content={"results": searchSpotify(q)}, status_code=200)
 
 
 @app.websocket("/ws")

@@ -126,9 +126,9 @@ export default function AudioController() {
 
   return (
     <>
-      <div className="h-20 w-full bg-black flex">
+      <div className="h-20 w-full bg-black flex p-2">
         {/* Current Song */}
-        <div className="flex-1 flex items-center">{currentSong && <SongCard song={currentSong} />}</div>
+        <div className="w-[300px] mr-auto flex items-center">{currentSong && <SongCard className='w-full' song={currentSong} />}</div>
         {/* Audio Controls */}
         <div className="flex flex-col items-center justify-center text-lg mx-auto max-w-3xl px-8 py-3 text-white">
           <div className="flex items-center justify-center h-40">
@@ -182,7 +182,7 @@ export default function AudioController() {
           </div>
         </div>
         {/* Volume Controls */}
-        <div className="flex-1"></div>
+        <div className="ml-auto w-[300px]"></div>
       </div>
     </>
   );

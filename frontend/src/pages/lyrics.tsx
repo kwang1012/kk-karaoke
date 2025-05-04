@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import AppScrollbar from 'src/components/Scrollbar';
 import { useAudio } from 'src/hooks/audio';
 import { useAudioStore, useCurrentSong } from 'src/store';
 
@@ -51,30 +52,34 @@ export default function LyricsView() {
   };
 
   return (
-    <div className="text-lg px-8 text-white">
-      {lyrics.length > 0 ? (
-        lyrics.map((line, i) => (
-          <div
-            key={i}
-            className="my-8"
-            ref={(el) => (lineRefs.current[i] = el)}
-            onClick={handleLineClick.bind(null, i)}
-          >
-            <span
-              className={
-                'text-3xl cursor-pointer font-bold hover:underline hover:opacity-100 ' +
-                (i <= currentLine ? 'opacity-100' : 'opacity-50')
-              }
-            >
-              {line.text}
-            </span>
-          </div>
-        ))
-      ) : (
-        <div className="text-center text-gray-400 mt-20 text-4xl">
-          <p>{currentSong ? 'No lyrics available for this song.' : 'Start playing a song!'}</p>
+    <div className="h-full">
+      <AppScrollbar>
+        <div className="text-lg px-8 text-white">
+          {lyrics.length > 0 ? (
+            lyrics.map((line, i) => (
+              <div
+                key={i}
+                className="my-8"
+                ref={(el) => (lineRefs.current[i] = el)}
+                onClick={handleLineClick.bind(null, i)}
+              >
+                <span
+                  className={
+                    'text-3xl cursor-pointer font-bold hover:underline hover:opacity-100 ' +
+                    (i <= currentLine ? 'opacity-100' : 'opacity-50')
+                  }
+                >
+                  {line.text}
+                </span>
+              </div>
+            ))
+          ) : (
+            <div className="text-center text-gray-400 mt-20 text-4xl">
+              <p>{currentSong ? 'No lyrics available for this song.' : 'Start playing a song!'}</p>
+            </div>
+          )}
         </div>
-      )}
+      </AppScrollbar>
     </div>
   );
 }

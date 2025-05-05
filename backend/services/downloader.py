@@ -14,7 +14,7 @@ def _search_youtube(query: str, limit: int = 5) -> list:
     ytsearch = f"ytsearch{limit}:{query}"
 
     with yt_dlp.YoutubeDL({
-        "quiet": False,
+        "quiet": True,
         "skip_download": True,
         "extract_flat": True,
     }) as ydl:
@@ -45,17 +45,15 @@ async def download_audio(sid: str, search_term: str) -> None:
         os.makedirs(RAW_AUDIO_DIR)
 
     results = _search_youtube(search_term + " lyrics", limit=1)
-    print(f"Search results for '{search_term + " lyrics"}':")
     if not results:
         print("No results found.")
         return None
-    for idx, result in enumerate(results):
-        print(f"{idx + 1}. {result['title']} - {result['url']}")
 
+    print("Start downloading audio: ", results[0]['title'])
     # Download the first result's video and lyrics
     url = results[0]["url"]
 
-    with yt_dlp.YoutubeDL({"quiet": False, "noplaylist": True}) as ydl:
+    with yt_dlp.YoutubeDL({"quiet": True, "noplaylist": True}) as ydl:
         info_dict = ydl.extract_info(url, download=False)
 
     if not info_dict:

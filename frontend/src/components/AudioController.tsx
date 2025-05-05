@@ -36,6 +36,7 @@ export default function AudioController() {
   const setCurrentLine = useAudioStore((state) => state.setCurrentLine);
   const currentSong = useCurrentSong();
   const fetchLyrics = useAudioStore((state) => state.fetchLyrics);
+  const songStatus = useAudioStore((state) => state.songStatus);
 
   // load song/lyrics when currentSong changes
 
@@ -50,6 +51,11 @@ export default function AudioController() {
 
     // prevent re-initialization on every render
     if (!currentSong || currentSong.id === lastSongId.current) return;
+
+    if (songStatus[currentSong.id] === 'processing') {
+      console.log('Song is still processing, skipping initialization:', currentSong.name);
+      return;
+    }
 
     setLyrics([]);
     setCurrentLine(-1);
@@ -74,7 +80,7 @@ export default function AudioController() {
         Promise.all([instrumental.play(), vocal.play()]).catch((err) => console.error('Playback error:', err));
       }
     });
-  }, [currentSong?.id]);
+  }, [currentSong?.id, songStatus]);
 
   // listen to global volume changes
   useEffect(() => {
@@ -128,7 +134,9 @@ export default function AudioController() {
     <>
       <div className="h-20 w-full bg-black flex p-2">
         {/* Current Song */}
-        <div className="w-[300px] mr-auto flex items-center">{currentSong && <SongCard className='w-full' song={currentSong} />}</div>
+        <div className="w-[300px] mr-auto flex items-center">
+          {currentSong && <SongCard disable className="w-full" song={currentSong} />}
+        </div>
         {/* Audio Controls */}
         <div className="flex flex-col items-center justify-center text-lg mx-auto max-w-3xl px-8 py-3 text-white">
           <div className="flex items-center justify-center h-40">

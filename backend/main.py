@@ -1,7 +1,7 @@
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from services.spotify import getPlaylistTracks, getTopCategories, searchSpotify
+from services.spotify import getCollectionTracks, getTopCategories, searchSpotify
 from services.websocket import WebSocketService
 from routes.song import router as song_router
 from routes.lyrics import router as lyrics_router
@@ -26,6 +26,7 @@ app.include_router(queue_router, prefix="/api/queue", tags=["queue"])
 
 ws_service = WebSocketService()
 
+
 @app.get("/api/top-categories")
 async def get_top_categories(keyword: str):
     """
@@ -41,8 +42,18 @@ async def get_playlist_tracks(playlist_id: str):
     Endpoint to fetch tracks from a specific playlist.
     Returns a list of dictionaries containing track details.
     """
-    playlist, tracks = getPlaylistTracks(playlist_id)
-    return JSONResponse(content={"playlist": playlist, "tracks": tracks})
+    collection, tracks = getCollectionTracks("playlists", playlist_id)
+    return JSONResponse(content={"collection": collection, "tracks": tracks})
+
+
+@app.get("/api/album/{album_id}/tracks")
+async def get_album_tracks(album_id: str):
+    """
+    Endpoint to fetch tracks from a specific playlist.
+    Returns a list of dictionaries containing track details.
+    """
+    collection, tracks = getCollectionTracks("albums", album_id)
+    return JSONResponse(content={"collection": collection, "tracks": tracks})
 
 
 @app.get("/api/tracks")
@@ -91,13 +102,15 @@ async def get_tracks():
     ]
     return JSONResponse(content={"tracks": tracks}, status_code=200)
 
+
 @app.get("/api/search")
 def search(q: str):
     """
     Search for songs based on a keyword.
     Returns a list of dictionaries containing song details.
     """
-    return JSONResponse(content={"results": searchSpotify(q)}, status_code=200)
+    searchResults = searchSpotify(q)
+    return JSONResponse(content=searchResults, status_code=200)
 
 
 @app.websocket("/ws")

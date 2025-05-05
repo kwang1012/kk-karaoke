@@ -49,3 +49,18 @@ export default function Carousel({ children, className = '' }) {
     </div>
   );
 }
+
+export function CarouselItem({
+  children,
+  className = '',
+  ...props
+}: { children: React.ReactNode; className?: string } & React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      className={`hover:bg-[#3f3f3f] duration-300 cursor-pointer shrink-0 w-[177px]  p-3 rounded-md snap-start overflow-hidden text-pretty ${className}`}
+      {...props}
+    >
+      {children}
+    </div>
+  );
+}

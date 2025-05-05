@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { IconName, IconPrefix } from '@fortawesome/free-solid-svg-icons';
 import { faCircleXmark } from '@fortawesome/free-regular-svg-icons';
 import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const SerachInput = styled(InputBase)(({ theme }) => ({
   'label + &': {
@@ -62,10 +63,14 @@ function useDebounce<T>(value: T, delay: number): T {
 export default function SearchBox({ className = '', value, onChange }) {
   const [input, setInput] = useState(value);
   const debouncedInput = useDebounce(input, 300);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     onChange(debouncedInput);
-    // Call API or dispatch Redux action here
+    if (!location.pathname.startsWith('/search') && debouncedInput.length > 0) {
+      navigate(`/search?q=${encodeURIComponent(debouncedInput)}`);
+    }
   }, [debouncedInput]);
   return (
     <SerachInput

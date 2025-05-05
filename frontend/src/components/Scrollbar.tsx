@@ -22,7 +22,7 @@ export default function AppScrollbar(props: any) {
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       disableTracksWidthCompensation
-      trackYProps={{ style: { background: 'transparent', width: 12 } }}
+      trackYProps={{ style: { background: 'transparent', width: 12, zIndex: 5 } }}
       thumbYProps={{ style: { background: hovering ? '#a3a3a3' : 'transparent', width: 8 } }}
       {...props}
     />

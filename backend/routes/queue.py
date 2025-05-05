@@ -20,6 +20,15 @@ async def add_to_queue(song: Song):
     # 1. Check if song id is in db
     # 2. If it is, add to queue and return success
     # 3. If not, save to database and start downloading
+
+    ws_service.broadcast({
+        "type": "queue",
+        "data": {
+            "action": "added",
+            "song": song.model_dump(),
+        },
+    })
+
     def on_progress(progress, total):
         ws_service.broadcast({
             "type": "notify",

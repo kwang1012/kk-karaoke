@@ -1,7 +1,5 @@
 
 import base64
-import json
-import time
 from dotenv import load_dotenv
 import httpx
 import os
@@ -52,7 +50,7 @@ def getSpotifyToken():
             headers={"Authorization": f"Basic {b64_auth}"},
             data={"grant_type": "client_credentials"},
         )
-    
+
     if response.status_code != 200:
         print(response.json())
         return
@@ -110,27 +108,43 @@ def getTopCategories(keyword_str: str = "chinese"):
 
 
 @refresh_token
-def _get_playlist_tracks(playlist_id):
+def _get_tracks(collection_type: str, collection_id: str):
     with httpx.Client() as client:
-        response = client.get(f"https://api.spotify.com/v1/playlists/{playlist_id}", headers={
+        response = client.get(f"https://api.spotify.com/v1/{collection_type}/{collection_id}/tracks", headers={
             "Authorization": cached_tokens or "",
         }, params={
-            "fields": "id,name,description,images,tracks(items(track(id,name,artists,album(name,images))))", })
+            "fields": "items(track(id,name,artists,album(name,images)))" if collection_type == "playlists" else "items(id,name,artists)",
+        })
     return response
 
 
-def getPlaylistTracks(playlist_id: str):
+@refresh_token
+def _get_collection(collection_type: str, collection_id: str):
+    with httpx.Client() as client:
+        response = client.get(f"https://api.spotify.com/v1/{collection_type}/{collection_id}", headers={
+            "Authorization": cached_tokens or "",
+        }, params={
+            "fields": "id,name,description,images",
+        })
+    return response.json() if response.status_code == 200 else None
+
+
+def getCollectionTracks(collection_type: str, collection_id: str):
     """ Fetches tracks from a specific Spotify playlist."""
-    response = _get_playlist_tracks(playlist_id)
+    if collection_type not in ["playlists", "albums"]:
+        print(f"Invalid collection type: {collection_type}")
+        return None, None
+    response = _get_tracks(collection_type, collection_id)
     if response is None:
-        return None
+        return None, None
     if response.status_code != 200:
-        print(f"Error fetching playlist tracks: {response.status_code}")
-        return None
+        print(f"Error fetching collection tracks: {response.status_code}")
+        return None, None
     result = response.json()
     tracks = []
-    for item in result["tracks"]["items"]:
-        track = item["track"]
+    for track in result["items"]:
+        if collection_type == "playlists":
+            track = track["track"] if "track" in track else None
         if track is None:
             continue
         tracks.append({
@@ -140,15 +154,19 @@ def getPlaylistTracks(playlist_id: str):
             "album": {
                 "name": track["album"]["name"],
                 "image": track["album"]["images"][0]["url"] if track["album"]["images"] else None,
-            }
+            } if collection_type == "playlists" else None
         })
-    playlist = {
-        "id": playlist_id,
-        "name": result["name"],
-        "description": result.get("description", ""),
-        "image": result["images"][0]["url"] if result["images"] else None,
-    }
-    return playlist, tracks
+    result = _get_collection(collection_type, collection_id)
+    if result is None:
+        collection = None
+    else:
+        collection = {
+            "id": result["id"],
+            "name": result["name"],
+            "description": result.get("description", ""),
+            "image": result["images"][0]["url"] if result["images"] else None,
+        }
+    return collection, tracks
 
 
 @refresh_token
@@ -175,13 +193,10 @@ def searchSpotify(keyword: str):
     if response.status_code != 200:
         print(f"Error searching tracks: {response.status_code}")
         return None
-    results = response.json()
-    print(json.dumps(results, indent=2, ensure_ascii=False))
-    return results
+    return {"results": response.json()}
 
 
 if __name__ == "__main__":
     # Example usage
     categories = getTopCategories()
     print(categories)
-    # print(songs[:5])

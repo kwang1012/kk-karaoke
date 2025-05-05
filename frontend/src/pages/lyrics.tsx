@@ -33,6 +33,11 @@ export default function LyricsView() {
   }, [currentLine]);
 
   useEffect(() => {
+    if (!currentSong) return;
+    document.title = `${currentSong.name}．${currentSong.artists.join(',')}`;
+  }, [currentSong]);
+
+  useEffect(() => {
     const index = lyrics.findIndex((line, i) => {
       return currentTime >= line.time && (i === lyrics.length - 1 || currentTime < lyrics[i + 1].time);
     });

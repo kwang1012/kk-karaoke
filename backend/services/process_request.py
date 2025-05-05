@@ -64,12 +64,4 @@ def process_request(song: Song, on_progress: Optional[Callable[[float, float], N
     if not non_vocals_exist:
         jobs.append("Separating vocals")
 
-    ws_service.broadcast({
-        "type": "queue",
-        "data": {
-            "action": "added",
-            "song": song.model_dump(),
-        },
-    })
-
     return jobs

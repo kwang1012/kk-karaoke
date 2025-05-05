@@ -38,8 +38,9 @@ export default function Nav() {
   return (
     <div className="my-4 h-10 w-full flex items-center px-2">
       <div className="flex justify-start flex-1 items-center">
-        <Tooltip title={singing ? 'Back to Home' : 'Go to Lyrics'} placement="right">
+        <Tooltip title="Show Lyrics" placement="right">
           <IconButton
+            className="bg-primary hover:bg-primary/80"
             sx={{
               width: 80,
               height: 52,
@@ -48,27 +49,38 @@ export default function Nav() {
                 borderRadius: 'inherit',
               },
             }}
-            onClick={() => navigate(singing ? '/' : '/lyrics')}
-            className="bg-primary hover:bg-primary/80"
+            onClick={() => navigate('/lyrics')}
+            disabled={singing}
           >
-            {singing ? <FontAwesomeIcon icon={faHome} color="white" size="sm" /> : <SingIcon src={singSvg} />}
+            <SingIcon src={singSvg} />
           </IconButton>
         </Tooltip>
-        <div>
-          {location.pathname.startsWith('/playlist/') && (
-            <Button variant="text" onClick={() => navigate(-1)}>
-              <span className="underline text-[#b3b3b3]">Back</span>
-            </Button>
-          )}
-        </div>
       </div>
-      {singing ? (
-        <h1 className="text-2xl font-bold my-0 text-center text-white mx-auto">KKaraoke</h1>
-      ) : (
-        <div className="w-[400px]">
-          <SearchBox value={searchValue} onChange={handleSearchChange} />
-        </div>
-      )}
+
+      <div className="w-[400px] flex items-center">
+        <Tooltip title="Back to Home" placement="bottom">
+          <IconButton
+            className="mr-2"
+            sx={{
+              width: 48,
+              height: 48,
+              borderRadius: '50%',
+              backgroundColor: '#1A2027',
+              '&:hover': {
+                backgroundColor: '#2f2f2f',
+              },
+              '& .MuiTouchRipple-root .MuiTouchRipple-child': {
+                borderRadius: 'inherit',
+              },
+            }}
+            onClick={() => navigate('/')}
+          >
+            <FontAwesomeIcon icon={faHome} color="#afafaf" size="sm" />
+          </IconButton>
+        </Tooltip>
+        <SearchBox value={searchValue} onChange={handleSearchChange} />
+      </div>
+      {/* )} */}
 
       <div className="flex-1">
         <AvatarGroup

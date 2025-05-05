@@ -2,21 +2,50 @@
 import { create } from 'zustand';
 
 type Message = {
-  id: number;
-  message: any;
+  type: string;
+  data: {
+    [key: string]: any;
+  };
 };
 
 interface WebSocketState {
-  messages: Message[];
-  sendMessage: (msg: string) => void;
+  messageQueues: MessageQueue;
+  sendMessage: (msg: any) => void;
+  enqueueMessage: (queue: string, message: Message) => void;
+  dequeueMessage: (queue: string) => Message | undefined;
   connect: () => void;
   disconnect: () => void;
 }
 
 let socket: WebSocket | null = null;
 
+type MessageQueue = Record<string, Message[]>;
+
 export const useWebSocketStore = create<WebSocketState>((set, get) => ({
-  messages: [],
+  messageQueues: {},
+  // Enqueue a message into a queue
+  enqueueMessage: (queue, message) => {
+    set((state) => ({
+      messageQueues: {
+        ...state.messageQueues,
+        [queue]: [...(state.messageQueues[queue] || []), message],
+      },
+    }));
+  },
+  // Dequeue (remove) the first message from the queue
+  dequeueMessage: (queue) => {
+    const current = get().messageQueues[queue] || [];
+    if (current.length === 0) return undefined;
+
+    const [first, ...rest] = current;
+    set((state) => ({
+      messageQueues: {
+        ...state.messageQueues,
+        [queue]: rest,
+      },
+    }));
+    return first;
+  },
   sendMessage: (msg) => {
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(msg);
@@ -25,13 +54,11 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
   connect: () => {
     if (socket && socket.readyState !== WebSocket.CLOSED) return;
 
-    socket = new WebSocket('ws://localhost:8000/ws');
+    socket = new WebSocket(`ws://${process.env.REACT_APP_API_ADDR}/ws`);
 
     socket.onmessage = (event) => {
-      console.log('WebSocket message received:', event.data);
-      set((state) => ({
-        messages: [...state.messages, event.data],
-      }));
+      const msg = JSON.parse(event.data) as Message;
+      get().enqueueMessage(msg.type, msg);
     };
 
     socket.onopen = () => {
@@ -51,10 +78,5 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
       socket.close();
       socket = null;
     }
-  },
-  removeMessage: (id: number) => {
-    set((state) => ({
-      messages: state.messages.filter((msg) => msg.id !== id),
-    }));
   },
 }));

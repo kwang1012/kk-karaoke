@@ -20,6 +20,7 @@ export interface AudioState {
     open: boolean; // Whether the snackbar is open
     key: number; // Unique key for the snackbar to force re-render
   };
+  songStatus: Record<string, 'processing' | 'ready'>; // Status of each song in the queue. It can be 'processing' or 'ready'
   setLyrics: (lyrics: Lyrics[]) => void;
   setCurrentLine: (line: number) => void;
   setCurrentTime: (time: number) => void;
@@ -35,6 +36,7 @@ export interface AudioState {
   previous: () => void; // Move to the previous song in the queue
   showSnackbar: () => void; // Set the state of the snackbar
   closeSnackbar: () => void; // Set the state of the snackbar
+  setSongStatus: (songId: string, status: 'processing' | 'ready') => void; // Set the status of a song in the queue
   fetchLyrics: (songId: string) => Promise<void>; // Fetch lyrics for the current song
   fetchDefaultTracks: () => Promise<void>; // Fetch default tracks for testing
 }
@@ -55,6 +57,7 @@ export const useAudioStore = create<AudioState>((set) => ({
     open: false,
     key: 0,
   },
+  songStatus: {},
   setCurrentLine: (line: number) => set({ currentLine: line }),
   setLyrics: (lyrics: Lyrics[]) => set({ lyrics }),
   setCurrentTime: (time: number) => set({ currentTime: time }),
@@ -65,6 +68,14 @@ export const useAudioStore = create<AudioState>((set) => ({
   setVocalVolume: (volume: number) => set({ vocalVolume: volume }),
   setCurrentSong: (song: Song | null) => set({ currentSong: song }),
   setQueueIdx: (idx: number) => set({ queueIdx: idx }),
+  setSongStatus: (songId: string, status: 'processing' | 'ready') =>
+    set((state) => ({
+      songStatus: {
+        ...state.songStatus,
+        [songId]: status,
+      },
+    })),
+  // Navigation methods
   next: () =>
     set((state) => {
       const nextIdx = state.queueIdx + 1;

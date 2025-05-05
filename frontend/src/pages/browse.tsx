@@ -5,7 +5,7 @@ import Carousel from 'src/components/Carousel';
 import { Outlet, useLocation, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { Table, TableHead, TableRow, TableCell, TableBody, AppBar, Button, Toolbar } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
-import { useAppStore } from 'src/store';
+import { useAppStore, useAudioStore } from 'src/store';
 import AppScrollbar from 'src/components/Scrollbar';
 
 type Playlist = {
@@ -77,27 +77,13 @@ export function MainView() {
   );
 }
 
-const addSongToQueue = (song: Song) => {
-  // Function to add a song to the queue
-  api
-    .post('/queue/add', {
-      sid: song.id,
-      ...song,
-    })
-    .then(({ data }) => {
-      console.log(data);
-    })
-    .catch((error) => {
-      console.error('Error adding song to queue:', error);
-    });
-};
-
 export function PlaylistView() {
   const location = useLocation();
   const initPlaylist = location.state?.playlist || {};
   const { id } = useParams();
   const [tracks, setTracks] = useState<Song[]>([]);
   const [playlist, setPlaylist] = useState<Playlist>(initPlaylist);
+  const setSongStatus = useAudioStore((state) => state.setSongStatus);
 
   const headers = [
     {
@@ -133,6 +119,22 @@ export function PlaylistView() {
         console.error('Error fetching tracks:', error);
       });
   }, [id]);
+
+  const addSongToQueue = (song: Song) => {
+    // Function to add a song to the queue
+    api
+      .post('/queue/add', song)
+      .then(({ data }) => {
+        if (data.jobs.length == 0) {
+          setSongStatus(song.id, 'ready');
+        } else {
+          setSongStatus(song.id, 'processing');
+        }
+      })
+      .catch((error) => {
+        console.error('Error adding song to queue:', error);
+      });
+  };
 
   const getTrackRow = (i: number, song: Song) => {
     const trackRow = {
@@ -175,7 +177,6 @@ export function PlaylistView() {
             sx={{
               color: header.key == 'name' ? 'white' : '#b3b3b3',
               paddingY: 0,
-              // paddingX: header.key == 'action' ? 2 : 4,
             }}
           >
             {trackRow[header.key]}

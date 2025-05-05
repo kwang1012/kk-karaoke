@@ -1,10 +1,25 @@
 import asyncio
+import threading
+import uuid
 from fastapi import WebSocket, WebSocketDisconnect
-from typing import List
+from typing import Dict, List
 
 
 class WebSocketService:
-    def __init__(self):
+    _instance = None
+    _lock = threading.Lock()
+    connections: Dict[str, WebSocket] = {}
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super(WebSocketService, cls).__new__(cls, *args, **kwargs)
+                    cls._instance._initialize_service()
+        return cls._instance
+    
+    def _initialize_service(self):
+        self.service_id = uuid.uuid4()
         self.connected_clients: List[WebSocket] = []
         self.queue: List[dict] = []
         self.msg_id = 0

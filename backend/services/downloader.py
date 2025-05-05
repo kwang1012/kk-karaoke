@@ -93,7 +93,7 @@ async def download_lyrics(sid: str, search_term: str) -> None:
 
     print(f"Downloading lyrics for '{search_term}'")
 
-    syncedlyrics.search(search_term, synced_only=True, save_path=save_path)
+    syncedlyrics.search(search_term, synced_only=True, save_path=save_path, providers=["Lrclib", "NetEase", "Megalobiz", "Genius"])
 
     print(f"Downloaded lyrics to {save_path}")
 

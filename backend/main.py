@@ -1,15 +1,11 @@
-import asyncio
-from pathlib import Path
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
-from services import process_request
 from services.spotify import getPlaylistTracks, getTopCategories, searchSpotify
 from services.websocket import WebSocketService
 from routes.song import router as song_router
 from routes.lyrics import router as lyrics_router
-from routes.upload import router as upload_router
+from routes.queue import router as queue_router
 from dotenv import load_dotenv
 
 load_dotenv()  # Load environment variables from .env file
@@ -26,10 +22,9 @@ app.add_middleware(
 
 app.include_router(song_router, prefix="/api/songs", tags=["songs"])
 app.include_router(lyrics_router, prefix="/api/lyrics", tags=["lyrics"])
-app.include_router(upload_router, prefix="/api/upload", tags=["upload"])
+app.include_router(queue_router, prefix="/api/queue", tags=["queue"])
 
 ws_service = WebSocketService()
-
 
 @app.get("/api/top-categories")
 async def get_top_categories(keyword: str):
@@ -92,41 +87,6 @@ async def get_tracks():
         }
     ]
     return JSONResponse(content={"tracks": tracks}, status_code=200)
-
-
-class Song(BaseModel):
-    sid: str
-    name: str
-    artists: list[str]
-    album: dict[str, str | None]
-
-
-@app.post("/api/queue/add")
-async def add_to_queue(song: Song):
-    """
-    Add a song to the queue. Begin downloading and processing if the song is not in the database.
-    If not in the database, return progress updates via WebSocket.
-    If the song is already in the database, it will be added to the queue.
-    """
-
-    # 1. Check if song id is in db
-    # 2. If it is, add to queue and return success
-    # 3. If not, save to database and start downloading
-
-    def on_progress(progress, total):
-        ws_service.broadcast({
-            "type": "progress",
-            "data": {
-                "sid": song.sid,
-                "task": "separating",
-            },
-            "value": progress,
-            "total": total
-        })
-    jobs = process_request(song, on_progress=on_progress)
-
-    return JSONResponse(content={"jobs": jobs}, status_code=200)
-
 
 @app.get("/api/search")
 def search(q: str):

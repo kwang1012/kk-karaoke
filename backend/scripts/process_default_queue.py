@@ -19,8 +19,10 @@ async def main():
     print("Start processing playlist:", playlist["name"])
     songs = [Song(track["id"], track["name"], track["artists"], track["album"]) for track in tracks]
 
-    jobs = process_request(songs[0])
-    print("Jobs:", jobs)
+    for song in songs:
+        print("Start processing song:", song.name)
+        jobs = process_request(song)
+        print("Jobs:", jobs)
 
 if __name__ == "__main__":
     asyncio.run(main())

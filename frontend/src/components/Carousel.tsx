@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { act, useEffect, useRef, useState } from 'react';
 
 export default function Carousel({ children, className = '' }) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -52,12 +52,24 @@ export default function Carousel({ children, className = '' }) {
 
 export function CarouselItem({
   children,
+  dense,
+  active,
   className = '',
   ...props
-}: { children: React.ReactNode; className?: string } & React.HTMLAttributes<HTMLDivElement>) {
+}: {
+  children: React.ReactNode;
+  className?: string;
+  dense?: boolean;
+  active?: boolean;
+} & React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={`hover:bg-[#3f3f3f] duration-300 cursor-pointer shrink-0 w-[177px]  p-3 rounded-md snap-start overflow-hidden text-pretty ${className}`}
+      className={[
+        'duration-300 cursor-pointer shrink-0 rounded-md snap-start overflow-hidden text-pretty',
+        className,
+        active ? 'bg-primary/30 shadow-lg' : 'hover:bg-[#3f3f3f]',
+        dense ? 'p-1' : 'p-3 w-[177px]',
+      ].join(' ')}
       {...props}
     >
       {children}

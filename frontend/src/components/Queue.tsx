@@ -5,7 +5,7 @@ import AppScrollbar from './Scrollbar';
 import { useWebSocketStore } from 'src/store/ws';
 import Scrollbar from 'react-scrollbars-custom';
 import QRCode from 'react-qr-code';
-import { Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
+import { Accordion, AccordionSummary, AccordionDetails, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { ExpandMore } from '@mui/icons-material';
 
@@ -36,11 +36,10 @@ export default function Queue() {
   const setSongStatus = useAudioStore((state) => state.setSongStatus);
   const scrollbarRef = useRef<Scrollbar | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
-  const location = window.location.protocol + '//' + window.location.host;
+  const joinURL = window.location.protocol + '//' + window.location.host + '/join';
 
   useEffect(() => {
     if (qMsg) {
-      console.log('Processing queue message:', qMsg);
       if (qMsg.data.action == 'added') {
         addToQueue(qMsg.data.song);
         const scrollbar = scrollbarRef.current;
@@ -78,12 +77,12 @@ export default function Queue() {
           <div className="mx-5 mt-5">
             <QRCodeAccordion sx={{ border: 0, borderRadius: 8 }} elevation={0}>
               <AccordionSummary expandIcon={<ExpandMore />} aria-controls="panel1-content" id="panel1-header">
-                <span className="">Invite friends</span>
+                <Typography component="span">Invite friends</Typography>
               </AccordionSummary>
               <AccordionDetails>
                 <div className="flex justify-center m-5">
                   <div className="bg-white p-3 rounded-lg w-40 h-40">
-                    <QRCode value={location} className="w-full h-full" />
+                    <QRCode value={joinURL} className="w-full h-full" />
                   </div>
                 </div>
               </AccordionDetails>

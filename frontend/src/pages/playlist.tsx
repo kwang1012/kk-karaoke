@@ -78,7 +78,7 @@ export default function PlaylistView() {
     api
       .post('/queue/add', song)
       .then(({ data }) => {
-        if (data.jobs.length == 0) {
+        if (data.ready) {
           setSongStatus(song.id, 'ready');
         } else {
           setSongStatus(song.id, 'processing');

@@ -2,6 +2,9 @@ import { AppThemeOptions } from '@mui/material';
 
 const baseTheme = {
   spacing: 4,
+  typography: {
+    fontFamily: '"Cal Sans", "Helvetica", "Arial", sans-serif',
+  },
 };
 
 export const lightTheme: AppThemeOptions = {

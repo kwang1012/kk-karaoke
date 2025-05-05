@@ -5,7 +5,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 from typing import Dict, List
 
 
-class WebSocketService:
+class WebSocketManager:
     _instance = None
     _lock = threading.Lock()
     connections: Dict[str, WebSocket] = {}
@@ -14,7 +14,7 @@ class WebSocketService:
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
-                    cls._instance = super(WebSocketService, cls).__new__(cls, *args, **kwargs)
+                    cls._instance = super(WebSocketManager, cls).__new__(cls, *args, **kwargs)
                     cls._instance._initialize_service()
         return cls._instance
     
@@ -31,24 +31,17 @@ class WebSocketService:
     def remove_client(self, websocket):
         self.connected_clients.remove(websocket)
 
-    def async_broadcast_task(self, task):
-        task = asyncio.create_task(task)
-        self.broadcasting_tasks.add(task)
-        task.add_done_callback(lambda t: self.broadcasting_tasks.discard(t))
-
-    def broadcast(self, data):
-        async def broadcast_task():
-            print("Broadcasting message to all clients:", data)
-            disconnected = []
-            for client in self.connected_clients:
-                try:
-                    await client.send_json(data)
-                except WebSocketDisconnect:
-                    disconnected.append(client)
-            # Remove disconnected clients
-            for client in disconnected:
-                self.connected_clients.remove(client)
-        self.async_broadcast_task(broadcast_task())
+    async def broadcast(self, data):
+        # print("Broadcasting message to all clients:", data)
+        disconnected = []
+        for client in self.connected_clients:
+            try:
+                await client.send_json(data)
+            except WebSocketDisconnect:
+                disconnected.append(client)
+        # Remove disconnected clients
+        for client in disconnected:
+            self.connected_clients.remove(client)
         
         
 

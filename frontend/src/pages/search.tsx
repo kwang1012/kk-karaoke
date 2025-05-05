@@ -63,7 +63,6 @@ export default function SearchView() {
     api
       .get('/search', { params: { q: searchValue } })
       .then(({ data }) => {
-        console.log('Search results:', data);
         setResults(data.results || {});
       })
       .catch((error) => {

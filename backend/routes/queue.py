@@ -1,14 +1,21 @@
+import asyncio
+import json
+import threading
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
+from managers.redis import RedisManager
 from models.song import Song
-from services.websocket import WebSocketService
-from services.process_request import process_request
+from managers.websocket import WebSocketManager
+from services.process_request import is_ready, send_process_request
 
 router = APIRouter()
 
-ws_service = WebSocketService()
-    
+ws_manager = WebSocketManager()
+
+redis = RedisManager().redis
+
+
 @router.post("/add")
 async def add_to_queue(song: Song):
     """
@@ -21,7 +28,7 @@ async def add_to_queue(song: Song):
     # 2. If it is, add to queue and return success
     # 3. If not, save to database and start downloading
 
-    ws_service.broadcast({
+    await ws_manager.broadcast({
         "type": "queue",
         "data": {
             "action": "added",
@@ -29,17 +36,22 @@ async def add_to_queue(song: Song):
         },
     })
 
-    def on_progress(progress, total):
-        ws_service.broadcast({
-            "type": "notify",
-            "data": {
-                "action": "progress",
-                "id": song.id,
-                "task": "separating",
-                "value": progress,
-                "total": total
-            },
-        })
-    jobs = process_request(song, on_progress)
+    if is_ready(song):
+        return JSONResponse(content={"is_ready": True, "task": None}, status_code=200)
 
-    return JSONResponse(content={"jobs": jobs}, status_code=200)
+    loop = asyncio.get_event_loop()
+
+    def redis_subscriber(song_id: str):
+        pubsub = redis.pubsub()
+        pubsub.subscribe(song_id)
+        for message in pubsub.listen():
+            if message["type"] == "message":
+                data = json.loads(message["data"].decode())
+                asyncio.run_coroutine_threadsafe(
+                    ws_manager.broadcast(data), loop)
+
+    thread = threading.Thread(target=redis_subscriber, args=(song.id,))
+    thread.start()
+    task = send_process_request(song)
+
+    return JSONResponse(content={"is_ready": False, "task": task.id}, status_code=200)

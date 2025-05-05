@@ -18,6 +18,7 @@ import SearchView from './pages/search';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useWebSocketStore } from './store/ws';
 import { useAudioStore } from './store';
+import JoinView from './pages/join';
 
 // NProgress.configure({
 //   minimum: 0.3,
@@ -153,6 +154,7 @@ function App() {
                 </Route>
                 <Route path="lyrics" element={<LyricsView />} />
               </Route>
+              <Route path="join" element={<JoinView />} />
             </Routes>
           </BrowserRouter>
         </ThemeProvider>

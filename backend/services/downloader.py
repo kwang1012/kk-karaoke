@@ -37,7 +37,14 @@ def _search_youtube(query: str, limit: int = 5) -> list:
     return results
 
 
-async def download_audio(sid: str, search_term: str) -> None:
+async def async_download_audio(sid: str, search_term: str) -> None:
+    """
+    Asynchronous wrapper for download_audio function.
+    """
+    download_audio(sid, search_term)
+
+
+def download_audio(sid: str, search_term: str) -> None:
     """
     Downloads a YouTube video and returns the sanitized title.
     """
@@ -82,7 +89,14 @@ async def download_audio(sid: str, search_term: str) -> None:
     print(f"Downloaded audio to {audio_path}")
 
 
-async def download_lyrics(sid: str, search_term: str) -> None:
+async def async_download_lyrics(sid: str, search_term: str) -> None:
+    """
+    Asynchronous wrapper for download_lyrics function.
+    """
+    download_lyrics(sid, search_term)
+
+
+def download_lyrics(sid: str, search_term: str) -> None:
     """
     Downloads lyrics for a given song name.
     """
@@ -93,7 +107,8 @@ async def download_lyrics(sid: str, search_term: str) -> None:
 
     print(f"Downloading lyrics for '{search_term}'")
 
-    syncedlyrics.search(search_term, synced_only=True, save_path=save_path, providers=["Lrclib", "NetEase", "Megalobiz", "Genius"])
+    syncedlyrics.search(search_term, synced_only=True, save_path=save_path, providers=[
+                        "Lrclib", "NetEase", "Megalobiz", "Genius"])
 
     print(f"Downloaded lyrics to {save_path}")
 
@@ -101,8 +116,8 @@ async def download_lyrics(sid: str, search_term: str) -> None:
 async def main():
     query = "背叛 曹格"
     sid = str(uuid().hex)
-    await download_audio(sid, query)
-    await download_lyrics(sid, query)
+    download_audio(sid, query)
+    download_lyrics(sid, query)
 
 if __name__ == "__main__":
     asyncio.run(main())

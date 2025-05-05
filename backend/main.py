@@ -1,8 +1,9 @@
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from managers.redis import RedisManager
 from services.spotify import getCollectionTracks, getTopCategories, searchSpotify
-from services.websocket import WebSocketService
+from managers.websocket import WebSocketManager
 from routes.song import router as song_router
 from routes.lyrics import router as lyrics_router
 from routes.queue import router as queue_router
@@ -24,7 +25,7 @@ app.include_router(song_router, prefix="/api/songs", tags=["songs"])
 app.include_router(lyrics_router, prefix="/api/lyrics", tags=["lyrics"])
 app.include_router(queue_router, prefix="/api/queue", tags=["queue"])
 
-ws_service = WebSocketService()
+ws_manager = WebSocketManager()
 
 
 @app.get("/api/top-categories")
@@ -112,7 +113,10 @@ def search(q: str):
     searchResults = searchSpotify(q)
     return JSONResponse(content=searchResults, status_code=200)
 
+# websocket endpoint for real-time updates
+
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    await ws_service.websocket_endpoint(websocket)
+    await ws_manager.websocket_endpoint(websocket)
+

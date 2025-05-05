@@ -52,7 +52,7 @@ export default function AudioController() {
     // prevent re-initialization on every render
     if (!currentSong || currentSong.id === lastSongId.current) return;
 
-    if (songStatus[currentSong.id] === 'processing') {
+    if (songStatus[currentSong.id] !== 'ready') {
       console.log('Song is still processing, skipping initialization:', currentSong.name);
       return;
     }

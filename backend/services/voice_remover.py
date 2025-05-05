@@ -15,6 +15,18 @@ from services.demucs.repo import ModelLoadingError
 from services.demucs.separate import load_track
 
 
+async def async_separate_vocals(sid: str, model_name: str = "htdemucs",
+                                shifts: int = 1, overlap: float = 0.5,
+                                stem: str = "vocals", int24: bool = False,
+                                float32: bool = False, clip_mode: str = "rescale",
+                                mp3: bool = True, mp3_bitrate: int = 320,
+                                verbose: bool = True,
+                                on_progress: typing.Optional[typing.Callable[[float, float], None]] = None):
+    """Asynchronous wrapper for separate_vocals function."""
+    separate_vocals(sid, model_name, shifts, overlap, stem, int24,
+                    float32, clip_mode, mp3, mp3_bitrate, verbose, on_progress)
+
+
 def separate_vocals(
     sid: str,
     model_name: str = "htdemucs",
@@ -27,10 +39,8 @@ def separate_vocals(
     mp3: bool = True,
     mp3_bitrate: int = 320,
     verbose: bool = True,
-    *args,
     on_progress: typing.Optional[typing.Callable[[
         float, float], None]] = None,
-    **kwargs,
 ):
     """Separate the sources for the song ID
 

@@ -1,14 +1,7 @@
 import asyncio
+from models.song import Song
 from services.process_request import process_request
 from services.spotify import getPlaylistTracks
-from dataclasses import dataclass
-
-@dataclass
-class Song:
-    sid: str
-    name: str
-    artists: list[str]
-    album: dict[str, str | None]
 
 async def main():
     default_playlist_id = "3AEkt2VeAAHFc1TC5FLuIl"

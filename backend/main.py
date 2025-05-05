@@ -48,43 +48,46 @@ async def get_playlist_tracks(playlist_id: str):
 @app.get("/api/tracks")
 async def get_tracks():
     tracks = [
-        {
-            'id':
-            'test',
-            'name': '愛錯',
-            'artists': ['王力宏']
-        },
-        {
-            'id':
-            '7eb3ee16-e6dc-4f2e-ad2c-d1ba75408f13',
-            'name': 'Zombie',
-            'artists': ['Day6']
-        },
-        {
-            'id': '2gug6MRv4xQFYi9LA3PJCS',
-            'name': '怎麼了',
-            'artists': ['周興哲']
-        },
-        {
-            'id': '2su4MjRcOXVjGjMsylxFXx',
-            'name': '中國話',
-            'artists': ['S.H.E']
-        },
-        {
-            'id': '0fK7ie6XwGxQTIkpFoWkd1',
-            'name': 'like JENNIE',
-            'artists': ['JENNIE']
-        },
-        {
-            'id': '0qdPpfbrgdBs6ie9bTtQ1d',
-            'name': 'Rebel Heart',
-            'artists': ['IVE']
-        },
-        {
-            'id': '1k68vKHNQXU5CHqcM7Yp7N',
-            'name': 'Happy',
-            'artists': ['Day6']
-        }
+        # {
+        #     'id': 'test',
+        #     'name': '愛錯',
+        #     'album': {
+        #         'name': '???',
+        #         'image': 'https://i.scdn.co/image/ab67616d00001e0265fce5eb1fbdcdeb5ca55b34'
+        #     },
+        #     'artists': ['王力宏']
+        # },
+        # {
+        #     'id':
+        #     '7eb3ee16-e6dc-4f2e-ad2c-d1ba75408f13',
+        #     'name': 'Zombie',
+        #     'artists': ['Day6']
+        # },
+        # {
+        #     'id': '2gug6MRv4xQFYi9LA3PJCS',
+        #     'name': '怎麼了',
+        #     'artists': ['周興哲']
+        # },
+        # {
+        #     'id': '2su4MjRcOXVjGjMsylxFXx',
+        #     'name': '中國話',
+        #     'artists': ['S.H.E']
+        # },
+        # {
+        #     'id': '0fK7ie6XwGxQTIkpFoWkd1',
+        #     'name': 'like JENNIE',
+        #     'artists': ['JENNIE']
+        # },
+        # {
+        #     'id': '0qdPpfbrgdBs6ie9bTtQ1d',
+        #     'name': 'Rebel Heart',
+        #     'artists': ['IVE']
+        # },
+        # {
+        #     'id': '1k68vKHNQXU5CHqcM7Yp7N',
+        #     'name': 'Happy',
+        #     'artists': ['Day6']
+        # }
     ]
     return JSONResponse(content={"tracks": tracks}, status_code=200)
 

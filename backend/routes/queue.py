@@ -1,19 +1,13 @@
 from fastapi import APIRouter
-from pydantic import BaseModel
 from fastapi.responses import JSONResponse
 
+from models.song import Song
 from services.websocket import WebSocketService
-from services import process_request
+from services.process_request import process_request
 
 router = APIRouter()
 
 ws_service = WebSocketService()
-
-class Song(BaseModel):
-    sid: str
-    name: str
-    artists: list[str]
-    album: dict[str, str | None]
     
 @router.post("/add")
 async def add_to_queue(song: Song):
@@ -28,13 +22,14 @@ async def add_to_queue(song: Song):
     # 3. If not, save to database and start downloading
     def on_progress(progress, total):
         ws_service.broadcast({
-            "type": "progress",
+            "type": "notify",
             "data": {
-                "sid": song.sid,
+                "action": "progress",
+                "id": song.id,
                 "task": "separating",
+                "value": progress,
+                "total": total
             },
-            "value": progress,
-            "total": total
         })
     jobs = process_request(song, on_progress)
 

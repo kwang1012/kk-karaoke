@@ -22,7 +22,6 @@ class WebSocketService:
         self.service_id = uuid.uuid4()
         self.connected_clients: List[WebSocket] = []
         self.queue: List[dict] = []
-        self.msg_id = 0
         self.broadcasting_tasks = set()
 
     def add_client(self, websocket):
@@ -37,20 +36,18 @@ class WebSocketService:
         self.broadcasting_tasks.add(task)
         task.add_done_callback(lambda t: self.broadcasting_tasks.discard(t))
 
-    def broadcast(self, message):
+    def broadcast(self, data):
         async def broadcast_task():
-            print("Broadcasting message to all clients:", message)
+            print("Broadcasting message to all clients:", data)
             disconnected = []
             for client in self.connected_clients:
                 try:
-                    await client.send_json(
-                        {"mid": self.msg_id, "message": message})
+                    await client.send_json(data)
                 except WebSocketDisconnect:
                     disconnected.append(client)
             # Remove disconnected clients
             for client in disconnected:
                 self.connected_clients.remove(client)
-            self.msg_id += 1
         self.async_broadcast_task(broadcast_task())
         
         
@@ -60,7 +57,7 @@ class WebSocketService:
         self.connected_clients.append(websocket)
         try:
             # Send current queue when a new client connects
-            await websocket.send_json({"type": "init", "queue": self.queue})
+            await websocket.send_json({"type": "init"})
             while True:
                 data = await websocket.receive_json()
                 if data["type"] == "add":

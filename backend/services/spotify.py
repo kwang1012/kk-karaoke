@@ -52,6 +52,10 @@ def getSpotifyToken():
             headers={"Authorization": f"Basic {b64_auth}"},
             data={"grant_type": "client_credentials"},
         )
+    
+    if response.status_code != 200:
+        print(response.json())
+        return
 
     token_type = response.json()["token_type"]
     access_token = response.json()["access_token"]

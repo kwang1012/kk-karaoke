@@ -275,6 +275,9 @@ export const usePlayer = () => {
       console.log('Song is still processing, skipping initialization:', currentSong.name);
       return;
     }
+    setLyrics([]);
+    setCurrentLine(-1);
+    setProgress(0);
     lastSongId.current = currentSong.id;
     console.log('Play new song:', currentSong.name);
 
@@ -286,6 +289,7 @@ export const usePlayer = () => {
     vocal.src = `${api.getUri()}/songs/vocal/${currentSong.id}`;
     instrumental.load();
     vocal.load();
+    instrumental.currentTime = vocal.currentTime = 0;
     setDuration(instrumental.duration || 0);
 
     fetchLyrics(currentSong.id).then(() => {
@@ -300,10 +304,10 @@ export const usePlayer = () => {
     const vocal = vocalRef.current;
     if (!instrumental || !vocal) return;
 
-    vocal.currentTime = instrumental.currentTime;
     vocal.volume = vocalOn ? vocalVolume : DEFAULT_VOCALESS_VOCAL_VOLUME;
     Promise.all([instrumental.play(), vocal.play()])
       .then(() => {
+        vocal.currentTime = instrumental.currentTime;
         setPlaying(true);
       })
       .catch((err) => console.error('Playback error:', err));

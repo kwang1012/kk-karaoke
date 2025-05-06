@@ -5,7 +5,7 @@ import AppScrollbar from './Scrollbar';
 import { Message, useWebSocketStore } from 'src/store/ws';
 import Scrollbar from 'react-scrollbars-custom';
 import QRCode from 'react-qr-code';
-import { Accordion, AccordionSummary, AccordionDetails, Typography } from '@mui/material';
+import { Accordion, AccordionSummary, AccordionDetails, Typography, Button } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { ExpandMore } from '@mui/icons-material';
 import { useRemoteMessageQueue } from 'src/hooks/queue';
@@ -36,6 +36,7 @@ export default function Queue() {
   const scrollbarRef = useRef<Scrollbar | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const joinURL = window.location.protocol + '//' + window.location.host + '/join';
+    const fetchDefaultTracks = useAudioStore((state) => state.fetchDefaultTracks);
 
   useRemoteMessageQueue('queue', {
     onAddItem: (item: Message) => {
@@ -98,7 +99,14 @@ export default function Queue() {
             {queue.length - queueIdx > 1 ? (
               queue.slice(queueIdx + 1).map((song, index) => <SongCard key={index} className="mt-1" song={song} />)
             ) : (
-              <div className="text-gray-400 mt-2 w-full pl-2">No more songs in the queue.</div>
+              <>
+              <div className="text-gray-400 mt-2 w-full pl-2">
+                No more songs in the queue.
+              </div>
+              <div className='mt-5 px-2 flex justify-center'>
+                <Button variant='contained' onClick={() => fetchDefaultTracks()}>Start playing random songs?</Button>
+                </div>
+              </>
             )}
           </div>
         </AppScrollbar>

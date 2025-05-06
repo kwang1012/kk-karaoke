@@ -150,7 +150,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     try {
       const response = await api.get('tracks');
       const data = response.data;
-      set({ queue: data.tracks });
+      set({ queue: [...get().queue, ...data.tracks] });
     } catch (error) {
       console.error('Failed to fetch default tracks:', error);
     }

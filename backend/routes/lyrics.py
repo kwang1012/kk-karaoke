@@ -9,10 +9,7 @@ router = APIRouter()
 delay_mapping = {
     "7eb3ee16-e6dc-4f2e-ad2c-d1ba75408f13": 1.5,
     "2gug6MRv4xQFYi9LA3PJCS": 1,
-    "2su4MjRcOXVjGjMsylxFXx": 30,
-    "0fK7ie6XwGxQTIkpFoWkd1": 0,
     "0qdPpfbrgdBs6ie9bTtQ1d": -0.5,
-    "2aMN1ky0SzSEcV1QdBYbW9": 3,
 }
 
 

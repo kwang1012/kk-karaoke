@@ -130,12 +130,10 @@ function App() {
   }, []);
 
   const connect = useWebSocketStore((state) => state.connect);
-  const fetchDefaultTracks = useAudioStore((state) => state.fetchDefaultTracks);
   const setSongStatus = useAudioStore((state) => state.setSongStatus);
   const setSongProgress = useAudioStore((state) => state.setSongProgress);
   React.useEffect(() => {
     connect();
-    fetchDefaultTracks();
   }, [connect]);
 
   const onNotifyMessage = (message: Message) => {

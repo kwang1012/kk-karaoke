@@ -7,7 +7,7 @@ import AppSlider from './Slider';
 import { api } from 'src/utils/api';
 import SongCard from './SongCard';
 import { useAudio } from 'src/hooks/audio';
-import { useAudioControl } from 'src/hooks/audioControll';
+import { useAudioControl } from 'src/hooks/audioControl';
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds)) return '0:00';

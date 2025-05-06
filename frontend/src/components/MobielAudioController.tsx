@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Tooltip, IconButton } from '@mui/material';
 import { duration } from 'moment';
 import AppSlider from './Slider';
-import { useAudioControl } from 'src/hooks/audioControll';
+import { useAudioControl } from 'src/hooks/audioControl';
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds)) return '0:00';

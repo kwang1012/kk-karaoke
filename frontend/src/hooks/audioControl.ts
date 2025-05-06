@@ -3,6 +3,8 @@ import { useAudioStore, useCurrentSong } from 'src/store';
 import { api } from 'src/utils/api';
 import { useAudio } from './audio';
 
+const VOCALESS_VOLUME = 0.1
+
 export const useAudioControl = () => {
   // local states
   const { instrumentalRef, vocalRef } = useAudio();
@@ -66,7 +68,7 @@ export const useAudioControl = () => {
 
     fetchLyrics(currentSong.id).then(() => {
       if (playing) {
-        vocal.volume = enableVocal ? vocalVolume : 0;
+        vocal.volume = enableVocal ? vocalVolume : VOCALESS_VOLUME;
         Promise.all([instrumental.play(), vocal.play()]).catch((err) => console.error('Playback error:', err));
       }
     });
@@ -80,7 +82,7 @@ export const useAudioControl = () => {
 
     // Set the volume for both instrumental and vocal tracks
     instrumental.volume = instrumentalVolume;
-    vocal.volume = enableVocal ? vocalVolume : 0;
+    vocal.volume = enableVocal ? vocalVolume : VOCALESS_VOLUME;
   }, [instrumentalVolume, vocalVolume, enableVocal]);
 
   // handlers
@@ -114,7 +116,7 @@ export const useAudioControl = () => {
       vocal.pause();
     } else {
       vocal.currentTime = instrumental.currentTime;
-      vocal.volume = enableVocal ? vocalVolume : 0;
+      vocal.volume = enableVocal ? vocalVolume : VOCALESS_VOLUME;
       Promise.all([instrumental.play(), vocal.play()]).catch((err) => console.error('Playback error:', err));
     }
     setPlaying(!playing);

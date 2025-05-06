@@ -5,10 +5,8 @@ import SidebarController from 'src/components/SidebarController';
 import Queue from 'src/components/Queue';
 import AudioController from 'src/components/AudioController';
 import AppSnackbar from 'src/components/Snackbar';
-import { AudioProvider } from 'src/hooks/audio';
 import { styled } from '@mui/material/styles';
-import { BottomNavigation, BottomNavigationAction, useMediaQuery, useTheme } from '@mui/material';
-import { Favorite, Home, LocationCityOutlined, QueueMusic, Search } from '@mui/icons-material';
+import { useMediaQuery, useTheme } from '@mui/material';
 import AppNavigation from 'src/components/Navigation';
 
 const Grid = styled('div')(({ theme }) => ({
@@ -90,28 +88,26 @@ export default function Layout() {
   const mobile = useMediaQuery(theme.breakpoints.down('md'));
 
   return (
-    <AudioProvider>
-      <Grid>
-        {/* Header */}
-        <Header>
-          <Nav />
-        </Header>
-        {/* Control Sidebar */}
-        <Sidebar>
-          <SidebarController />
-        </Sidebar>
-        {/* Main Content */}
-        <Main className={`${mainBg} flex-1 rounded-lg`}>
-          <Outlet />
-        </Main>
-        {/* Queue */}
-        <QueueContainer>
-          <Queue />
-        </QueueContainer>
-        {/* Audio Player */}
-        <Footer>{mobile ? <AppNavigation /> : <AudioController />}</Footer>
-        <AppSnackbar />
-      </Grid>
-    </AudioProvider>
+    <Grid>
+      {/* Header */}
+      <Header>
+        <Nav />
+      </Header>
+      {/* Control Sidebar */}
+      <Sidebar>
+        <SidebarController />
+      </Sidebar>
+      {/* Main Content */}
+      <Main className={`${mainBg} flex-1 rounded-lg`}>
+        <Outlet />
+      </Main>
+      {/* Queue */}
+      <QueueContainer>
+        <Queue />
+      </QueueContainer>
+      {/* Audio Player */}
+      <Footer>{mobile ? <AppNavigation /> : <AudioController />}</Footer>
+      <AppSnackbar />
+    </Grid>
   );
 }

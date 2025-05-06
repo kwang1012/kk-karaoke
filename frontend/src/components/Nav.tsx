@@ -27,22 +27,24 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
   return (
     <div className={['w-full flex items-center', className].join(' ')}>
       <div className="flex justify-start flex-1 items-center">
-        <Tooltip title="Show Lyrics" placement="right">
-          <IconButton
-            className="bg-primary hover:bg-primary/80"
-            sx={{
-              width: 80,
-              height: 52,
-              borderRadius: '6px',
-              '& .MuiTouchRipple-root .MuiTouchRipple-child': {
-                borderRadius: 'inherit',
-              },
-            }}
-            onClick={() => navigate('/lyrics')}
-            disabled={singing}
-          >
-            <SvgIcon className="w-6 h-6" src={singSvg} />
-          </IconButton>
+        <Tooltip title={!singing && 'Show Lyrics'} placement="right">
+          <span>
+            <IconButton
+              className="bg-primary hover:bg-primary/80"
+              sx={{
+                width: 80,
+                height: 52,
+                borderRadius: '6px',
+                '& .MuiTouchRipple-root .MuiTouchRipple-child': {
+                  borderRadius: 'inherit',
+                },
+              }}
+              onClick={() => navigate('/lyrics')}
+              disabled={singing}
+            >
+              <SvgIcon className="w-6 h-6" src={singSvg} />
+            </IconButton>
+          </span>
         </Tooltip>
       </div>
 
@@ -54,9 +56,11 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
               width: 48,
               height: 48,
               borderRadius: '50%',
-              backgroundColor: '#1A2027',
+              backgroundColor: '#1f1f1f',
+              border: '2px solid transparent',
               '&:hover': {
                 backgroundColor: '#2f2f2f',
+                borderColor: '#3f3f3f',
               },
               '& .MuiTouchRipple-root .MuiTouchRipple-child': {
                 borderRadius: 'inherit',

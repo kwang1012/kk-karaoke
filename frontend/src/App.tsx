@@ -22,6 +22,7 @@ import JoinView from './pages/join';
 import { useRemoteMessageQueue } from './hooks/queue';
 import QueueView from './pages/queue';
 import { useMediaQuery, useTheme } from '@mui/material';
+import { PlayerProvider } from './hooks/player';
 
 // NProgress.configure({
 //   minimum: 0.3,
@@ -118,6 +119,43 @@ const queryClient = new QueryClient({
   },
 });
 
+const Providers = ({ children }: { children: React.ReactNode }) => {
+  const mode = useThemeStore((state) => state.mode);
+  const theme = mode === 'light' ? createTheme(lightTheme) : createTheme(darkTheme);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <StyledEngineProvider injectFirst>
+        <ThemeProvider theme={theme}>
+          <PlayerProvider>{children}</PlayerProvider>
+        </ThemeProvider>
+      </StyledEngineProvider>
+    </QueryClientProvider>
+  );
+};
+
+const AppRouters = () => {
+  const theme = useTheme();
+  const mobile = useMediaQuery(theme.breakpoints.down('md'));
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Layout />}>
+          <Route path="/" element={<BrowseView />}>
+            <Route index element={<MainView />} />
+            <Route path="playlist/:id" element={<PlaylistView />} />
+            <Route path="album/:id" element={<PlaylistView />} />
+            <Route path="search/*" element={<SearchView />} />
+          </Route>
+          <Route path="lyrics" element={<LyricsView />} />
+          <Route path="queue" element={mobile ? <QueueView /> : <BrowseView />} />
+        </Route>
+        <Route path="join" element={<JoinView />} />
+      </Routes>
+    </BrowserRouter>
+  );
+};
+
 function App() {
   React.useEffect(() => {
     // theme
@@ -150,36 +188,12 @@ function App() {
   useRemoteMessageQueue('notify', { onAddItem: onNotifyMessage });
 
   const onBrowserThemeChange = useThemeStore((state) => state.onBrowserThemeChange);
-  const mode = useThemeStore((state) => state.mode);
-  const theme = useTheme();
-
-  const Theme = mode === 'light' ? createTheme(lightTheme) : createTheme(darkTheme);
-
-  const mobile = useMediaQuery(theme.breakpoints.down('md'));
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <StyledEngineProvider injectFirst>
-        <ThemeProvider theme={Theme}>
-          <CssBaseline />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Layout />}>
-                <Route path="/" element={<BrowseView />}>
-                  <Route index element={<MainView />} />
-                  <Route path="playlist/:id" element={<PlaylistView />} />
-                  <Route path="album/:id" element={<PlaylistView />} />
-                  <Route path="search/*" element={<SearchView />} />
-                </Route>
-                <Route path="lyrics" element={<LyricsView />} />
-                <Route path="queue" element={mobile ? <QueueView /> : <BrowseView />} />
-              </Route>
-              <Route path="join" element={<JoinView />} />
-            </Routes>
-          </BrowserRouter>
-        </ThemeProvider>
-      </StyledEngineProvider>
-    </QueryClientProvider>
+    <Providers>
+      <CssBaseline />
+      <AppRouters />
+    </Providers>
   );
 }
 

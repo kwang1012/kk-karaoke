@@ -43,10 +43,6 @@ const SerachInput = styled(InputBase)(({ theme }) => ({
     padding: '1px 36px 1px 0',
   },
   transition: theme.transitions.create(['border-color', 'background-color', 'box-shadow']),
-  ...theme.applyStyles('dark', {
-    backgroundColor: '#1A2027',
-    borderColor: '#2D3843',
-  }),
   [theme.breakpoints.down('md')]: {
     backgroundColor: 'white',
     borderRadius: 8,

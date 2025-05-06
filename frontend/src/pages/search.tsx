@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAppStore, useAudioStore } from 'src/store';
 import { useMediaQuery, useTheme } from '@mui/material';
 import SearchBox from 'src/components/SearchBox';
+import { usePlayer } from 'src/hooks/player';
 
 const getArtistsStr = (artists: any[]) => {
   return artists
@@ -103,7 +104,7 @@ export default function SearchView() {
 
   const setSearching = useAppStore((state) => state.setSearching);
   const setSearchValue = useAppStore((state) => state.setSearchValue);
-  const addSongToQueue = useAudioStore((state) => state.addSongToQueue);
+  const { addSongToQueue } = usePlayer();
   const handleSearchChange = (value: string) => {
     setSearchValue(value);
     if (value === '') {

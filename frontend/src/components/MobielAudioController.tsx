@@ -1,9 +1,8 @@
 import { faStepBackward, faCirclePause, faCirclePlay, faForwardStep } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Tooltip, IconButton } from '@mui/material';
-import { duration } from 'moment';
 import AppSlider from './Slider';
-import { useAudioControl } from 'src/hooks/audioControl';
+import { usePlayer } from 'src/hooks/player';
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds)) return '0:00';
@@ -12,17 +11,32 @@ function formatTime(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 export default function MobileAudioController() {
-  const {
-    currentTime,
-    duration,
-    playing,
-    next,
-    previous,
-    handlePlayPause,
-    handleSeekStart,
-    handleSliderChange,
-    handleSliderCommit,
-  } = useAudioControl();
+  const { progress, setProgress, setSeeking, duration, playing } = usePlayer();
+  const { play, pause, next, previous } = usePlayer();
+
+  const handlePlayPause = () => {
+    if (playing) {
+      pause();
+    } else {
+      play();
+    }
+  };
+
+  const handleSliderChange = (event: Event, value: number | number[]) => {
+    if (typeof value === 'number') {
+      setProgress(value);
+    }
+  };
+
+  const handleSliderCommit = (event: React.SyntheticEvent | Event, value: number | number[]) => {
+    if (typeof value === 'number') {
+      setSeeking(false);
+    }
+  };
+
+  const handleSeekStart = () => {
+    setSeeking(true);
+  };
   return (
     <div className="flex flex-col items-center justify-center text-lg mx-auto max-w-3xl w-2/5 shrink-0">
       <div className="flex items-center justify-center">
@@ -57,12 +71,12 @@ export default function MobileAudioController() {
         </Tooltip>
       </div>
       <div className="flex items-center justify-center text-sm text-gray-400 w-full">
-        <span className="mr-3 w-20 text-right">{formatTime(currentTime)}</span>
+        <span className="mr-3 w-20 text-right">{formatTime(progress)}</span>
         <AppSlider
           className="w-full"
           min={0}
           max={duration}
-          value={currentTime}
+          value={progress}
           onChange={handleSliderChange}
           onChangeCommitted={handleSliderCommit}
           onMouseDown={handleSeekStart}

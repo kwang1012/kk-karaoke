@@ -1,13 +1,9 @@
 import { faStepBackward, faCirclePause, faCirclePlay, faForwardStep } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { IconButton, Tooltip } from '@mui/material';
-import React, { useEffect, useRef, useState } from 'react';
-import { useAudioStore, useCurrentSong } from 'src/store/audio';
+import { Button, IconButton, Tooltip } from '@mui/material';
 import AppSlider from './Slider';
-import { api } from 'src/utils/api';
 import SongCard from './SongCard';
-import { useAudio } from 'src/hooks/audio';
-import { useAudioControl } from 'src/hooks/audioControl';
+import { usePlayer } from 'src/hooks/player';
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds)) return '0:00';
@@ -17,18 +13,32 @@ function formatTime(seconds: number): string {
 }
 
 export default function AudioController() {
-  const {
-    currentSong,
-    currentTime,
-    duration,
-    playing,
-    next,
-    previous,
-    handlePlayPause,
-    handleSliderChange,
-    handleSeekStart,
-    handleSliderCommit,
-  } = useAudioControl();
+  const { currentSong, progress, setProgress, setSeeking, duration, playing } = usePlayer();
+  const { play, pause, next, previous } = usePlayer();
+
+  const handlePlayPause = () => {
+    if (playing) {
+      pause();
+    } else {
+      play();
+    }
+  };
+
+  const handleSliderChange = (_: Event, value: number | number[]) => {
+    if (typeof value === 'number') {
+      setProgress(value);
+    }
+  };
+
+  const handleSliderCommit = (_: React.SyntheticEvent | Event, value: number | number[]) => {
+    if (typeof value === 'number') {
+      setSeeking(false);
+    }
+  };
+
+  const handleSeekStart = () => {
+    setSeeking(true);
+  };
 
   return (
     <>
@@ -75,12 +85,12 @@ export default function AudioController() {
             </Tooltip>
           </div>
           <div className="flex items-center justify-center text-sm text-gray-400 w-full">
-            <span className="mr-3 w-20 text-right">{formatTime(currentTime)}</span>
+            <span className="mr-3 w-20 text-right">{formatTime(progress)}</span>
             <AppSlider
               className="w-full"
               min={0}
               max={duration}
-              value={currentTime}
+              value={progress}
               onChange={handleSliderChange}
               onChangeCommitted={handleSliderCommit}
               onMouseDown={handleSeekStart}
@@ -90,7 +100,9 @@ export default function AudioController() {
           </div>
         </div>
         {/* Volume Controls */}
-        <div className="ml-auto w-[30%]"></div>
+        <div className="ml-auto w-[30%] flex items-center justify-end pr-2">
+          <Button>Lyrics running off?</Button>
+        </div>
       </div>
     </>
   );

@@ -1,22 +1,12 @@
 import { useEffect, useRef } from 'react';
 import AppScrollbar from 'src/components/Scrollbar';
-import { useAudio } from 'src/hooks/audio';
-import { useAudioStore, useCurrentSong } from 'src/store';
+import { usePlayer } from 'src/hooks/player';
 
 export default function LyricsView() {
-  // audio references
-  const { instrumentalRef, vocalRef } = useAudio();
   // local states
   const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  // shared states
-  const currentTime = useAudioStore((state) => state.currentTime);
-  const currentLine = useAudioStore((state) => state.currentLine);
-  const currentSong = useCurrentSong();
-  const lyrics = useAudioStore((state) => state.lyrics);
-  const setCurrentLine = useAudioStore((state) => state.setCurrentLine);
-
-  // const { queue, addSong, connected } = useWebSocketQueue('ws://127.0.0.1:8000/ws');
+  const { instrumentalRef, vocalRef, progress, currentLine, setCurrentLine, currentSong, lyrics } = usePlayer();
 
   useEffect(() => {
     lineRefs.current = Array(lyrics.length).fill(null);
@@ -39,12 +29,12 @@ export default function LyricsView() {
 
   useEffect(() => {
     const index = lyrics.findIndex((line, i) => {
-      return currentTime >= line.time && (i === lyrics.length - 1 || currentTime < lyrics[i + 1].time);
+      return progress >= line.time && (i === lyrics.length - 1 || progress < lyrics[i + 1].time);
     });
     if (index !== -1 && index !== currentLine) {
       setCurrentLine(index);
     }
-  }, [currentTime]);
+  }, [progress]);
 
   const handleLineClick = async (index: number) => {
     const seekTime = lyrics[index].time;

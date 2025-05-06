@@ -1,14 +1,15 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import SongCard from './SongCard';
-import { useAudioStore, useCurrentSong } from 'src/store/audio';
+import { useAudioStore } from 'src/store/audio';
 import AppScrollbar from './Scrollbar';
-import { Message, useWebSocketStore } from 'src/store/ws';
+import { Message } from 'src/store/ws';
 import Scrollbar from 'react-scrollbars-custom';
 import QRCode from 'react-qr-code';
 import { Accordion, AccordionSummary, AccordionDetails, Typography, Button } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { ExpandMore } from '@mui/icons-material';
 import { useRemoteMessageQueue } from 'src/hooks/queue';
+import { usePlayer } from 'src/hooks/player';
 
 const QRCodeAccordion = styled(Accordion)(({ theme }) => ({
   backgroundColor: '#2f2f2f',
@@ -28,15 +29,13 @@ const QRCodeAccordion = styled(Accordion)(({ theme }) => ({
 }));
 
 export default function Queue() {
-  const currentSong = useCurrentSong();
-  const queue = useAudioStore((state) => state.queue);
-  const addToQueue = useAudioStore((state) => state.addToQueue);
-  const queueIdx = useAudioStore((state) => state.queueIdx);
-  const setSongStatus = useAudioStore((state) => state.setSongStatus);
+  const joinURL = window.location.protocol + '//' + window.location.host + '/join';
   const scrollbarRef = useRef<Scrollbar | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
-  const joinURL = window.location.protocol + '//' + window.location.host + '/join';
-    const fetchDefaultTracks = useAudioStore((state) => state.fetchDefaultTracks);
+  const setSongStatus = useAudioStore((state) => state.setSongStatus);
+
+  const { currentSong, queue, queueIdx } = usePlayer();
+  const { addToQueue, fetchDefaultTracks } = usePlayer();
 
   useRemoteMessageQueue('queue', {
     onAddItem: (item: Message) => {
@@ -100,11 +99,11 @@ export default function Queue() {
               queue.slice(queueIdx + 1).map((song, index) => <SongCard key={index} className="mt-1" song={song} />)
             ) : (
               <>
-              <div className="text-gray-400 mt-2 w-full pl-2">
-                No more songs in the queue.
-              </div>
-              <div className='mt-5 px-2 flex justify-center'>
-                <Button variant='contained' onClick={() => fetchDefaultTracks()}>Start playing random songs?</Button>
+                <div className="text-gray-400 mt-2 w-full pl-2">No more songs in the queue.</div>
+                <div className="mt-5 px-2 flex justify-center">
+                  <Button variant="contained" onClick={() => fetchDefaultTracks()}>
+                    Start playing random songs?
+                  </Button>
                 </div>
               </>
             )}

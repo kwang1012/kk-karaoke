@@ -1,39 +1,33 @@
 import { IconPrefix, IconName } from '@fortawesome/fontawesome-svg-core';
 import { faPlus, faMinus } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { Tooltip, IconButton } from '@mui/material';
+import { Tooltip, IconButton, ButtonGroup, Button } from '@mui/material';
+import { usePlayer } from 'src/hooks/player';
 import { useAudioStore } from 'src/store/audio';
 
 export default function SidebarController({ className }: { className?: string }) {
-  const enableVocal = useAudioStore((state) => state.enableVocal);
-  const setEnableVocal = useAudioStore((state) => state.setEnableVocal);
-  const instrumentalVolume = useAudioStore((state) => state.instrumentalVolume);
-  const setInstrumentalVolume = useAudioStore((state) => state.setInstrumentalVolume);
   const showSnackbar = useAudioStore((state) => state.showSnackbar);
 
-  const toggleVocal = () => {
-    setEnableVocal(!enableVocal);
-  };
+  const { vocalOn } = usePlayer();
+  const { toggleVocal, increaseVolume, decreaseVolume } = usePlayer();
 
   const volumeDown = () => {
-    setInstrumentalVolume(Math.max(0, instrumentalVolume - 0.1));
+    decreaseVolume();
     showSnackbar();
   };
 
   const volumeUp = () => {
-    setInstrumentalVolume(Math.min(1, instrumentalVolume + 0.1));
+    increaseVolume();
     showSnackbar();
   };
   return (
     <div className={`w-20 h-[calc(100vh-152px)] bg-[#1f1f1f] rounded-lg mx-2 ${className}`}>
       <div className="flex flex-col items-center justify-start h-full py-5">
         <span className="text-white text-center mb-2 font-bold">Vocal</span>
-        <Tooltip title={enableVocal ? 'Turn off Vocal' : 'Turn on Vocal'} placement="right">
+        <Tooltip title={vocalOn ? 'Turn off Vocal' : 'Turn on Vocal'} placement="right">
           <IconButton onClick={toggleVocal} className="hover:opacity-90" style={{ fontSize: 24 }}>
             <FontAwesomeIcon
-              icon={
-                enableVocal ? ['fas' as IconPrefix, 'sing_off' as IconName] : ['fas' as IconPrefix, 'sing' as IconName]
-              }
+              icon={vocalOn ? ['fas' as IconPrefix, 'sing_off' as IconName] : ['fas' as IconPrefix, 'sing' as IconName]}
               size="xl"
               color="#c5c5c5"
             />
@@ -44,42 +38,21 @@ export default function SidebarController({ className }: { className?: string })
           <br />
           Volume
         </span>
-        <Tooltip title="Music volume up" placement="right">
-          <IconButton
-            sx={{
-              width: 52,
-              height: 52,
-              borderRadius: '6px',
-              '& .MuiTouchRipple-root .MuiTouchRipple-child': {
-                borderRadius: '6px',
-              },
-              fontSize: 24,
-              padding: 0,
-            }}
-            onClick={volumeUp}
-            className="hover:bg-[#c5c5c5] hover:text-black text-[#c5c5c5] duration-200 mt-2 w-12 h-12"
-          >
+        <ButtonGroup
+          className="mt-2"
+          orientation="vertical"
+          variant="outlined"
+          size="medium"
+          aria-label="Volume group"
+          color="inherit"
+        >
+          <Button sx={{ py: 3 }} onClick={volumeUp}>
             <FontAwesomeIcon icon={faPlus} size="lg" />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="Music volume down" placement="right">
-          <IconButton
-            sx={{
-              width: 52,
-              height: 52,
-              borderRadius: '6px',
-              '& .MuiTouchRipple-root .MuiTouchRipple-child': {
-                borderRadius: '6px',
-              },
-              fontSize: 24,
-              padding: 0,
-            }}
-            onClick={volumeDown}
-            className="hover:bg-[#c5c5c5] hover:text-black text-[#c5c5c5] duration-200 mt-2 w-12 h-12"
-          >
+          </Button>
+          <Button sx={{ py: 3 }} onClick={volumeDown}>
             <FontAwesomeIcon icon={faMinus} size="lg" />
-          </IconButton>
-        </Tooltip>
+          </Button>
+        </ButtonGroup>
       </div>
     </div>
   );

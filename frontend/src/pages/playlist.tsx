@@ -5,6 +5,7 @@ import AppScrollbar from 'src/components/Scrollbar';
 import { useAudioStore } from 'src/store';
 import { api } from 'src/utils/api';
 import placeholder from 'src/assets/placeholder.png';
+import { useWebSocketStore } from 'src/store/ws';
 
 const ALBUM_HEADERS = [
   {
@@ -52,6 +53,8 @@ export default function PlaylistView() {
   const [collection, setCollection] = useState<Collection>(initCollection);
   const setSongStatus = useAudioStore((state) => state.setSongStatus);
   const collectionType = useMemo(() => location.pathname.split('/')[1], [location.pathname]);
+  const initialized = useWebSocketStore((state) => state.initialized);
+  const connected = useWebSocketStore((state) => state.connected);
 
   const headers = useMemo(() => {
     return collectionType === 'album' ? ALBUM_HEADERS : PLAYLIST_HEADERS;
@@ -78,10 +81,10 @@ export default function PlaylistView() {
     api
       .post('/queue/add', song)
       .then(({ data }) => {
-        if (data.ready) {
+        if (data.is_ready) {
           setSongStatus(song.id, 'ready');
         } else {
-          setSongStatus(song.id, 'processing');
+          setSongStatus(song.id, 'submitted');
         }
       })
       .catch((error) => {
@@ -110,7 +113,13 @@ export default function PlaylistView() {
       artists: <span className="line-clamp-1">{song.artists.join(', ')}</span>,
       album: <span className="line-clamp-1">{song.album?.name || '-'}</span>,
       action: (
-        <Button variant="text" size="small" sx={{ minWidth: 40 }} onClick={() => addSongToQueue(song)}>
+        <Button
+          disabled={!initialized || !connected}
+          variant="text"
+          size="small"
+          sx={{ minWidth: 40 }}
+          onClick={() => addSongToQueue(song)}
+        >
           Add
         </Button>
       ),

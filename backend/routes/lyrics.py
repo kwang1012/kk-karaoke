@@ -11,7 +11,8 @@ delay_mapping = {
     "2gug6MRv4xQFYi9LA3PJCS": 1,
     "2su4MjRcOXVjGjMsylxFXx": 30,
     "0fK7ie6XwGxQTIkpFoWkd1": 0,
-    "0qdPpfbrgdBs6ie9bTtQ1d": -0.5
+    "0qdPpfbrgdBs6ie9bTtQ1d": -0.5,
+    "2aMN1ky0SzSEcV1QdBYbW9": 3,
 }
 
 

@@ -1,7 +1,7 @@
-// stores/useWebSocketStore.ts
 import { create } from 'zustand';
+import { subscribeWithSelector } from 'zustand/middleware';
 
-type Message = {
+export type Message = {
   type: string;
   data: {
     [key: string]: any;
@@ -10,7 +10,10 @@ type Message = {
 
 interface WebSocketState {
   messageQueues: MessageQueue;
-  sendMessage: (msg: any) => void;
+  connected: boolean;
+  initialized: boolean;
+  error: any;
+  // sendMessage: (msg: any) => void;
   enqueueMessage: (queue: string, message: Message) => void;
   dequeueMessage: (queue: string) => Message | undefined;
   connect: () => void;
@@ -19,64 +22,70 @@ interface WebSocketState {
 
 let socket: WebSocket | null = null;
 
-type MessageQueue = Record<string, Message[]>;
+export type MessageQueue = Record<string, Message[]>;
 
-export const useWebSocketStore = create<WebSocketState>((set, get) => ({
-  messageQueues: {},
-  // Enqueue a message into a queue
-  enqueueMessage: (queue, message) => {
-    set((state) => ({
-      messageQueues: {
-        ...state.messageQueues,
-        [queue]: [...(state.messageQueues[queue] || []), message],
-      },
-    }));
-  },
-  // Dequeue (remove) the first message from the queue
-  dequeueMessage: (queue) => {
-    const current = get().messageQueues[queue] || [];
-    if (current.length === 0) return undefined;
+export const useWebSocketStore = create<WebSocketState>()(
+  subscribeWithSelector((set, get) => ({
+    messageQueues: {},
+    connected: false,
+    initialized: false,
+    error: null,
+    // Enqueue a message into a queue
+    enqueueMessage: (queue, message) => {
+      set((state) => ({
+        messageQueues: {
+          ...state.messageQueues,
+          [queue]: [...(state.messageQueues[queue] || []), message],
+        },
+      }));
+    },
+    // Dequeue (remove) the first message from the queue
+    dequeueMessage: (queue) => {
+      const current = get().messageQueues[queue] || [];
+      if (current.length === 0) return undefined;
 
-    const [first, ...rest] = current;
-    set((state) => ({
-      messageQueues: {
-        ...state.messageQueues,
-        [queue]: rest,
-      },
-    }));
-    return first;
-  },
-  sendMessage: (msg) => {
-    if (socket && socket.readyState === WebSocket.OPEN) {
-      socket.send(msg);
-    }
-  },
-  connect: () => {
-    if (socket && socket.readyState !== WebSocket.CLOSED) return;
+      const [first, ...rest] = current;
+      set((state) => ({
+        messageQueues: {
+          ...state.messageQueues,
+          [queue]: rest,
+        },
+      }));
+      return first;
+    },
+    connect: () => {
+      if (socket && socket.readyState !== WebSocket.CLOSED) return;
 
-    socket = new WebSocket(`ws://${process.env.REACT_APP_API_ADDR}/ws`);
+      socket = new WebSocket(`ws://${process.env.REACT_APP_API_ADDR}/ws`);
 
-    socket.onmessage = (event) => {
-      const msg = JSON.parse(event.data) as Message;
-      get().enqueueMessage(msg.type, msg);
-    };
+      socket.onmessage = (event) => {
+        const msg = JSON.parse(event.data) as Message;
+        console.log('Received message:', msg.type);
+        if (msg.type === 'init') {
+          ('Initalized websocket connection');
+          set({ initialized: true });
+          return;
+        }
+        get().enqueueMessage(msg.type, msg);
+      };
 
-    socket.onopen = () => {
-      console.log('WebSocket connected');
-    };
+      socket.onopen = () => {
+        set({ connected: true });
+      };
 
-    socket.onclose = () => {
-      console.log('WebSocket disconnected');
-    };
+      socket.onclose = () => {
+        set({ connected: false });
+      };
 
-    socket.onerror = (e) => {
-      console.error('WebSocket error', e);
-    };
-  },
-  disconnect: () => {
-    if (socket) {
-      socket.close();
-      socket = null;
-    }
-  },
-}));
+      socket.onerror = (e) => {
+        set({ error: e });
+      };
+    },
+    disconnect: () => {
+      if (socket) {
+        socket.close();
+        socket = null;
+      }
+    },
+  }))
+);

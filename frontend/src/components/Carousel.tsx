@@ -66,9 +66,9 @@ export function CarouselItem({
     <div
       className={[
         'duration-300 cursor-pointer shrink-0 rounded-md snap-start overflow-hidden text-pretty',
-        className,
         active ? 'bg-primary/30 shadow-lg' : 'hover:bg-[#3f3f3f]',
         dense ? 'p-1' : 'p-3 w-[177px]',
+        className,
       ].join(' ')}
       {...props}
     >

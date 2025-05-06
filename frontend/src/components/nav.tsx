@@ -5,21 +5,10 @@ import { IconButton, AvatarGroup, Avatar, Tooltip, Button } from '@mui/material'
 import { useLocation, useNavigate } from 'react-router-dom';
 import SearchBox from './SearchBox';
 import { useAppStore } from 'src/store';
-import { ReactSVG } from 'react-svg';
 import singSvg from 'src/assets/sing.svg';
-import { styled } from '@mui/material/styles';
+import SvgIcon from './SvgIcon';
 
-const SingIcon = styled(ReactSVG)({
-  width: 28,
-  height: 28,
-  '& svg': {
-    width: '100%',
-    height: '100%',
-    fill: 'white',
-  },
-});
-
-export default function Nav() {
+export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>) {
   const navigate = useNavigate();
   const location = useLocation();
   const singing = location.pathname.startsWith('/lyrics');
@@ -36,7 +25,7 @@ export default function Nav() {
     }
   };
   return (
-    <div className="my-4 h-10 w-full flex items-center px-2">
+    <div className={['w-full flex items-center', className].join(' ')}>
       <div className="flex justify-start flex-1 items-center">
         <Tooltip title="Show Lyrics" placement="right">
           <IconButton
@@ -52,7 +41,7 @@ export default function Nav() {
             onClick={() => navigate('/lyrics')}
             disabled={singing}
           >
-            <SingIcon src={singSvg} />
+            <SvgIcon className="w-6 h-6" src={singSvg} />
           </IconButton>
         </Tooltip>
       </div>

@@ -4,7 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Tooltip, IconButton } from '@mui/material';
 import { useAudioStore } from 'src/store/audio';
 
-export default function SidebarController() {
+export default function SidebarController({ className }: { className?: string }) {
   const enableVocal = useAudioStore((state) => state.enableVocal);
   const setEnableVocal = useAudioStore((state) => state.setEnableVocal);
   const instrumentalVolume = useAudioStore((state) => state.instrumentalVolume);
@@ -25,7 +25,7 @@ export default function SidebarController() {
     showSnackbar();
   };
   return (
-    <div className="w-20 h-[calc(100vh-152px)] bg-[#1f1f1f] rounded-lg mx-2">
+    <div className={`w-20 h-[calc(100vh-152px)] bg-[#1f1f1f] rounded-lg mx-2 ${className}`}>
       <div className="flex flex-col items-center justify-start h-full py-5">
         <span className="text-white text-center mb-2 font-bold">Vocal</span>
         <Tooltip title={enableVocal ? 'Turn off Vocal' : 'Turn on Vocal'} placement="right">

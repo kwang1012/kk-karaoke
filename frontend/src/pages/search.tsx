@@ -7,7 +7,9 @@ import AppScrollbar from '../components/Scrollbar';
 import Scrollbar from 'react-scrollbars-custom';
 import moment from 'moment';
 import { useNavigate } from 'react-router-dom';
-import { useAppStore } from 'src/store';
+import { useAppStore, useAudioStore } from 'src/store';
+import { useMediaQuery, useTheme } from '@mui/material';
+import SearchBox from 'src/components/SearchBox';
 
 const getArtistsStr = (artists: any[]) => {
   return artists
@@ -96,11 +98,34 @@ export default function SearchView() {
       },
     });
   };
+  const theme = useTheme();
+  const mobile = useMediaQuery(theme.breakpoints.down('md'));
+
+  const setSearching = useAppStore((state) => state.setSearching);
+  const setSearchValue = useAppStore((state) => state.setSearchValue);
+  const addSongToQueue = useAudioStore((state) => state.addSongToQueue);
+  const handleSearchChange = (value: string) => {
+    setSearchValue(value);
+    if (value === '') {
+      setSearching(false);
+    } else {
+      setSearching(true);
+    }
+  };
   return (
     <div className="w-full h-full">
-      <div className={['px-8 h-[68px] flex items-center', scrollTop > 0 ? 'shadow-xl' : ''].join(' ')}>
-        Search Results for: <strong className="ml-1 underline">{searchValue}</strong>
-      </div>
+      {mobile ? (
+        <div className="p-4">
+          <h1 className="p-4 pb-2 text-2xl">Search</h1>
+          <div className="mx-2">
+            <SearchBox value={searchValue} onChange={handleSearchChange} />
+          </div>
+        </div>
+      ) : (
+        <div className={['px-8 h-[68px] flex items-center', scrollTop > 0 ? 'shadow-xl' : ''].join(' ')}>
+          Search Results for: <strong className="ml-1 underline">{searchValue}</strong>
+        </div>
+      )}
 
       <div className="h-[calc(100%-68px)]">
         <AppScrollbar onScroll={handleScroll}>
@@ -111,7 +136,7 @@ export default function SearchView() {
                   <h1 className="text-2xl px-8 mt-2">Songs</h1>
                   <div className="px-8 pt-2">
                     {tracks.map((track: any, i: number) => (
-                      <SongCard key={i} song={track} dense className="mt-1" />
+                      <SongCard key={i} song={track} dense className="mt-1" onAdd={addSongToQueue} />
                     ))}
                   </div>
                 </>
@@ -121,7 +146,12 @@ export default function SearchView() {
                   <h1 className="text-2xl px-8 mt-8">Albums</h1>
                   <Carousel className="px-0">
                     {albums.map((album: any) => (
-                      <CarouselItem key={album.id} className="flex-1" onClick={() => handleClickAlbum(album)}>
+                      <CarouselItem
+                        key={album.id}
+                        className="flex-1"
+                        style={{ maxWidth: '25%' }}
+                        onClick={() => handleClickAlbum(album)}
+                      >
                         <img src={album.images?.[0]?.url || placeholder} className="w-full rounded-md" />
                         <span className="text-md mt-2 text-white line-clamp-2">{album.name}</span>
                         <span className="text-sm text-gray-400 line-clamp-1">

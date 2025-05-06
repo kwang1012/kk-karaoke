@@ -4,8 +4,10 @@ import { create } from 'zustand';
 const DEFAULT_VOCAL_VOLUME = 0.7; // Default vocal volume
 const DEFAULT_INSTRUMENTAL_VOLUME = 1; // Default instrumental volume
 
+export type SongStatus = 'submitted' | 'downloading_lyrics' | 'downloading_audio' | 'separating' | 'ready';
 export interface AudioState {
   currentTime: number; // Current playback time in seconds
+  playing: boolean; // Whether the audio is currently playing
   duration: number; // Total duration of the audio in seconds
   isSeeking: boolean; // Whether the user is currently seeking
   enableVocal: boolean; // Whether vocal is enabled
@@ -20,7 +22,9 @@ export interface AudioState {
     open: boolean; // Whether the snackbar is open
     key: number; // Unique key for the snackbar to force re-render
   };
-  songStatus: Record<string, 'processing' | 'ready'>; // Status of each song in the queue. It can be 'processing' or 'ready'
+  songStatus: Record<string, SongStatus>; // Status of each song in the queue. used for adding song to queue
+  songProgress: Record<string, number>; // Status of each song in the queue. used for adding song to queue
+  setPlaying: (playing: boolean) => void; // Set the playing state
   setLyrics: (lyrics: Lyrics[]) => void;
   setCurrentLine: (line: number) => void;
   setCurrentTime: (time: number) => void;
@@ -36,13 +40,16 @@ export interface AudioState {
   previous: () => void; // Move to the previous song in the queue
   showSnackbar: () => void; // Set the state of the snackbar
   closeSnackbar: () => void; // Set the state of the snackbar
-  setSongStatus: (songId: string, status: 'processing' | 'ready') => void; // Set the status of a song in the queue
+  setSongStatus: (songId: string, status: SongStatus) => void; // Set the status of a song in the queue
+  setSongProgress: (songId: string, progress: number) => void; // Set the progress of a song in the queue
   fetchLyrics: (songId: string) => Promise<void>; // Fetch lyrics for the current song
   fetchDefaultTracks: () => Promise<void>; // Fetch default tracks for testing
+  addSongToQueue: (song: Song) => Promise<void>; // Add a song to the queue
 }
-export const useAudioStore = create<AudioState>((set) => ({
+export const useAudioStore = create<AudioState>((set, get) => ({
   // Define your audio state and actions here
   currentTime: 0,
+  playing: false,
   duration: 0,
   isSeeking: false,
   enableVocal: false,
@@ -58,6 +65,8 @@ export const useAudioStore = create<AudioState>((set) => ({
     key: 0,
   },
   songStatus: {},
+  songProgress: {},
+  setPlaying: (playing: boolean) => set({ playing }),
   setCurrentLine: (line: number) => set({ currentLine: line }),
   setLyrics: (lyrics: Lyrics[]) => set({ lyrics }),
   setCurrentTime: (time: number) => set({ currentTime: time }),
@@ -68,11 +77,18 @@ export const useAudioStore = create<AudioState>((set) => ({
   setVocalVolume: (volume: number) => set({ vocalVolume: volume }),
   setCurrentSong: (song: Song | null) => set({ currentSong: song }),
   setQueueIdx: (idx: number) => set({ queueIdx: idx }),
-  setSongStatus: (songId: string, status: 'processing' | 'ready') =>
+  setSongStatus: (songId: string, status: SongStatus) =>
     set((state) => ({
       songStatus: {
         ...state.songStatus,
         [songId]: status,
+      },
+    })),
+  setSongProgress: (songId: string, progress: number) =>
+    set((state) => ({
+      songProgress: {
+        ...state.songProgress,
+        [songId]: progress,
       },
     })),
   // Navigation methods
@@ -113,6 +129,20 @@ export const useAudioStore = create<AudioState>((set) => ({
     } catch (error) {
       console.error('Failed to fetch lyrics:', error);
       set({ lyrics: [] });
+    }
+  },
+  addSongToQueue: async (song: Song) => {
+    try {
+      const response = await api.post('queue/add', song);
+      const data = response.data;
+      const songStatus = get().songStatus;
+      if (data.is_ready) {
+        set({ songStatus: { ...songStatus, [song.id]: 'ready' } });
+      } else {
+        set({ songStatus: { ...songStatus, [song.id]: 'submitted' } });
+      }
+    } catch (error) {
+      console.error('Failed to add song to queue:', error);
     }
   },
   // for testing, remove later

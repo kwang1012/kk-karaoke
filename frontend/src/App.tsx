@@ -16,9 +16,12 @@ import PlaylistView from './pages/playlist';
 import SearchView from './pages/search';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useWebSocketStore } from './store/ws';
+import { Message, useWebSocketStore } from './store/ws';
 import { useAudioStore } from './store';
 import JoinView from './pages/join';
+import { useRemoteMessageQueue } from './hooks/queue';
+import QueueView from './pages/queue';
+import { useMediaQuery, useTheme } from '@mui/material';
 
 // NProgress.configure({
 //   minimum: 0.3,
@@ -128,15 +131,33 @@ function App() {
 
   const connect = useWebSocketStore((state) => state.connect);
   const fetchDefaultTracks = useAudioStore((state) => state.fetchDefaultTracks);
+  const setSongStatus = useAudioStore((state) => state.setSongStatus);
+  const setSongProgress = useAudioStore((state) => state.setSongProgress);
   React.useEffect(() => {
     connect();
     fetchDefaultTracks();
   }, [connect]);
 
-  const onBrowserThemeChange = useThemeStore((state) => state.onBrowserThemeChange);
-  const theme = useThemeStore((state) => state.mode);
+  const onNotifyMessage = (message: Message) => {
+    if (message.type === 'notify') {
+      if (message.data.action === 'progress') {
+        setSongStatus(message.data.song_id, message.data.status);
+        if (message.data.value) {
+          setSongProgress(message.data.song_id, (100 * message.data.value) / message.data.total);
+        }
+      }
+    }
+  };
 
-  const Theme = theme === 'light' ? createTheme(lightTheme) : createTheme(darkTheme);
+  useRemoteMessageQueue('notify', { onAddItem: onNotifyMessage });
+
+  const onBrowserThemeChange = useThemeStore((state) => state.onBrowserThemeChange);
+  const mode = useThemeStore((state) => state.mode);
+  const theme = useTheme();
+
+  const Theme = mode === 'light' ? createTheme(lightTheme) : createTheme(darkTheme);
+
+  const mobile = useMediaQuery(theme.breakpoints.down('md'));
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -153,6 +174,7 @@ function App() {
                   <Route path="search/*" element={<SearchView />} />
                 </Route>
                 <Route path="lyrics" element={<LyricsView />} />
+                <Route path="queue" element={mobile ? <QueueView /> : <BrowseView />} />
               </Route>
               <Route path="join" element={<JoinView />} />
             </Routes>

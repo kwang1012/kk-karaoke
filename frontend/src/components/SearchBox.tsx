@@ -47,6 +47,21 @@ const SerachInput = styled(InputBase)(({ theme }) => ({
     backgroundColor: '#1A2027',
     borderColor: '#2D3843',
   }),
+  [theme.breakpoints.down('md')]: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    color: 'black',
+    '&:hover': {
+      backgroundColor: 'white',
+      borderColor: '#3f3f3f',
+      '& .search': {
+        color: 'black',
+      },
+    },
+    '& .search': {
+      color: '#cfcfcf',
+    },
+  },
 }));
 
 function useDebounce<T>(value: T, delay: number): T {

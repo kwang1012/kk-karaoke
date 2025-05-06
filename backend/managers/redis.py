@@ -1,3 +1,4 @@
+import os
 import threading
 import redis
 
@@ -17,7 +18,8 @@ class RedisManager:
 
     def _initialize_manager(self):
         """"""
-        self.redis = redis.Redis(host='localhost')
+        self.redis = redis.Redis(host=os.getenv("REDIS_HOST", "localhost"),
+                                 port=int(os.getenv("REDIS_PORT", 6379)),)
 
 
 def get_redis():

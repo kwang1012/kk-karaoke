@@ -1,7 +1,6 @@
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from managers.redis import RedisManager
 from services.spotify import getCollectionTracks, getTopCategories, searchSpotify
 from managers.websocket import WebSocketManager
 from routes.song import router as song_router
@@ -60,15 +59,15 @@ async def get_album_tracks(album_id: str):
 @app.get("/api/tracks")
 async def get_tracks():
     tracks = [
-        # {
-        #     'id': 'test',
-        #     'name': '愛錯',
-        #     'album': {
-        #         'name': '???',
-        #         'image': 'https://i.scdn.co/image/ab67616d00001e0265fce5eb1fbdcdeb5ca55b34'
-        #     },
-        #     'artists': ['王力宏']
-        # },
+        {
+            'id': 'test',
+            'name': '愛錯',
+            'album': {
+                'name': '???',
+                'image': 'https://i.scdn.co/image/ab67616d00001e0265fce5eb1fbdcdeb5ca55b34'
+            },
+            'artists': ['王力宏']
+        },
         # {
         #     'id':
         #     '7eb3ee16-e6dc-4f2e-ad2c-d1ba75408f13',
@@ -119,4 +118,3 @@ def search(q: str):
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await ws_manager.websocket_endpoint(websocket)
-

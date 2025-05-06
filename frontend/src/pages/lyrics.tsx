@@ -1,12 +1,14 @@
 import { useEffect, useRef } from 'react';
 import AppScrollbar from 'src/components/Scrollbar';
 import { usePlayer } from 'src/hooks/player';
+import { useAudioStore } from 'src/store';
 
 export default function LyricsView() {
   // local states
   const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const { instrumentalRef, vocalRef, progress, currentLine, setCurrentLine, currentSong, lyrics } = usePlayer();
+  const lyricsDelay = useAudioStore((state) => state.lyricsDelays[currentSong?.id || ''] || 0);
 
   useEffect(() => {
     lineRefs.current = Array(lyrics.length).fill(null);
@@ -29,15 +31,17 @@ export default function LyricsView() {
 
   useEffect(() => {
     const index = lyrics.findIndex((line, i) => {
-      return progress >= line.time && (i === lyrics.length - 1 || progress < lyrics[i + 1].time);
+      return (
+        progress >= line.time + lyricsDelay && (i === lyrics.length - 1 || progress < lyrics[i + 1].time + lyricsDelay)
+      );
     });
     if (index !== -1 && index !== currentLine) {
       setCurrentLine(index);
     }
-  }, [progress]);
+  }, [progress, lyricsDelay]);
 
   const handleLineClick = async (index: number) => {
-    const seekTime = lyrics[index].time;
+    const seekTime = lyrics[index].time + lyricsDelay;
 
     // Always set the time before calling play()
     const instrumental = instrumentalRef.current;

@@ -1,9 +1,11 @@
 import { faStepBackward, faCirclePause, faCirclePlay, faForwardStep } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { Button, IconButton, Tooltip } from '@mui/material';
+import { Button, IconButton, TextField, Tooltip } from '@mui/material';
 import AppSlider from './Slider';
 import SongCard from './SongCard';
 import { usePlayer } from 'src/hooks/player';
+import { useState } from 'react';
+import { useAudioStore } from 'src/store';
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds)) return '0:00';
@@ -15,6 +17,8 @@ function formatTime(seconds: number): string {
 export default function AudioController() {
   const { currentSong, progress, setProgress, setSeeking, duration, playing } = usePlayer();
   const { play, pause, next, previous } = usePlayer();
+  const lyricsDelay = useAudioStore((state) => state.lyricsDelays[currentSong?.id || ''] || 0);
+  const setLyricsDelay = useAudioStore((state) => state.setLyricsDelay);
 
   const handlePlayPause = () => {
     if (playing) {
@@ -39,6 +43,7 @@ export default function AudioController() {
   const handleSeekStart = () => {
     setSeeking(true);
   };
+  const [editing, setEditing] = useState(false);
 
   return (
     <>
@@ -101,7 +106,35 @@ export default function AudioController() {
         </div>
         {/* Volume Controls */}
         <div className="ml-auto w-[30%] flex items-center justify-end pr-2">
-          <Button>Lyrics running off?</Button>
+          {currentSong &&
+            (editing ? (
+              <div className="flex items-center">
+                <span className="mr-2">Offset:</span>
+                <TextField
+                  id="outlined-number"
+                  type="number"
+                  size="small"
+                  className="w-20 mr-2"
+                  value={lyricsDelay}
+                  onChange={(e) => setLyricsDelay(currentSong.id, Number(e.target.value))}
+                />
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={() => {
+                    setEditing(false);
+                  }}
+                  className="text-sm mr-2"
+                >
+                  Save
+                </Button>
+              </div>
+            ) : (
+              <Button onClick={() => setEditing(true)}>
+                Lyrics <br />
+                out-of-sync?
+              </Button>
+            ))}
         </div>
       </div>
     </>

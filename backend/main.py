@@ -61,6 +61,7 @@ async def get_album_tracks(album_id: str):
 async def get_tracks():
     default_playlist_id = "3AEkt2VeAAHFc1TC5FLuIl"
     _, tracks = getCollectionTracks("playlists", default_playlist_id)
+    tracks = tracks or []
     random.shuffle(tracks)
     return JSONResponse(content={"tracks": tracks[:10]}, status_code=200)
 

@@ -1,5 +1,7 @@
 import React, { createContext, useMemo, useState, useContext, useRef, useEffect } from 'react';
+import ShiftedAutioPlayer from 'src/shiftedPlayer';
 import { useAudioStore } from 'src/store/audio';
+import { useSettingStore } from 'src/store/setting';
 import SyncedAudioPlayer from 'src/syncedPlayer';
 import { api } from 'src/utils/api';
 
@@ -10,6 +12,8 @@ type PlayerContextType = {
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
   playing: boolean;
   setPlaying: React.Dispatch<React.SetStateAction<boolean>>;
+  semitone: number;
+  setSemitone: React.Dispatch<React.SetStateAction<number>>;
   volume: number;
   setVolume: React.Dispatch<React.SetStateAction<number>>;
   progress: number;
@@ -50,6 +54,7 @@ function createPlayerContext({
   // audio context
   const [loading, setLoading] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [semitone, setSemitone] = useState(0);
   const [volume, setVolume] = useState(DEFAULT_INSTRUMENTAL_VOLUME);
   const [vocalVolume, setVocalVolume] = useState(DEFAULT_VOCAL_VOLUME);
   const [duration, setDuration] = useState(0);
@@ -76,6 +81,8 @@ function createPlayerContext({
       setLoading,
       playing,
       setPlaying,
+      semitone,
+      setSemitone,
       volume,
       setVolume,
       progress,
@@ -105,6 +112,8 @@ function createPlayerContext({
       setLoading,
       playing,
       setPlaying,
+      semitone,
+      setSemitone,
       volume,
       setVolume,
       duration,
@@ -135,26 +144,14 @@ function createPlayerContext({
 export const PlayerProvider = ({ children }) => {
   const syncedPlayerRef = useRef<SyncedAudioPlayer | null>(null);
   const ctx = createPlayerContext({ syncedPlayerRef });
-
+  const enabledPitchShift = useSettingStore((state) => state.enabledPitchShift);
   // 🔧 Initialize once
   useEffect(() => {
-    syncedPlayerRef.current = new SyncedAudioPlayer();
-  }, []);
-  return (
-    <PlayerContext.Provider value={ctx}>
-      {/* <audio
-        ref={instrumentalRef}
-        onTimeUpdate={onTimeUpdate}
-        onEnded={onEnded}
-        onLoadedMetadata={onLoadedMetadata}
-        controls
-        preload="auto"
-        style={{ display: 'none' }}
-      />
-      <audio ref={vocalRef} controls preload="auto" style={{ display: 'none' }} /> */}
-      {children}
-    </PlayerContext.Provider>
-  );
+    console.log('Initializing player. Pitch shift enabled:', enabledPitchShift);
+    if (enabledPitchShift) syncedPlayerRef.current = new ShiftedAutioPlayer();
+    else syncedPlayerRef.current = new SyncedAudioPlayer();
+  }, [enabledPitchShift]);
+  return <PlayerContext.Provider value={ctx}>{children}</PlayerContext.Provider>;
 };
 
 export const usePlayer = () => {
@@ -166,6 +163,8 @@ export const usePlayer = () => {
     setLoading,
     playing,
     setPlaying,
+    semitone,
+    setSemitone,
     volume,
     setVolume,
     vocalVolume,
@@ -337,6 +336,7 @@ export const usePlayer = () => {
     loading,
     playing,
     duration,
+    semitone,
     volume,
     setVolume: (value: number) => {
       const newVolume = Math.min(1, Math.max(0, value));
@@ -365,6 +365,18 @@ export const usePlayer = () => {
       const newVolume = Math.max(0, volume - 0.1);
       syncedPlayerRef.current?.setVolume(newVolume, vocalVolume);
       setVolume(newVolume);
+    },
+    increaseSemitone: () => {
+      if (!syncedPlayerRef.current) return;
+      const newSemitone = Math.min(12, semitone + 1);
+      syncedPlayerRef.current.setSemitone(newSemitone);
+      setSemitone(newSemitone);
+    },
+    decreaseSemitone: () => {
+      if (!syncedPlayerRef.current) return;
+      const newSemitone = Math.max(-12, semitone - 1);
+      syncedPlayerRef.current.setSemitone(newSemitone);
+      setSemitone(newSemitone);
     },
     lyrics,
     currentLine,

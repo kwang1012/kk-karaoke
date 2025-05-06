@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import SearchBox from './SearchBox';
 import { useAppStore } from 'src/store';
 import Logo from 'src/assets/logo.png';
-import { ArrowBackIos, ArrowForwardIos } from '@mui/icons-material';
+import { ArrowBackIos, ArrowForwardIos, Settings } from '@mui/icons-material';
 import { useHistoryBoundaries } from 'src/hooks/history';
 
 export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>) {
@@ -81,7 +81,7 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
       </div>
       {/* )} */}
 
-      <div className="flex-1">
+      <div className="flex items-center flex-1 justify-end">
         <AvatarGroup
           max={4}
           slotProps={{
@@ -106,6 +106,9 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
             src="/static/images/avatar/5.jpg"
           /> */}
         </AvatarGroup>
+        <IconButton onClick={() => navigate('/setting')}>
+          <Settings />
+        </IconButton>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { Button, CircularProgress, CircularProgressProps } from '@mui/material';
+import { CircularProgress, CircularProgressProps } from '@mui/material';
 import { ReactElement, useMemo } from 'react';
 import placeholderImage from 'src/assets/placeholder.png';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';

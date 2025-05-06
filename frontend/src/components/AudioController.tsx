@@ -6,6 +6,7 @@ import SongCard from './SongCard';
 import { usePlayer } from 'src/hooks/player';
 import { useState } from 'react';
 import { useAudioStore } from 'src/store';
+import { api } from 'src/utils/api';
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds)) return '0:00';
@@ -42,6 +43,13 @@ export default function AudioController() {
 
   const handleSeekStart = () => {
     setSeeking(true);
+  };
+  const onSaveDelay = () => {
+    // api.patch('songs/delay', {
+    //   songId: currentSong?.id,
+    //   delay: lyricsDelay,
+    // })
+    setEditing(false);
   };
   const [editing, setEditing] = useState(false);
 
@@ -118,14 +126,7 @@ export default function AudioController() {
                   value={lyricsDelay}
                   onChange={(e) => setLyricsDelay(currentSong.id, Number(e.target.value))}
                 />
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={() => {
-                    setEditing(false);
-                  }}
-                  className="text-sm mr-2"
-                >
+                <Button variant="contained" color="primary" onClick={onSaveDelay} className="text-sm mr-2">
                   Save
                 </Button>
               </div>

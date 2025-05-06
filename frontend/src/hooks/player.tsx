@@ -386,7 +386,6 @@ export const usePlayer = () => {
     queueIdx,
     addToQueue: (song: Song) => {
       setQueue((prevQueue) => [...prevQueue, song]);
-      setQueueIdx(queue.length);
     },
     addSongToQueue,
     fetchDefaultTracks,

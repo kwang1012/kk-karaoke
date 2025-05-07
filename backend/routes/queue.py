@@ -4,7 +4,7 @@ import threading
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
-from managers.redis import get_redis
+from managers.setup_redis import get_redis
 from models.song import Song
 from managers.websocket import WebSocketManager
 from services.process_request import is_ready, send_process_request

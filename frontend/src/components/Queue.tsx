@@ -112,7 +112,7 @@ export default function Queue() {
                 .map((song, index) => <SongCard key={index} className="mt-1" song={song} onDelete={rmSongFromQueue} />)
             ) : (
               <>
-                <div className="text-gray-400 mt-2 w-full pl-2">No more songs in the queue.</div>
+                <div className="text-gray-400 mt-2 w-full pl-2">There's no music in the queue.</div>
                 <div className="mt-5 px-2 flex justify-center">
                   <Button variant="contained" onClick={() => fetchDefaultTracks()}>
                     Random songs?

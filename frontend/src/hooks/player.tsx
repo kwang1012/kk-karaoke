@@ -378,6 +378,12 @@ export const usePlayer = () => {
     playing,
     duration,
     volume,
+    setVolume: (value: number) => {
+      if (!instrumentalRef.current) return;
+      const newVolume = Math.min(1, Math.max(0, value));
+      instrumentalRef.current.volume = newVolume;
+      setVolume(newVolume);
+    },
     seeking: seekingRef.current,
     setSeeking: (value: boolean) => {
       seekingRef.current = value;

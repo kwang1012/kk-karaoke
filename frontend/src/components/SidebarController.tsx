@@ -39,12 +39,11 @@ export default function SidebarController({ className }: { className?: string })
           Volume
         </span>
         <ButtonGroup
-          className="mt-2"
+          className="mt-2 bg-[#2f2f2f]"
           orientation="vertical"
           variant="outlined"
           size="medium"
           aria-label="Volume group"
-          color="inherit"
         >
           <Button sx={{ py: 3 }} onClick={volumeUp}>
             <FontAwesomeIcon icon={faPlus} size="lg" />

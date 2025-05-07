@@ -1,5 +1,4 @@
 import {
-  Button,
   TableRow,
   TableCell,
   AppBar,
@@ -9,6 +8,9 @@ import {
   TableBody,
   useTheme,
   useMediaQuery,
+  IconButton,
+  Menu,
+  MenuItem,
 } from '@mui/material';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
@@ -20,6 +22,7 @@ import { useWebSocketStore } from 'src/store/ws';
 import { useQuery } from '@tanstack/react-query';
 import { styled } from '@mui/material/styles';
 import Skeleton from 'react-loading-skeleton';
+import { MoreHoriz, PlayArrow } from '@mui/icons-material';
 
 const ALBUM_HEADERS = [
   {
@@ -77,14 +80,32 @@ const fetchTracks = async (collectionType: string, id: string): Promise<ReturnTy
 };
 
 const HoverTableRow = styled(TableRow)(({ theme }) => ({
+  cursor: 'pointer',
   '& .row-actions': {
     visibility: 'hidden',
+  },
+  '& .row-id': {
+    display: ' block',
+  },
+  '& .row-play': {
+    display: 'none',
   },
   '&:hover .row-actions': {
     visibility: 'visible',
   },
   '&:hover': {
     backgroundColor: '#ffffff1a',
+    '& .row-id': {
+      display: 'none',
+    },
+    '& .row-play': {
+      display: 'flex',
+    },
+  },
+  [theme.breakpoints.down('md')]: {
+    '& .row-actions': {
+      visibility: 'visible',
+    },
   },
 }));
 
@@ -103,6 +124,55 @@ const Header = styled('div')(({ theme }) => ({
   },
 }));
 
+const Actions = ({ song, addSongToQueue }: { song: Song; addSongToQueue: (song: Song) => void }) => {
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const open = Boolean(anchorEl);
+  const handleClick = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+  return (
+    <div>
+      <IconButton
+        id="demo-positioned-button"
+        className="row-actions"
+        sx={{ minWidth: 40 }}
+        onClick={(e) => {
+          e.stopPropagation();
+          console.log('More: ', song);
+          handleClick(e);
+        }}
+        aria-controls={open ? 'demo-positioned-menu' : undefined}
+        aria-haspopup="true"
+        aria-expanded={open ? 'true' : undefined}
+      >
+        <MoreHoriz className="text-[#b3b3b3]" />
+      </IconButton>
+      {/* <Menu
+        id="demo-positioned-menu"
+        aria-labelledby="demo-positioned-button"
+        anchorEl={anchorEl}
+        open={open}
+        onClose={handleClose}
+        anchorOrigin={{
+          vertical: 'top',
+          horizontal: 'left',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'left',
+        }}
+      >
+        <MenuItem onClick={handleClose}>Profile</MenuItem>
+        <MenuItem onClick={handleClose}>My account</MenuItem>
+        <MenuItem onClick={handleClose}>Logout</MenuItem>
+      </Menu> */}
+    </div>
+  );
+};
+
 const TrackRow = (
   i: number,
   collectionType: string,
@@ -113,7 +183,12 @@ const TrackRow = (
   addSongToQueue: (song: Song) => void
 ) => {
   const trackRow = {
-    row_id: <span>{i + 1}</span>,
+    row_id: (
+      <>
+        <span className="row-id">{i + 1}</span>
+        <PlayArrow className="row-play" fontSize="small" />
+      </>
+    ),
     name: (
       <div className="flex items-center">
         {collectionType === 'playlist' && (
@@ -131,17 +206,7 @@ const TrackRow = (
     ),
     artists: <span className="line-clamp-1">{song.artists.join(', ')}</span>,
     album: <span className="line-clamp-1">{song.album?.name || '-'}</span>,
-    action: (
-      <Button
-        className="row-actions"
-        disabled={!initialized || !connected}
-        variant="outlined"
-        sx={{ minWidth: 40 }}
-        onClick={() => addSongToQueue(song)}
-      >
-        Add
-      </Button>
-    ),
+    action: <Actions song={song} addSongToQueue={addSongToQueue} />,
   };
   const getWidth = (key: string) => {
     switch (key) {
@@ -155,7 +220,11 @@ const TrackRow = (
     }
   };
   return (
-    <HoverTableRow key={i} sx={{ '& td': { border: 0, py: 2 } }}>
+    <HoverTableRow
+      key={i}
+      sx={{ '& td': { border: 0, py: 2 } }}
+      onClick={() => initialized && connected && addSongToQueue(song)}
+    >
       {headers.map((header) => (
         <TableCell
           key={header.key}
@@ -242,7 +311,7 @@ export default function PlaylistView() {
           {scrollPosition > 100 && (
             <>
               <img src={collection.image || placeholder} className="w-8 h-8 rounded-md" />
-              <div className="text-xl ml-4">{collection.name}</div>
+              <div className="text-xl ml-4 line-clamp-1">{collection.name}</div>
             </>
           )}
         </Toolbar>

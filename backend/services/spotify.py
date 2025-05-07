@@ -1,31 +1,57 @@
 
 import base64
+import functools
 from dotenv import load_dotenv
 import httpx
 import os
 
+from managers.redis import get_redis
+
 load_dotenv()  # Load environment variables from .env file
 
-cached_tokens = None
+
+class SpotifyTokenManager:
+    def __init__(self):
+        self.redis = get_redis()
+        self.token_key = "spotify_token"
+        self.token_type_key = "spotify_token_type"
+        self.token_expiry_key = "spotify_token_expiry"
+
+    def set_token(self, token: str, token_type: str, expiry: int):
+        self.redis.set(self.token_key, token)
+        self.redis.set(self.token_type_key, token_type)
+        self.redis.set(self.token_expiry_key, expiry)
+
+    def get_token(self):
+        token_type = self.redis.get(self.token_type_key)
+        token = self.redis.get(self.token_key)
+        if not token_type or not token:
+            return ""
+        return f"{token_type} {token}"
+
+    def get_token_expiry(self):
+        return self.redis.get(self.token_expiry_key)
+
+
+manager = SpotifyTokenManager()
 
 
 def refresh_token(func):
     """
     Retry if token has expired
     """
+    @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        global cached_tokens
-        if not cached_tokens:
-            cached_tokens = getSpotifyToken()
-        try:
-            return func(*args, **kwargs)
-        except httpx.HTTPStatusError as e:
-            print(
-                f"HTTP error occurred: {e.response.status_code} - {e.response.text}")
-            if e.response.status_code == 401:  # Unauthorized
-                cached_tokens = getSpotifyToken()  # Refresh token
-                print("Token expired, refreshing...")
-                return func(*args, **kwargs)  # Retry the function
+        access_token = manager.get_token()
+        if not access_token:
+            getSpotifyToken()
+        response = func(*args, **kwargs)
+        if response.status_code == 200:
+            return response
+        if response.status_code == 401:
+            print("Token expired, refreshing...")
+            getSpotifyToken()  # Refresh token
+            return func(*args, **kwargs)  # Retry the function
     return wrapper
 
 
@@ -34,9 +60,6 @@ def getSpotifyToken():
     Fetches a Spotify access token using client credentials.
     Returns the access token as a string.
     """
-    global cached_tokens
-    if cached_tokens:
-        return cached_tokens
 
     client_id = os.getenv("SPOTIFY_CLIENT_ID")
     client_secret = os.getenv("SPOTIFY_SECRET")
@@ -55,19 +78,19 @@ def getSpotifyToken():
         print(response.json())
         return
 
+    token = response.json()["access_token"]
     token_type = response.json()["token_type"]
-    access_token = response.json()["access_token"]
-
-    cached_tokens = f"{token_type} {access_token}"
-    return cached_tokens
+    expires_in = response.json()["expires_in"]
+    manager.set_token(token, token_type, expires_in)
+    return f"{token_type} {token}"
 
 
 @refresh_token
 def _get_categories(keyword: str):
-    global cached_tokens
+    access_token = manager.get_token()
     with httpx.Client() as client:
         response = client.get("https://api.spotify.com/v1/search", headers={
-            "Authorization": cached_tokens or "",
+            "Authorization": access_token,
         },
             params={
             "q": keyword + " top songs",
@@ -109,9 +132,10 @@ def getTopCategories(keyword_str: str = "chinese"):
 
 @refresh_token
 def _get_tracks(collection_type: str, collection_id: str):
+    access_token = manager.get_token()
     with httpx.Client() as client:
         response = client.get(f"https://api.spotify.com/v1/{collection_type}/{collection_id}/tracks", headers={
-            "Authorization": cached_tokens or "",
+            "Authorization": access_token,
         }, params={
             "fields": "items(track(id,name,artists,album(name,images)))" if collection_type == "playlists" else "items(id,name,artists)",
         })
@@ -120,13 +144,14 @@ def _get_tracks(collection_type: str, collection_id: str):
 
 @refresh_token
 def _get_collection(collection_type: str, collection_id: str):
+    access_token = manager.get_token()
     with httpx.Client() as client:
         response = client.get(f"https://api.spotify.com/v1/{collection_type}/{collection_id}", headers={
-            "Authorization": cached_tokens or "",
+            "Authorization": access_token,
         }, params={
             "fields": "id,name,description,images",
         })
-    return response.json() if response.status_code == 200 else None
+    return response
 
 
 def getCollectionTracks(collection_type: str, collection_id: str):
@@ -135,8 +160,6 @@ def getCollectionTracks(collection_type: str, collection_id: str):
         print(f"Invalid collection type: {collection_type}")
         return None, None
     response = _get_tracks(collection_type, collection_id)
-    if response is None:
-        return None, None
     if response.status_code != 200:
         print(f"Error fetching collection tracks: {response.status_code}")
         return None, None
@@ -156,7 +179,8 @@ def getCollectionTracks(collection_type: str, collection_id: str):
                 "image": track["album"]["images"][0]["url"] if track["album"]["images"] else None,
             } if collection_type == "playlists" else None
         })
-    result = _get_collection(collection_type, collection_id)
+    response = _get_collection(collection_type, collection_id)
+    result = response.json()
     if result is None:
         collection = None
     else:
@@ -171,9 +195,10 @@ def getCollectionTracks(collection_type: str, collection_id: str):
 
 @refresh_token
 def _search(keyword: str):
+    access_token = manager.get_token()
     with httpx.Client() as client:
         response = client.get("https://api.spotify.com/v1/search", headers={
-            "Authorization": cached_tokens or "",
+            "Authorization": access_token,
         }, params={
             "q": keyword,
             "type": "album,artist,playlist,track",
@@ -198,5 +223,6 @@ def searchSpotify(keyword: str):
 
 if __name__ == "__main__":
     # Example usage
-    categories = getTopCategories()
-    print(categories)
+    # categories = getTopCategories()
+    # print(categories)
+    print(searchSpotify("chinese"))

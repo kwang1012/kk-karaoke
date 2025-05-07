@@ -13,7 +13,7 @@ function formatTime(seconds: number): string {
 }
 export default function MobileAudioController() {
   const { volume, progress, setProgress, setSeeking, duration, playing } = usePlayer();
-  const { play, pause, next, previous, resetProgress } = usePlayer();
+  const { play, pause, next, previous, resetProgress, setVolume } = usePlayer();
 
   const handlePlayPause = () => {
     if (playing) {
@@ -72,16 +72,21 @@ export default function MobileAudioController() {
           <FontAwesomeIcon icon={faForwardStep} size="xl" color="white" />
         </IconButton>
       </div>
-      <div className="flex w-full items-center mt-3">
+      <div className="flex w-full items-center mt-3 text-white">
         <VolumeMuteOutlined fontSize="small" />
         <AppSlider
           className="w-full"
           min={0}
-          max={1}
-          value={volume}
-          onChange={(_, value) => {}}
-          // onChangeCommitted={handleSliderCommit}
-          // onMouseDown={handleSeekStart}
+          max={100}
+          value={volume * 100}
+          onChange={(_, value) => {
+            if (typeof value === 'number') {
+              setVolume(value / 100);
+            }
+          }}
+          onChangeCommitted={(_, value) => {
+            if (typeof value === 'number') setVolume(value / 100);
+          }}
           aria-labelledby="volume-slider"
         />
         <VolumeUpOutlined className="ml-1" fontSize="small" />

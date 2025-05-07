@@ -21,7 +21,7 @@ export default function SidebarController({ className }: { className?: string })
     showSnackbar();
   };
   return (
-    <div className={`w-20 h-[calc(100vh-152px)] bg-[#1f1f1f] rounded-lg mx-2 ${className}`}>
+    <div className={`w-20 h-full bg-[#1f1f1f] rounded-lg mx-2 ${className}`}>
       <div className="flex flex-col items-center justify-start h-full py-5">
         <span className="text-white text-center mb-2 font-bold">Vocal</span>
         <Tooltip title={vocalOn ? 'Turn off Vocal' : 'Turn on Vocal'} placement="right">

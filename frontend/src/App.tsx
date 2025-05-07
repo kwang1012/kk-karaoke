@@ -20,9 +20,9 @@ import { Message, useWebSocketStore } from './store/ws';
 import { useAudioStore } from './store';
 import JoinView from './pages/join';
 import { useRemoteMessageQueue } from './hooks/queue';
-import QueueView from './pages/queue';
 import { useMediaQuery, useTheme } from '@mui/material';
 import { PlayerProvider } from './hooks/player';
+import PlayView from './pages/play';
 
 // NProgress.configure({
 //   minimum: 0.3,
@@ -148,7 +148,7 @@ const AppRouters = () => {
             <Route path="search/*" element={<SearchView />} />
           </Route>
           <Route path="lyrics" element={<LyricsView />} />
-          <Route path="queue" element={mobile ? <QueueView /> : <BrowseView />} />
+          <Route path="play" element={mobile ? <PlayView /> : <BrowseView />} />
         </Route>
         <Route path="join" element={<JoinView />} />
       </Routes>

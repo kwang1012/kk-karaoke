@@ -27,7 +27,7 @@ export default function AppNavigation() {
         navigate('/search');
         break;
       case 2:
-        navigate('/queue');
+        navigate('/play');
         break;
       default:
         break;
@@ -44,9 +44,9 @@ export default function AppNavigation() {
       value={selectedIndex}
       onChange={onChange}
     >
-      <BottomNavigationAction label="Browse" icon={<Home fontSize="large" />} />
-      <BottomNavigationAction label="Search" icon={<Search fontSize="large" />} />
-      <BottomNavigationAction label="Queue" icon={<QueueMusic fontSize="large" />} />
+      <BottomNavigationAction label="Browse" icon={<Home fontSize="medium" />} />
+      <BottomNavigationAction label="Search" icon={<Search fontSize="medium" />} />
+      <BottomNavigationAction label="Play" icon={<QueueMusic fontSize="medium" />} />
     </BottomNavigation>
   );
 }

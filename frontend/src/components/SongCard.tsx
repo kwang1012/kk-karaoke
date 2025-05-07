@@ -70,7 +70,7 @@ export default function SongCard({ className, song, dense, disable, onAdd, onDel
       onMouseLeave={() => setHovered(false)}
       className={[
         `flex items-center relative overflow-hidden rounded-md my-2 ${className}`,
-        isReady && !disable && initialized && connected ? 'hover:bg-[#2f2f2f]' : '',
+        isReady && !disable && initialized && connected ? 'hover:bg-[#ffffff1a]' : '',
         dense ? 'py-0 px-1' : 'px-2',
       ].join(' ')}
       {...props}
@@ -87,12 +87,12 @@ export default function SongCard({ className, song, dense, disable, onAdd, onDel
           </CircularProgressWithLabel>
         </div>
       )}
-      <div className="w-10 h-10 bg-[#3f3f3f] rounded-md mr-4 overflow-hidden shrink-0">
+      <div className="w-10 h-10 bg-[#b3b3b3] rounded-md mr-4 overflow-hidden shrink-0">
         <img src={parsedSong.album.image} className="w-full h-full" />
       </div>
       <div className="flex flex-col justify-between py-1">
         <span className="text-white line-clamp-1">{song.name}</span>
-        <span className="text-sm text-gray-400">{parsedSong.artists.join(', ')}</span>
+        <span className="text-sm text-gray-400 line-clamp-1">{parsedSong.artists.join(', ')}</span>
       </div>
       <div className="ml-auto mr-1">
         {isReady && hovered && onAdd && initialized && connected && !disable && (

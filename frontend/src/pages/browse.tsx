@@ -5,12 +5,34 @@ import Carousel, { CarouselItem } from 'src/components/Carousel';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import AppScrollbar from 'src/components/Scrollbar';
+import Skeleton from 'react-loading-skeleton';
 
-function PlaylistCard({ playlist, onClick }: { playlist: Collection; onClick: (playlist: Collection) => void }) {
+function PlaylistCard({
+  playlist,
+  onCardClick,
+  ...props
+}: {
+  playlist?: Collection;
+  onCardClick?: (playlist: Collection) => void;
+} & React.HTMLProps<HTMLDivElement>) {
   return (
-    <CarouselItem key={playlist.id} onClick={() => onClick(playlist)}>
-      <img src={playlist.image || placeholder} className="w-full rounded-md" />
-      <span className="text-sm text-gray-400 line-clamp-2">{playlist.name}</span>
+    <CarouselItem
+      disable={!playlist}
+      {...props}
+      onClick={() => {
+        if (playlist && onCardClick) {
+          onCardClick(playlist);
+        }
+      }}
+    >
+      {playlist ? (
+        <>
+          <img src={playlist.image || placeholder} className="w-full rounded-md" />
+          <span className="text-sm text-gray-400 line-clamp-2">{playlist.name}</span>
+        </>
+      ) : (
+        <Skeleton className="w-full h-full rounded-md" baseColor="#1f1f1f" highlightColor="#2a2a2a" />
+      )}
     </CarouselItem>
   );
 }
@@ -65,25 +87,23 @@ export function MainView() {
   };
   return (
     <AppScrollbar>
-      {isLoading ? (
-        <div className="p-8">Loading categories...</div>
-      ) : (
-        <div className="pt-6 w-full overflow-hidden">
-          {SECTIONS.map((section) => {
-            const playlists = categories?.[section.keyword] || [];
-            return (
-              <div key={section.keyword} className="mb-8">
-                <h1 className="mx-8 mb-1 text-lg tracking-widest">{section.name}</h1>
-                <Carousel>
-                  {playlists.map((playlist) => (
-                    <PlaylistCard key={playlist.id} playlist={playlist} onClick={handleOnClickPlaylist} />
-                  ))}
-                </Carousel>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      <div className="pt-6 w-full overflow-hidden">
+        {SECTIONS.map((section) => {
+          const playlists = categories?.[section.keyword] || [];
+          return (
+            <div key={section.keyword} className="mb-8">
+              <h1 className="mx-4 md:mx-8 mb-1 text-lg tracking-widest">{section.name}</h1>
+              <Carousel>
+                {isLoading
+                  ? Array.from({ length: 5 }).map((_, index) => <PlaylistCard key={index} />)
+                  : playlists.map((playlist) => (
+                      <PlaylistCard key={playlist.id} playlist={playlist} onCardClick={handleOnClickPlaylist} />
+                    ))}
+              </Carousel>
+            </div>
+          );
+        })}
+      </div>
     </AppScrollbar>
   );
 }

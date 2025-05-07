@@ -19,8 +19,14 @@
   letter-spacing: normal;
 }
 
+#root {
+  width: 100%;
+  height: 100%;
+}
 html,
 body {
+  width: 100%;
+  height: 100%;
   padding: 0;
   margin: 0;
   font-family: 'Cal Sans', -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen, Ubuntu, Cantarell, Fira Sans,

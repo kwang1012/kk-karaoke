@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import AppScrollbar from 'src/components/Scrollbar';
 import { usePlayer } from 'src/hooks/player';
 import { useAudioStore } from 'src/store';
@@ -7,8 +7,17 @@ export default function LyricsView() {
   // local states
   const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  const { instrumentalRef, vocalRef, progress, currentLine, setCurrentLine, currentSong, lyrics } = usePlayer();
+  const { instrumentalRef, vocalRef, progress, currentLine, setCurrentLine, currentSong, lyrics, seeking } =
+    usePlayer();
   const lyricsDelay = useAudioStore((state) => state.lyricsDelays[currentSong?.id || ''] || 0);
+  const syncedLyrics = useMemo(() => {
+    return lyrics.map((line) => {
+      return {
+        ...line,
+        time: line.time + lyricsDelay,
+      };
+    });
+  }, [lyrics, lyricsDelay])
 
   useEffect(() => {
     lineRefs.current = Array(lyrics.length).fill(null);
@@ -30,18 +39,18 @@ export default function LyricsView() {
   }, [currentSong]);
 
   useEffect(() => {
-    const index = lyrics.findIndex((line, i) => {
+    const index = syncedLyrics.findIndex((line, i) => {
       return (
-        progress >= line.time + lyricsDelay && (i === lyrics.length - 1 || progress < lyrics[i + 1].time + lyricsDelay)
+        progress >= line.time && (i === syncedLyrics.length - 1 || progress < syncedLyrics[i + 1].time)
       );
     });
-    if (index !== -1 && index !== currentLine) {
+    if (index !== -1 && index !== currentLine && !seeking) {
       setCurrentLine(index);
     }
-  }, [progress, lyricsDelay]);
+  }, [progress]);
 
   const handleLineClick = async (index: number) => {
-    const seekTime = lyrics[index].time + lyricsDelay;
+    const seekTime = syncedLyrics[index].time + lyricsDelay;
 
     // Always set the time before calling play()
     const instrumental = instrumentalRef.current;
@@ -54,8 +63,8 @@ export default function LyricsView() {
     <div className="h-full">
       <AppScrollbar>
         <div className="text-lg px-8 text-white">
-          {lyrics.length > 0 ? (
-            lyrics.map((line, i) => (
+          {syncedLyrics.length > 0 ? (
+            syncedLyrics.map((line, i) => (
               <div
                 key={i}
                 className="my-8"

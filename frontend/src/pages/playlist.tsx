@@ -1,11 +1,13 @@
 import { Button, TableRow, TableCell, AppBar, Toolbar, Table, TableHead, TableBody } from '@mui/material';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import AppScrollbar from 'src/components/Scrollbar';
 import { useAudioStore } from 'src/store';
 import { api } from 'src/utils/api';
 import placeholder from 'src/assets/placeholder.png';
 import { useWebSocketStore } from 'src/store/ws';
+import { useQuery } from '@tanstack/react-query';
+import { styled } from '@mui/material/styles';
 
 const ALBUM_HEADERS = [
   {
@@ -45,12 +47,39 @@ const PLAYLIST_HEADERS = [
   },
 ];
 
+type ReturnType = {
+  collection: Collection;
+  tracks: Song[];
+};
+
+const fetchTracks = async (collectionType: string, id: string): Promise<ReturnType> => {
+  return api
+    .get(`/${collectionType}/${id}/tracks`)
+    .then(({ data }) => {
+      return data;
+    })
+    .catch((error) => {
+      console.error('Error fetching tracks:', error);
+      return { collection: {}, tracks: [] };
+    });
+};
+
+const HoverTableRow = styled(TableRow)(({ theme }) => ({
+  '& .row-actions': {
+    visibility: 'hidden',
+  },
+  '&:hover .row-actions': {
+    visibility: 'visible',
+  },
+  '&:hover': {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+}));
+
 export default function PlaylistView() {
   const location = useLocation();
   const initCollection = location.state?.collection || {};
   const { id } = useParams();
-  const [tracks, setTracks] = useState<Song[]>([]);
-  const [collection, setCollection] = useState<Collection>(initCollection);
   const setSongStatus = useAudioStore((state) => state.setSongStatus);
   const collectionType = useMemo(() => location.pathname.split('/')[1], [location.pathname]);
   const initialized = useWebSocketStore((state) => state.initialized);
@@ -60,18 +89,12 @@ export default function PlaylistView() {
     return collectionType === 'album' ? ALBUM_HEADERS : PLAYLIST_HEADERS;
   }, [collectionType]);
 
-  useEffect(() => {
-    if (!id || !collectionType) return;
-    api
-      .get(`/${collectionType}/${id}/tracks`)
-      .then(({ data }) => {
-        setTracks(data['tracks'] || []);
-        setCollection(data['collection'] || {});
-      })
-      .catch((error) => {
-        console.error('Error fetching tracks:', error);
-      });
-  }, [id, collectionType]);
+  const { data, isLoading } = useQuery({
+    queryKey: [collectionType, id],
+    queryFn: () => fetchTracks(collectionType, id || ''),
+  });
+  const collection = useMemo(() => data?.collection || initCollection, [data, initCollection]);
+  const tracks = useMemo(() => data?.tracks || [], [data]);
 
   const addSongToQueue = (song: Song) => {
     // Function to add a song to the queue
@@ -114,9 +137,9 @@ export default function PlaylistView() {
       album: <span className="line-clamp-1">{song.album?.name || '-'}</span>,
       action: (
         <Button
+          className="row-actions"
           disabled={!initialized || !connected}
-          variant="text"
-          size="small"
+          variant="outlined"
           sx={{ minWidth: 40 }}
           onClick={() => addSongToQueue(song)}
         >
@@ -136,7 +159,7 @@ export default function PlaylistView() {
       }
     };
     return (
-      <TableRow key={i} sx={{ '& td': { border: 0, pt: i == 0 ? 4 : 0, height: i == 0 ? 70 : 56 } }}>
+      <HoverTableRow key={i} sx={{ '& td': { border: 0, py:2 } }}>
         {headers.map((header) => (
           <TableCell
             key={header.key}
@@ -150,7 +173,7 @@ export default function PlaylistView() {
             {trackRow[header.key]}
           </TableCell>
         ))}
-      </TableRow>
+      </HoverTableRow>
     );
   };
   const [scrollPosition, setScrollPosition] = useState(0);
@@ -200,7 +223,7 @@ export default function PlaylistView() {
             </div>
           </div>
           <div>
-            {tracks.length > 0 ? (
+            {!isLoading ? (
               <div className="text-white">
                 <Table aria-label="simple table" stickyHeader>
                   <TableHead>
@@ -224,10 +247,8 @@ export default function PlaylistView() {
                 </Table>
               </div>
             ) : (
-              // </div>
               <div className="px-8 pt-4">Loading tracks...</div>
             )}
-            {/* <div></div> */}
           </div>
         </div>
       </AppScrollbar>

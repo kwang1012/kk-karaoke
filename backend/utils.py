@@ -1,35 +1,26 @@
 import os
+from pathlib import Path
+from dotenv import load_dotenv
 
+load_dotenv()
 
-def _check_file_exists(filepath: str) -> bool:
-    """
-    Checks if a file exists at the given path.
+STORAGE_DIR = os.getenv("STORAGE_DIR", "storage")
+if not os.path.exists(STORAGE_DIR):
+    os.makedirs(STORAGE_DIR)
 
-    Args:
-        filepath (str): The path to the file.
-
-    Returns:
-        bool: True if the file exists, False otherwise.
-    """
-    return os.path.isfile(filepath)
-
-
-def get_raw_path(filename: str) -> str | None:
-    """
-    Returns the full path to the song file in the storage directory.
-
-    Args:
-        filename (str): The name of the song file.
-
-    Returns:
-        str: The full path to the song file.
-    """
-    # TODO: Add different formats support
-    path = f"storage/raw_songs/{filename}.mp3"
-    if _check_file_exists(path):
-        return path
-    else:
-        return None
+LYRICS_DIR = os.path.join(STORAGE_DIR, "lyrics")
+if not os.path.exists(LYRICS_DIR):
+    os.makedirs(LYRICS_DIR)
+RAW_AUDIO_DIR = os.path.join(STORAGE_DIR, "raw")
+if not os.path.exists(RAW_AUDIO_DIR):
+    os.makedirs(RAW_AUDIO_DIR)
+NO_VOCALS_DIR = os.path.join(STORAGE_DIR, "no_vocals")
+if not os.path.exists(NO_VOCALS_DIR):
+    os.makedirs(NO_VOCALS_DIR)
+VOCALS_DIR = os.path.join(STORAGE_DIR, "vocals")
+if not os.path.exists(VOCALS_DIR):
+    os.makedirs(VOCALS_DIR)
+print("Storage directories initialized.", STORAGE_DIR)
 
 
 def get_instrumental_path(filename: str) -> str | None:
@@ -42,9 +33,9 @@ def get_instrumental_path(filename: str) -> str | None:
     Returns:
         str: The full path to the song file.
     """
-    path = f"storage/no_vocals/{filename}.mp3"
-    if _check_file_exists(path):
-        return path
+    path = Path(NO_VOCALS_DIR, f"{filename}.mp3")
+    if path.exists():
+        return str(path)
     else:
         return None
 
@@ -59,9 +50,9 @@ def get_vocal_path(filename: str) -> str | None:
     Returns:
         str: The full path to the song file.
     """
-    path = f"storage/vocals/{filename}.mp3"
-    if _check_file_exists(path):
-        return path
+    path = Path(VOCALS_DIR, f"{filename}.mp3")
+    if path.exists():
+        return str(path)
     else:
         return None
 
@@ -76,8 +67,10 @@ def get_lyrics_path(filename: str) -> str | None:
     Returns:
         str: The full path to the lyrics file.
     """
-    path = f"storage/lyrics/{filename}.lrc"
-    if _check_file_exists(path):
-        return path
+    path = Path(LYRICS_DIR, f"{filename}.lrc")
+    print(path, path.exists(), os.path.exists(str(path)))
+    
+    if path.exists():
+        return str(path)
     else:
         return None

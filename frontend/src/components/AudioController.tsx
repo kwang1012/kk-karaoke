@@ -6,6 +6,7 @@ import SongCard from './SongCard';
 import { usePlayer } from 'src/hooks/player';
 import { useState } from 'react';
 import { useAudioStore } from 'src/store';
+import { api } from 'src/utils/api';
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds)) return '0:00';
@@ -15,7 +16,7 @@ function formatTime(seconds: number): string {
 }
 
 export default function AudioController() {
-  const { currentSong, progress, setProgress, setSeeking, duration, playing } = usePlayer();
+  const { currentSong, progress, setProgress, setSeeking, duration, playing, resetProgress } = usePlayer();
   const { play, pause, next, previous } = usePlayer();
   const lyricsDelay = useAudioStore((state) => state.lyricsDelays[currentSong?.id || ''] || 0);
   const setLyricsDelay = useAudioStore((state) => state.setLyricsDelay);
@@ -36,12 +37,20 @@ export default function AudioController() {
 
   const handleSliderCommit = (_: React.SyntheticEvent | Event, value: number | number[]) => {
     if (typeof value === 'number') {
+      resetProgress(value);
       setSeeking(false);
     }
   };
 
   const handleSeekStart = () => {
     setSeeking(true);
+  };
+  const onSaveDelay = () => {
+    // api.patch('songs/delay', {
+    //   songId: currentSong?.id,
+    //   delay: lyricsDelay,
+    // })
+    setEditing(false);
   };
   const [editing, setEditing] = useState(false);
 
@@ -109,23 +118,17 @@ export default function AudioController() {
           {currentSong &&
             (editing ? (
               <div className="flex items-center">
-                <span className="mr-2">Offset:</span>
+                <span>Delay lyrics by</span>
                 <TextField
                   id="outlined-number"
                   type="number"
                   size="small"
-                  className="w-20 mr-2"
+                  className="w-20 mx-1"
                   value={lyricsDelay}
                   onChange={(e) => setLyricsDelay(currentSong.id, Number(e.target.value))}
                 />
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={() => {
-                    setEditing(false);
-                  }}
-                  className="text-sm mr-2"
-                >
+                <span className="mr-2">s</span>
+                <Button variant="contained" color="primary" onClick={onSaveDelay} className="text-sm mr-2">
                   Save
                 </Button>
               </div>

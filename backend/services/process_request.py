@@ -14,7 +14,7 @@ from services.voice_remover import separate_vocals
 
 ws_manager = WebSocketManager()
 
-redis_uri = f"redis://{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', 6379)}/0"
+redis_uri = f"redis://{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', 6379)}/1"
 celery = Celery("worker", broker=redis_uri, backend=redis_uri)
 
 r = redis.Redis(host=os.getenv("REDIS_HOST", "localhost"),
@@ -48,7 +48,6 @@ def process_request(song: Union[dict[str, Any], Song]):
     print("Processing request for song:", song)
     search_term = f"{song.name} {' '.join(song.artists)}"
     lyrics_exist = Path(LYRICS_DIR, f"{song.id}.lrc").exists()
-    audio_exist = Path(RAW_AUDIO_DIR, f"{song.id}.mp3").exists()
     vocals_exist = Path(VOCALS_DIR, f"{song.id}.mp3").exists()
     non_vocals_exist = Path(NO_VOCALS_DIR, f"{song.id}.mp3").exists()
 

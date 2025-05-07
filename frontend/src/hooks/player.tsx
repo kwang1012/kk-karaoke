@@ -1,12 +1,10 @@
-import { rm } from 'fs';
 import React, { createContext, useMemo, useState, useContext, useRef, useEffect } from 'react';
-// @ts-ignore
 import { useAudioStore } from 'src/store/audio';
+import SyncedAudioPlayer from 'src/syncedPlayer';
 import { api } from 'src/utils/api';
 
 type PlayerContextType = {
-  instrumentalRef: React.RefObject<HTMLAudioElement>;
-  vocalRef: React.RefObject<HTMLAudioElement>;
+  syncedPlayerRef: React.MutableRefObject<SyncedAudioPlayer | null>;
   // song context
   loading: boolean;
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
@@ -18,9 +16,9 @@ type PlayerContextType = {
   setProgress: React.Dispatch<React.SetStateAction<number>>;
   duration: number;
   setDuration: React.Dispatch<React.SetStateAction<number>>;
-  // seeking: boolean;
-  // setSeeking: React.Dispatch<React.SetStateAction<boolean>>;
-  seekingRef: React.MutableRefObject<boolean>;
+  seeking: boolean;
+  setSeeking: React.Dispatch<React.SetStateAction<boolean>>;
+  // seekingRef: React.MutableRefObject<boolean>;
   vocalOn: boolean;
   setVocalOn: React.Dispatch<React.SetStateAction<boolean>>;
   vocalVolume: number;
@@ -46,11 +44,9 @@ const DEFAULT_VOCALESS_VOCAL_VOLUME = 0.1; // Default volume for voiceless playb
 const DEFAULT_INSTRUMENTAL_VOLUME = 0.8; // Default instrumental volume
 
 function createPlayerContext({
-  instrumentalRef,
-  vocalRef,
+  syncedPlayerRef,
 }: {
-  instrumentalRef: React.RefObject<HTMLAudioElement>;
-  vocalRef: React.RefObject<HTMLAudioElement>;
+  syncedPlayerRef: React.MutableRefObject<SyncedAudioPlayer | null>;
 }) {
   // pure audio context
   const [loading, setLoading] = useState(false);
@@ -63,8 +59,8 @@ function createPlayerContext({
   const [duration, setDuration] = useState(0);
   const [progress, setProgress] = useState(0);
   const [vocalOn, setVocalOn] = useState(false);
-  // const [seeking, setSeeking] = useState(false);
-  const seekingRef = useRef(false);
+  const [seeking, setSeeking] = useState(false);
+  // const seekingRef = useRef(false);
   // lyrics context
   const [lyrics, setLyrics] = useState<Lyrics[]>([]);
   const [currentLine, setCurrentLine] = useState(-1);
@@ -79,25 +75,9 @@ function createPlayerContext({
     return queue[queueIdx] || null;
   }, [queue, queueIdx]);
 
-  const onTimeUpdate = () => {
-    if (instrumentalRef.current) {
-      if (!seekingRef.current) {
-        setProgress(instrumentalRef.current.currentTime);
-      }
-    }
-  };
-  const onEnded = () => {
-    if (queueIdx >= queue.length - 1) {
-      console.log('No next song in the queue');
-    }
-    setQueueIdx(queueIdx + 1);
-  };
-  const onLoadedMetadata = () => setDuration(instrumentalRef.current?.duration || 0);
-
   const ctx = useMemo(
     () => ({
-      instrumentalRef,
-      vocalRef,
+      syncedPlayerRef,
       loading,
       setLoading,
       playing,
@@ -114,9 +94,9 @@ function createPlayerContext({
       setProgress,
       duration,
       setDuration,
-      // seeking,
-      // setSeeking,
-      seekingRef,
+      seeking,
+      setSeeking,
+      // seekingRef,
       vocalOn,
       setVocalOn,
       vocalVolume,
@@ -131,13 +111,9 @@ function createPlayerContext({
       setQueueIdx,
       currentSong,
       lastSongId,
-      onTimeUpdate,
-      onEnded,
-      onLoadedMetadata,
     }),
     [
-      instrumentalRef,
-      vocalRef,
+      syncedPlayerRef,
       loading,
       setLoading,
       playing,
@@ -152,9 +128,9 @@ function createPlayerContext({
       setVolume,
       duration,
       setDuration,
-      // seeking,
-      // setSeeking,
-      seekingRef,
+      seeking,
+      setSeeking,
+      // seekingRef,
       vocalOn,
       setVocalOn,
       vocalVolume,
@@ -171,22 +147,22 @@ function createPlayerContext({
       setQueueIdx,
       currentSong,
       lastSongId,
-      onTimeUpdate,
-      onEnded,
-      onLoadedMetadata,
     ]
   );
   return ctx;
 }
 
 export const PlayerProvider = ({ children }) => {
-  const instrumentalRef = useRef<HTMLAudioElement>(null);
-  const vocalRef = useRef<HTMLAudioElement>(null);
-  const ctx = createPlayerContext({ instrumentalRef, vocalRef });
-  const { onTimeUpdate, onEnded, onLoadedMetadata } = ctx;
+  const syncedPlayerRef = useRef<SyncedAudioPlayer | null>(null);
+  const ctx = createPlayerContext({ syncedPlayerRef });
+
+  // 🔧 Initialize once
+  useEffect(() => {
+    syncedPlayerRef.current = new SyncedAudioPlayer();
+  }, []);
   return (
     <PlayerContext.Provider value={ctx}>
-      <audio
+      {/* <audio
         ref={instrumentalRef}
         onTimeUpdate={onTimeUpdate}
         onEnded={onEnded}
@@ -195,7 +171,7 @@ export const PlayerProvider = ({ children }) => {
         preload="auto"
         style={{ display: 'none' }}
       />
-      <audio ref={vocalRef} controls preload="auto" style={{ display: 'none' }} />
+      <audio ref={vocalRef} controls preload="auto" style={{ display: 'none' }} /> */}
       {children}
     </PlayerContext.Provider>
   );
@@ -205,22 +181,22 @@ export const usePlayer = () => {
   const ctx = useContext(PlayerContext);
   if (!ctx) throw new Error('usePlayer must be used within PlayerProvider');
   const {
-    instrumentalRef,
-    vocalRef,
+    syncedPlayerRef,
     loading,
     setLoading,
     playing,
     setPlaying,
     volume,
     setVolume,
+    vocalVolume,
+    setVocalVolume,
     duration,
     setDuration,
-    // seeking,
-    // setSeeking,
-    seekingRef,
+    seeking,
+    setSeeking,
+    // seekingRef,
     vocalOn,
     setVocalOn,
-    vocalVolume,
     progress,
     setProgress,
     lyrics,
@@ -264,16 +240,17 @@ export const usePlayer = () => {
       });
   };
 
-  // useEffect(() => {
-  //   setInterval(() => {
-  //     const instrumental = instrumentalRef.current;
-  //     const vocal = vocalRef.current;
-  //     if (!instrumental || !vocal) return;
-  //     if (instrumental.currentTime !== vocal.currentTime) {
-  //       vocal.currentTime = instrumental.currentTime;
-  //     }
-  //   }, 5000);
-  // }, []);
+  useEffect(() => {
+    if (!playing) return;
+
+    const interval = setInterval(() => {
+      if (!seeking) {
+        setProgress(syncedPlayerRef.current?.getCurrentTime() ?? 0);
+      }
+    }, 200);
+
+    return () => clearInterval(interval);
+  }, [playing]);
 
   useEffect(() => {
     // no next song
@@ -298,18 +275,17 @@ export const usePlayer = () => {
     lastSongId.current = currentSong.id;
     console.log('Play new song:', currentSong.name);
 
-    const instrumental = instrumentalRef.current;
-    const vocal = vocalRef.current;
-    if (!instrumental || !vocal) return;
+    const player = syncedPlayerRef.current;
+    if (!player) return;
 
-    instrumental.src = `${api.getUri()}/songs/instrumental/${currentSong.id}`;
-    vocal.src = `${api.getUri()}/songs/vocal/${currentSong.id}`;
-    instrumental.load();
-    vocal.load();
-    instrumental.currentTime = vocal.currentTime = 0;
-    setDuration(instrumental.duration || 0);
-
-    fetchLyrics(currentSong.id).then(() => {
+    Promise.all([
+      player.load(
+        `${api.getUri()}/songs/vocal/${currentSong.id}`,
+        `${api.getUri()}/songs/instrumental/${currentSong.id}`
+      ),
+      fetchLyrics(currentSong.id),
+    ]).then(() => {
+      setDuration(player.getDuration());
       if (playing) {
         playAudio();
       }
@@ -317,26 +293,15 @@ export const usePlayer = () => {
   }, [currentSong?.id, songStatus[currentSong?.id || '']]);
 
   const playAudio = () => {
-    const instrumental = instrumentalRef.current;
-    const vocal = vocalRef.current;
-    if (!instrumental || !vocal) return;
-
-    vocal.volume = vocalOn ? vocalVolume : DEFAULT_VOCALESS_VOCAL_VOLUME;
-    Promise.all([instrumental.play(), vocal.play()])
-      .then(() => {
-        vocal.currentTime = instrumental.currentTime;
-        setPlaying(true);
-      })
-      .catch((err) => console.error('Playback error:', err));
+    if (!currentSong || !syncedPlayerRef.current) return;
+    const player = syncedPlayerRef.current;
+    player.setVolume(volume, vocalOn ? vocalVolume : DEFAULT_VOCALESS_VOCAL_VOLUME);
+    player.play();
+    setPlaying(true);
   };
 
   const pauseAudio = () => {
-    const instrumental = instrumentalRef.current;
-    const vocal = vocalRef.current;
-    if (!instrumental || !vocal) return;
-
-    instrumental.pause();
-    vocal.pause();
+    syncedPlayerRef.current?.pause();
     setPlaying(false);
   };
 
@@ -372,43 +337,36 @@ export const usePlayer = () => {
   };
 
   return {
-    instrumentalRef,
-    vocalRef,
     loading,
     playing,
     duration,
     volume,
     setVolume: (value: number) => {
-      if (!instrumentalRef.current) return;
       const newVolume = Math.min(1, Math.max(0, value));
-      instrumentalRef.current.volume = newVolume;
-      setVolume(newVolume);
+      syncedPlayerRef.current?.setVolume(newVolume, vocalVolume);
     },
-    seeking: seekingRef.current,
-    setSeeking: (value: boolean) => {
-      seekingRef.current = value;
-    },
+    seeking,
+    setSeeking,
     progress,
     setProgress,
     vocalOn,
     play: playAudio,
     pause: pauseAudio,
     toggleVocal: () => {
-      if (vocalRef.current) {
-        vocalRef.current.volume = !vocalOn ? vocalVolume : DEFAULT_VOCALESS_VOCAL_VOLUME;
-      }
+      if (!syncedPlayerRef.current) return;
+      const newVolume = vocalOn ? DEFAULT_VOCALESS_VOCAL_VOLUME : DEFAULT_VOCAL_VOLUME;
+      setVocalVolume(newVolume);
+      syncedPlayerRef.current.setVolume(volume, newVolume);
       setVocalOn((prev) => !prev);
     },
     increaseVolume: () => {
-      if (!instrumentalRef.current) return;
       const newVolume = Math.min(1, volume + 0.1);
-      instrumentalRef.current.volume = newVolume;
+      syncedPlayerRef.current?.setVolume(newVolume, vocalVolume);
       setVolume(newVolume);
     },
     decreaseVolume: () => {
-      if (!instrumentalRef.current) return;
       const newVolume = Math.max(0, volume - 0.1);
-      instrumentalRef.current.volume = newVolume;
+      syncedPlayerRef.current?.setVolume(newVolume, vocalVolume);
       setVolume(newVolume);
     },
     lyrics,
@@ -426,11 +384,12 @@ export const usePlayer = () => {
       setQueue((prevQueue) => prevQueue.filter((s) => s.id !== song.id));
     },
     resetProgress: (time: number) => {
-      const instrumental = instrumentalRef.current;
-      const vocal = vocalRef.current;
-      if (!instrumental || !vocal) return;
+      syncedPlayerRef.current?.seek(time);
       setProgress(time);
-      instrumental.currentTime = vocal.currentTime = time;
+    },
+    seek: (time: number) => {
+      syncedPlayerRef.current?.seek(time);
+      setProgress(time);
     },
     addSongToQueue,
     rmSongFromQueue,

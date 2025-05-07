@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from fastapi.logger import logger
 
 load_dotenv()
 
@@ -20,7 +21,7 @@ if not os.path.exists(NO_VOCALS_DIR):
 VOCALS_DIR = os.path.join(STORAGE_DIR, "vocals")
 if not os.path.exists(VOCALS_DIR):
     os.makedirs(VOCALS_DIR)
-print("Storage directories initialized.", STORAGE_DIR)
+logger.info("Storage directories initialized. Path: %s.", STORAGE_DIR)
 
 
 def get_instrumental_path(filename: str) -> str | None:
@@ -69,7 +70,7 @@ def get_lyrics_path(filename: str) -> str | None:
     """
     path = Path(LYRICS_DIR, f"{filename}.lrc")
     print(path, path.exists(), os.path.exists(str(path)))
-    
+
     if path.exists():
         return str(path)
     else:

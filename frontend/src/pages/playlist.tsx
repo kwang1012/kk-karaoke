@@ -9,10 +9,11 @@ import {
   useTheme,
   useMediaQuery,
   IconButton,
-  Menu,
   MenuItem,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, memo } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import AppScrollbar from 'src/components/Scrollbar';
 import { useAudioStore } from 'src/store';
@@ -22,7 +23,8 @@ import { useWebSocketStore } from 'src/store/ws';
 import { useQuery } from '@tanstack/react-query';
 import { styled } from '@mui/material/styles';
 import Skeleton from 'react-loading-skeleton';
-import { MoreHoriz, PlayArrow } from '@mui/icons-material';
+import { Delete, MoreHoriz, PlayArrow, QueueMusic } from '@mui/icons-material';
+import AppMenu from 'src/components/Menu';
 
 const ALBUM_HEADERS = [
   {
@@ -80,9 +82,9 @@ const fetchTracks = async (collectionType: string, id: string): Promise<ReturnTy
 };
 
 const HoverTableRow = styled(TableRow)(({ theme }) => ({
-  cursor: 'pointer',
+  cursor: 'default',
   '& .row-actions': {
-    visibility: 'hidden',
+    opacity: 0,
   },
   '& .row-id': {
     display: ' block',
@@ -90,11 +92,14 @@ const HoverTableRow = styled(TableRow)(({ theme }) => ({
   '& .row-play': {
     display: 'none',
   },
-  '&:hover .row-actions': {
-    visibility: 'visible',
-  },
-  '&:hover': {
+  '&:hover, &.active': {
+    '*': {
+      color: 'white',
+    },
     backgroundColor: '#ffffff1a',
+    '.row-actions': {
+      opacity: 1,
+    },
     '& .row-id': {
       display: 'none',
     },
@@ -102,9 +107,12 @@ const HoverTableRow = styled(TableRow)(({ theme }) => ({
       display: 'flex',
     },
   },
+  '&.active': {
+    backgroundColor: '#ffffff3a',
+  },
   [theme.breakpoints.down('md')]: {
     '& .row-actions': {
-      visibility: 'visible',
+      opacity: 1,
     },
   },
 }));
@@ -124,123 +132,157 @@ const Header = styled('div')(({ theme }) => ({
   },
 }));
 
-const Actions = ({ song, addSongToQueue }: { song: Song; addSongToQueue: (song: Song) => void }) => {
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const open = Boolean(anchorEl);
-  const handleClick = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
-  const handleClose = () => {
-    setAnchorEl(null);
-  };
-  return (
-    <div>
-      <IconButton
-        id="demo-positioned-button"
-        className="row-actions"
-        sx={{ minWidth: 40 }}
-        onClick={(e) => {
-          e.stopPropagation();
-          console.log('More: ', song);
-          handleClick(e);
-        }}
-        aria-controls={open ? 'demo-positioned-menu' : undefined}
-        aria-haspopup="true"
-        aria-expanded={open ? 'true' : undefined}
-      >
-        <MoreHoriz className="text-[#b3b3b3]" />
-      </IconButton>
-      {/* <Menu
-        id="demo-positioned-menu"
-        aria-labelledby="demo-positioned-button"
-        anchorEl={anchorEl}
-        open={open}
-        onClose={handleClose}
-        anchorOrigin={{
-          vertical: 'top',
-          horizontal: 'left',
-        }}
-        transformOrigin={{
-          vertical: 'top',
-          horizontal: 'left',
-        }}
-      >
-        <MenuItem onClick={handleClose}>Profile</MenuItem>
-        <MenuItem onClick={handleClose}>My account</MenuItem>
-        <MenuItem onClick={handleClose}>Logout</MenuItem>
-      </Menu> */}
-    </div>
-  );
-};
-
-const TrackRow = (
-  i: number,
-  collectionType: string,
-  headers: { key: string; label: string }[],
-  song: Song,
-  initialized: boolean,
-  connected: boolean,
-  addSongToQueue: (song: Song) => void
-) => {
-  const trackRow = {
-    row_id: (
-      <>
-        <span className="row-id">{i + 1}</span>
-        <PlayArrow className="row-play" fontSize="small" />
-      </>
-    ),
-    name: (
-      <div className="flex items-center">
-        {collectionType === 'playlist' && (
-          <img
-            src={song.album?.image || placeholder}
-            className="w-10 h-10 object-cover rounded-md inline-block mr-2"
-            alt={song.name}
-          />
-        )}
-        <div>
-          <span className="line-clamp-1 ml-2">{song.name}</span>
-          {collectionType === 'album' && <span className="text-gray-400 ml-2">{song.artists.join(',')}</span>}
-        </div>
-      </div>
-    ),
-    artists: <span className="line-clamp-1">{song.artists.join(', ')}</span>,
-    album: <span className="line-clamp-1">{song.album?.name || '-'}</span>,
-    action: <Actions song={song} addSongToQueue={addSongToQueue} />,
-  };
-  const getWidth = (key: string) => {
-    switch (key) {
-      case 'artists':
-        return 120;
-      case 'row_id':
-      case 'action':
-        return 30;
-      default:
-        return undefined;
-    }
-  };
-  return (
-    <HoverTableRow
-      key={i}
-      sx={{ '& td': { border: 0, py: 2 } }}
-      onClick={() => initialized && connected && addSongToQueue(song)}
-    >
-      {headers.map((header) => (
-        <TableCell
-          key={header.key}
-          width={getWidth(header.key)}
-          align={header.key == 'row_id' ? 'center' : 'left'}
-          sx={{
-            color: header.key == 'name' ? 'white' : '#b3b3b3',
-            paddingY: 0,
+const ActionMenu = memo(
+  ({
+    song,
+    onAdd,
+    onDelete,
+    onOpen,
+    onClose,
+  }: {
+    song: Song;
+    onAdd?: (song: Song) => void;
+    onDelete?: (song: Song) => void;
+    onOpen: () => void;
+    onClose: () => void;
+  }) => {
+    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+    const open = Boolean(anchorEl);
+    const id = open ? 'simple-popover' : undefined;
+    const handleClick = (event: React.MouseEvent<HTMLElement>) => {
+      setAnchorEl(event.currentTarget);
+      onOpen();
+    };
+    const handleClose = () => {
+      setAnchorEl(null);
+      onClose();
+    };
+    return (
+      <div>
+        <IconButton
+          className="row-actions"
+          sx={{ minWidth: 40 }}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleClick(e);
           }}
+          aria-describedby={id}
         >
-          {trackRow[header.key]}
-        </TableCell>
-      ))}
-    </HoverTableRow>
-  );
-};
+          <MoreHoriz className="text-[#b3b3b3]" />
+        </IconButton>
+        <AppMenu id={id} open={open} anchorEl={anchorEl} onClose={handleClose}>
+          {onAdd && (
+            <MenuItem
+              onClick={() => {
+                onAdd(song);
+                handleClose();
+              }}
+            >
+              <ListItemIcon>
+                <QueueMusic />
+              </ListItemIcon>
+              <ListItemText>Add to queue</ListItemText>
+            </MenuItem>
+          )}
+          {onDelete && (
+            <MenuItem
+              onClick={() => {
+                onDelete(song);
+                handleClose();
+              }}
+            >
+              <ListItemIcon>
+                <Delete />
+              </ListItemIcon>
+              <ListItemText>Remove from queue</ListItemText>
+            </MenuItem>
+          )}
+        </AppMenu>
+      </div>
+    );
+  }
+);
+
+const TrackRow = memo(
+  ({
+    index,
+    collectionType,
+    headers,
+    song,
+    initialized,
+    connected,
+    onAdd,
+  }: {
+    index: number;
+    collectionType: string;
+    headers: { key: string; label: string }[];
+    song: Song;
+    initialized: boolean;
+    connected: boolean;
+    onAdd: (song: Song) => void;
+  }) => {
+    const [menuOpen, setMenuOpen] = useState(false);
+    const trackRow = {
+      row_id: (
+        <div className="flex items-center justify-center">
+          <span className="row-id">{index + 1}</span>
+          <div className="cursor-pointer" onClick={() => initialized && connected && onAdd(song)}>
+            <PlayArrow className="row-play" fontSize="small" />
+          </div>
+        </div>
+      ),
+      name: (
+        <div className="flex items-center">
+          {collectionType === 'playlist' && (
+            <img
+              src={song.album?.image || placeholder}
+              className="w-10 h-10 object-cover rounded-md inline-block mr-2"
+              alt={song.name}
+            />
+          )}
+          <div>
+            <span className="line-clamp-1 ml-2">{song.name}</span>
+            {collectionType === 'album' && <span className="text-gray-400 ml-2">{song.artists.join(',')}</span>}
+          </div>
+        </div>
+      ),
+      artists: <span className="line-clamp-1">{song.artists.join(', ')}</span>,
+      album: <span className="line-clamp-1">{song.album?.name || '-'}</span>,
+      action: (
+        <ActionMenu song={song} onAdd={onAdd} onOpen={() => setMenuOpen(true)} onClose={() => setMenuOpen(false)} />
+      ),
+    };
+    const getWidth = (key: string) => {
+      switch (key) {
+        case 'artists':
+          return 120;
+        case 'row_id':
+        case 'action':
+          return 30;
+        default:
+          return undefined;
+      }
+    };
+    return (
+      <HoverTableRow key={index} className={menuOpen ? 'active' : ''} sx={{ '& td': { border: 0, py: 2 } }}>
+        {headers.map((header) => (
+          <TableCell
+            key={header.key}
+            width={getWidth(header.key)}
+            align={header.key == 'row_id' ? 'center' : 'left'}
+            sx={{
+              color: header.key == 'name' ? 'white' : '#b3b3b3',
+              paddingY: 0,
+              paddingX: header.key == 'action' ? 0 : 2,
+            }}
+          >
+            {trackRow[header.key]}
+          </TableCell>
+        ))}
+      </HoverTableRow>
+    );
+  }
+);
 
 export default function PlaylistView() {
   const location = useLocation();
@@ -354,9 +396,18 @@ export default function PlaylistView() {
                 </TableHead>
                 {!isLoading && (
                   <TableBody>
-                    {tracks.map((track, i) =>
-                      TrackRow(i, collectionType, headers, track, initialized, connected, addSongToQueue)
-                    )}
+                    {tracks.map((track, i) => (
+                      <TrackRow
+                        key={i}
+                        index={i}
+                        collectionType={collectionType}
+                        headers={headers}
+                        song={track}
+                        onAdd={addSongToQueue}
+                        initialized={initialized}
+                        connected={connected}
+                      />
+                    ))}
                   </TableBody>
                 )}
               </Table>
@@ -364,7 +415,7 @@ export default function PlaylistView() {
                 <div className="p-5 pt-3">
                   <Skeleton
                     count={10}
-                    baseColor="#1f1f1f"
+                    baseColor="#121212"
                     highlightColor="#2a2a2a"
                     width="100%"
                     height={48}

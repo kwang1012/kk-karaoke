@@ -1,11 +1,11 @@
 import React from 'react';
 import { faHome } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { IconButton, AvatarGroup, Avatar, Tooltip, Button } from '@mui/material';
+import { IconButton, AvatarGroup, Avatar, Tooltip } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import SearchBox from './SearchBox';
 import { useAppStore } from 'src/store';
-import singSvg from 'src/assets/sing.svg';
+import singSvg from 'src/assets/sing2.svg';
 import SvgIcon from './SvgIcon';
 
 export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>) {
@@ -42,7 +42,7 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
               onClick={() => navigate('/lyrics')}
               disabled={singing}
             >
-              <SvgIcon className="w-6 h-6" src={singSvg} />
+              <SvgIcon className="w-8 h-8" src={singSvg} />
             </IconButton>
           </span>
         </Tooltip>
@@ -56,11 +56,11 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
               width: 48,
               height: 48,
               borderRadius: '50%',
-              backgroundColor: '#1f1f1f',
+              backgroundColor: '#1a1a1a',
               border: '2px solid transparent',
               '&:hover': {
-                backgroundColor: '#2f2f2f',
-                borderColor: '#3f3f3f',
+                backgroundColor: '#2a2a2a',
+                borderColor: '#3a3a3a',
               },
               '& .MuiTouchRipple-root .MuiTouchRipple-child': {
                 borderRadius: 'inherit',
@@ -81,7 +81,7 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
           slotProps={{
             surplus: {
               style: {
-                backgroundColor: '#1f1f1f',
+                backgroundColor: '#1a1a1a',
                 width: 32,
                 height: 32,
                 fontSize: '1rem',

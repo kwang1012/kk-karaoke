@@ -18,7 +18,6 @@ type PlayerContextType = {
   setDuration: React.Dispatch<React.SetStateAction<number>>;
   seeking: boolean;
   setSeeking: React.Dispatch<React.SetStateAction<boolean>>;
-  // seekingRef: React.MutableRefObject<boolean>;
   vocalOn: boolean;
   setVocalOn: React.Dispatch<React.SetStateAction<boolean>>;
   vocalVolume: number;
@@ -40,7 +39,7 @@ type PlayerContextType = {
 export const PlayerContext = createContext<PlayerContextType | null>(null);
 
 const DEFAULT_VOCAL_VOLUME = 0.6; // Default vocal volume
-const DEFAULT_VOCALESS_VOCAL_VOLUME = 0.1; // Default volume for voiceless playback
+const DEFAULT_VOCALESS_VOCAL_VOLUME = 0.05; // Default volume for voiceless playback
 const DEFAULT_INSTRUMENTAL_VOLUME = 0.8; // Default instrumental volume
 
 function createPlayerContext({
@@ -48,23 +47,18 @@ function createPlayerContext({
 }: {
   syncedPlayerRef: React.MutableRefObject<SyncedAudioPlayer | null>;
 }) {
-  // pure audio context
+  // audio context
   const [loading, setLoading] = useState(false);
   const [playing, setPlaying] = useState(false);
-  const [tempo, setTempo] = useState(1.0);
-  const [pitch, setPitch] = useState(1.0);
-  const [semitone, setSemitone] = useState(0);
   const [volume, setVolume] = useState(DEFAULT_INSTRUMENTAL_VOLUME);
   const [vocalVolume, setVocalVolume] = useState(DEFAULT_VOCAL_VOLUME);
   const [duration, setDuration] = useState(0);
   const [progress, setProgress] = useState(0);
   const [vocalOn, setVocalOn] = useState(false);
   const [seeking, setSeeking] = useState(false);
-  // const seekingRef = useRef(false);
   // lyrics context
   const [lyrics, setLyrics] = useState<Lyrics[]>([]);
   const [currentLine, setCurrentLine] = useState(-1);
-  // shared states
 
   // queue context
   const lastSongId = useRef<string | null>(null);
@@ -82,12 +76,6 @@ function createPlayerContext({
       setLoading,
       playing,
       setPlaying,
-      tempo,
-      setTempo,
-      pitch,
-      setPitch,
-      semitone,
-      setSemitone,
       volume,
       setVolume,
       progress,
@@ -96,7 +84,6 @@ function createPlayerContext({
       setDuration,
       seeking,
       setSeeking,
-      // seekingRef,
       vocalOn,
       setVocalOn,
       vocalVolume,
@@ -118,19 +105,12 @@ function createPlayerContext({
       setLoading,
       playing,
       setPlaying,
-      tempo,
-      setTempo,
-      pitch,
-      setPitch,
-      semitone,
-      setSemitone,
       volume,
       setVolume,
       duration,
       setDuration,
       seeking,
       setSeeking,
-      // seekingRef,
       vocalOn,
       setVocalOn,
       vocalVolume,
@@ -194,7 +174,6 @@ export const usePlayer = () => {
     setDuration,
     seeking,
     setSeeking,
-    // seekingRef,
     vocalOn,
     setVocalOn,
     progress,
@@ -244,13 +223,19 @@ export const usePlayer = () => {
     if (!playing) return;
 
     const interval = setInterval(() => {
-      if (!seeking) {
-        setProgress(syncedPlayerRef.current?.getCurrentTime() ?? 0);
+      if (!seeking && syncedPlayerRef.current && syncedPlayerRef.current.isPlaying) {
+        const currentTime = syncedPlayerRef.current?.getCurrentTime();
+        setProgress(currentTime);
+        if (currentTime >= duration) {
+          syncedPlayerRef.current?.stop();
+          setProgress(0);
+          next();
+        }
       }
     }, 200);
 
     return () => clearInterval(interval);
-  }, [playing]);
+  }, [playing, duration, seeking]);
 
   useEffect(() => {
     // no next song
@@ -272,24 +257,33 @@ export const usePlayer = () => {
     setLyrics([]);
     setCurrentLine(-1);
     setProgress(0);
+    const shouldPlay = lastSongId.current === null;
     lastSongId.current = currentSong.id;
     console.log('Play new song:', currentSong.name);
 
     const player = syncedPlayerRef.current;
     if (!player) return;
 
+    player.pause();
+    player.seek(0);
+    setLoading(true);
+
     Promise.all([
-      player.load(
+      player.loadAudio(
         `${api.getUri()}/songs/vocal/${currentSong.id}`,
         `${api.getUri()}/songs/instrumental/${currentSong.id}`
       ),
       fetchLyrics(currentSong.id),
-    ]).then(() => {
-      setDuration(player.getDuration());
-      if (playing) {
-        playAudio();
-      }
-    });
+    ])
+      .then(() => {
+        setDuration(player.getDuration());
+        if (playing || shouldPlay) {
+          playAudio();
+        }
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, [currentSong?.id, songStatus[currentSong?.id || '']]);
 
   const playAudio = () => {

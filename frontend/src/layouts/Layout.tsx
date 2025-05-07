@@ -83,7 +83,7 @@ export default function Layout() {
     if (path.startsWith('/lyrics')) {
       return 'bg-slate-600';
     } else {
-      return 'bg-[#1a1a1a]';
+      return 'bg-[#121212]';
     }
   }, [path]);
 

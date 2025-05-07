@@ -68,7 +68,7 @@ export default function Queue() {
   };
 
   return (
-    <QueueLayout className="flex-1 h-full bg-[#1f1f1f] rounded-lg mx-2 text-white max-w-[400px]">
+    <QueueLayout className="flex-1 h-full bg-[#121212] rounded-lg mx-2 text-white max-w-[400px]">
       <div className={['p-5 font-medium text-lg tracking-wide h-[68px]', scrollTop > 0 ? 'shadow-xl' : ''].join(' ')}>
         Queue
       </div>

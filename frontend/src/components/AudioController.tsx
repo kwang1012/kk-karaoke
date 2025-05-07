@@ -6,7 +6,7 @@ import SongCard from './SongCard';
 import { usePlayer } from 'src/hooks/player';
 import { useMemo, useState } from 'react';
 import { useAudioStore } from 'src/store';
-import { api } from 'src/utils/api';
+import { useLocation } from 'react-router-dom';
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds)) return '0:00';
@@ -16,8 +16,9 @@ function formatTime(seconds: number): string {
 }
 
 export default function AudioController() {
-  const { currentSong, progress, setProgress, seeking, setSeeking, duration, playing, resetProgress } = usePlayer();
+  const { currentSong, progress, seeking, setSeeking, duration, playing, resetProgress } = usePlayer();
   const { play, pause, next, previous } = usePlayer();
+  const location = useLocation();
   const lyricsDelay = useAudioStore((state) => state.lyricsDelays[currentSong?.id || ''] || 0);
   const setLyricsDelay = useAudioStore((state) => state.setLyricsDelay);
 
@@ -125,6 +126,7 @@ export default function AudioController() {
         {/* Volume Controls */}
         <div className="ml-auto w-[30%] flex items-center justify-end pr-2">
           {currentSong &&
+            location.pathname === '/lyrics' &&
             (editing ? (
               <div className="flex items-center">
                 <span>Delay lyrics by</span>

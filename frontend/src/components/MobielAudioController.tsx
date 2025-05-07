@@ -4,6 +4,7 @@ import { Icon, IconButton } from '@mui/material';
 import AppSlider from './Slider';
 import { usePlayer } from 'src/hooks/player';
 import { VolumeMuteOutlined, VolumeUpOutlined } from '@mui/icons-material';
+import { useMemo, useState } from 'react';
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds)) return '0:00';
@@ -12,8 +13,17 @@ function formatTime(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 export default function MobileAudioController() {
-  const { volume, progress, setProgress, setSeeking, duration, playing } = usePlayer();
+  const { volume, progress, seeking, setSeeking, duration, playing } = usePlayer();
   const { play, pause, next, previous, resetProgress, setVolume } = usePlayer();
+
+  const [localProgress, setLocalProgress] = useState(progress);
+
+  const realProgress = useMemo(() => {
+    if (seeking) {
+      return localProgress;
+    }
+    return progress;
+  }, [progress, localProgress, seeking]);
 
   const handlePlayPause = () => {
     if (playing) {
@@ -25,7 +35,7 @@ export default function MobileAudioController() {
 
   const handleSliderChange = (event: Event, value: number | number[]) => {
     if (typeof value === 'number') {
-      setProgress(value);
+      setLocalProgress(value);
     }
   };
 
@@ -46,7 +56,7 @@ export default function MobileAudioController() {
           className="w-full"
           min={0}
           max={duration}
-          value={progress}
+          value={realProgress}
           onChange={handleSliderChange}
           onChangeCommitted={handleSliderCommit}
           onMouseDown={handleSeekStart}

@@ -35,7 +35,7 @@ export default function Carousel({ children, className = '' }) {
         <div
           className="absolute top-0 left-0 z-2 h-full w-12 pointer-events-none"
           style={{
-            backgroundImage: 'linear-gradient(to right, #1f1f1f, transparent)',
+            backgroundImage: 'linear-gradient(to right, #121212, transparent)',
           }}
         />
       )}
@@ -45,7 +45,7 @@ export default function Carousel({ children, className = '' }) {
         <div
           className="absolute top-0 right-0 z-2 h-full w-12 pointer-events-none"
           style={{
-            backgroundImage: 'linear-gradient(to left, #1f1f1f, transparent)',
+            backgroundImage: 'linear-gradient(to left, #121212, transparent)',
           }}
         />
       )}
@@ -70,7 +70,7 @@ export function CarouselItem({
   return (
     <div
       className={[
-        'duration-300 cursor-pointer shrink-0 rounded-md snap-start overflow-hidden text-pretty min-h-40',
+        'duration-300 cursor-pointer shrink-0 rounded-md snap-start overflow-hidden text-pretty min-h-[200px]',
         active ? 'bg-primary/30 shadow-lg' : 'hover:bg-[#ffffff1a]',
         disable ? 'pointer-events-none hover:bg-[none]' : '',
         dense ? 'p-1' : 'p-3 w-[177px]',

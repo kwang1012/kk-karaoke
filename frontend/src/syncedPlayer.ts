@@ -11,23 +11,61 @@ class SyncedAudioPlayer {
 
   private startTime = 0;
   private startOffset = 0;
-  private isPlaying = false;
 
-  private isLoading = false;
+  public isPlaying = false;
+  public isLoading = false;
 
   constructor() {
     this.context = new AudioContext();
     this.vocalGain = this.context.createGain();
     this.instrumentalGain = this.context.createGain();
+
+    // Connect gains to destination
+    this.vocalGain.connect(this.context.destination);
+    this.instrumentalGain.connect(this.context.destination);
+  }
+
+  private stopAndCleanSources() {
+    if (this.vocalSource) {
+      this.vocalSource.stop();
+      this.vocalSource.disconnect();
+      this.vocalSource = undefined;
+    }
+
+    if (this.instrumentalSource) {
+      this.instrumentalSource.stop();
+      this.instrumentalSource.disconnect();
+      this.instrumentalSource = undefined;
+    }
+  }
+
+  stop() {
+    this.stopAndCleanSources();
+    this.startOffset = 0;
+    this.startTime = 0;
+    this.isPlaying = false;
   }
 
   async load(vocalUrl: string, instrumentalUrl: string) {
     if (this.isLoading) return;
     this.isLoading = true;
+
+    this.stopAndCleanSources(); // ensure no overlap or memory leak
+
     const [vocal, instrumental] = await Promise.all([this.loadBuffer(vocalUrl), this.loadBuffer(instrumentalUrl)]);
     this.vocalBuffer = vocal;
     this.instrumentalBuffer = instrumental;
+
+    // Reset timing
+    this.startOffset = 0;
+    this.startTime = 0;
     this.isLoading = false;
+  }
+
+  async loadAudio(vocalUrl: string, instrumentalUrl: string) {
+    this.pause(); // ensure current playback stops cleanly
+    await this.load(vocalUrl, instrumentalUrl);
+    this.play(); // autoplay after switching if desired
   }
 
   private async loadBuffer(url: string): Promise<AudioBuffer> {
@@ -66,6 +104,7 @@ class SyncedAudioPlayer {
   }
 
   seek(time: number) {
+    if (!this.vocalBuffer || !this.instrumentalBuffer) return;
     this.pause();
     this.startOffset = Math.min(time, this.getDuration());
     this.play();
@@ -77,7 +116,10 @@ class SyncedAudioPlayer {
   }
 
   getCurrentTime(): number {
-    return this.isPlaying ? this.context.currentTime - this.startTime + this.startOffset : this.startOffset;
+    return Math.min(
+      this.isPlaying ? this.context.currentTime - this.startTime + this.startOffset : this.startOffset,
+      this.getDuration()
+    );
   }
 
   getDuration(): number {

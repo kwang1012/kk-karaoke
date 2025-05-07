@@ -7,8 +7,8 @@ export default function LyricsView() {
   // local states
   const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  const { instrumentalRef, vocalRef, progress, currentLine, setCurrentLine, currentSong, lyrics, seeking } =
-    usePlayer();
+  const { progress, currentLine, setCurrentLine, currentSong, lyrics, seeking } = usePlayer();
+  const { seek } = usePlayer();
   const lyricsDelay = useAudioStore((state) => state.lyricsDelays[currentSong?.id || ''] || 0);
   const syncedLyrics = useMemo(() => {
     return lyrics.map((line) => {
@@ -17,7 +17,7 @@ export default function LyricsView() {
         time: line.time + lyricsDelay,
       };
     });
-  }, [lyrics, lyricsDelay])
+  }, [lyrics, lyricsDelay]);
 
   useEffect(() => {
     lineRefs.current = Array(lyrics.length).fill(null);
@@ -40,9 +40,7 @@ export default function LyricsView() {
 
   useEffect(() => {
     const index = syncedLyrics.findIndex((line, i) => {
-      return (
-        progress >= line.time && (i === syncedLyrics.length - 1 || progress < syncedLyrics[i + 1].time)
-      );
+      return progress >= line.time && (i === syncedLyrics.length - 1 || progress < syncedLyrics[i + 1].time);
     });
     if (index !== -1 && index !== currentLine && !seeking) {
       setCurrentLine(index);
@@ -51,12 +49,7 @@ export default function LyricsView() {
 
   const handleLineClick = async (index: number) => {
     const seekTime = syncedLyrics[index].time + lyricsDelay;
-
-    // Always set the time before calling play()
-    const instrumental = instrumentalRef.current;
-    const vocal = vocalRef.current;
-    if (!instrumental || !vocal) return;
-    instrumental.currentTime = vocal.currentTime = seekTime;
+    seek(seekTime);
   };
 
   return (

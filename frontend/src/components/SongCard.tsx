@@ -1,5 +1,5 @@
-import { CircularProgress, CircularProgressProps } from '@mui/material';
-import { ReactElement, useMemo } from 'react';
+import { Button, CircularProgress, CircularProgressProps } from '@mui/material';
+import { ReactElement, useMemo, useState } from 'react';
 import placeholderImage from 'src/assets/placeholder.png';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGears, faMusic } from '@fortawesome/free-solid-svg-icons';
@@ -12,6 +12,7 @@ type SongCardProps = {
   dense?: boolean;
   disable?: boolean;
   onAdd?: (song: Song) => void;
+  onDelete?: (song: Song) => void;
 };
 
 const CircularProgressWithLabel = ({ children, ...props }: { children?: ReactElement } & CircularProgressProps) => (
@@ -23,7 +24,7 @@ const CircularProgressWithLabel = ({ children, ...props }: { children?: ReactEle
   </div>
 );
 
-export default function SongCard({ className, song, dense, disable, onAdd, ...props }: SongCardProps) {
+export default function SongCard({ className, song, dense, disable, onAdd, onDelete, ...props }: SongCardProps) {
   const songStatus = useAudioStore((state) => state.songStatus);
   const songProgress = useAudioStore((state) => state.songProgress);
   const status = useMemo(() => songStatus[song.id], [songStatus, song.id]);
@@ -62,16 +63,14 @@ export default function SongCard({ className, song, dense, disable, onAdd, ...pr
     if (status === 'separating') return <FontAwesomeIcon width={20} height={20} color="white" icon={faGears} />;
     return <></>;
   }, [status]);
+  const [hovered, setHovered] = useState(false);
   return (
     <div
-      onClick={() => {
-        if (onAdd && initialized && connected) {
-          onAdd(parsedSong);
-        }
-      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       className={[
         `flex items-center relative overflow-hidden rounded-md my-2 ${className}`,
-        isReady && !disable && initialized && connected ? 'cursor-pointer hover:bg-[#2f2f2f]' : '',
+        isReady && !disable && initialized && connected ? 'hover:bg-[#2f2f2f]' : '',
         dense ? 'py-0 px-1' : 'px-2',
       ].join(' ')}
       {...props}
@@ -88,12 +87,24 @@ export default function SongCard({ className, song, dense, disable, onAdd, ...pr
           </CircularProgressWithLabel>
         </div>
       )}
-      <div className="w-10 h-10 bg-[#3f3f3f] rounded-md mr-4 overflow-hidden">
+      <div className="w-10 h-10 bg-[#3f3f3f] rounded-md mr-4 overflow-hidden shrink-0">
         <img src={parsedSong.album.image} className="w-full h-full" />
       </div>
       <div className="flex flex-col justify-between py-1">
         <span className="text-white line-clamp-1">{song.name}</span>
         <span className="text-sm text-gray-400">{parsedSong.artists.join(', ')}</span>
+      </div>
+      <div className="ml-auto mr-1">
+        {isReady && hovered && onAdd && initialized && connected && !disable && (
+          <Button variant="outlined" onClick={() => onAdd(parsedSong)}>
+            Add
+          </Button>
+        )}
+        {isReady && hovered && onDelete && initialized && connected && !disable && (
+          <Button variant="outlined" onClick={() => onDelete(parsedSong)}>
+            Remove
+          </Button>
+        )}
       </div>
     </div>
   );

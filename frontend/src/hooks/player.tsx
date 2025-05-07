@@ -1,3 +1,4 @@
+import { rm } from 'fs';
 import React, { createContext, useMemo, useState, useContext, useRef, useEffect } from 'react';
 // @ts-ignore
 import { useAudioStore } from 'src/store/audio';
@@ -17,8 +18,9 @@ type PlayerContextType = {
   setProgress: React.Dispatch<React.SetStateAction<number>>;
   duration: number;
   setDuration: React.Dispatch<React.SetStateAction<number>>;
-  seeking: boolean;
-  setSeeking: React.Dispatch<React.SetStateAction<boolean>>;
+  // seeking: boolean;
+  // setSeeking: React.Dispatch<React.SetStateAction<boolean>>;
+  seekingRef: React.MutableRefObject<boolean>;
   vocalOn: boolean;
   setVocalOn: React.Dispatch<React.SetStateAction<boolean>>;
   vocalVolume: number;
@@ -61,7 +63,8 @@ function createPlayerContext({
   const [duration, setDuration] = useState(0);
   const [progress, setProgress] = useState(0);
   const [vocalOn, setVocalOn] = useState(false);
-  const [seeking, setSeeking] = useState(false);
+  // const [seeking, setSeeking] = useState(false);
+  const seekingRef = useRef(false);
   // lyrics context
   const [lyrics, setLyrics] = useState<Lyrics[]>([]);
   const [currentLine, setCurrentLine] = useState(-1);
@@ -78,7 +81,7 @@ function createPlayerContext({
 
   const onTimeUpdate = () => {
     if (instrumentalRef.current) {
-      if (!seeking) {
+      if (!seekingRef.current) {
         setProgress(instrumentalRef.current.currentTime);
       }
     }
@@ -111,8 +114,9 @@ function createPlayerContext({
       setProgress,
       duration,
       setDuration,
-      seeking,
-      setSeeking,
+      // seeking,
+      // setSeeking,
+      seekingRef,
       vocalOn,
       setVocalOn,
       vocalVolume,
@@ -148,8 +152,9 @@ function createPlayerContext({
       setVolume,
       duration,
       setDuration,
-      seeking,
-      setSeeking,
+      // seeking,
+      // setSeeking,
+      seekingRef,
       vocalOn,
       setVocalOn,
       vocalVolume,
@@ -210,8 +215,9 @@ export const usePlayer = () => {
     setVolume,
     duration,
     setDuration,
-    seeking,
-    setSeeking,
+    // seeking,
+    // setSeeking,
+    seekingRef,
     vocalOn,
     setVocalOn,
     vocalVolume,
@@ -257,6 +263,17 @@ export const usePlayer = () => {
         console.error('Error fetching lyrics:', error);
       });
   };
+
+  // useEffect(() => {
+  //   setInterval(() => {
+  //     const instrumental = instrumentalRef.current;
+  //     const vocal = vocalRef.current;
+  //     if (!instrumental || !vocal) return;
+  //     if (instrumental.currentTime !== vocal.currentTime) {
+  //       vocal.currentTime = instrumental.currentTime;
+  //     }
+  //   }, 5000);
+  // }, []);
 
   useEffect(() => {
     // no next song
@@ -347,6 +364,12 @@ export const usePlayer = () => {
         console.error('Error adding song to queue:', error);
       });
   };
+  const rmSongFromQueue = async (song: Song) => {
+    // TODO: implement remove song from queue
+    api.post('queue/remove', song).catch((error) => {
+      console.error('Error removing song from queue:', error);
+    });
+  };
 
   return {
     instrumentalRef,
@@ -355,8 +378,10 @@ export const usePlayer = () => {
     playing,
     duration,
     volume,
-    seeking,
-    setSeeking,
+    seeking: seekingRef.current,
+    setSeeking: (value: boolean) => {
+      seekingRef.current = value;
+    },
     progress,
     setProgress,
     vocalOn,
@@ -391,7 +416,18 @@ export const usePlayer = () => {
     addToQueue: (song: Song) => {
       setQueue((prevQueue) => [...prevQueue, song]);
     },
+    rmFromQueue: (song: Song) => {
+      setQueue((prevQueue) => prevQueue.filter((s) => s.id !== song.id));
+    },
+    resetProgress: (time: number) => {
+      const instrumental = instrumentalRef.current;
+      const vocal = vocalRef.current;
+      if (!instrumental || !vocal) return;
+      setProgress(time);
+      instrumental.currentTime = vocal.currentTime = time;
+    },
     addSongToQueue,
+    rmSongFromQueue,
     fetchDefaultTracks,
   };
 };

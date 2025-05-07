@@ -4,10 +4,7 @@ import syncedlyrics
 import asyncio
 from uuid import uuid4 as uuid
 
-LYRICS_DIR = "storage/lyrics"
-RAW_AUDIO_DIR = "storage/raw"
-NO_VOCALS_DIR = "storage/no_vocals"
-VOCALS_DIR = "storage/vocals"
+from utils import RAW_AUDIO_DIR, LYRICS_DIR, VOCALS_DIR, NO_VOCALS_DIR
 
 
 def _search_youtube(query: str, limit: int = 5) -> list:
@@ -35,13 +32,6 @@ def _search_youtube(query: str, limit: int = 5) -> list:
         for entry in entries
     ]
     return results
-
-
-async def async_download_audio(sid: str, search_term: str) -> None:
-    """
-    Asynchronous wrapper for download_audio function.
-    """
-    download_audio(sid, search_term)
 
 
 def download_audio(sid: str, search_term: str) -> None:
@@ -87,13 +77,6 @@ def download_audio(sid: str, search_term: str) -> None:
         ydl.download([url])
 
     print(f"Downloaded audio to {audio_path}")
-
-
-async def async_download_lyrics(sid: str, search_term: str) -> None:
-    """
-    Asynchronous wrapper for download_lyrics function.
-    """
-    download_lyrics(sid, search_term)
 
 
 def download_lyrics(sid: str, search_term: str) -> None:

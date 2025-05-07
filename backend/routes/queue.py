@@ -55,3 +55,18 @@ async def add_to_queue(song: Song):
     task = send_process_request(song)
 
     return JSONResponse(content={"is_ready": False, "task": task.id}, status_code=200)
+
+@router.post("/remove")
+async def remove_from_queue(song: Song):
+    """
+    Remove a song from the queue.
+    """
+    # update db
+    await ws_manager.broadcast({
+        "type": "queue",
+        "data": {
+            "action": "removed",
+            "song": song.model_dump(),
+        },
+    })
+    return JSONResponse(content={"message": "Song removed from queue"}, status_code=200)

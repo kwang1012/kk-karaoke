@@ -24,6 +24,19 @@ let socket: WebSocket | null = null;
 
 export type MessageQueue = Record<string, Message[]>;
 
+let reconnectTimeout: NodeJS.Timeout | null = null;
+let manualDisconnect = false; // Tracks intentional disconnects
+let retryCount = 0;
+const maxRetries = 10;
+const baseDelay = 1000; // 1 second
+
+function getBackoffDelay(attempt: number) {
+  const maxDelay = 30000; // 30 seconds cap
+  const delay = Math.min(baseDelay * 2 ** attempt, maxDelay);
+  const jitter = Math.random() * 1000; // up to 1s jitter
+  return delay + jitter;
+}
+
 export const useWebSocketStore = create<WebSocketState>()(
   subscribeWithSelector((set, get) => ({
     messageQueues: {},
@@ -60,7 +73,6 @@ export const useWebSocketStore = create<WebSocketState>()(
 
       socket.onmessage = (event) => {
         const msg = JSON.parse(event.data) as Message;
-        console.log('Received message:', msg.type);
         if (msg.type === 'init') {
           ('Initalized websocket connection');
           set({ initialized: true });
@@ -70,11 +82,27 @@ export const useWebSocketStore = create<WebSocketState>()(
       };
 
       socket.onopen = () => {
-        set({ connected: true });
+        console.log('WebSocket connected');
+        set({ connected: true, error: null });
+        retryCount = 0;
+        if (reconnectTimeout) {
+          clearTimeout(reconnectTimeout);
+          reconnectTimeout = null;
+        }
       };
 
       socket.onclose = () => {
         set({ connected: false });
+
+        if (!manualDisconnect && retryCount < maxRetries) {
+          const delay = getBackoffDelay(retryCount++);
+          console.warn(`WebSocket closed, retrying in ${Math.round(delay)}ms`);
+          reconnectTimeout = setTimeout(() => {
+            get().connect();
+          }, delay);
+        } else if (retryCount >= maxRetries) {
+          console.error('Max WebSocket reconnection attempts reached.');
+        }
       };
 
       socket.onerror = (e) => {
@@ -82,6 +110,13 @@ export const useWebSocketStore = create<WebSocketState>()(
       };
     },
     disconnect: () => {
+      console.log('Disconnecting WebSocket...');
+      manualDisconnect = true;
+      retryCount = 0;
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+        reconnectTimeout = null;
+      }
       if (socket) {
         socket.close();
         socket = null;

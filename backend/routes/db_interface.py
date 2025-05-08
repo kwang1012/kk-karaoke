@@ -12,8 +12,8 @@ class RedisQueueInterface:
     def __init__(self, redis_client: redis.Redis):
         self.redis = redis_client
         self.queue_key = "song_queue"  # Key for the main song queue
-        self.song_data_prefix = "song_data_:"  # Prefix for individual song data
-        self.delay_key_prefix = "song_delay_" 
+        self.song_data_prefix = "song_data:"  # Prefix for individual song data
+        self.delay_key_prefix = "song_delay:" 
 
     # --- Queue Operations ---
     def add_song_to_queue(self, song: Song) -> int:

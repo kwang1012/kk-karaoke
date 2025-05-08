@@ -27,13 +27,12 @@ async def add_to_queue_endpoint(
         redis_interface.add_song_to_queue(
             room_id, song)  # Use the new method
 
-        return JSONResponse({"is_ready": True, "task": None})
         await ws_manager.broadcast(
             {"type": "queue", "data": {
-                "action": "added", "song": room.song.model_dump()}}
+                "action": "added", "song": song.model_dump()}}
         )
 
-        if redis_interface.is_song_data_ready(room.song) and is_ready(room.song):
+        if redis_interface.is_song_data_ready(song) and is_ready(song):
             return JSONResponse(content={"is_ready": True, "task": None}, status_code=200)
 
         loop = asyncio.get_event_loop()
@@ -46,9 +45,9 @@ async def add_to_queue_endpoint(
                 message_data), loop)
 
         redis_interface.subscribe_to_channel(
-            room.song.id, process_message_callback)
+            song.id, process_message_callback)
 
-        task = send_process_request(room.song)
+        task = send_process_request(song)
         return JSONResponse(content={"is_ready": False, "task": task.id}, status_code=200)
 
     except redis.RedisError as e:

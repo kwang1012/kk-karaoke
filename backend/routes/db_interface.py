@@ -3,10 +3,12 @@ import json
 import threading
 from typing import Optional, List
 import redis
-from managers.db import DatabaseManager  
-from models.song import Song 
+from managers.db import DatabaseManager
+from models.song import Song
 
 # --- Redis Interface for Queue Management ---
+
+
 class RedisQueueInterface:
 
     def __init__(self, redis_client: redis.Redis):
@@ -33,7 +35,7 @@ class RedisQueueInterface:
                     if stored_song.id == song.id:
                         self.redis.lrem(self.queue_key, 1, song_data)
                         return "OK"
-            return None # not found
+            return None  # not found
         except redis.RedisError as e:
             print(f"Error removing song from queue: {e}")
             raise
@@ -130,23 +132,25 @@ class RedisQueueInterface:
             for message in pubsub.listen():
                 if message["type"] == "message":
                     try:
-                        data = json.loads(message["data"].decode())
+                        data = json.loads(message["data"])
                         # Since we're in a thread, we need to use asyncio.run_coroutine_threadsafe
                         # to interact with the main thread's event loop if the callback
                         # does any async operations.
-                        loop = asyncio.get_event_loop()
-                        asyncio.run_coroutine_threadsafe(callback_func(data), loop)
+                        callback_func(data)
                     except json.JSONDecodeError:
-                        print(f"Error decoding JSON message on channel {channel_name}: {message['data']}")
+                        print(
+                            f"Error decoding JSON message on channel {channel_name}: {message['data']}")
                     except Exception as e:
-                        print(f"Error processing message on channel {channel_name}: {e}")
+                        print(
+                            f"Error processing message on channel {channel_name}: {e}")
 
         # Get a fresh connection for the subscriber thread.  Important!
-        subscriber_redis = DatabaseManager().get_session() # Get new redis instance.
+        # Get new redis instance.
+        subscriber_redis = DatabaseManager().get_session()
         thread = threading.Thread(
-            target=_subscriber_thread, args=(subscriber_redis, channel, callback)
+            target=_subscriber_thread, args=(
+                subscriber_redis, channel, callback)
         )  # Pass the redis client
         thread.daemon = True  # Allow the main thread to exit even if this is running
         thread.start()
         return thread
-

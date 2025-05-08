@@ -319,13 +319,12 @@ export default function PlaylistView() {
     if (collectionType === 'album') {
       song.album = collection;
     }
+    setSongStatus(song.id, 'submitted');
     api
       .post('/queue/add', song)
       .then(({ data }) => {
         if (data.is_ready) {
           setSongStatus(song.id, 'ready');
-        } else {
-          setSongStatus(song.id, 'submitted');
         }
       })
       .catch((error) => {

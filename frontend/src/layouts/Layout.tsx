@@ -50,9 +50,9 @@ const Sidebar = styled('div')(({ theme }) => ({
 const Main = styled('div')(({ theme }) => ({
   gridArea: 'main',
   height: '100%',
-  [theme.breakpoints.down('md')]: {
-    backgroundImage: 'linear-gradient(to bottom, #CC3363, #CC336340, #CC336310)',
-  },
+  // [theme.breakpoints.down('md')]: {
+  //   backgroundImage: 'linear-gradient(to bottom, #CC3363, #CC336340, #CC336310)',
+  // },
 }));
 
 const QueueContainer = styled('div')(({ theme }) => ({

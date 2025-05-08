@@ -1,4 +1,5 @@
 import moment from 'moment';
+import ColorThief from 'colorthief';
 
 export const format = (date: string | Date) => {
   if (typeof date === 'string') date = new Date(date);
@@ -60,4 +61,27 @@ export function normalize(data: any) {
   }
 
   return data;
+}
+
+function componentToHex(c: number) {
+  var hex = c.toString(16);
+  return hex.length == 1 ? '0' + hex : hex;
+}
+
+function rgbToHex(r: number, g: number, b: number) {
+  return '#' + componentToHex(r) + componentToHex(g) + componentToHex(b);
+}
+
+export function getAvgRGB(src: string): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.setAttribute('crossOrigin', '');
+    console.log(src);
+    img.src = src;
+    img.onload = () => {
+      const colorThief = new ColorThief();
+      const [r, g, b] = colorThief.getColor(img);
+      resolve(rgbToHex(r, g, b));
+    };
+  });
 }

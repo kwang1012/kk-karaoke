@@ -105,9 +105,12 @@ class SyncedAudioPlayer {
 
   seek(time: number) {
     if (!this.vocalBuffer || !this.instrumentalBuffer) return;
+    const wasPlaying = this.isPlaying;
     this.pause();
     this.startOffset = Math.min(time, this.getDuration());
-    this.play();
+    if (wasPlaying) {
+      this.play();
+    }
   }
 
   setVolume(instrumentalVolume: number, vocalVolume: number) {

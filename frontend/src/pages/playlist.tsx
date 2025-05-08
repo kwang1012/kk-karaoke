@@ -25,6 +25,8 @@ import { styled } from '@mui/material/styles';
 import Skeleton from 'react-loading-skeleton';
 import { Delete, MoreHoriz, PlayArrow, QueueMusic } from '@mui/icons-material';
 import AppMenu from 'src/components/Menu';
+import { getAvgRGB } from 'src/utils';
+import Scrollbar from 'react-scrollbars-custom';
 
 const ALBUM_HEADERS = [
   {
@@ -122,10 +124,10 @@ const Header = styled('div')(({ theme }) => ({
   padding: 20,
   placeItems: 'center',
   gridTemplateColumns: 'auto 1fr',
-  backgroundImage: 'linear-gradient(to bottom, #CC3363, #CC336340, #CC336310)',
   [theme.breakpoints.down('md')]: {
     gridTemplateColumns: '1fr',
     padding: 5,
+    paddingTop: 15,
     '& .title': {
       padding: '0 75px 10px 75px',
     },
@@ -203,6 +205,18 @@ const ActionMenu = memo(
   }
 );
 
+const getWidth = (key: string) => {
+  switch (key) {
+    case 'artists':
+      return 120;
+    case 'row_id':
+    case 'action':
+      return 30;
+    default:
+      return undefined;
+  }
+};
+
 const TrackRow = memo(
   ({
     index,
@@ -252,17 +266,6 @@ const TrackRow = memo(
         <ActionMenu song={song} onAdd={onAdd} onOpen={() => setMenuOpen(true)} onClose={() => setMenuOpen(false)} />
       ),
     };
-    const getWidth = (key: string) => {
-      switch (key) {
-        case 'artists':
-          return 120;
-        case 'row_id':
-        case 'action':
-          return 30;
-        default:
-          return undefined;
-      }
-    };
     return (
       <HoverTableRow key={index} className={menuOpen ? 'active' : ''} sx={{ '& td': { border: 0, py: 2 } }}>
         {headers.map((header) => (
@@ -293,15 +296,8 @@ export default function PlaylistView() {
   const initialized = useWebSocketStore((state) => state.initialized);
   const connected = useWebSocketStore((state) => state.connected);
   const headerRef = useRef<HTMLDivElement>(null);
-  const [headerHeight, setHeaderHeight] = useState(0);
   const theme = useTheme();
   const mobile = useMediaQuery(theme.breakpoints.down('md'));
-
-  useEffect(() => {
-    if (headerRef.current) {
-      setHeaderHeight(headerRef.current.clientHeight);
-    }
-  }, [headerRef]);
 
   const headers = useMemo(() => {
     return collectionType === 'album' || mobile ? ALBUM_HEADERS : PLAYLIST_HEADERS;
@@ -313,6 +309,18 @@ export default function PlaylistView() {
   });
   const collection = useMemo(() => data?.collection || initCollection, [data, initCollection]);
   const tracks = useMemo(() => data?.tracks || [], [data]);
+  const [color, setColor] = useState<string>('#535353');
+  useEffect(() => {
+    if (collection.image) {
+      getAvgRGB(collection.image)
+        .then((data) => {
+          setColor(data);
+        })
+        .catch((error) => {
+          console.error('Error fetching average RGB:', error);
+        });
+    }
+  }, [collection.image]);
 
   const addSongToQueue = (song: Song) => {
     // Function to add a song to the queue
@@ -331,36 +339,44 @@ export default function PlaylistView() {
         console.error('Error adding song to queue:', error);
       });
   };
+  const [scrollTop, setScrollTop] = useState(0);
 
-  const [scrollPosition, setScrollPosition] = useState(0);
-
-  const handleScrollTop = (scrollTop: number) => {
-    setScrollPosition(scrollTop);
-  };
-  const toolbarStyle = useMemo(() => {
-    const newOpacity = Math.min(1, (scrollPosition - 0.7 * headerHeight) / (headerHeight - 0.7 * headerHeight));
-    return {
-      backgroundColor: 'black',
-      opacity: newOpacity,
-    };
-  }, [scrollPosition, headerHeight]);
+  useEffect(() => {
+    if (!headerRef.current) return;
+    setIsSticky(scrollTop > headerRef.current.clientHeight - 74); // header top + 10
+    setHalfway(scrollTop > headerRef.current.clientHeight - 104);
+  }, [scrollTop, headerRef]);
+  const [halfway, setHalfway] = useState(false);
+  const [isSticky, setIsSticky] = useState(false);
 
   return (
     <div className="h-full relative pb-4">
-      <AppBar position="absolute" sx={{ transition: 'none', zIndex: 2, ...toolbarStyle }}>
-        <Toolbar variant="dense">
-          {scrollPosition > 100 && (
-            <>
-              <img src={collection.image || placeholder} className="w-8 h-8 rounded-md" />
-              <div className="text-xl ml-4 line-clamp-1">{collection.name}</div>
-            </>
-          )}
+      <AppBar
+        position="absolute"
+        className={[
+          'text-white',
+          'transition-opacity duration-300 ease-in-out',
+          halfway ? 'opacity-100 bg-black' : 'bg-transparent opacity-0',
+        ].join(' ')}
+        elevation={0}
+      >
+        <Toolbar>
+          <>
+            <img src={collection.image || placeholder} className="w-8 h-8 rounded-md" />
+            <div className="text-xl ml-4 line-clamp-1">{collection.name}</div>
+          </>
         </Toolbar>
       </AppBar>
-      <AppScrollbar onScrollTop={handleScrollTop}>
-        <div className="h-full">
+      <AppScrollbar onScroll={(el: Scrollbar) => setScrollTop(el.scrollTop)}>
+        <div className="h-full relative">
           {/* Header */}
-          <Header ref={headerRef}>
+          <Header
+            ref={headerRef}
+            className="h-[335px] md:h-[200px]"
+            style={{
+              backgroundImage: `linear-gradient(to bottom, ${color}, ${color}40)`,
+            }}
+          >
             <div className="title h-full shrink-0 w-full md:w-40 max-w-[400px]">
               <img
                 src={collection.image || placeholder}
@@ -373,18 +389,25 @@ export default function PlaylistView() {
               <div className="text-sm text-gray-200 mt-1 line-clamp-1">{collection.description}</div>
             </div>
           </Header>
-          <div>
+          <div
+            style={{
+              backgroundImage: `linear-gradient(to bottom, ${color}40, #121212)`,
+            }}
+            className="absolute top-[335px] md:top-[200px] w-full h-[150px] z-0"
+          ></div>
+          <div className="z-1 relative">
             <div className="text-white">
               <Table aria-label="simple table" stickyHeader>
                 <TableHead>
                   <TableRow
                     sx={{
-                      '& th': { borderColor: '#b3b3b3', bgcolor: '#1a1a1a', top: 48 },
+                      '& th': { borderColor: '#b3b3b3', bgcolor: isSticky ? '#1a1a1a' : 'transparent', top: 64 },
                     }}
                   >
                     {headers.map((header) => (
                       <TableCell
                         key={header.key}
+                        width={getWidth(header.key)}
                         align={header.key == 'row_id' ? 'center' : 'left'}
                         sx={{ color: '#b3b3b3', pt: 2, pb: 2 }}
                       >

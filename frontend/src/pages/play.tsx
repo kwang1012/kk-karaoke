@@ -6,6 +6,7 @@ import SongCard from 'src/components/SongCard';
 import AppScrollbar from 'src/components/Scrollbar';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@mui/material';
+import { getAvgRGB } from 'src/utils';
 
 const Layout = styled('div')(({ theme }) => ({
   display: 'grid',
@@ -17,7 +18,6 @@ const Layout = styled('div')(({ theme }) => ({
   minHeight: '100%',
   paddingTop: 10,
   paddingBottom: 10,
-  backgroundImage: 'linear-gradient(to bottom, #CC3363, #CC336340, #CC336310)',
 }));
 
 const Overlay = styled('div')(({ theme }) => ({
@@ -27,8 +27,6 @@ const Overlay = styled('div')(({ theme }) => ({
   right: 0,
   height: 84,
   zIndex: 1,
-  background: 'linear-gradient(#cc3363, #C63260)',
-  boxShadow: '0px 4px 24px rgba(0, 0, 0, 0.25)',
 }));
 export default function PlayView() {
   const { currentSong, queue, queueIdx } = usePlayer();
@@ -44,12 +42,38 @@ export default function PlayView() {
   useEffect(() => {
     window.scrollTo(0, 1);
   }, []);
+  const [color, setColor] = useState<string>('#535353');
+  useEffect(() => {
+    const image = currentSong?.album?.image;
+    if (!image) {
+      setColor('#535353');
+      return;
+    }
+    getAvgRGB(image)
+      .then((data) => {
+        setColor(data);
+      })
+      .catch((error) => {
+        console.error('Error fetching average RGB:', error);
+      });
+  }, [currentSong?.image]);
   return (
-    <Layout>
+    <Layout
+      style={{
+        backgroundImage: `linear-gradient(to bottom, ${color} 84px, ${color}40, #121212)`,
+      }}
+    >
       <div className="flex flex-col items-center h-full relative pb-5">
         <AppScrollbar onScroll={({ scrollTop }) => setScrollTop(scrollTop)} className="w-full h-full">
           <div className="w-full">{/* PUT HISTORY */}</div>
-          {sticky && <Overlay />}
+          {sticky && (
+            <Overlay
+              className="shadow-md"
+              style={{
+                background: color,
+              }}
+            />
+          )}
           <div ref={ref} className="sticky top-0 flex items-center w-full z-50 px-6">
             <div className="w-16 h-16 rounded-md bg-[#c3c3c3] overflow-hidden">
               <img src={currentSong?.album?.image || placeholder} className="w-full h-full" />

@@ -15,7 +15,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGears, faMusic } from '@fortawesome/free-solid-svg-icons';
 import { useAudioStore } from 'src/store';
 import { useWebSocketStore } from 'src/store/ws';
-import { Delete, MoreHoriz, QueueMusic } from '@mui/icons-material';
+import { Delete, MoreHoriz, PlayArrow, QueueMusic } from '@mui/icons-material';
 import AppMenu from './Menu';
 
 type SongCardProps = {
@@ -200,7 +200,15 @@ export default function SongCard({ className, song, dense, disable, onAdd, onDel
           </CircularProgressWithLabel>
         </div>
       )}
-      <div className="w-10 h-10 bg-[#b3b3b3] rounded-md mr-4 overflow-hidden shrink-0">
+      <div className="relative w-10 h-10 bg-[#b3b3b3] rounded-md mr-4 overflow-hidden shrink-0">
+        {hasActions && (
+          <div
+            className="actions absolute flex items-center justify-center w-full h-full bg-[#3b3b3b70] cursor-pointer"
+            onClick={() => onAdd?.(parsedSong)}
+          >
+            <PlayArrow />
+          </div>
+        )}
         <img src={parsedSong.album.image} className="w-full h-full" />
       </div>
       <div className="flex flex-col justify-between py-1 flex-1">

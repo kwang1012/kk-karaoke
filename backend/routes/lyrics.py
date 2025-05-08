@@ -16,10 +16,12 @@ delay_mapping = {
     "0qdPpfbrgdBs6ie9bTtQ1d": -0.5,
 }
 
+
 @router.post("/delay")
 def update_delay(
     lyrics_delay: LyricsDelay,
-    redis_interface: RedisQueueInterface = Depends(lambda: RedisQueueInterface(get_db())),
+    redis_interface: RedisQueueInterface = Depends(
+        lambda: RedisQueueInterface(get_db())),
 ):
     """
     Updates the delay for a song in the database (Redis).
@@ -35,12 +37,14 @@ def update_delay(
         redis_interface.store_song_delay(lyrics_delay.id, lyrics_delay.delay)
         return {"message": "Delay updated successfully"}
     except RedisError as e:
-        raise HTTPException(status_code=500, detail=f"Failed to update delay: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to update delay: {e}")
 
 
-@router.get("/{filename}")
-def get_song(filename: str):
-    file_path = get_lyrics_path(filename)
+@router.get("/{song_id}")
+def get_lyrics(song_id: str,
+               redis_interface: RedisQueueInterface = Depends(lambda: RedisQueueInterface(get_db())),):
+    file_path = get_lyrics_path(song_id)
     if not file_path:
         return JSONResponse(status_code=404, content={"error": "Lyrics not found"})
     try:
@@ -49,14 +53,17 @@ def get_song(filename: str):
         # Parse the lyrics file
         pattern = re.compile(r"\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)")
         lyrics = []
+        delay = redis_interface.get_song_delay(song_id)
         for line in raw_lines:
             match = pattern.match(line.strip())
             if match:
                 minutes = int(match.group(1))
                 seconds = float(match.group(2))
                 ms = float("0." + match.group(3))
-                timestamp = round(minutes * 60 + seconds + ms, 2) + \
-                    delay_mapping.get(filename, 0)
+              
+                timestamp = round(minutes * 60 + seconds + ms, 2)
+                if delay is not None:
+                    timestamp += delay
                 text = match.group(4).strip()
                 lyrics.append({
                     "time": timestamp,

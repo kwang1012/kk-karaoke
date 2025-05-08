@@ -73,7 +73,6 @@ export const useWebSocketStore = create<WebSocketState>()(
 
       socket.onmessage = (event) => {
         const msg = JSON.parse(event.data) as Message;
-        console.log('Received message:', msg.type);
         if (msg.type === 'init') {
           ('Initalized websocket connection');
           set({ initialized: true });

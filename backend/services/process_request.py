@@ -14,7 +14,7 @@ from services.voice_remover import separate_vocals
 
 ws_manager = WebSocketManager()
 
-redis_uri = f"redis://{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', 6379)}/1"
+redis_uri = f"redis://{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', 6379)}/0"
 celery = Celery("worker", broker=redis_uri, backend=redis_uri)
 
 r = redis.Redis(host=os.getenv("REDIS_HOST", "localhost"),
@@ -42,7 +42,6 @@ def send_process_request(song: Song) -> AsyncResult:
 
 @celery.task(name="process_request")
 def process_request(song: Union[dict[str, Any], Song]):
-    print(song)
     if isinstance(song, dict):
         song = Song(**song)
     print("Processing request for song:", song)

@@ -273,7 +273,7 @@ const TrackRow = memo(
             sx={{
               color: header.key == 'name' ? 'white' : '#b3b3b3',
               paddingY: 0,
-              paddingX: header.key == 'action' ? 0 : 2,
+              paddingX: header.key == 'action' ? 1 : 2,
             }}
           >
             {trackRow[header.key]}
@@ -369,7 +369,7 @@ export default function PlaylistView() {
                 alt={collection.name}
               />
             </div>
-            <div className="description ml-4 flex flex-col justify-center">
+            <div className="description ml-4 flex flex-col justify-center md:justify-start w-full">
               <span className="text-2xl md:text-4xl font-bold line-clamp-2 leading-1.5">{collection.name}</span>
               <div className="text-sm text-gray-200 mt-1 line-clamp-1">{collection.description}</div>
             </div>

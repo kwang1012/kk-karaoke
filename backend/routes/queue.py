@@ -45,6 +45,7 @@ async def add_to_queue_endpoint(
 
 
 
+
 @router.post("/remove")
 async def remove_from_queue_endpoint(
     song: Song,

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from models.song import LyricsDelay
 from utils import get_lyrics_path
 from redis import RedisError
 import re
@@ -17,8 +18,7 @@ delay_mapping = {
 
 @router.post("/delay")
 def update_delay(
-    song_id: str,
-    delay: float,
+    lyrics_delay: LyricsDelay,
     redis_interface: RedisQueueInterface = Depends(lambda: RedisQueueInterface(get_db())),
 ):
     """
@@ -32,7 +32,7 @@ def update_delay(
         A JSON response indicating the result of the operation.
     """
     try:
-        redis_interface.store_song_delay(song_id, delay)
+        redis_interface.store_song_delay(lyrics_delay.id, lyrics_delay.delay)
         return {"message": "Delay updated successfully"}
     except RedisError as e:
         raise HTTPException(status_code=500, detail=f"Failed to update delay: {e}")

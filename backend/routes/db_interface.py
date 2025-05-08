@@ -3,17 +3,19 @@ import json
 import threading
 from typing import Optional, List
 import redis
-from managers.db import DatabaseManager  
-from models.song import Song,LyricsDelay
+from managers.db import DatabaseManager
+from models.song import Song
 
 # --- Redis Interface for Queue Management ---
+
+
 class RedisQueueInterface:
 
     def __init__(self, redis_client: redis.Redis):
         self.redis = redis_client
         self.queue_key = "song_queue"  # Key for the main song queue
         self.song_data_prefix = "song_data:"  # Prefix for individual song data
-        self.delay_key_prefix = "song_delay:" 
+        self.delay_key_prefix = "song_delay:"
 
     # --- Queue Operations ---
     def add_song_to_queue(self, song: Song) -> int:
@@ -34,7 +36,7 @@ class RedisQueueInterface:
                     if stored_song.id == song.id:
                         self.redis.lrem(self.queue_key, 1, song_data)
                         return "OK"
-            return None # not found
+            return None  # not found
         except redis.RedisError as e:
             print(f"Error removing song from queue: {e}")
             raise
@@ -136,23 +138,29 @@ class RedisQueueInterface:
                         # to interact with the main thread's event loop if the callback
                         # does any async operations.
                         loop = asyncio.get_event_loop()
-                        asyncio.run_coroutine_threadsafe(callback_func(data), loop)
+                        asyncio.run_coroutine_threadsafe(
+                            callback_func(data), loop)
                     except json.JSONDecodeError:
-                        print(f"Error decoding JSON message on channel {channel_name}: {message['data']}")
+                        print(
+                            f"Error decoding JSON message on channel {channel_name}: {message['data']}")
                     except Exception as e:
-                        print(f"Error processing message on channel {channel_name}: {e}")
+                        print(
+                            f"Error processing message on channel {channel_name}: {e}")
 
         # Get a fresh connection for the subscriber thread.  Important!
-        subscriber_redis = DatabaseManager().get_session() # Get new redis instance.
+        # Get new redis instance.
+        subscriber_redis = DatabaseManager().get_session()
         thread = threading.Thread(
-            target=_subscriber_thread, args=(subscriber_redis, channel, callback)
+            target=_subscriber_thread, args=(
+                subscriber_redis, channel, callback)
         )  # Pass the redis client
         thread.daemon = True  # Allow the main thread to exit even if this is running
         thread.start()
         return thread
     # --- Delay Mapping Operations ---
+
     def store_song_delay(self, song_id: str, delay: float) -> None:
-        
+
         try:
             key = f"{self.delay_key_prefix}{song_id}"
             self.redis.set(key, delay)
@@ -165,11 +173,9 @@ class RedisQueueInterface:
             key = f"{self.delay_key_prefix}{song_id}"
             delay_sec = self.redis.get(key)  # Get the value as bytes
             if delay_sec:
-                return float(delay_sec)  # Decode bytes to string, then to float
+                return float(delay_sec)
             else:
                 return None
         except redis.RedisError as e:
             print(f"Error getting song delay: {e}")
             return None
-
-

@@ -1,7 +1,7 @@
 import { useMediaQuery, useTheme } from '@mui/material';
 import React, { act, useEffect, useRef, useState } from 'react';
 
-export default function Carousel({ children, className = '' }) {
+export default function Carousel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLeft, setShowLeft] = useState(false);
   const [showRight, setShowRight] = useState(false);
@@ -70,10 +70,10 @@ export function CarouselItem({
   return (
     <div
       className={[
-        'duration-300 cursor-pointer shrink-0 rounded-md snap-start overflow-hidden text-pretty min-h-[200px]',
-        active ? 'bg-primary/30 shadow-lg' : 'hover:bg-[#ffffff1a]',
+        'duration-300 cursor-pointer shrink-0 rounded-md snap-start overflow-hidden text-pretty',
+        active ? 'bg-white/30 shadow-lg' : 'hover:bg-[#ffffff1a]',
         disable ? 'pointer-events-none hover:bg-[none]' : '',
-        dense ? 'p-1' : 'p-3 w-[177px]',
+        dense ? 'p-1' : 'p-3 w-[177px] min-h-[200px]',
         className,
       ].join(' ')}
       {...props}

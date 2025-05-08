@@ -1,13 +1,18 @@
 import { createAvatar, Result } from '@dicebear/core';
 import { adventurer } from '@dicebear/collection';
-import { Backdrop, Button, Card, CardActions, CardContent, CardHeader, TextField } from '@mui/material';
+import { Backdrop, Button, Card, CardActions, CardContent, TextField } from '@mui/material';
 import Carousel, { CarouselItem } from 'src/components/Carousel';
 import { useMemo, useState } from 'react';
+import { styled } from '@mui/material/styles';
 
-const avatar = createAvatar(adventurer, {
-  seed: 'John Doe',
-  // ... other options
-});
+const Layout = styled('div')(({ theme }) => ({
+  width: '100%',
+  height: '100%',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  // backgroundImage: 'linear-gradient(to bottom, #CC3363, #CC336340, #CC336310)',
+}));
 function generateAvatars() {
   const avatars: Result[] = [];
   for (let i = 0; i < 10; i++) {
@@ -32,49 +37,51 @@ export default function JoinView() {
       return;
     }
     // Handle join logic here, e.g., send data to server
-    console.log('Joining with nickname:', nickname, 'and avatar:', selectedAvatar);
+    console.log('Joining with nickname:', nickname, 'and avatar:', selectedAvatar?.toJson());
   };
   return (
     <Backdrop open>
-      <Card variant="outlined" className="max-w-[400px] w-full">
-        <h1 className="text-2xl font-semibold m-4 tracking-wide">Join KKaraoke</h1>
-        <CardContent>
-          <h1 className="text-lg">Nickname:</h1>
-          <TextField
-            size="small"
-            fullWidth
-            className="mt-2"
-            required
-            value={nickname}
-            error={nameError}
-            helperText={nameError ? 'Nickname is required' : ''}
-            onChange={(e) => setNickname(e.target.value)}
-          />
-          <h1 className="text-lg mt-6">Choose your avatar:</h1>
-          <Carousel className="mt-2">
-            {avatars.map((avatar, index) => (
-              <CarouselItem
-                active={avatar == selectedAvatar}
-                key={index}
-                dense
-                onClick={() => setSelectedAvatar(avatar)}
-              >
-                <img
-                  src={avatar.toDataUri()}
-                  alt={`Avatar ${index + 1}`}
-                  className="w-24 h-24"
-                  onClick={() => console.log(`Selected avatar ${index + 1}`)}
-                />
-              </CarouselItem>
-            ))}
-          </Carousel>
-        </CardContent>
-        <CardActions>
-          <Button size="large" className="ml-auto" onClick={handleJoin}>
-            Join
-          </Button>
-        </CardActions>
-      </Card>
+      <Layout>
+        <Card variant="outlined" className="max-w-[400px] w-full bg-[#121212] text-white">
+          <h1 className="text-2xl font-semibold m-4 tracking-wide">Join KKaraoke</h1>
+          <CardContent>
+            <h1 className="text-lg">Nickname:</h1>
+            <TextField
+              size="small"
+              fullWidth
+              className="mt-2"
+              required
+              value={nickname}
+              error={nameError}
+              helperText={nameError ? 'Nickname is required' : ''}
+              onChange={(e) => setNickname(e.target.value)}
+            />
+            <h1 className="text-lg mt-6">Choose your avatar:</h1>
+            <Carousel className="mt-2">
+              {avatars.map((avatar, index) => (
+                <CarouselItem
+                  active={avatar == selectedAvatar}
+                  key={index}
+                  dense
+                  onClick={() => setSelectedAvatar(avatar)}
+                >
+                  <img
+                    src={avatar.toDataUri()}
+                    alt={`Avatar ${index + 1}`}
+                    className="w-12 h-12"
+                    onClick={() => setSelectedAvatar(avatar)}
+                  />
+                </CarouselItem>
+              ))}
+            </Carousel>
+          </CardContent>
+          <CardActions>
+            <Button size="large" className="ml-auto" onClick={handleJoin}>
+              Join
+            </Button>
+          </CardActions>
+        </Card>
+      </Layout>
     </Backdrop>
   );
 }

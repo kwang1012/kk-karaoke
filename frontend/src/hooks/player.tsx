@@ -249,6 +249,7 @@ export const usePlayer = () => {
     // prevent re-initialization on every render
     if (!currentSong || currentSong.id === lastSongId.current) return;
 
+    console.log(currentSong.name, songStatus[currentSong.id]);
     // skip if the song is not ready and songStatus is not undefined
     if (songStatus[currentSong.id] !== undefined && songStatus[currentSong.id] !== 'ready') {
       console.log('Song is still processing, skipping initialization:', currentSong.name);
@@ -280,6 +281,9 @@ export const usePlayer = () => {
         if (playing || shouldPlay) {
           playAudio();
         }
+      })
+      .catch((error) => {
+        console.error('Error loading audio:', error);
       })
       .finally(() => {
         setLoading(false);

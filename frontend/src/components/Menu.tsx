@@ -5,12 +5,12 @@ const AppMenu = styled((props: MenuProps) => (
   <Menu
     elevation={0}
     anchorOrigin={{
-      vertical: 'bottom',
-      horizontal: 'right',
+      vertical: 25,
+      horizontal: 'left',
     }}
     transformOrigin={{
       vertical: 'top',
-      horizontal: 'right',
+      horizontal: 'left',
     }}
     {...props}
   />

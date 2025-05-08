@@ -335,8 +335,8 @@ export default function PlaylistView() {
 
   const [scrollPosition, setScrollPosition] = useState(0);
 
-  const handleScroll = (el: any) => {
-    setScrollPosition(el.scrollTop);
+  const handleScrollTop = (scrollTop: number) => {
+    setScrollPosition(scrollTop);
   };
   const toolbarStyle = useMemo(() => {
     const newOpacity = Math.min(1, (scrollPosition - 0.7 * headerHeight) / (headerHeight - 0.7 * headerHeight));
@@ -358,7 +358,7 @@ export default function PlaylistView() {
           )}
         </Toolbar>
       </AppBar>
-      <AppScrollbar onScroll={handleScroll}>
+      <AppScrollbar onScrollTop={handleScrollTop}>
         <div className="h-full">
           {/* Header */}
           <Header ref={headerRef}>

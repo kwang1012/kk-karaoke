@@ -9,7 +9,7 @@ export interface ThemeState {
 }
 
 export const useThemeStore = create<ThemeState>((set) => ({
-  mode: 'light', // Default theme mode
+  mode: 'dark', // Default theme mode
   modified: false, // Whether the theme has been modified
   dark: () => set({ mode: 'dark', modified: true }),
   light: () => set({ mode: 'light', modified: true }),

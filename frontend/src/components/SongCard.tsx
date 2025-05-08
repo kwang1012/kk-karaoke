@@ -1,12 +1,22 @@
-import { Button, CircularProgress, CircularProgressProps, IconButton, Menu, MenuItem } from '@mui/material';
+import {
+  Button,
+  CircularProgress,
+  CircularProgressProps,
+  IconButton,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
+} from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { ReactElement, useMemo, useState } from 'react';
+import { memo, ReactElement, useMemo, useState } from 'react';
 import placeholderImage from 'src/assets/placeholder.png';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGears, faMusic } from '@fortawesome/free-solid-svg-icons';
 import { useAudioStore } from 'src/store';
 import { useWebSocketStore } from 'src/store/ws';
-import { MoreHoriz } from '@mui/icons-material';
+import { Delete, MoreHoriz, QueueMusic } from '@mui/icons-material';
+import AppMenu from './Menu';
 
 type SongCardProps = {
   className?: string;
@@ -33,65 +43,99 @@ const HoverLayout = styled('div')(({ theme }) => ({
   overflow: 'hidden',
   borderRadius: theme.shape.borderRadius,
   margin: theme.spacing(0, 0, 2),
+  cursor: 'default',
   '& .actions': {
-    visibility: 'hidden',
+    opacity: 0,
   },
-  '&:hover': {
-    // backgroundColor: theme.palette.action.hover,
+  '&:hover, &.active': {
+    '*': {
+      color: 'white',
+    },
+    backgroundColor: '#ffffff1a',
     '& .actions': {
-      visibility: 'visible',
+      opacity: 1,
+    },
+  },
+  '&.active': {
+    backgroundColor: '#ffffff3a',
+  },
+  [theme.breakpoints.down('md')]: {
+    '& .actions': {
+      opacity: 1,
     },
   },
 }));
 
-const ActionMenu = ({ song, onAdd }: { song: Song; onAdd?: (song: Song) => void }) => {
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const open = Boolean(anchorEl);
-  const handleClick = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
-  const handleClose = () => {
-    setAnchorEl(null);
-  };
-  return (
-    <div>
-      <IconButton
-        id="demo-positioned-button"
-        className="row-actions"
-        sx={{ minWidth: 40 }}
-        onClick={(e) => {
-          e.stopPropagation();
-          console.log('More: ', song);
-          handleClick(e);
-        }}
-        aria-controls={open ? 'demo-positioned-menu' : undefined}
-        aria-haspopup="true"
-        aria-expanded={open ? 'true' : undefined}
-      >
-        <MoreHoriz className="text-[#b3b3b3]" />
-      </IconButton>
-      <Menu
-        id="demo-positioned-menu"
-        aria-labelledby="demo-positioned-button"
-        anchorEl={anchorEl}
-        open={open}
-        onClose={handleClose}
-        anchorOrigin={{
-          vertical: 'top',
-          horizontal: 'left',
-        }}
-        transformOrigin={{
-          vertical: 'top',
-          horizontal: 'left',
-        }}
-      >
-        <MenuItem onClick={handleClose}>Profile</MenuItem>
-        <MenuItem onClick={handleClose}>My account</MenuItem>
-        <MenuItem onClick={handleClose}>Logout</MenuItem>
-      </Menu>
-    </div>
-  );
-};
+const ActionMenu = memo(
+  ({
+    song,
+    onAdd,
+    onDelete,
+    onOpen,
+    onClose,
+  }: {
+    song: Song;
+    onAdd?: (song: Song) => void;
+    onDelete?: (song: Song) => void;
+    onOpen: () => void;
+    onClose: () => void;
+  }) => {
+    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+    const open = Boolean(anchorEl);
+    const id = open ? 'simple-popover' : undefined;
+    const handleClick = (event: React.MouseEvent<HTMLElement>) => {
+      setAnchorEl(event.currentTarget);
+      onOpen();
+    };
+    const handleClose = () => {
+      setAnchorEl(null);
+      onClose();
+    };
+    return (
+      <div>
+        <IconButton
+          className="row-actions"
+          sx={{ minWidth: 40 }}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleClick(e);
+          }}
+          aria-describedby={id}
+        >
+          <MoreHoriz className="text-[#b3b3b3]" />
+        </IconButton>
+        <AppMenu id={id} open={open} anchorEl={anchorEl} onClose={handleClose}>
+          {onAdd && (
+            <MenuItem
+              onClick={() => {
+                onAdd(song);
+                handleClose();
+              }}
+            >
+              <ListItemIcon>
+                <QueueMusic />
+              </ListItemIcon>
+              <ListItemText>Add to queue</ListItemText>
+            </MenuItem>
+          )}
+          {onDelete && (
+            <MenuItem
+              onClick={() => {
+                onDelete(song);
+                handleClose();
+              }}
+            >
+              <ListItemIcon>
+                <Delete />
+              </ListItemIcon>
+              <ListItemText>Remove from queue</ListItemText>
+            </MenuItem>
+          )}
+        </AppMenu>
+      </div>
+    );
+  }
+);
 
 export default function SongCard({ className, song, dense, disable, onAdd, onDelete, ...props }: SongCardProps) {
   const songStatus = useAudioStore((state) => state.songStatus);
@@ -101,6 +145,7 @@ export default function SongCard({ className, song, dense, disable, onAdd, onDel
   const isReady = useMemo(() => !status || status === 'ready', [status]);
   const initialized = useWebSocketStore((state) => state.initialized);
   const connected = useWebSocketStore((state) => state.connected);
+  const hasActions = useMemo(() => !!onAdd || !!onDelete, [onAdd, onDelete]);
   const parsedSong = useMemo(() => {
     let albumImage: any;
     if (typeof song.album?.image === 'string') {
@@ -131,12 +176,15 @@ export default function SongCard({ className, song, dense, disable, onAdd, onDel
     if (status === 'separating') return <FontAwesomeIcon width={20} height={20} color="white" icon={faGears} />;
     return <></>;
   }, [status]);
+
+  const [menuOpen, setMenuOpen] = useState(false);
   return (
     <HoverLayout
       className={[
         className,
         isReady && !disable && initialized && connected ? 'hover:bg-[#ffffff1a]' : '',
         dense ? 'py-0 px-1' : 'px-2',
+        menuOpen ? 'active' : '',
       ].join(' ')}
       {...props}
     >
@@ -159,19 +207,16 @@ export default function SongCard({ className, song, dense, disable, onAdd, onDel
         <span className="text-white line-clamp-1">{song.name}</span>
         <span className="text-sm text-gray-400 line-clamp-1">{parsedSong.artists.join(', ')}</span>
       </div>
-      <div className="actions shrink-0">
-        <ActionMenu song={song} onAdd={onAdd} />
-        {/* {isReady && onAdd && initialized && connected && !disable && (
-          <IconButton variant="outlined" onClick={() => onAdd(parsedSong)}>
-            Add
-          </IconButton>
-        )} */}
-        {/* {isReady && onDelete && initialized && connected && !disable && (
-          <Button variant="outlined" onClick={() => onDelete(parsedSong)}>
-            Remove
-          </Button>
-        )} */}
-      </div>
+      {hasActions && isReady && !disable && (
+        <div className="actions shrink-0">
+          <ActionMenu
+            song={parsedSong}
+            onAdd={onAdd}
+            onOpen={() => setMenuOpen(true)}
+            onClose={() => setMenuOpen(false)}
+          />
+        </div>
+      )}
     </HoverLayout>
   );
 }

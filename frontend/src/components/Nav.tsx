@@ -27,25 +27,27 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
   return (
     <div className={['w-full flex items-center', className].join(' ')}>
       <div className="flex justify-start flex-1 items-center">
-        <Tooltip title={!singing && 'Show Lyrics'} placement="right">
-          <span>
-            <IconButton
-              className="bg-primary hover:bg-primary/80"
-              sx={{
-                width: 80,
-                height: 52,
-                borderRadius: '6px',
-                '& .MuiTouchRipple-root .MuiTouchRipple-child': {
-                  borderRadius: 'inherit',
-                },
-              }}
-              onClick={() => navigate('/lyrics')}
-              disabled={singing}
-            >
-              <SvgIcon className="w-8 h-8" src={singSvg} />
-            </IconButton>
-          </span>
-        </Tooltip>
+        {!singing && (
+          <Tooltip title="Back to Lyrics" placement="right">
+            <span>
+              <IconButton
+                className="bg-white hover:bg-white/80"
+                sx={{
+                  width: 80,
+                  height: 52,
+                  borderRadius: '6px',
+                  '& .MuiTouchRipple-root .MuiTouchRipple-child': {
+                    borderRadius: 'inherit',
+                  },
+                }}
+                onClick={() => navigate('/lyrics')}
+              >
+                <span className="text-2xl text-black">Go</span>
+                <SvgIcon className="w-8 h-8" src={singSvg} />
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
       </div>
 
       <div className="w-[400px] flex items-center">

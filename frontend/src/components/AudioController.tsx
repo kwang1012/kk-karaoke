@@ -7,6 +7,7 @@ import { usePlayer } from 'src/hooks/player';
 import { useMemo, useState } from 'react';
 import { useAudioStore } from 'src/store';
 import { useLocation } from 'react-router-dom';
+import { api } from 'src/utils/api';
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds)) return '0:00';
@@ -56,10 +57,10 @@ export default function AudioController() {
     setSeeking(true);
   };
   const onSaveDelay = () => {
-    // api.patch('songs/delay', {
-    //   songId: currentSong?.id,
-    //   delay: lyricsDelay,
-    // })
+    api.post('lyrics/delay', {
+      id: currentSong?.id,
+      delay: lyricsDelay,
+    });
     setEditing(false);
   };
   const [editing, setEditing] = useState(false);

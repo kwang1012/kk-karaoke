@@ -18,15 +18,6 @@ import { useWebSocketStore } from 'src/store/ws';
 import { Delete, MoreHoriz, PlayArrow, QueueMusic } from '@mui/icons-material';
 import AppMenu from './Menu';
 
-type SongCardProps = {
-  className?: string;
-  song: Song;
-  dense?: boolean;
-  disable?: boolean;
-  onAdd?: (song: Song) => void;
-  onDelete?: (song: Song) => void;
-};
-
 const CircularProgressWithLabel = ({ children, ...props }: { children?: ReactElement } & CircularProgressProps) => (
   <div className="relative inline-flex">
     <CircularProgress variant="determinate" {...props} />
@@ -41,6 +32,7 @@ const HoverLayout = styled('div')(({ theme }) => ({
   alignItems: 'center',
   position: 'relative',
   overflow: 'hidden',
+  height: 52,
   borderRadius: theme.shape.borderRadius,
   margin: theme.spacing(0, 0, 2),
   cursor: 'default',
@@ -58,6 +50,12 @@ const HoverLayout = styled('div')(({ theme }) => ({
   },
   '&.active': {
     backgroundColor: '#ffffff3a',
+  },
+  '&.disable-hover': {
+    // backgroundColor: 'transparent',
+    '&:hover, &:active': {
+      backgroundColor: 'transparent',
+    },
   },
   [theme.breakpoints.down('md')]: {
     '& .actions': {
@@ -121,6 +119,7 @@ const ActionMenu = memo(
           {onDelete && (
             <MenuItem
               onClick={() => {
+                if (!song) return;
                 onDelete(song);
                 handleClose();
               }}
@@ -137,16 +136,44 @@ const ActionMenu = memo(
   }
 );
 
-export default function SongCard({ className, song, dense, disable, onAdd, onDelete, ...props }: SongCardProps) {
+type SongCardProps = {
+  className?: string;
+  song?: Song | null;
+  dense?: boolean;
+  disable?: boolean;
+  disableHover?: boolean;
+  onAdd?: (song: Song) => void;
+  onDelete?: (song: Song) => void;
+};
+export default function SongCard({
+  className,
+  song,
+  dense,
+  disable,
+  disableHover,
+  onAdd,
+  onDelete,
+  ...props
+}: SongCardProps) {
   const songStatus = useAudioStore((state) => state.songStatus);
   const songProgress = useAudioStore((state) => state.songProgress);
-  const status = useMemo(() => songStatus[song.id], [songStatus, song.id]);
-  const progress = useMemo(() => songProgress[song.id], [songProgress, song.id]);
+  const status = useMemo(() => (song ? songStatus[song.id] : 'ready'), [songStatus, song?.id]);
+  const progress = useMemo(() => (song ? songProgress[song.id] : 100), [songProgress, song?.id]);
   const isReady = useMemo(() => !status || status === 'ready', [status]);
   const initialized = useWebSocketStore((state) => state.initialized);
   const connected = useWebSocketStore((state) => state.connected);
   const hasActions = useMemo(() => !!onAdd || !!onDelete, [onAdd, onDelete]);
   const parsedSong = useMemo(() => {
+    if (!song)
+      return {
+        id: '',
+        name: 'Not playing',
+        artists: [],
+        album: {
+          name: '',
+          image: placeholderImage,
+        },
+      };
     let albumImage: any;
     if (typeof song.album?.image === 'string') {
       albumImage = song.album.image;
@@ -185,6 +212,7 @@ export default function SongCard({ className, song, dense, disable, onAdd, onDel
         isReady && !disable && initialized && connected ? 'hover:bg-[#ffffff1a]' : '',
         dense ? 'py-0 px-1' : 'px-2',
         menuOpen ? 'active' : '',
+        disable ? 'disable-hover' : '',
       ].join(' ')}
       {...props}
     >
@@ -204,7 +232,7 @@ export default function SongCard({ className, song, dense, disable, onAdd, onDel
         {hasActions && (
           <div
             className="actions absolute flex items-center justify-center w-full h-full bg-[#3b3b3b70] cursor-pointer"
-            onClick={() => onAdd?.(parsedSong)}
+            onClick={() => song && onAdd?.(parsedSong)}
           >
             <PlayArrow />
           </div>
@@ -212,7 +240,7 @@ export default function SongCard({ className, song, dense, disable, onAdd, onDel
         <img src={parsedSong.album.image} className="w-full h-full" />
       </div>
       <div className="flex flex-col justify-between py-1 flex-1">
-        <span className="text-white line-clamp-1">{song.name}</span>
+        <span className="text-white line-clamp-1">{parsedSong.name}</span>
         <span className="text-sm text-gray-400 line-clamp-1">{parsedSong.artists.join(', ')}</span>
       </div>
       {hasActions && isReady && !disable && (

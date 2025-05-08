@@ -76,7 +76,6 @@ export function getAvgRGB(src: string): Promise<any> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.setAttribute('crossOrigin', '');
-    console.log(src);
     img.src = src;
     img.onload = () => {
       const colorThief = new ColorThief();

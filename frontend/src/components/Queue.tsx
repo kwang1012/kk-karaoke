@@ -76,11 +76,7 @@ export default function Queue() {
         <AppScrollbar className="h-full" ref={(el) => (scrollbarRef.current = el)} onScroll={handleScroll}>
           <div className="px-5 mt-5 font-medium text-lg tracking-wide">Now playing</div>
           <div className="px-3">
-            {currentSong ? (
-              <SongCard className="mt-1" song={currentSong} />
-            ) : (
-              <div className="text-gray-400 mt-2 w-full pl-2">No song is currently playing.</div>
-            )}
+            <SongCard className="mt-1" disable song={currentSong} />
           </div>
 
           <div className="mx-4 mt-5">

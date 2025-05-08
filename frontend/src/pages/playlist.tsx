@@ -353,19 +353,21 @@ export default function PlaylistView() {
     <div className="h-full relative pb-4">
       <AppBar
         position="absolute"
-        className={[
-          'text-white',
-          'transition-opacity duration-300 ease-in-out',
-          halfway ? 'opacity-100 bg-black' : 'bg-transparent opacity-0',
-        ].join(' ')}
+        className="text-white"
+        style={{
+          transition: 'background-color 0.3s ease-in-out',
+          backgroundColor: halfway ? color : 'transparent',
+        }}
         elevation={0}
       >
-        <Toolbar>
-          <>
-            <img src={collection.image || placeholder} className="w-8 h-8 rounded-md" />
-            <div className="text-xl ml-4 line-clamp-1">{collection.name}</div>
-          </>
-        </Toolbar>
+        {halfway && (
+          <Toolbar>
+            <>
+              <img src={collection.image || placeholder} className="w-8 h-8 rounded-md" />
+              <div className="text-xl ml-4 line-clamp-1">{collection.name}</div>
+            </>
+          </Toolbar>
+        )}
       </AppBar>
       <AppScrollbar onScroll={(el: Scrollbar) => setScrollTop(el.scrollTop)}>
         <div className="h-full relative">

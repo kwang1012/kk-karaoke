@@ -40,19 +40,27 @@ export default function SidebarController({ className }: { className?: string })
           Volume
         </span>
         <ButtonGroup
-          className="mt-2 bg-[#2f2f2f]"
+          className="mt-2"
           orientation="vertical"
-          variant="outlined"
-          size="medium"
+          variant="text"
+          size="large"
           aria-label="Volume group"
+          disableRipple
+          color="inherit"
+          sx={{
+            '.MuiButtonGroup-grouped:not(:last-of-type)': {
+              borderColor: '#2a2a2a',
+            },
+          }}
         >
-          <Button sx={{ py: 3 }} onClick={volumeUp}>
-            <FontAwesomeIcon icon={faPlus} size="lg" />
+          <Button sx={{ py: 3, color: 'white' }} onClick={volumeUp}>
+            <FontAwesomeIcon icon={faPlus} size="2x" color="#c5c5c5" />
           </Button>
           <Button sx={{ py: 3 }} onClick={volumeDown}>
-            <FontAwesomeIcon icon={faMinus} size="lg" />
+            <FontAwesomeIcon icon={faMinus} size="2x" color="#c5c5c5" />
           </Button>
         </ButtonGroup>
+        <Divider className="w-4/5 h-[1px] bg-[#2f2f2f] mt-4" />
       </div>
     </div>
   );

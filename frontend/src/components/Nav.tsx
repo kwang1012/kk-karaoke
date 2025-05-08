@@ -37,14 +37,24 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
           </div>
         )}
         {!(isBottom && isTop) && (
-          <>
-            <IconButton disabled={isBottom} disableRipple sx={{ padding: 0 }} onClick={() => navigate(-1)}>
+          <div className="ml-2 flex items-center">
+            <IconButton
+              disabled={isBottom}
+              disableRipple
+              sx={{ padding: 0, transform: 'scaleY(0.8)' }}
+              onClick={() => navigate(-1)}
+            >
               <ArrowBackIos />
             </IconButton>
-            <IconButton disabled={isTop} disableRipple sx={{ padding: 0 }} onClick={() => navigate(1)}>
+            <IconButton
+              disabled={isTop}
+              disableRipple
+              sx={{ padding: 0, transform: 'scaleY(0.8)' }}
+              onClick={() => navigate(1)}
+            >
               <ArrowForwardIos />
             </IconButton>
-          </>
+          </div>
         )}
       </div>
 

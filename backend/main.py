@@ -58,19 +58,10 @@ async def get_album_tracks(album_id: str):
 
 @app.get("/api/tracks")
 async def get_tracks():
-    # default_playlist_id = "3AEkt2VeAAHFc1TC5FLuIl"
-    # _, tracks = getCollectionTracks("playlists", default_playlist_id)
-    # tracks = tracks or []
-    # random.shuffle(tracks)
-    tracks ={
-            'id': 'test',
-            'name': '愛錯',
-            'album': {
-                'name': '???',
-                'image': 'https://i.scdn.co/image/ab67616d00001e0265fce5eb1fbdcdeb5ca55b34'
-            },
-            'artists': ['王力宏']
-        },
+    default_playlist_id = "3AEkt2VeAAHFc1TC5FLuIl"
+    _, tracks = getCollectionTracks("playlists", default_playlist_id)
+    tracks = tracks or []
+    random.shuffle(tracks)
     return JSONResponse(content={"tracks": tracks[:10]}, status_code=200)
 
 

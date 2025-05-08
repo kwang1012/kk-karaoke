@@ -10,14 +10,14 @@ const SerachInput = styled(InputBase)(({ theme }) => ({
   'label + &': {
     marginTop: theme.spacing(3),
   },
-  backgroundColor: '#1a1a1a',
+  backgroundColor: '#2a2a2a',
   border: '2px solid transparent',
   borderRadius: 48,
   height: 48,
   color: '#cfcfcf',
   '&:hover': {
-    backgroundColor: '#2f2f2f',
-    borderColor: '#3f3f3f',
+    backgroundColor: '#3a3a3a',
+    borderColor: '#4a4a4a',
     '& .search': {
       color: 'white',
     },

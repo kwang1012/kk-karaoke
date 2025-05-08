@@ -1,7 +1,7 @@
 import { IconPrefix, IconName } from '@fortawesome/fontawesome-svg-core';
 import { faPlus, faMinus } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { Tooltip, IconButton, ButtonGroup, Button } from '@mui/material';
+import { Tooltip, IconButton, ButtonGroup, Button, Divider } from '@mui/material';
 import { usePlayer } from 'src/hooks/player';
 import { useAudioStore } from 'src/store/audio';
 
@@ -33,7 +33,8 @@ export default function SidebarController({ className }: { className?: string })
             />
           </IconButton>
         </Tooltip>
-        <span className="mt-8 mb-2 text-white text-center font-bold">
+        <Divider className="w-4/5 h-[1px] bg-[#2f2f2f] mt-4" />
+        <span className="mt-6 mb-2 text-white text-center font-bold">
           Music
           <br />
           Volume

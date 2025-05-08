@@ -56,7 +56,7 @@ export default function PlayView() {
       .catch((error) => {
         console.error('Error fetching average RGB:', error);
       });
-  }, [currentSong?.image]);
+  }, [currentSong?.album?.image]);
   return (
     <Layout
       style={{

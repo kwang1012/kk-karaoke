@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import AppScrollbar from 'src/components/Scrollbar';
 import { usePlayer } from 'src/hooks/player';
 import { useAudioStore } from 'src/store';
+import { getAvgRGB, getBrightestRGB } from 'src/utils';
 
 export default function LyricsView() {
   // local states
@@ -22,6 +23,22 @@ export default function LyricsView() {
   useEffect(() => {
     lineRefs.current = Array(lyrics.length).fill(null);
   }, [lyrics]);
+
+  const [color, setColor] = useState<string>('#535353');
+  useEffect(() => {
+    const image = currentSong?.album?.image;
+    if (!image) {
+      setColor('#535353');
+      return;
+    }
+    getBrightestRGB(image)
+      .then((data) => {
+        setColor(data);
+      })
+      .catch((error) => {
+        console.error('Error fetching average RGB:', error);
+      });
+  }, [currentSong?.album?.image]);
 
   useEffect(() => {
     const el = lineRefs.current[currentLine];
@@ -53,7 +70,12 @@ export default function LyricsView() {
   };
 
   return (
-    <div className="h-full">
+    <div
+      className="h-full"
+      style={{
+        backgroundColor: color,
+      }}
+    >
       <AppScrollbar>
         <div className="text-lg px-8 text-white">
           {syncedLyrics.length > 0 ? (

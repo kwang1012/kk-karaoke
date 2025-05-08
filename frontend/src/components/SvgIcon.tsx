@@ -7,10 +7,17 @@ const Icon = styled(ReactSVG)({
   },
 });
 
-export default function SvgIcon({ className, ...props }: Props) {
+export default function SvgIcon({ color, className, ...props }: Props) {
   return (
     <div className={className}>
-      <Icon {...props} />
+      <Icon
+        {...props}
+        sx={{
+          '& svg': {
+            fill: color,
+          },
+        }}
+      />
     </div>
   );
 }

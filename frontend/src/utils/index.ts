@@ -85,3 +85,27 @@ export function getAvgRGB(src: string): Promise<any> {
     };
   });
 }
+
+export function getBrightestRGB(src: string): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.setAttribute('crossOrigin', '');
+    img.src = src;
+    img.onload = () => {
+      const colorThief = new ColorThief();
+      const palette = colorThief.getPalette(img, 3);
+      let max = -1;
+      let index = 0;
+      for (let i = 0; i < 3; i++) {
+        const [r, g, b] = palette[i];
+        const sum = r + g + b;
+        if (sum > max) {
+          max = sum;
+          index = i;
+        }
+      }
+      const [r, g, b] = palette[index];
+      resolve(rgbToHex(r, g, b));
+    };
+  });
+}

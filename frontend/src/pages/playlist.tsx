@@ -437,7 +437,7 @@ export default function PlaylistView() {
                 <div className="p-5 pt-3">
                   <Skeleton
                     count={10}
-                    baseColor="#121212"
+                    baseColor="transparent"
                     highlightColor="#2a2a2a"
                     width="100%"
                     height={48}

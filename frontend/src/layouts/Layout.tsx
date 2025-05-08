@@ -50,9 +50,6 @@ const Sidebar = styled('div')(({ theme }) => ({
 const Main = styled('div')(({ theme }) => ({
   gridArea: 'main',
   height: '100%',
-  // [theme.breakpoints.down('md')]: {
-  //   backgroundImage: 'linear-gradient(to bottom, #CC3363, #CC336340, #CC336310)',
-  // },
 }));
 
 const QueueContainer = styled('div')(({ theme }) => ({
@@ -76,17 +73,6 @@ const Footer = styled('div')(({ theme }) => ({
 }));
 
 export default function Layout() {
-  const location = useLocation();
-  const path = location.pathname;
-
-  const mainBg = useMemo(() => {
-    if (path.startsWith('/lyrics')) {
-      return 'bg-slate-600';
-    } else {
-      return 'bg-[#121212]';
-    }
-  }, [path]);
-
   const theme = useTheme();
   const mobile = useMediaQuery(theme.breakpoints.down('md'));
 
@@ -101,7 +87,7 @@ export default function Layout() {
         <SidebarController />
       </Sidebar>
       {/* Main Content */}
-      <Main className={`${mainBg} flex-1 md:rounded-lg overflow-hidden`}>
+      <Main className="bg-[#121212] flex-1 md:rounded-lg overflow-hidden">
         <Outlet />
       </Main>
       {/* Queue */}

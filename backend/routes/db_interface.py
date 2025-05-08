@@ -4,7 +4,7 @@ import threading
 from typing import Optional, List
 import redis
 from managers.db import DatabaseManager  
-from models.song import Song 
+from models.song import Song,LyricsDelay
 
 # --- Redis Interface for Queue Management ---
 class RedisQueueInterface:
@@ -12,7 +12,8 @@ class RedisQueueInterface:
     def __init__(self, redis_client: redis.Redis):
         self.redis = redis_client
         self.queue_key = "song_queue"  # Key for the main song queue
-        self.song_data_prefix = "song_data:"  # Prefix for individual song data
+        self.song_data_prefix = "song_data_:"  # Prefix for individual song data
+        self.delay_key_prefix = "song_delay_" 
 
     # --- Queue Operations ---
     def add_song_to_queue(self, song: Song) -> int:
@@ -149,4 +150,26 @@ class RedisQueueInterface:
         thread.daemon = True  # Allow the main thread to exit even if this is running
         thread.start()
         return thread
+    # --- Delay Mapping Operations ---
+    def store_song_delay(self, song_id: str, delay: float) -> None:
+        
+        try:
+            key = f"{self.delay_key_prefix}{song_id}"
+            self.redis.set(key, delay)
+        except redis.RedisError as e:
+            print(f"Error storing song delay: {e}")
+            raise
+
+    def get_song_delay(self, song_id: str) -> Optional[float]:
+        try:
+            key = f"{self.delay_key_prefix}{song_id}"
+            delay_sec = self.redis.get(key)  # Get the value as bytes
+            if delay_sec:
+                return float(delay_sec)  # Decode bytes to string, then to float
+            else:
+                return None
+        except redis.RedisError as e:
+            print(f"Error getting song delay: {e}")
+            return None
+
 

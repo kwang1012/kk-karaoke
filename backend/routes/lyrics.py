@@ -38,9 +38,10 @@ def update_delay(
         raise HTTPException(status_code=500, detail=f"Failed to update delay: {e}")
 
 
-@router.get("/{filename}")
-def get_song(filename: str):
-    file_path = get_lyrics_path(filename)
+@router.get("/{song_id}")
+def get_lyrics(song_id: str, 
+    redis_interface: RedisQueueInterface = Depends(lambda: RedisQueueInterface(get_db())),):
+    file_path = get_lyrics_path(song_id)
     if not file_path:
         return JSONResponse(status_code=404, content={"error": "Lyrics not found"})
     try:
@@ -55,8 +56,13 @@ def get_song(filename: str):
                 minutes = int(match.group(1))
                 seconds = float(match.group(2))
                 ms = float("0." + match.group(3))
-                timestamp = round(minutes * 60 + seconds + ms, 2) + \
-                    delay_mapping.get(filename, 0)
+                delay = redis_interface.get_song_delay(song_id)
+                
+                timestamp = round(minutes * 60 + seconds + ms, 2) 
+                print(timestamp)
+                if delay is not None:
+                    timestamp+=delay
+                print(timestamp)
                 text = match.group(4).strip()
                 lyrics.append({
                     "time": timestamp,

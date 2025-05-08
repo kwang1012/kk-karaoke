@@ -10817,6 +10817,11 @@ sockjs@^0.3.24:
     uuid "^8.3.2"
     websocket-driver "^0.7.4"
 
+soundtouchjs@^0.2.1:
+  version "0.2.1"
+  resolved "https://registry.yarnpkg.com/soundtouchjs/-/soundtouchjs-0.2.1.tgz#f24798a7ede5f194ba07ba0e64f4078ac587bcab"
+  integrity sha512-ApYdqT4bHqvm6QTRzHDta8PzJIgLacaXdkzUnSdotHvk7N2Ugr9JqV3SlWYsFTsd4ceJHEJqT7JI5E2MYmuQ6w==
+
 source-list-map@^2.0.0, source-list-map@^2.0.1:
   version "2.0.1"
   resolved "https://registry.yarnpkg.com/source-list-map/-/source-list-map-2.0.1.tgz#3993bd873bfc48479cca9ea3a547835c7c154b34"

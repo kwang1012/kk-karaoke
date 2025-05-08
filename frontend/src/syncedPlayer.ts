@@ -1,16 +1,17 @@
 class SyncedAudioPlayer {
-  private context: AudioContext;
-  private vocalBuffer!: AudioBuffer;
-  private instrumentalBuffer!: AudioBuffer;
+  protected context: AudioContext;
+  protected vocalBuffer!: AudioBuffer;
+  protected instrumentalBuffer!: AudioBuffer;
 
+  // for normal audio playback
   private vocalSource?: AudioBufferSourceNode;
   private instrumentalSource?: AudioBufferSourceNode;
 
-  private vocalGain: GainNode;
-  private instrumentalGain: GainNode;
+  protected vocalGain: GainNode;
+  protected instrumentalGain: GainNode;
 
-  private startTime = 0;
-  private startOffset = 0;
+  protected startTime = 0;
+  protected startOffset = 0;
 
   public isPlaying = false;
   public isLoading = false;
@@ -25,7 +26,7 @@ class SyncedAudioPlayer {
     this.instrumentalGain.connect(this.context.destination);
   }
 
-  private stopAndCleanSources() {
+  protected stopAndCleanSources() {
     if (this.vocalSource) {
       this.vocalSource.stop();
       this.vocalSource.disconnect();
@@ -68,13 +69,13 @@ class SyncedAudioPlayer {
     this.play(); // autoplay after switching if desired
   }
 
-  private async loadBuffer(url: string): Promise<AudioBuffer> {
+  protected async loadBuffer(url: string): Promise<AudioBuffer> {
     const res = await fetch(url);
     const arrayBuffer = await res.arrayBuffer();
     return await this.context.decodeAudioData(arrayBuffer);
   }
 
-  private createSources(offset: number) {
+  protected createSources(offset: number) {
     this.vocalSource = this.context.createBufferSource();
     this.instrumentalSource = this.context.createBufferSource();
 
@@ -86,6 +87,22 @@ class SyncedAudioPlayer {
 
     this.vocalSource.start(0, offset);
     this.instrumentalSource.start(0, offset);
+  }
+
+  destroy() {
+    this.stopAndCleanSources();
+    this.vocalGain.disconnect();
+    this.instrumentalGain.disconnect();
+    this.vocalGain = undefined!;
+    this.instrumentalGain = undefined!;
+    this.context.close();
+    this.context = undefined!;
+    this.vocalBuffer = undefined!;
+    this.instrumentalBuffer = undefined!;
+    this.startTime = 0;
+    this.startOffset = 0;
+    this.isPlaying = false;
+    this.isLoading = false;
   }
 
   play() {
@@ -116,6 +133,10 @@ class SyncedAudioPlayer {
   setVolume(instrumentalVolume: number, vocalVolume: number) {
     this.instrumentalGain.gain.setValueAtTime(instrumentalVolume, this.context.currentTime);
     this.vocalGain.gain.setValueAtTime(vocalVolume, this.context.currentTime);
+  }
+
+  setSemitone(semitone: number) {
+    throw new Error('Not implemented');
   }
 
   getCurrentTime(): number {

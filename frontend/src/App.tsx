@@ -1,13 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import 'src/styles/globals.css';
 import { StyledEngineProvider, ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { darkTheme, lightTheme } from 'src/styles/theme';
 import { IconDefinition, IconName, IconPrefix, library } from '@fortawesome/fontawesome-svg-core';
 import { createTheme } from '@mui/material/styles';
-// import NProgress from 'nprogress';
-// import 'nprogress/nprogress.css';
-import { useThemeStore } from 'src/store/theme';
+import { useSettingStore } from 'src/store/setting';
 import { Route, Routes, BrowserRouter as Router } from 'react-router-dom';
 import Layout from './layouts/Layout';
 import LyricsView from './pages/lyrics';
@@ -23,13 +21,7 @@ import { useRemoteMessageQueue } from './hooks/queue';
 import { useMediaQuery, useTheme } from '@mui/material';
 import { PlayerProvider } from './hooks/player';
 import PlayView from './pages/play';
-
-// NProgress.configure({
-//   minimum: 0.3,
-//   easing: 'ease',
-//   speed: 800,
-//   showSpinner: false,
-// });
+import SettingView from './pages/setting';
 
 const faSingStyle = {
   prefix: 'fas' as IconPrefix,
@@ -120,13 +112,13 @@ const queryClient = new QueryClient({
 });
 
 const Providers = ({ children }: { children: React.ReactNode }) => {
-  const mode = useThemeStore((state) => state.mode);
-  const theme = mode === 'light' ? createTheme(lightTheme) : createTheme(darkTheme);
+  const theme = useSettingStore((state) => state.theme);
+  const appTheme = theme === 'light' ? createTheme(lightTheme) : createTheme(darkTheme);
 
   return (
     <QueryClientProvider client={queryClient}>
       <StyledEngineProvider injectFirst>
-        <ThemeProvider theme={theme}>
+        <ThemeProvider theme={appTheme}>
           <PlayerProvider>{children}</PlayerProvider>
         </ThemeProvider>
       </StyledEngineProvider>
@@ -149,6 +141,7 @@ const AppRouters = () => {
           </Route>
           <Route path="lyrics" element={<LyricsView />} />
           <Route path="play" element={mobile ? <PlayView /> : <BrowseView />} />
+          <Route path="setting" element={<SettingView />} />
         </Route>
         <Route path="join" element={<JoinView />} />
       </Routes>

@@ -20,3 +20,7 @@ class LyricsDelay(BaseModel):
                 "delay": 1.5,
             }
         }
+
+class Room(BaseModel):
+    id:str
+    song:Optional[Song]

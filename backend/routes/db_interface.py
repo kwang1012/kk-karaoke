@@ -6,56 +6,82 @@ import redis
 from managers.db import DatabaseManager
 from models.song import Song
 
-# --- Redis Interface for Queue Management ---
-
 
 class RedisQueueInterface:
-
     def __init__(self, redis_client: redis.Redis):
         self.redis = redis_client
-        self.queue_key = "song_queue"  # Key for the main song queue
-        self.song_data_prefix = "song_data:"  # Prefix for individual song data
+        self.song_data_prefix = "song_data:"
         self.delay_key_prefix = "song_delay:"
+        self.room_prefix = "room:"  # Added room prefix  # ADDED
 
     # --- Queue Operations ---
-    def add_song_to_queue(self, song: Song) -> int:
+    def add_song_to_queue(self, room_id: str, song: Song) -> int:
         try:
+            user_queue_key = f"{self.room_prefix}{room_id}:queue"
             song_json = json.dumps(song.model_dump())
-            return self.redis.rpush(self.queue_key, song_json)
+            return self.redis.rpush(user_queue_key, song_json)
         except redis.RedisError as e:
-            print(f"Error adding song to queue: {e}")
-            raise  # Re-raise to be handled by FastAPI
+            print(f"Error adding song to room queue {room_id}: {e}")
+            raise
 
-    def remove_song_from_queue(self, song: Song) -> Optional[str]:
+    def remove_song_from_queue(self, room_id: str, song: Song) -> Optional[str]:
         try:
-            queue_length = self.redis.llen(self.queue_key)
+            user_queue_key = f"{self.room_prefix}{room_id}:queue"
+            queue_length = self.redis.llen(user_queue_key)
             for i in range(queue_length):
-                song_data = self.redis.lindex(self.queue_key, i)
+                song_data = self.redis.lindex(user_queue_key, i)
                 if song_data:
                     stored_song = Song(**json.loads(song_data))
                     if stored_song.id == song.id:
-                        self.redis.lrem(self.queue_key, 1, song_data)
+                        self.redis.lrem(user_queue_key, 1, song_data)
                         return "OK"
             return None  # not found
         except redis.RedisError as e:
-            print(f"Error removing song from queue: {e}")
+            print(f"Error removing song from room queue {room_id}: {e}")
             raise
 
-    def get_queue(self) -> List[Song]:
+    def get_queue(self, room_id: str) -> List[Song]:
         try:
-            queue_data = self.redis.lrange(self.queue_key, 0, -1)
+            user_queue_key = f"{self.room_prefix}{room_id}:queue"
+            queue_data = self.redis.lrange(user_queue_key, 0, -1)
             songs = [Song(**json.loads(song_data)) for song_data in queue_data]
             return songs
         except redis.RedisError as e:
-            print(f"Error getting song queue: {e}")
-            return []  # Or raise, depending on your error handling policy
+            print(f"Error getting song queue for room {room_id}: {e}")
+            return []
 
-    def clear_queue(self) -> None:
+    def clear_queue(self, room_id: str) -> None:
         try:
-            self.redis.delete(self.queue_key)
+            user_queue_key = f"{self.room_prefix}{room_id}:queue"
+            self.redis.delete(user_queue_key)
         except redis.RedisError as e:
-            print(f"Error clearing song queue: {e}")
+            print(f"Error clearing song queue for room {room_id}: {e}")
             raise
+
+    def create_room(self, room_id: str) -> None:
+        """
+        Creates a room and its associated queue.
+
+        Args:
+            room_id: The ID of the room.
+        """
+        try:
+            room_key = f"{self.room_prefix}{room_id}"
+            self.redis.set(room_key, "created")  # Set a value for the room.
+            room_queue_key = f"{self.room_prefix}{room_id}:queue"
+            # Initialize the queue as an empty list
+            self.redis.lpush(room_queue_key, "[]")
+        except redis.RedisError as e:
+            print(f"Error creating room {room_id}: {e}")
+            raise
+
+    def room_exists(self, room_id: str) -> bool:
+        try:
+            room_key = f"{self.room_prefix}{room_id}"
+            return self.redis.exists(room_key)
+        except redis.RedisError as e:
+            print(f"Error checking if room {room_id} exists: {e}")
+            raise  # Important:  Re-raise the exception.
 
     # --- Song Data Operations ---
     def store_song_data(self, song: Song) -> None:
@@ -158,7 +184,6 @@ class RedisQueueInterface:
     # --- Delay Mapping Operations ---
 
     def store_song_delay(self, song_id: str, delay: float) -> None:
-
         try:
             key = f"{self.delay_key_prefix}{song_id}"
             self.redis.set(key, delay)

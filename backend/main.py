@@ -24,7 +24,6 @@ app.add_middleware(
 app.include_router(song_router, prefix="/api/songs", tags=["songs"])
 app.include_router(lyrics_router, prefix="/api/lyrics", tags=["lyrics"])
 app.include_router(queue_router, prefix="/api/queue", tags=["queue"])
-
 ws_manager = WebSocketManager()
 
 

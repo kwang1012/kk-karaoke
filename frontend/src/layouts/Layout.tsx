@@ -19,7 +19,7 @@ const Grid = styled('div')(({ theme }) => ({
   gridTemplateColumns: 'auto 1fr',
   gridTemplateRows: 'auto 1fr auto',
   width: '100%',
-  height: '100vh',
+  height: '100%',
   [theme.breakpoints.down('md')]: {
     gridTemplateAreas: `
       "main"
@@ -50,6 +50,9 @@ const Sidebar = styled('div')(({ theme }) => ({
 const Main = styled('div')(({ theme }) => ({
   gridArea: 'main',
   height: '100%',
+  [theme.breakpoints.down('md')]: {
+    backgroundImage: 'linear-gradient(to bottom, #CC3363, #CC336340, #CC336310)',
+  },
 }));
 
 const QueueContainer = styled('div')(({ theme }) => ({
@@ -67,9 +70,9 @@ const QueueContainer = styled('div')(({ theme }) => ({
 const Footer = styled('div')(({ theme }) => ({
   gridArea: 'footer',
   height: 80,
-  // [theme.breakpoints.down('md')]: {
-  //   height: 120,
-  // },
+  [theme.breakpoints.down('md')]: {
+    height: 60,
+  },
 }));
 
 export default function Layout() {
@@ -80,7 +83,7 @@ export default function Layout() {
     if (path.startsWith('/lyrics')) {
       return 'bg-slate-600';
     } else {
-      return 'bg-[#1a1a1a]';
+      return 'bg-[#121212]';
     }
   }, [path]);
 
@@ -98,7 +101,7 @@ export default function Layout() {
         <SidebarController />
       </Sidebar>
       {/* Main Content */}
-      <Main className={`${mainBg} flex-1 rounded-lg`}>
+      <Main className={`${mainBg} flex-1 md:rounded-lg overflow-hidden`}>
         <Outlet />
       </Main>
       {/* Queue */}

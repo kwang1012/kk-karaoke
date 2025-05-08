@@ -29,6 +29,11 @@ const QRCodeAccordion = styled(Accordion)(({ theme }) => ({
   },
 }));
 
+const QueueLayout = styled('div')(({ theme }) => ({
+  display: 'grid',
+  gridTemplateRows: 'auto 1fr',
+}));
+
 export default function Queue() {
   const joinURL = window.location.protocol + '//' + window.location.host + '/join';
   const scrollbarRef = useRef<Scrollbar | null>(null);
@@ -63,11 +68,11 @@ export default function Queue() {
   };
 
   return (
-    <div className="flex-1 h-[calc(100vh-152px)] bg-[#1f1f1f] rounded-lg mx-2 text-white max-w-[400px]">
+    <QueueLayout className="flex-1 h-full bg-[#121212] rounded-lg mx-2 text-white max-w-[400px]">
       <div className={['p-5 font-medium text-lg tracking-wide h-[68px]', scrollTop > 0 ? 'shadow-xl' : ''].join(' ')}>
         Queue
       </div>
-      <div className="h-[calc(100%-68px)]">
+      <div className="h-full">
         <AppScrollbar className="h-full" ref={(el) => (scrollbarRef.current = el)} onScroll={handleScroll}>
           <div className="px-5 mt-5 font-medium text-lg tracking-wide">Now playing</div>
           <div className="px-3">
@@ -107,10 +112,10 @@ export default function Queue() {
                 .map((song, index) => <SongCard key={index} className="mt-1" song={song} onDelete={rmSongFromQueue} />)
             ) : (
               <>
-                <div className="text-gray-400 mt-2 w-full pl-2">No more songs in the queue.</div>
+                <div className="text-gray-400 mt-2 w-full pl-2">There's no music in the queue.</div>
                 <div className="mt-5 px-2 flex justify-center">
                   <Button variant="contained" onClick={() => fetchDefaultTracks()}>
-                    Start playing random songs?
+                    Random songs?
                   </Button>
                 </div>
               </>
@@ -118,6 +123,6 @@ export default function Queue() {
           </div>
         </AppScrollbar>
       </div>
-    </div>
+    </QueueLayout>
   );
 }

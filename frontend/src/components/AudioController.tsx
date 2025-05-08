@@ -4,9 +4,9 @@ import { Button, IconButton, TextField, Tooltip } from '@mui/material';
 import AppSlider from './Slider';
 import SongCard from './SongCard';
 import { usePlayer } from 'src/hooks/player';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAudioStore } from 'src/store';
-import { api } from 'src/utils/api';
+import { useLocation } from 'react-router-dom';
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds)) return '0:00';
@@ -16,10 +16,20 @@ function formatTime(seconds: number): string {
 }
 
 export default function AudioController() {
-  const { currentSong, progress, setProgress, setSeeking, duration, playing, resetProgress } = usePlayer();
+  const { currentSong, progress, seeking, setSeeking, duration, playing, resetProgress } = usePlayer();
   const { play, pause, next, previous } = usePlayer();
+  const location = useLocation();
   const lyricsDelay = useAudioStore((state) => state.lyricsDelays[currentSong?.id || ''] || 0);
   const setLyricsDelay = useAudioStore((state) => state.setLyricsDelay);
+
+  const [localProgress, setLocalProgress] = useState(progress);
+
+  const realProgress = useMemo(() => {
+    if (seeking) {
+      return localProgress;
+    }
+    return progress;
+  }, [progress, localProgress, seeking]);
 
   const handlePlayPause = () => {
     if (playing) {
@@ -31,7 +41,7 @@ export default function AudioController() {
 
   const handleSliderChange = (_: Event, value: number | number[]) => {
     if (typeof value === 'number') {
-      setProgress(value);
+      setLocalProgress(value);
     }
   };
 
@@ -104,7 +114,7 @@ export default function AudioController() {
               className="w-full"
               min={0}
               max={duration}
-              value={progress}
+              value={realProgress}
               onChange={handleSliderChange}
               onChangeCommitted={handleSliderCommit}
               onMouseDown={handleSeekStart}
@@ -116,6 +126,7 @@ export default function AudioController() {
         {/* Volume Controls */}
         <div className="ml-auto w-[30%] flex items-center justify-end pr-2">
           {currentSong &&
+            location.pathname === '/lyrics' &&
             (editing ? (
               <div className="flex items-center">
                 <span>Delay lyrics by</span>

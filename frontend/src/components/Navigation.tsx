@@ -2,6 +2,18 @@ import { Home, Search, QueueMusic } from '@mui/icons-material';
 import { BottomNavigation, BottomNavigationAction } from '@mui/material';
 import { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { styled } from '@mui/material/styles';
+
+const DarkBottomNavigation = styled(BottomNavigation)(({ theme }) => ({
+  backgroundColor: 'black',
+  color: theme.palette.text.primary,
+  '& .MuiBottomNavigationAction-root': {
+    color: 'white',
+    '&.Mui-selected': {
+      color: theme.palette.primary.main,
+    },
+  },
+}));
 
 export default function AppNavigation() {
   const location = useLocation();
@@ -27,7 +39,7 @@ export default function AppNavigation() {
         navigate('/search');
         break;
       case 2:
-        navigate('/queue');
+        navigate('/play');
         break;
       default:
         break;
@@ -35,7 +47,7 @@ export default function AppNavigation() {
   };
 
   return (
-    <BottomNavigation
+    <DarkBottomNavigation
       showLabels
       sx={{
         width: '100%',
@@ -44,9 +56,9 @@ export default function AppNavigation() {
       value={selectedIndex}
       onChange={onChange}
     >
-      <BottomNavigationAction label="Browse" icon={<Home fontSize="large" />} />
-      <BottomNavigationAction label="Search" icon={<Search fontSize="large" />} />
-      <BottomNavigationAction label="Queue" icon={<QueueMusic fontSize="large" />} />
-    </BottomNavigation>
+      <BottomNavigationAction label="Browse" icon={<Home fontSize="medium" />} />
+      <BottomNavigationAction label="Search" icon={<Search fontSize="medium" />} />
+      <BottomNavigationAction label="Play" icon={<QueueMusic fontSize="medium" />} />
+    </DarkBottomNavigation>
   );
 }

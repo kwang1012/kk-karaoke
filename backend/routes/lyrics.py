@@ -15,7 +15,7 @@ delay_mapping = {
     "0qdPpfbrgdBs6ie9bTtQ1d": -0.5,
 }
 
-@router.post("/update_delay")
+@router.post("/delay")
 def update_delay(
     song_id: str,
     delay: float,

@@ -1,8 +1,10 @@
 import { faStepBackward, faCirclePause, faCirclePlay, faForwardStep } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { Tooltip, IconButton } from '@mui/material';
+import { Icon, IconButton } from '@mui/material';
 import AppSlider from './Slider';
 import { usePlayer } from 'src/hooks/player';
+import { VolumeMuteOutlined, VolumeUpOutlined } from '@mui/icons-material';
+import { useMemo, useState } from 'react';
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds)) return '0:00';
@@ -11,8 +13,17 @@ function formatTime(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 export default function MobileAudioController() {
-  const { progress, setProgress, setSeeking, duration, playing } = usePlayer();
-  const { play, pause, next, previous } = usePlayer();
+  const { volume, progress, seeking, setSeeking, duration, playing } = usePlayer();
+  const { play, pause, next, previous, resetProgress, setVolume } = usePlayer();
+
+  const [localProgress, setLocalProgress] = useState(progress);
+
+  const realProgress = useMemo(() => {
+    if (seeking) {
+      return localProgress;
+    }
+    return progress;
+  }, [progress, localProgress, seeking]);
 
   const handlePlayPause = () => {
     if (playing) {
@@ -24,12 +35,13 @@ export default function MobileAudioController() {
 
   const handleSliderChange = (event: Event, value: number | number[]) => {
     if (typeof value === 'number') {
-      setProgress(value);
+      setLocalProgress(value);
     }
   };
 
   const handleSliderCommit = (event: React.SyntheticEvent | Event, value: number | number[]) => {
     if (typeof value === 'number') {
+      resetProgress(value);
       setSeeking(false);
     }
   };
@@ -38,51 +50,56 @@ export default function MobileAudioController() {
     setSeeking(true);
   };
   return (
-    <div className="flex flex-col items-center justify-center text-lg mx-auto max-w-3xl w-2/5 shrink-0">
-      <div className="flex items-center justify-center">
-        <Tooltip title="Previous" placement="top">
-          <IconButton
-            style={{ fontSize: 16, padding: 0, transform: 'scaleY(0.8)' }}
-            size="small"
-            onClick={previous}
-            className="hover:opacity-90"
-          >
-            <FontAwesomeIcon icon={faStepBackward} size="xl" color="#c5c5c5" />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title={playing ? 'Pause' : 'Play'} placement="top">
-          <IconButton style={{ fontSize: 22, padding: 0 }} onClick={handlePlayPause} className="hover:opacity-90 mx-6">
-            {playing ? (
-              <FontAwesomeIcon icon={faCirclePause} size="xl" color="white" />
-            ) : (
-              <FontAwesomeIcon icon={faCirclePlay} size="xl" color="white" />
-            )}
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="Next" placement="top">
-          <IconButton
-            style={{ fontSize: 16, padding: 0, transform: 'scaleY(0.8)' }}
-            size="small"
-            onClick={next}
-            className="hover:opacity-90"
-          >
-            <FontAwesomeIcon icon={faForwardStep} size="xl" color="#c5c5c5" />
-          </IconButton>
-        </Tooltip>
-      </div>
-      <div className="flex items-center justify-center text-sm text-gray-400 w-full">
-        <span className="mr-3 w-20 text-right">{formatTime(progress)}</span>
+    <div className="w-full h-full flex flex-col justify-center">
+      <div className="flex flex-col w-full">
         <AppSlider
           className="w-full"
           min={0}
           max={duration}
-          value={progress}
+          value={realProgress}
           onChange={handleSliderChange}
           onChangeCommitted={handleSliderCommit}
           onMouseDown={handleSeekStart}
           aria-labelledby="karaoke-slider"
         />
-        <span className="ml-3 w-20 text-left">{formatTime(duration)}</span>
+        <div className="flex items-center justify-between w-full text-sm text-white">
+          <span>{formatTime(progress)}</span>
+          <span>{formatTime(duration)}</span>
+        </div>
+      </div>
+      <div className="flex items-center justify-center">
+        <IconButton style={{ fontSize: 28, padding: 0, transform: 'scaleY(0.8)' }} size="small" onClick={previous}>
+          <FontAwesomeIcon icon={faStepBackward} size="xl" color="white" />
+        </IconButton>
+        <IconButton style={{ fontSize: 28, padding: 0 }} onClick={handlePlayPause} className="mx-10">
+          {playing ? (
+            <FontAwesomeIcon icon={faCirclePause} size="xl" color="white" />
+          ) : (
+            <FontAwesomeIcon icon={faCirclePlay} size="xl" color="white" />
+          )}
+        </IconButton>
+        <IconButton style={{ fontSize: 28, padding: 0, transform: 'scaleY(0.8)' }} size="small" onClick={next}>
+          <FontAwesomeIcon icon={faForwardStep} size="xl" color="white" />
+        </IconButton>
+      </div>
+      <div className="flex w-full items-center mt-3 text-white">
+        <VolumeMuteOutlined fontSize="small" />
+        <AppSlider
+          className="w-full"
+          min={0}
+          max={100}
+          value={volume * 100}
+          onChange={(_, value) => {
+            if (typeof value === 'number') {
+              setVolume(value / 100);
+            }
+          }}
+          onChangeCommitted={(_, value) => {
+            if (typeof value === 'number') setVolume(value / 100);
+          }}
+          aria-labelledby="volume-slider"
+        />
+        <VolumeUpOutlined className="ml-1" fontSize="small" />
       </div>
     </div>
   );

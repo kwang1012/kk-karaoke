@@ -10,7 +10,7 @@ const SerachInput = styled(InputBase)(({ theme }) => ({
   'label + &': {
     marginTop: theme.spacing(3),
   },
-  backgroundColor: '#1f1f1f',
+  backgroundColor: '#1a1a1a',
   border: '2px solid transparent',
   borderRadius: 48,
   height: 48,

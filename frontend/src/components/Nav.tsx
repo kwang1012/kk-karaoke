@@ -2,20 +2,16 @@ import React from 'react';
 import { faHome } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { IconButton, AvatarGroup, Avatar, Tooltip } from '@mui/material';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import SearchBox from './SearchBox';
 import { useAppStore } from 'src/store';
-import singSvg from 'src/assets/sing2.svg';
-import SvgIcon from './SvgIcon';
 import Logo from 'src/assets/logo.png';
 import { ArrowBackIos, ArrowForwardIos } from '@mui/icons-material';
 import { useHistoryBoundaries } from 'src/hooks/history';
 
 export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>) {
   const navigate = useNavigate();
-  const location = useLocation();
   const { isTop, isBottom } = useHistoryBoundaries();
-  const singing = location.pathname.startsWith('/lyrics');
 
   const setSearching = useAppStore((state) => state.setSearching);
   const searchValue = useAppStore((state) => state.searchValue);
@@ -82,36 +78,6 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
           </IconButton>
         </Tooltip>
         <SearchBox value={searchValue} onChange={handleSearchChange} />
-        <Tooltip title="Lyrics" placement="bottom">
-          <IconButton
-            className="ml-2"
-            sx={{
-              width: 48,
-              height: 48,
-              borderRadius: '50%',
-              backgroundColor: '#cc3363',
-              border: '2px solid transparent',
-              '&:hover': {
-                backgroundColor: '#dd4474',
-                borderColor: '#bb2252',
-              },
-              '& .MuiTouchRipple-root .MuiTouchRipple-child': {
-                borderRadius: 'inherit',
-              },
-              '&:disabled': {
-                backgroundColor: '#cc3363',
-                opacity: 0.5,
-              },
-            }}
-            disabled={singing}
-            onClick={() => {
-              if (singing) return;
-              navigate('/lyrics');
-            }}
-          >
-            <SvgIcon color="#cfcfcf" style={{ transform: 'translateY(1px)' }} src={singSvg} />
-          </IconButton>
-        </Tooltip>
       </div>
       {/* )} */}
 
@@ -133,21 +99,6 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
             sx={{ width: 32, height: 32, backgroundColor: 'orange' }}
             alt="kk"
             src="/static/images/avatar/1.jpg"
-          />
-          <Avatar
-            sx={{ width: 32, height: 32, backgroundColor: 'teal' }}
-            alt="frog1125"
-            src="/static/images/avatar/2.jpg"
-          />
-          <Avatar
-            sx={{ width: 32, height: 32, backgroundColor: 'teal' }}
-            alt="viki"
-            src="/static/images/avatar/3.jpg"
-          />
-          <Avatar
-            sx={{ width: 32, height: 32, backgroundColor: 'teal' }}
-            alt="peter"
-            src="/static/images/avatar/4.jpg"
           />
           <Avatar
             sx={{ width: 32, height: 32, backgroundColor: 'teal' }}

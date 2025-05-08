@@ -1,12 +1,19 @@
-import { IconPrefix, IconName } from '@fortawesome/fontawesome-svg-core';
 import { faPlus, faMinus } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Tooltip, IconButton, ButtonGroup, Button, Divider } from '@mui/material';
 import { usePlayer } from 'src/hooks/player';
 import { useAudioStore } from 'src/store/audio';
+import SvgIcon from './SvgIcon';
+import Mic from 'src/assets/mic.svg';
+import MicMuted from 'src/assets/mic-muted.svg';
+import singSvg from 'src/assets/sing2.svg';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 export default function SidebarController({ className }: { className?: string }) {
   const showSnackbar = useAudioStore((state) => state.showSnackbar);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const singing = location.pathname.startsWith('/lyrics');
 
   const { vocalOn } = usePlayer();
   const { toggleVocal, increaseVolume, decreaseVolume } = usePlayer();
@@ -23,14 +30,39 @@ export default function SidebarController({ className }: { className?: string })
   return (
     <div className={`w-20 h-full bg-[#121212] rounded-lg mx-2 ${className}`}>
       <div className="flex flex-col items-center justify-start h-full py-5">
-        <span className="text-white text-center mb-2 font-bold">Vocal</span>
+        <Tooltip title="Lyrics" placement="right">
+          <IconButton
+            sx={{
+              width: 48,
+              height: 48,
+              borderRadius: '50%',
+              backgroundColor: '#cc3363',
+              border: '2px solid transparent',
+              '&:hover': {
+                backgroundColor: '#dd4474',
+                borderColor: '#bb2252',
+              },
+              '& .MuiTouchRipple-root .MuiTouchRipple-child': {
+                borderRadius: 'inherit',
+              },
+              '&:disabled': {
+                backgroundColor: '#cc3363',
+                opacity: 0.5,
+              },
+            }}
+            onClick={() => {
+              if (singing) return;
+              navigate('/lyrics');
+            }}
+          >
+            <SvgIcon fill="white" style={{ transform: 'translateY(1px)' }} src={singSvg} />
+          </IconButton>
+        </Tooltip>
+        <Divider className="w-4/5 h-[1px] bg-[#2f2f2f] mt-4" />
+        <span className="mt-6 text-white text-center mb-2 font-bold">Vocal</span>
         <Tooltip title={vocalOn ? 'Turn off Vocal' : 'Turn on Vocal'} placement="right">
           <IconButton onClick={toggleVocal} className="hover:opacity-90" style={{ fontSize: 24 }}>
-            <FontAwesomeIcon
-              icon={vocalOn ? ['fas' as IconPrefix, 'sing_off' as IconName] : ['fas' as IconPrefix, 'sing' as IconName]}
-              size="xl"
-              color="#c5c5c5"
-            />
+            <SvgIcon src={vocalOn ? Mic : MicMuted} className="w-10 h-10" stroke="#c5c5c5" />
           </IconButton>
         </Tooltip>
         <Divider className="w-4/5 h-[1px] bg-[#2f2f2f] mt-4" />
@@ -53,10 +85,10 @@ export default function SidebarController({ className }: { className?: string })
             },
           }}
         >
-          <Button sx={{ py: 3, color: 'white' }} onClick={volumeUp}>
+          <Button sx={{ py: 2, color: 'white' }} onClick={volumeUp}>
             <FontAwesomeIcon icon={faPlus} size="2x" color="#c5c5c5" />
           </Button>
-          <Button sx={{ py: 3 }} onClick={volumeDown}>
+          <Button sx={{ py: 2 }} onClick={volumeDown}>
             <FontAwesomeIcon icon={faMinus} size="2x" color="#c5c5c5" />
           </Button>
         </ButtonGroup>

@@ -5,11 +5,14 @@ type RemoteMessageQueueArgs = {
   onAddItem?: (item: any) => void;
   onRemoveItem?: (item: any) => void;
   onClearQueue?: () => void;
+  sendItem?: (item: any) => void;
+  removeItem?: (item: any) => void;
 };
 export const useRemoteMessageQueue = (
   queue: string,
-  { onAddItem, onRemoveItem, onClearQueue }: RemoteMessageQueueArgs
+  { onAddItem, onRemoveItem, onClearQueue, sendItem, removeItem }: RemoteMessageQueueArgs
 ) => {
+  // Subscribe to the message queue in the store
   useEffect(() => {
     const unsub = useWebSocketStore.subscribe(
       (state) => state.messageQueues[queue],

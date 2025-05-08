@@ -5,8 +5,6 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { darkTheme, lightTheme } from 'src/styles/theme';
 import { IconDefinition, IconName, IconPrefix, library } from '@fortawesome/fontawesome-svg-core';
 import { createTheme } from '@mui/material/styles';
-// import NProgress from 'nprogress';
-// import 'nprogress/nprogress.css';
 import { useThemeStore } from 'src/store/theme';
 import { Route, Routes, BrowserRouter as Router } from 'react-router-dom';
 import Layout from './layouts/Layout';
@@ -23,13 +21,6 @@ import { useRemoteMessageQueue } from './hooks/queue';
 import { useMediaQuery, useTheme } from '@mui/material';
 import { PlayerProvider } from './hooks/player';
 import PlayView from './pages/play';
-
-// NProgress.configure({
-//   minimum: 0.3,
-//   easing: 'ease',
-//   speed: 800,
-//   showSpinner: false,
-// });
 
 const faSingStyle = {
   prefix: 'fas' as IconPrefix,

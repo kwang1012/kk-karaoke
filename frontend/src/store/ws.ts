@@ -45,6 +45,14 @@ export const useWebSocketStore = create<WebSocketState>()(
     error: null,
     // Enqueue a message into a queue
     enqueueMessage: (queue, message) => {
+      if (get().connected) {
+        socket?.send(
+          JSON.stringify({
+            type: 'enqueue',
+            message,
+          })
+        );
+      }
       set((state) => ({
         messageQueues: {
           ...state.messageQueues,
@@ -58,6 +66,14 @@ export const useWebSocketStore = create<WebSocketState>()(
       if (current.length === 0) return undefined;
 
       const [first, ...rest] = current;
+      if (get().connected) {
+        socket?.send(
+          JSON.stringify({
+            type: 'dequeue',
+            message: first,
+          })
+        );
+      }
       set((state) => ({
         messageQueues: {
           ...state.messageQueues,

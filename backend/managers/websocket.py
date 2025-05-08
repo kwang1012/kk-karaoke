@@ -14,15 +14,15 @@ class WebSocketManager:
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
-                    cls._instance = super(WebSocketManager, cls).__new__(cls, *args, **kwargs)
+                    cls._instance = super(WebSocketManager, cls).__new__(
+                        cls, *args, **kwargs)
                     cls._instance._initialize_service()
         return cls._instance
-    
+
     def _initialize_service(self):
         self.service_id = uuid.uuid4()
         self.connected_clients: List[WebSocket] = []
         self.queue: List[dict] = []
-        self.broadcasting_tasks = set()
 
     def add_client(self, websocket):
         print("New client connected:", websocket.client)
@@ -42,8 +42,6 @@ class WebSocketManager:
         # Remove disconnected clients
         for client in disconnected:
             self.connected_clients.remove(client)
-        
-        
 
     async def websocket_endpoint(self, websocket: WebSocket):
         await websocket.accept()
@@ -53,11 +51,7 @@ class WebSocketManager:
             await websocket.send_json({"type": "init"})
             while True:
                 data = await websocket.receive_json()
-                if data["type"] == "add":
-                    song = data["song"]
-                    self.queue.append(song)
-                    # Broadcast updated queue
-                    for client in self.connected_clients:
-                        await client.send_json({"type": "queue_updated", "queue": self.queue})
+                if data.get("type") in ["enqueue", "dequeue"]:
+                    await self.broadcast(data)
         except WebSocketDisconnect:
             self.connected_clients.remove(websocket)

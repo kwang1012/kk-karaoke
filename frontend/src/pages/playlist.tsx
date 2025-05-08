@@ -401,7 +401,11 @@ export default function PlaylistView() {
                 <TableHead>
                   <TableRow
                     sx={{
-                      '& th': { borderColor: '#b3b3b3', bgcolor: isSticky ? '#1a1a1a' : 'transparent', top: 64 },
+                      '& th': {
+                        borderColor: '#b3b3b3',
+                        bgcolor: isSticky ? '#1a1a1a' : 'transparent',
+                        top: mobile ? 56 : 64,
+                      },
                     }}
                   >
                     {headers.map((header) => (

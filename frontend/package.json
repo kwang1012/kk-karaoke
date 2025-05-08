@@ -1,7 +1,7 @@
 {
   "name": "v1-react",
   "version": "0.1.0",
-  "homepage": "https://kwang1012.github.io",
+  "homepage": "./",
   "private": true,
   "dependencies": {
     "@dicebear/collection": "^9.2.2",
@@ -45,13 +45,16 @@
     "web-vitals": "^2.1.4",
     "zustand": "^5.0.4"
   },
+  "main": "electron.js",
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
     "predeploy": "yarn build",
     "deploy": "gh-pages -d build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "electron": "electron .",
+    "package": "electron-packager . KKaraoke --platform=darwin --arch=arm64 --out=dist --overwrite"
   },
   "eslintConfig": {
     "extends": [
@@ -73,6 +76,8 @@
   },
   "devDependencies": {
     "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
+    "electron": "^36.2.0",
+    "electron-packager": "^17.1.2",
     "eslint-import-resolver-typescript": "^3.6.3"
   }
 }

@@ -8,7 +8,7 @@ import { createTheme } from '@mui/material/styles';
 // import NProgress from 'nprogress';
 // import 'nprogress/nprogress.css';
 import { useThemeStore } from 'src/store/theme';
-import { Route, Routes, BrowserRouter } from 'react-router-dom';
+import { Route, Routes, HashRouter as Router } from 'react-router-dom';
 import Layout from './layouts/Layout';
 import LyricsView from './pages/lyrics';
 import BrowseView, { MainView } from './pages/browse';
@@ -138,7 +138,7 @@ const AppRouters = () => {
   const theme = useTheme();
   const mobile = useMediaQuery(theme.breakpoints.down('md'));
   return (
-    <BrowserRouter>
+    <Router>
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route path="/" element={<BrowseView />}>
@@ -152,7 +152,7 @@ const AppRouters = () => {
         </Route>
         <Route path="join" element={<JoinView />} />
       </Routes>
-    </BrowserRouter>
+    </Router>
   );
 };
 

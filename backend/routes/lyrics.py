@@ -1,7 +1,10 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 from utils import get_lyrics_path
+from redis import RedisError
 import re
 from fastapi.responses import JSONResponse
+from routes.db_interface import RedisQueueInterface
+from managers.db import get_db
 
 router = APIRouter()
 
@@ -11,6 +14,28 @@ delay_mapping = {
     "2gug6MRv4xQFYi9LA3PJCS": 1,
     "0qdPpfbrgdBs6ie9bTtQ1d": -0.5,
 }
+
+@router.post("/update_delay")
+def update_delay(
+    song_id: str,
+    delay: float,
+    redis_interface: RedisQueueInterface = Depends(lambda: RedisQueueInterface(get_db())),
+):
+    """
+    Updates the delay for a song in the database (Redis).
+
+    Args:
+        song_id: The ID of the song.
+        delay: The delay in seconds.
+
+    Returns:
+        A JSON response indicating the result of the operation.
+    """
+    try:
+        redis_interface.store_song_delay(song_id, delay)
+        return {"message": "Delay updated successfully"}
+    except RedisError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update delay: {e}")
 
 
 @router.get("/{filename}")

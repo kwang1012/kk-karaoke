@@ -53,7 +53,7 @@
     "deploy": "gh-pages -d build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "electron": "electron .",
+    "electron": "REACT_APP_ELECTRON=1 electron .",
     "package": "electron-packager . KKaraoke --platform=darwin --arch=arm64 --out=dist --overwrite"
   },
   "eslintConfig": {

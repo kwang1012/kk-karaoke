@@ -8,7 +8,7 @@ import { createTheme } from '@mui/material/styles';
 // import NProgress from 'nprogress';
 // import 'nprogress/nprogress.css';
 import { useThemeStore } from 'src/store/theme';
-import { Route, Routes, HashRouter as Router } from 'react-router-dom';
+import { Route, Routes, BrowserRouter as Router } from 'react-router-dom';
 import Layout from './layouts/Layout';
 import LyricsView from './pages/lyrics';
 import BrowseView, { MainView } from './pages/browse';

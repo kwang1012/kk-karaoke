@@ -8,10 +8,13 @@ import { useAppStore } from 'src/store';
 import singSvg from 'src/assets/sing2.svg';
 import SvgIcon from './SvgIcon';
 import Logo from 'src/assets/logo.png';
+import { ArrowBackIos, ArrowForwardIos } from '@mui/icons-material';
+import { useHistoryBoundaries } from 'src/hooks/history';
 
 export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { isTop, isBottom } = useHistoryBoundaries();
   const singing = location.pathname.startsWith('/lyrics');
 
   const setSearching = useAppStore((state) => state.setSearching);
@@ -28,9 +31,21 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
   return (
     <div className={['w-full flex items-center', className].join(' ')}>
       <div className="flex justify-start flex-1 items-center">
-        <div className="w-20 flex justify-center cursor-pointer">
-          <img src={Logo} className="w-[52px] h-[52px]" />
-        </div>
+        {!process.env.REACT_APP_ELECTRON && (
+          <div className="w-20 flex justify-center cursor-pointer">
+            <img src={Logo} className="w-[52px] h-[52px]" />
+          </div>
+        )}
+        {!(isBottom && isTop) && (
+          <>
+            <IconButton disabled={isBottom} disableRipple sx={{ padding: 0 }} onClick={() => navigate(-1)}>
+              <ArrowBackIos />
+            </IconButton>
+            <IconButton disabled={isTop} disableRipple sx={{ padding: 0 }} onClick={() => navigate(1)}>
+              <ArrowForwardIos />
+            </IconButton>
+          </>
+        )}
       </div>
 
       <div className="w-[500px] flex items-center">

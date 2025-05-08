@@ -53,14 +53,14 @@ def get_lyrics(song_id: str,
         # Parse the lyrics file
         pattern = re.compile(r"\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)")
         lyrics = []
+        delay = redis_interface.get_song_delay(song_id)
         for line in raw_lines:
             match = pattern.match(line.strip())
             if match:
                 minutes = int(match.group(1))
                 seconds = float(match.group(2))
                 ms = float("0." + match.group(3))
-                delay = redis_interface.get_song_delay(song_id)
-
+              
                 timestamp = round(minutes * 60 + seconds + ms, 2)
                 if delay is not None:
                     timestamp += delay

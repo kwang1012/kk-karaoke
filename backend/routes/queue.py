@@ -31,17 +31,18 @@ async def add_to_queue_endpoint(
         if redis_interface.is_song_data_ready(song) and is_ready(song):
             return JSONResponse(content={"is_ready": True, "task": None}, status_code=200)
 
+        loop = asyncio.get_event_loop()
         def process_message_callback(message_data: dict):
             """
             Callback to handle messages from the Redis pub/sub related to song processing.
             """
             asyncio.run_coroutine_threadsafe(ws_manager.broadcast(
-                message_data), asyncio.get_event_loop())
+                message_data), loop)
 
         redis_interface.subscribe_to_channel(song.id, process_message_callback)
 
         task = send_process_request(song)
-        return JSONResponse(content={"is_ready": True, "task": task.id}, status_code=200)
+        return JSONResponse(content={"is_ready": False, "task": task.id}, status_code=200)
     except redis.RedisError as e:
         raise HTTPException(status_code=500, detail=f"Redis error: {e}")
 

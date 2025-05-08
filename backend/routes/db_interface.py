@@ -133,13 +133,11 @@ class RedisQueueInterface:
             for message in pubsub.listen():
                 if message["type"] == "message":
                     try:
-                        data = json.loads(message["data"].decode())
+                        data = json.loads(message["data"])
                         # Since we're in a thread, we need to use asyncio.run_coroutine_threadsafe
                         # to interact with the main thread's event loop if the callback
                         # does any async operations.
-                        loop = asyncio.get_event_loop()
-                        asyncio.run_coroutine_threadsafe(
-                            callback_func(data), loop)
+                        callback_func(data)
                     except json.JSONDecodeError:
                         print(
                             f"Error decoding JSON message on channel {channel_name}: {message['data']}")

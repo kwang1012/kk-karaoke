@@ -190,6 +190,7 @@ export default function SongCard({
         id: '',
         name: 'Not playing',
         artists: [],
+        timeAdded: Date.now(),
       };
     return track;
   }, [track]);
@@ -212,18 +213,6 @@ export default function SongCard({
       ].join(' ')}
       {...props}
     >
-      {!isReady && !disable && (
-        <div className="absolute inset-0 bg-[#3b3b3b] opacity-70 flex items-center justify-end px-4">
-          <CircularProgressWithLabel
-            size={36}
-            sx={{ color: 'white' }}
-            variant={status === 'separating' ? 'determinate' : 'indeterminate'}
-            value={progress}
-          >
-            {progressIcon}
-          </CircularProgressWithLabel>
-        </div>
-      )}
       <div className="relative w-10 h-10 bg-[#b3b3b3] rounded-md mr-4 overflow-hidden shrink-0">
         {onAdd && (
           <div
@@ -262,6 +251,18 @@ export default function SongCard({
             onOpen={() => setMenuOpen(true)}
             onClose={() => setMenuOpen(false)}
           />
+        </div>
+      )}
+      {!isReady && !disable && (
+        <div className="flex items-center justify-end px-4">
+          <CircularProgressWithLabel
+            size={36}
+            sx={{ color: 'white' }}
+            variant={status === 'separating' ? 'determinate' : 'indeterminate'}
+            value={progress}
+          >
+            {progressIcon}
+          </CircularProgressWithLabel>
         </div>
       )}
     </HoverLayout>

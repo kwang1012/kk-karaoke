@@ -180,9 +180,9 @@ function App() {
   const onNotifyMessage = (message: Message) => {
     if (message.type === 'notify') {
       if (message.data.action === 'progress') {
-        setSongStatus(message.data.song_id, message.data.status);
+        setSongStatus(message.data.songId, message.data.status);
         if (message.data.value) {
-          setSongProgress(message.data.song_id, (100 * message.data.value) / message.data.total);
+          setSongProgress(message.data.songId, (100 * message.data.value) / message.data.total);
         }
       }
     }

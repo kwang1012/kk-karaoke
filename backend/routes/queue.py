@@ -1,4 +1,5 @@
 import asyncio
+import json
 import redis
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
@@ -131,6 +132,8 @@ async def clear_queue_endpoint(
         raise HTTPException(status_code=500, detail=f"Redis error: {e}")
 
 # Use as a pointer to which song is now playing
+
+
 @router.post("/{room_id}/{current_idx}")
 async def store_current_idx(room_id: str, current_idx: int, redis_interface: RedisQueueInterface = Depends(
         lambda: RedisQueueInterface(get_db()))):

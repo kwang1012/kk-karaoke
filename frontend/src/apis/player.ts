@@ -66,3 +66,9 @@ export const emptyQueue = async (roomId: string) => {
       console.error('Error clearing queue:', error);
     });
 };
+
+export const updateQueueIdx = async (roomId: string, idx: number) => {
+  return api.post(`queue/${roomId}/${idx}`).catch((error) => {
+    console.log('Error updating queue index');
+  });
+};

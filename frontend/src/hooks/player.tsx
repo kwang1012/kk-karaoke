@@ -1,6 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import React, { createContext, useMemo, useState, useContext, useRef, useEffect } from 'react';
-import { emptyQueue, fetchLyrics, fetchQueue, fetchRandomTracks, pushToQueue, removeFromQueue } from 'src/apis/player';
+import {
+  emptyQueue,
+  fetchLyrics,
+  fetchQueue,
+  fetchRandomTracks,
+  pushToQueue,
+  removeFromQueue,
+  updateQueueIdx,
+} from 'src/apis/player';
 import { Lyrics, Track } from 'src/models/spotify';
 import ShiftedAutioPlayer from 'src/shiftedPlayer';
 import { useAudioStore } from 'src/store/audio';
@@ -220,6 +228,9 @@ export const usePlayer = () => {
     // fetching queue
     if (fetchedQueue) {
       setQueue(fetchedQueue.tracks);
+      if (fetchedQueue.index) {
+        setQueueIdx(fetchedQueue.index);
+      }
     }
   }, [fetchedQueue]);
 
@@ -311,6 +322,7 @@ export const usePlayer = () => {
       console.log('No next track in the queue');
       return;
     }
+    updateQueueIdx(roomId, queueIdx + 1);
     setQueueIdx(queueIdx + 1);
   };
 
@@ -319,6 +331,7 @@ export const usePlayer = () => {
       console.log('No previous track in the queue');
       return;
     }
+    updateQueueIdx(roomId, queueIdx - 1);
     setQueueIdx(queueIdx - 1);
   };
 
@@ -357,8 +370,7 @@ export const usePlayer = () => {
   };
   const clearQueue = async () => {
     emptyQueue(roomId).then(() => {
-      setQueue([]);
-      setQueueIdx(0);
+      setQueue((prev) => prev.slice(0, queueIdx + 1));
     });
   };
 

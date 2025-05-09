@@ -24,6 +24,7 @@ export type Track = {
   name: string;
   artists: Artist[]; // Array of artist names or objects
   album?: Album;
+  timeAdded: number;
   [key: string]: any; // Allow additional properties
   // ... any other metadata
 };

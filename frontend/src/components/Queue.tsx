@@ -43,7 +43,7 @@ export default function Queue() {
         });
       } else if (item.data.action === 'updated') {
         if (item.data.status === 'ready') {
-          setSongStatus(item.data.song_id, 'ready');
+          setSongStatus(item.data.songId, 'ready');
         }
       } else if (item.data.action === 'removed') {
         rmFromQueue(item.data.track);
@@ -77,7 +77,7 @@ export default function Queue() {
               disableRipple
               variant="text"
               className="p-0 bg-transparent text-sm text-[#b3b3b3] normal-case font-bold hover:text-white"
-              onAbort={clearQueue}
+              onClick={clearQueue}
             >
               Clear queue
             </Button>

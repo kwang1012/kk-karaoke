@@ -34,7 +34,7 @@ function SortableItem({ id, children }: { id: string; children?: React.ReactNode
     </div>
   );
 }
-import type { PointerEvent } from 'react';
+import { useMemo, type PointerEvent } from 'react';
 /**
  * An extended "PointerSensor" that prevent some
  * interactive html element(button, input, textarea, select, option...) from dragging
@@ -93,26 +93,37 @@ function SortableList({
     </DndContext>
   );
 }
+
+function getUniqueId(track: Track) {
+  return track.index.toString() + track.timeAdded.toString();
+}
 export default function TrackQueue({ tracks }: { tracks: Track[] }) {
-  const { currentSong, queue, setQueue, queueIdx } = usePlayer();
-  const { addToQueue, getRandomTracks, rmFromQueue, rmSongFromQueue } = usePlayer();
+  const { queue, setQueue } = usePlayer();
+  const { rmSongFromQueue } = usePlayer();
+  const realQueue = queue.slice(1);
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (active.id !== over?.id) {
-      const oldIndex = tracks.findIndex((track) => track.index.toString() === active.id);
-      const newIndex = tracks.findIndex((track) => track.index.toString() === over?.id);
-      const newItems = [...queue];
+      const oldIndex = tracksWithUniqueId.findIndex((track) => track.uniqueId === active.id);
+      const newIndex = tracksWithUniqueId.findIndex((track) => track.uniqueId === over?.id);
+      const newItems = [...realQueue];
       newItems.splice(oldIndex, 1);
-      const activeItem = tracks[Number(active.id)];
+      const activeItem = realQueue[oldIndex];
       newItems.splice(newIndex, 0, activeItem);
-      setQueue(newItems);
+      setQueue((prev) => [prev[0], ...newItems]);
     }
   };
+  const tracksWithUniqueId = useMemo(() => {
+    return tracks.map((track) => ({
+      uniqueId: getUniqueId(track),
+      ...track,
+    }));
+  }, [tracks]);
   return (
-    <SortableList onDragEnd={handleDragEnd} items={tracks.map((item) => item.index.toString())}>
-      {tracks.map((track, index) => (
-        <SortableItem key={track.index} id={track.index.toString()}>
-          <SongCard key={index} className="mt-1" track={track} onDelete={() => rmSongFromQueue(track, index + 1)} />
+    <SortableList onDragEnd={handleDragEnd} items={tracksWithUniqueId.map((item) => item.uniqueId)}>
+      {tracksWithUniqueId.map((track, index) => (
+        <SortableItem key={track.uniqueId} id={track.uniqueId}>
+          <SongCard className="mt-1" track={track} onDelete={() => rmSongFromQueue(track, index + 1)} />
         </SortableItem>
       ))}
     </SortableList>

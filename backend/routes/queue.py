@@ -6,6 +6,7 @@ from routes.db_interface import RedisQueueInterface
 from managers.websocket import WebSocketManager
 from managers.db import get_db
 from models.song import Song
+import json
 from services.process_request import send_process_request, is_ready
 
 router = APIRouter()
@@ -74,8 +75,8 @@ async def get_room_songs(
     try:
         # Use the get_queue method from RedisQueueInterface
         songs = redis_interface.get_queue(room_id)
-        key = f"room:{room_id}:queue:current_index"
-        current_idx = redis_interface.redis.get(key)
+        key = f"room:{room_id}:queue:current_idx"
+        current_idx = json.loads(redis_interface.redis.get(key))
         return {"tracks": songs, "index": current_idx}
     except redis.RedisError as e:
         raise HTTPException(
@@ -106,6 +107,8 @@ async def remove_from_queue_endpoint(
         raise HTTPException(status_code=500, detail=f"Redis error: {e}")
 
 # clear songs in a queue
+
+
 @router.post("/{room_id}/tracks/clear")
 async def clear_queue_endpoint(
     room_id: str,

@@ -143,7 +143,7 @@ const AppRouters = () => {
           </Route>
           <Route path="lyrics" element={<LyricsView />} />
           <Route path="play" element={mobile ? <PlayView /> : <BrowseView />} />
-          <Route path="setting" element={<SettingView />} />
+          <Route path="settings" element={<SettingView />} />
         </Route>
         <Route path="join" element={<JoinView />} />
       </Routes>
@@ -169,7 +169,7 @@ function App() {
   const setRoomId = useRoomStore((state) => state.setRoomId);
 
   useEffect(() => {
-    if (!roomId) {
+    if (!roomId || roomId === 'default') {
       setRoomId(uuid());
     }
   }, [roomId]);

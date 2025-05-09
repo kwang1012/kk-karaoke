@@ -119,13 +119,7 @@ def getTopCategories(keyword_str: str = "chinese"):
             for item in results["playlists"]["items"]:
                 if item is None:
                     continue
-                category = {
-                    "id": item["id"],
-                    "name": item["name"],
-                    "image": item["images"][0]["url"] if item["images"] else None,
-                    "description": item.get("description", ""),
-                }
-                categories[keyword].append(category)
+                categories[keyword].append(item)
 
     return categories
 
@@ -170,26 +164,9 @@ def getCollectionTracks(collection_type: str, collection_id: str):
             track = track["track"] if "track" in track else None
         if track is None:
             continue
-        tracks.append({
-            "id": track["id"],
-            "name": track["name"],
-            "artists": [artist["name"] for artist in track["artists"]],
-            "album": {
-                "name": track["album"]["name"],
-                "image": track["album"]["images"][0]["url"] if track["album"]["images"] else None,
-            } if collection_type == "playlists" else None
-        })
+        tracks.append(track)
     response = _get_collection(collection_type, collection_id)
-    result = response.json()
-    if result is None:
-        collection = None
-    else:
-        collection = {
-            "id": result["id"],
-            "name": result["name"],
-            "description": result.get("description", ""),
-            "image": result["images"][0]["url"] if result["images"] else None,
-        }
+    collection = response.json()
     return collection, tracks
 
 

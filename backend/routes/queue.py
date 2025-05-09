@@ -31,7 +31,7 @@ async def add_to_queue_endpoint(
 
         await ws_manager.broadcast(
             {"type": "queue", "data": {
-                "action": "added", "song": song.model_dump()}}
+                "action": "added", "track": song.model_dump()}}
         )
 
         if is_ready(song):

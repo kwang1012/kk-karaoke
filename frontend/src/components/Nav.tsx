@@ -11,7 +11,7 @@ import { useHistoryBoundaries } from 'src/hooks/history';
 
 export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>) {
   const navigate = useNavigate();
-  // const { isTop, isBottom } = useHistoryBoundaries();
+  const { isTop, isBottom } = useHistoryBoundaries();
 
   const setSearching = useAppStore((state) => state.setSearching);
   const searchValue = useAppStore((state) => state.searchValue);
@@ -32,7 +32,7 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
             <img src={Logo} className="w-[52px] h-[52px]" />
           </div>
         )}
-        {/* {!(isBottom && isTop) && (
+        {!(isBottom && isTop) && (
           <div className="ml-2 flex items-center">
             <IconButton
               disabled={isBottom}
@@ -51,12 +51,13 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
               <ArrowForwardIos />
             </IconButton>
           </div>
-        )} */}
+        )}
       </div>
 
       <div className="w-[500px] flex items-center">
         <Tooltip title="Home" placement="bottom">
           <IconButton
+            disableRipple
             className="mr-2"
             sx={{
               width: 48,
@@ -68,8 +69,9 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
                 backgroundColor: '#3a3a3a',
                 borderColor: '#4a4a4a',
               },
-              '& .MuiTouchRipple-root .MuiTouchRipple-child': {
-                borderRadius: 'inherit',
+              '&:active': {
+                backgroundColor: '#4a4a4a',
+                borderColor: '#5a5a5a',
               },
             }}
             onClick={() => navigate('/')}
@@ -106,19 +108,6 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
             src="/static/images/avatar/5.jpg"
           /> */}
         </AvatarGroup>
-        <Button
-          sx={{
-            padding: 2,
-            minWidth: 'unset',
-            color: '#8a8a8a',
-            borderColor: '#5a5a5a',
-          }}
-          className="mr-2"
-          variant="outlined"
-          onClick={() => navigate('/setting')}
-        >
-          <Settings />
-        </Button>
       </div>
     </div>
   );

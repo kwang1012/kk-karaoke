@@ -1,5 +1,7 @@
+import { useQuery } from '@tanstack/react-query';
 import React, { createContext, useMemo, useState, useContext, useRef, useEffect } from 'react';
 import { fetchLyrics, fetchQueue, fetchRandomTracks, pushToQueue, removeFromQueue } from 'src/apis/player';
+import { Lyrics, Track } from 'src/models/spotify';
 import ShiftedAutioPlayer from 'src/shiftedPlayer';
 import { useAudioStore } from 'src/store/audio';
 import { useRoomStore } from 'src/store/room';
@@ -9,7 +11,7 @@ import { api } from 'src/utils/api';
 
 type PlayerContextType = {
   syncedPlayerRef: React.MutableRefObject<SyncedAudioPlayer | null>;
-  // song context
+  // track context
   loading: boolean;
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
   playing: boolean;
@@ -34,11 +36,11 @@ type PlayerContextType = {
   currentLine: number;
   setCurrentLine: React.Dispatch<React.SetStateAction<number>>;
   // queue context
-  queue: Song[];
-  setQueue: React.Dispatch<React.SetStateAction<Song[]>>;
+  queue: Track[];
+  setQueue: React.Dispatch<React.SetStateAction<Track[]>>;
   queueIdx: number;
   setQueueIdx: React.Dispatch<React.SetStateAction<number>>;
-  currentSong: Song | null;
+  currentSong: Track | null;
   lastSongId: React.MutableRefObject<string | null>;
 };
 
@@ -74,7 +76,7 @@ function createPlayerContext({
 
   // queue context
   const lastSongId = useRef<string | null>(null);
-  const [queue, setQueue] = useState<Song[]>([]);
+  const [queue, setQueue] = useState<Track[]>([]);
   const [queueIdx, setQueueIdx] = useState(0);
 
   const currentSong = useMemo(() => {
@@ -209,13 +211,17 @@ export const usePlayer = () => {
 
   // =============== useEffect ===============
 
+  const { data: fetchedQueue } = useQuery({
+    queryKey: ['queue', roomId],
+    queryFn: () => fetchQueue(roomId),
+  });
   // 🔧 Initialize once
   useEffect(() => {
     // fetching queue
-    fetchQueue(roomId).then((songs) => {
-      setQueue(songs);
-    });
-  }, [roomId]);
+    if (fetchedQueue) {
+      setQueue(fetchedQueue);
+    }
+  }, [fetchedQueue]);
 
   // update progress every 50ms
   useEffect(() => {
@@ -231,14 +237,14 @@ export const usePlayer = () => {
           next();
         }
       }
-    }, 50);
+    }, 100);
 
     return () => clearInterval(interval);
   }, [playing, duration, seeking]);
 
-  // detect current song change
+  // detect current track change
   useEffect(() => {
-    // no next song
+    // no next track
     if (!currentSong) {
       setLyrics([]);
       setCurrentLine(-1);
@@ -250,9 +256,9 @@ export const usePlayer = () => {
     // prevent re-initialization on every render
     if (currentSong.id === lastSongId.current) return;
 
-    // skip if the song is not ready and songStatus is not undefined
+    // skip if the track is not ready and songStatus is not undefined
     if (songStatus[currentSong.id] !== undefined && songStatus[currentSong.id] !== 'ready') {
-      console.log('Song is still processing, skipping initialization:', currentSong.name);
+      console.log('Track is still processing, skipping initialization:', currentSong.name);
       return;
     }
 
@@ -262,9 +268,9 @@ export const usePlayer = () => {
     const player = syncedPlayerRef.current;
     if (!player) return;
 
-    console.log('Play new song:', currentSong.name);
+    console.log('Play new track:', currentSong.name);
 
-    // reset state related to the previous song
+    // reset state related to the previous track
     setLyrics([]);
     setCurrentLine(-1);
     setProgress(0);
@@ -302,7 +308,7 @@ export const usePlayer = () => {
   // =============== functions that affect states ===============
   const next = () => {
     if (queueIdx >= queue.length - 1) {
-      console.log('No next song in the queue');
+      console.log('No next track in the queue');
       return;
     }
     setQueueIdx(queueIdx + 1);
@@ -310,7 +316,7 @@ export const usePlayer = () => {
 
   const previous = () => {
     if (queueIdx <= 0) {
-      console.log('No previous song in the queue');
+      console.log('No previous track in the queue');
       return;
     }
     setQueueIdx(queueIdx - 1);
@@ -334,18 +340,18 @@ export const usePlayer = () => {
       setQueue((prevQueue) => [...prevQueue, ...tracks]);
     });
   };
-  const addSongToQueue = async (song: Song) => {
-    setSongStatus(song.id, 'submitted');
-    pushToQueue(roomId, song).then((data) => {
-      if (data.is_ready) {
-        setSongStatus(song.id, 'ready');
+  const addSongToQueue = async (track: Track) => {
+    setSongStatus(track.id, 'submitted');
+    pushToQueue(roomId, track).then((data) => {
+      if (data.isReady) {
+        setSongStatus(track.id, 'ready');
       }
     });
   };
-  const rmSongFromQueue = async (song: Song, idx: number) => {
-    removeFromQueue(roomId, song).then(() => {
-      // removeSongStatus(song.id);
-      // removeSongProgress(song.id);
+  const rmSongFromQueue = async (track: Track, idx: number) => {
+    removeFromQueue(roomId, track).then(() => {
+      // removeSongStatus(track.id);
+      // removeSongProgress(track.id);
       setQueue((prevQueue) => prevQueue.filter((_, i) => i !== idx));
     });
   };
@@ -403,12 +409,13 @@ export const usePlayer = () => {
     next,
     previous,
     queue,
+    setQueue,
     queueIdx,
-    addToQueue: (song: Song) => {
-      setQueue((prevQueue) => [...prevQueue, song]);
+    addToQueue: (track: Track) => {
+      setQueue((prevQueue) => [...prevQueue, track]);
     },
-    rmFromQueue: (song: Song) => {
-      setQueue((prevQueue) => prevQueue.filter((s) => s.id !== song.id));
+    rmFromQueue: (track: Track) => {
+      setQueue((prevQueue) => prevQueue.filter((s) => s.id !== track.id));
     },
     resetProgress: (time: number) => {
       syncedPlayerRef.current?.seek(time);

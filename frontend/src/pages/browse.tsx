@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { api } from 'src/utils/api';
 import placeholder from 'src/assets/placeholder.png';
 import Carousel, { CarouselItem } from 'src/components/Carousel';
@@ -6,6 +6,7 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import AppScrollbar from 'src/components/Scrollbar';
 import Skeleton from 'react-loading-skeleton';
+import { Categories, Collection } from 'src/models/spotify';
 
 function PlaylistCard({
   playlist,
@@ -27,7 +28,7 @@ function PlaylistCard({
     >
       {playlist ? (
         <>
-          <img src={playlist.image || placeholder} className="w-full rounded-md" />
+          <img src={playlist.images[0].url || placeholder} className="w-full rounded-md" />
           <span className="text-sm text-gray-400 line-clamp-2">{playlist.name}</span>
         </>
       ) : (
@@ -85,24 +86,28 @@ export function MainView() {
       state: { collection: playlist },
     });
   };
+
+  const sections = useMemo(() => {
+    return SECTIONS.map((section) => ({
+      ...section,
+      collections: categories?.[section.keyword] || [],
+    }));
+  }, [categories]);
   return (
     <AppScrollbar>
       <div className="pt-6 w-full overflow-hidden">
-        {SECTIONS.map((section) => {
-          const playlists = categories?.[section.keyword] || [];
-          return (
-            <div key={section.keyword} className="mb-8">
-              <h1 className="mx-4 md:mx-8 mb-1 text-lg">{section.name}</h1>
-              <Carousel>
-                {isLoading
-                  ? Array.from({ length: 5 }).map((_, index) => <PlaylistCard key={index} />)
-                  : playlists.map((playlist) => (
-                      <PlaylistCard key={playlist.id} playlist={playlist} onCardClick={handleOnClickPlaylist} />
-                    ))}
-              </Carousel>
-            </div>
-          );
-        })}
+        {sections.map((section) => (
+          <div key={section.keyword} className="mb-8">
+            <h1 className="mx-4 md:mx-8 mb-1 text-lg font-bold">{section.name}</h1>
+            <Carousel>
+              {isLoading
+                ? Array.from({ length: 5 }).map((_, index) => <PlaylistCard key={index} />)
+                : section.collections.map((collection) => (
+                    <PlaylistCard key={collection.id} playlist={collection} onCardClick={handleOnClickPlaylist} />
+                  ))}
+            </Carousel>
+          </div>
+        ))}
       </div>
     </AppScrollbar>
   );

@@ -18,8 +18,11 @@ const baseTheme: AppThemeOptions = {
   components: {
     MuiButton: {
       defaultProps: {
-        style: {
+        sx: {
           backgroundColor: 'background.paper',
+          '& svg': {
+            pointerEvents: 'none',
+          },
         },
       },
     },

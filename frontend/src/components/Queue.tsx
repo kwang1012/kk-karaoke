@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import SongCard from './SongCard';
 import { useAudioStore } from 'src/store/audio';
 import AppScrollbar from './Scrollbar';
@@ -10,6 +10,7 @@ import { styled } from '@mui/material/styles';
 import { ExpandMore } from '@mui/icons-material';
 import { useRemoteMessageQueue } from 'src/hooks/queue';
 import { usePlayer } from 'src/hooks/player';
+import TrackQueue from './TrackQueue';
 
 const QRCodeAccordion = styled(Accordion)(({ theme }) => ({
   backgroundColor: '#2f2f2f',
@@ -40,12 +41,19 @@ export default function Queue() {
   const setSongStatus = useAudioStore((state) => state.setSongStatus);
 
   const { currentSong, queue, queueIdx } = usePlayer();
-  const { addToQueue, getRandomTracks, rmFromQueue, rmSongFromQueue } = usePlayer();
+  const { addToQueue, getRandomTracks, rmFromQueue } = usePlayer();
+
+  const tracks = useMemo(() => {
+    return queue.slice(queueIdx + 1).map((track, index) => ({
+      index,
+      ...track,
+    }));
+  }, [queue, queueIdx]);
 
   useRemoteMessageQueue('queue', {
     onAddItem: (item: Message) => {
       if (item.data.action === 'added') {
-        addToQueue(item.data.song);
+        addToQueue(item.data.track);
         requestAnimationFrame(() => {
           const scrollbar = scrollbarRef.current;
           if (scrollbar) {
@@ -57,7 +65,7 @@ export default function Queue() {
           setSongStatus(item.data.song_id, 'ready');
         }
       } else if (item.data.action === 'removed') {
-        rmFromQueue(item.data.song);
+        rmFromQueue(item.data.track);
       }
     },
   });
@@ -73,7 +81,7 @@ export default function Queue() {
         <AppScrollbar className="h-full" ref={(el: Scrollbar) => (scrollbarRef.current = el)} onScroll={handleScroll}>
           <div className="px-5 mt-5 font-medium text-lg">Now playing</div>
           <div className="px-3">
-            <SongCard className="mt-1" disable song={currentSong} />
+            <SongCard className="mt-1" disable track={currentSong} />
           </div>
 
           <div className="mx-4 mt-5">
@@ -99,17 +107,8 @@ export default function Queue() {
 
           <div className="px-5 mt-8 font-medium text-lg">Next from the queue</div>
           <div className="px-3">
-            {queue.length - queueIdx > 1 ? (
-              queue
-                .slice(queueIdx + 1)
-                .map((song, index) => (
-                  <SongCard
-                    key={index}
-                    className="mt-1"
-                    song={song}
-                    onDelete={() => rmSongFromQueue(song, index + 1)}
-                  />
-                ))
+            {tracks.length ? (
+              <TrackQueue tracks={tracks} />
             ) : (
               <>
                 <div className="text-gray-400 mt-2 w-full pl-2">There's no music in the queue.</div>

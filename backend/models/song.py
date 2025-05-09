@@ -1,12 +1,19 @@
-from typing import Optional
+from typing import Any, Optional
 from pydantic import BaseModel
+
+
+class Artist(BaseModel):
+    id: str
+    uri: str
+    name: str
 
 
 class Song(BaseModel):
     id: str
     name: str
-    artists: list[str]
-    album: Optional[dict[str, str | None]] = None
+    artists: list[Artist]
+    album: Optional[dict[str, Any]] = None
+    timeAdded: Optional[str] = None
 
 
 class LyricsDelay(BaseModel):
@@ -21,6 +28,7 @@ class LyricsDelay(BaseModel):
             }
         }
 
+
 class Room(BaseModel):
-    id:str
-    song:Optional[Song]=None
+    id: str
+    song: Optional[Song] = None

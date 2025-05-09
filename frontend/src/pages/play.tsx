@@ -43,8 +43,8 @@ export default function PlayView() {
     window.scrollTo(0, 1);
   }, []);
   const [color, setColor] = useState<string>('#535353');
+  const image = currentSong?.album?.images?.[0]?.url;
   useEffect(() => {
-    const image = currentSong?.album?.image;
     if (!image) {
       setColor('#535353');
       return;
@@ -56,7 +56,7 @@ export default function PlayView() {
       .catch((error) => {
         console.error('Error fetching average RGB:', error);
       });
-  }, [currentSong?.album?.image]);
+  }, [image]);
   return (
     <Layout
       style={{
@@ -84,8 +84,8 @@ export default function PlayView() {
             {queue.length - queueIdx > 1 ? (
               <>
                 <span>Queue</span>
-                {queue.slice(queueIdx + 1).map((song, index) => (
-                  <SongCard key={index} className="mt-1" song={song} onDelete={() => rmSongFromQueue(song, index)} />
+                {queue.slice(queueIdx + 1).map((track, index) => (
+                  <SongCard key={index} className="mt-1" track={track} onDelete={() => rmSongFromQueue(track, index)} />
                 ))}
               </>
             ) : (

@@ -23,4 +23,4 @@ class LyricsDelay(BaseModel):
 
 class Room(BaseModel):
     id:str
-    song:Optional[Song]
+    song:Optional[Song]=None

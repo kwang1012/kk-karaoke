@@ -7,6 +7,7 @@ from managers.websocket import WebSocketManager
 from routes.song import router as song_router
 from routes.lyrics import router as lyrics_router
 from routes.queue import router as queue_router
+from routes.room import router as room_router
 from dotenv import load_dotenv
 
 load_dotenv()  # Load environment variables from .env file
@@ -24,6 +25,7 @@ app.add_middleware(
 app.include_router(song_router, prefix="/api/songs", tags=["songs"])
 app.include_router(lyrics_router, prefix="/api/lyrics", tags=["lyrics"])
 app.include_router(queue_router, prefix="/api/queue", tags=["queue"])
+app.include_router(room_router, prefix= "/api/room", tags = ["room"])
 ws_manager = WebSocketManager()
 
 

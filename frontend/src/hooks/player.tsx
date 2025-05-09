@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import React, { createContext, useMemo, useState, useContext, useRef, useEffect } from 'react';
-import { fetchLyrics, fetchQueue, fetchRandomTracks, pushToQueue, removeFromQueue } from 'src/apis/player';
+import { emptyQueue, fetchLyrics, fetchQueue, fetchRandomTracks, pushToQueue, removeFromQueue } from 'src/apis/player';
 import { Lyrics, Track } from 'src/models/spotify';
 import ShiftedAutioPlayer from 'src/shiftedPlayer';
 import { useAudioStore } from 'src/store/audio';
@@ -355,6 +355,12 @@ export const usePlayer = () => {
       setQueue((prevQueue) => prevQueue.filter((_, i) => i !== idx));
     });
   };
+  const clearQueue = async () => {
+    emptyQueue(roomId).then(() => {
+      setQueue([]);
+      setQueueIdx(0);
+    });
+  };
 
   return {
     loading,
@@ -428,5 +434,6 @@ export const usePlayer = () => {
     addSongToQueue,
     rmSongFromQueue,
     getRandomTracks,
+    clearQueue,
   };
 };

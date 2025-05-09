@@ -65,7 +65,12 @@ export default function SidebarController({ className }: { className?: string })
             onClick={toggleVocal}
             style={{ fontSize: 24 }}
           >
-            <SvgIcon src={vocalOn ? Mic : MicMuted} className="w-10 h-10" stroke={vocalOn ? '#ffeaed' : '#fa6171'} />
+            <SvgIcon
+              src={vocalOn ? Mic : MicMuted}
+              className="w-10 h-10"
+              stroke={vocalOn ? '#ffeaed' : '#fa6171'}
+              strokeWidth={1}
+            />
           </IconButton>
         </Tooltip>
         <Divider className="w-4/5 h-[1px] bg-[#2f2f2f] mt-4" />

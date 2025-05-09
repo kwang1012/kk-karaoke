@@ -55,3 +55,14 @@ export const removeFromQueue = async (roomId: string, track: Track) => {
     console.error('Error removing track from queue:', error);
   });
 };
+
+export const emptyQueue = async (roomId: string) => {
+  return api
+    .post(`queue/${roomId}/tracks/clear`)
+    .then(({ data }) => {
+      return data;
+    })
+    .catch((error) => {
+      console.error('Error clearing queue:', error);
+    });
+};

@@ -254,7 +254,23 @@ const TrackRow = memo(
           )}
           <div>
             <span className="line-clamp-1 ml-2">{track.name}</span>
-            {collectionType === 'album' && <span className="text-gray-400 ml-2">{track.artists.join(',')}</span>}
+            {collectionType === 'album' && (
+              <span className="text-gray-400 ml-2">
+                {track.artists.map((artist, index) => (
+                  <span key={index}>
+                    {index > 0 && ', '}
+                    <a
+                      href={artist.uri}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:underline cursor-pointer"
+                    >
+                      {artist.name}
+                    </a>
+                  </span>
+                ))}
+              </span>
+            )}
           </div>
         </div>
       ),

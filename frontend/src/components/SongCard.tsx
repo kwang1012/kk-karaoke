@@ -19,7 +19,19 @@ import { Track } from 'src/models/spotify';
 
 const CircularProgressWithLabel = ({ children, ...props }: { children?: ReactElement } & CircularProgressProps) => (
   <div className="relative inline-flex">
-    <CircularProgress variant="determinate" {...props} />
+    {/* Background track */}
+    {props.variant === 'determinate' && (
+      <CircularProgress
+        {...props}
+        className="absolute"
+        variant="determinate"
+        value={100}
+        sx={{
+          color: '#a0a0a0', // light gray background
+        }}
+      />
+    )}
+    <CircularProgress {...props} />
     <div className="top-0 left-0 bottom-0 right-0 absolute flex items-center justify-center">
       {children ? children : <span className="text-white text-xs">{props.value}%</span>}
     </div>
@@ -194,10 +206,9 @@ export default function SongCard({
     <HoverLayout
       className={[
         className,
-        isReady && !disable && initialized && connected ? 'hover:bg-[#ffffff1a]' : '',
         dense ? 'py-0 px-1' : 'px-2',
         menuOpen ? 'active' : '',
-        disable ? 'disable-hover' : '',
+        !isReady || disable ? 'disable-hover' : '',
       ].join(' ')}
       {...props}
     >

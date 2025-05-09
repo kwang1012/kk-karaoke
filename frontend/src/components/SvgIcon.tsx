@@ -9,10 +9,11 @@ const Icon = styled(ReactSVG)({
   '& path': {
     fill: 'inherit',
     stroke: 'inherit',
+    strokeWidth: 'inherit',
   },
 });
 
-export default function SvgIcon({ color, className, fill, stroke, ...props }: Props) {
+export default function SvgIcon({ color, className, fill, stroke, strokeWidth, ...props }: Props) {
   return (
     <div className={className}>
       <Icon
@@ -22,6 +23,7 @@ export default function SvgIcon({ color, className, fill, stroke, ...props }: Pr
             color,
             fill,
             stroke,
+            strokeWidth,
           },
         }}
       />

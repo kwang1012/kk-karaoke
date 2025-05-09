@@ -16,7 +16,6 @@ import {
 import { useState, useMemo, useRef, useEffect, memo } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import AppScrollbar from 'src/components/Scrollbar';
-import { useAudioStore } from 'src/store';
 import { api } from 'src/utils/api';
 import placeholder from 'src/assets/placeholder.png';
 import { useWebSocketStore } from 'src/store/ws';
@@ -27,6 +26,7 @@ import { Delete, MoreHoriz, PlayArrow, QueueMusic } from '@mui/icons-material';
 import AppMenu from 'src/components/Menu';
 import { getAvgRGB } from 'src/utils';
 import Scrollbar from 'react-scrollbars-custom';
+import { usePlayer } from 'src/hooks/player';
 
 const ALBUM_HEADERS = [
   {
@@ -291,13 +291,13 @@ export default function PlaylistView() {
   const location = useLocation();
   const initCollection = location.state?.collection || {};
   const { id } = useParams();
-  const setSongStatus = useAudioStore((state) => state.setSongStatus);
   const collectionType = useMemo(() => location.pathname.split('/')[1], [location.pathname]);
   const initialized = useWebSocketStore((state) => state.initialized);
   const connected = useWebSocketStore((state) => state.connected);
   const headerRef = useRef<HTMLDivElement>(null);
   const theme = useTheme();
   const mobile = useMediaQuery(theme.breakpoints.down('md'));
+  const { addSongToQueue } = usePlayer();
 
   const headers = useMemo(() => {
     return collectionType === 'album' || mobile ? ALBUM_HEADERS : PLAYLIST_HEADERS;
@@ -322,22 +322,12 @@ export default function PlaylistView() {
     }
   }, [collection.image]);
 
-  const addSongToQueue = (song: Song) => {
+  const onAdd = (song: Song) => {
     // Function to add a song to the queue
     if (collectionType === 'album') {
       song.album = collection;
     }
-    setSongStatus(song.id, 'submitted');
-    api
-      .post('/queue/add', song)
-      .then(({ data }) => {
-        if (data.is_ready) {
-          setSongStatus(song.id, 'ready');
-        }
-      })
-      .catch((error) => {
-        console.error('Error adding song to queue:', error);
-      });
+    addSongToQueue(song);
   };
   const [scrollTop, setScrollTop] = useState(0);
 
@@ -431,7 +421,7 @@ export default function PlaylistView() {
                         collectionType={collectionType}
                         headers={headers}
                         song={track}
-                        onAdd={addSongToQueue}
+                        onAdd={onAdd}
                         initialized={initialized}
                         connected={connected}
                       />

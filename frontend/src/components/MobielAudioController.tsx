@@ -1,6 +1,6 @@
 import { faStepBackward, faCirclePause, faCirclePlay, faForwardStep } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { Icon, IconButton } from '@mui/material';
+import { IconButton } from '@mui/material';
 import AppSlider from './Slider';
 import { usePlayer } from 'src/hooks/player';
 import { VolumeMuteOutlined, VolumeUpOutlined } from '@mui/icons-material';

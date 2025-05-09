@@ -66,7 +66,6 @@ class SyncedAudioPlayer {
   async loadAudio(vocalUrl: string, instrumentalUrl: string) {
     this.pause(); // ensure current playback stops cleanly
     await this.load(vocalUrl, instrumentalUrl);
-    this.play(); // autoplay after switching if desired
   }
 
   protected async loadBuffer(url: string): Promise<AudioBuffer> {

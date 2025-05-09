@@ -4,24 +4,7 @@ declare module '@mui/material/styles' {
   interface AppTheme extends Theme {
     breakpoints: BreakpointsOptions & {
       values: {
-        xs: number;
-        sm: number;
-        md: number;
-        lg: number;
-        xl: number;
         '2xl': number;
-      };
-    };
-    palette: PaletteOptions & {
-      accent: PaletteColorOptions;
-      tiffany: PaletteColorOptions;
-      shadow: string;
-      card: {
-        background: string;
-        shadow: string;
-      };
-      footer: {
-        text: string;
       };
     };
   }
@@ -29,24 +12,7 @@ declare module '@mui/material/styles' {
   interface AppThemeOptions extends ThemeOptions {
     breakpoints: BreakpointsOptions & {
       values: {
-        xs: number;
-        sm: number;
-        md: number;
-        lg: number;
-        xl: number;
         '2xl': number;
-      };
-    };
-    palette: PaletteOptions & {
-      accent: PaletteColorOptions;
-      tiffany: PaletteColorOptions;
-      shadow: string;
-      card: {
-        background: string;
-        shadow: string;
-      };
-      footer: {
-        text: string;
       };
     };
   }

@@ -1,11 +1,9 @@
 import {
-  Button,
   CircularProgress,
   CircularProgressProps,
   IconButton,
   ListItemIcon,
   ListItemText,
-  Menu,
   MenuItem,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
@@ -15,7 +13,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGears, faMusic } from '@fortawesome/free-solid-svg-icons';
 import { useAudioStore } from 'src/store';
 import { useWebSocketStore } from 'src/store/ws';
-import { Delete, MoreHoriz, PlayArrow, QueueMusic } from '@mui/icons-material';
+import { DeleteOutline, MoreHoriz, PlayArrow } from '@mui/icons-material';
 import AppMenu from './Menu';
 
 const CircularProgressWithLabel = ({ children, ...props }: { children?: ReactElement } & CircularProgressProps) => (
@@ -89,10 +87,23 @@ const ActionMenu = memo(
       setAnchorEl(null);
       onClose();
     };
+    const functions = [
+      {
+        fn: onAdd,
+        icon: <PlayArrow />,
+        text: 'Play',
+      },
+      {
+        fn: onDelete,
+        icon: <DeleteOutline />,
+        text: 'Remove from queue',
+      },
+    ];
     return (
       <div>
         <IconButton
           className="row-actions"
+          disableTouchRipple
           sx={{ minWidth: 40 }}
           onClick={(e) => {
             e.stopPropagation();
@@ -100,35 +111,32 @@ const ActionMenu = memo(
           }}
           aria-describedby={id}
         >
-          <MoreHoriz className="text-[#b3b3b3]" />
+          <MoreHoriz style={{ color: '#b3b3b3' }} />
         </IconButton>
         <AppMenu id={id} open={open} anchorEl={anchorEl} onClose={handleClose}>
-          {onAdd && (
-            <MenuItem
-              onClick={() => {
-                onAdd(song);
-                handleClose();
-              }}
-            >
-              <ListItemIcon>
-                <QueueMusic />
-              </ListItemIcon>
-              <ListItemText>Add to queue</ListItemText>
-            </MenuItem>
-          )}
-          {onDelete && (
-            <MenuItem
-              onClick={() => {
-                if (!song) return;
-                onDelete(song);
-                handleClose();
-              }}
-            >
-              <ListItemIcon>
-                <Delete />
-              </ListItemIcon>
-              <ListItemText>Remove from queue</ListItemText>
-            </MenuItem>
+          {functions.map(
+            (func, index) =>
+              func.fn && (
+                <MenuItem
+                  key={index}
+                  onClick={() => {
+                    if (!song || !func.fn) return;
+                    func.fn(song);
+                    handleClose();
+                  }}
+                >
+                  <ListItemIcon
+                    sx={{
+                      '& svg': {
+                        fill: '#b3b3b3',
+                      },
+                    }}
+                  >
+                    {func.icon}
+                  </ListItemIcon>
+                  <ListItemText className="text-[#b3b3b3]">{func.text}</ListItemText>
+                </MenuItem>
+              )
           )}
         </AppMenu>
       </div>
@@ -248,6 +256,7 @@ export default function SongCard({
           <ActionMenu
             song={parsedSong}
             onAdd={onAdd}
+            onDelete={onDelete}
             onOpen={() => setMenuOpen(true)}
             onClose={() => setMenuOpen(false)}
           />

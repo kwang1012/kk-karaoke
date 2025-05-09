@@ -1,9 +1,9 @@
 import { AppThemeOptions } from '@mui/material';
 
-const baseTheme = {
+const baseTheme: AppThemeOptions = {
   spacing: 4,
   typography: {
-    fontFamily: '"Cal Sans", "Helvetica", "Arial", sans-serif',
+    fontFamily: '"Open Sans", "Helvetica", "Arial", sans-serif',
   },
   breakpoints: {
     values: {
@@ -13,6 +13,15 @@ const baseTheme = {
       lg: 1024,
       xl: 1200,
       '2xl': 1536,
+    },
+  },
+  components: {
+    MuiButton: {
+      defaultProps: {
+        style: {
+          backgroundColor: 'background.paper',
+        },
+      },
     },
   },
 };
@@ -31,27 +40,13 @@ export const lightTheme: AppThemeOptions = {
       light: '#ff7961',
       main: '#f44336',
       dark: '#ba000d',
-      // contrastText: '#000',
-    },
-    accent: {
-      main: '#36EEE0',
-    },
-    tiffany: {
-      main: '#BCECE0',
     },
     background: {
-      default: '#FAFBFC',
+      default: '#f7f6f0',
+      paper: 'white',
     },
     text: {
       primary: '#000000',
-    },
-    shadow: '0 0 5px #00000070',
-    card: {
-      background: 'white',
-      shadow: '0 0 5px #00000070',
-    },
-    footer: {
-      text: '#4C5270',
     },
   },
 };
@@ -67,27 +62,13 @@ export const darkTheme: AppThemeOptions = {
       light: '#ff7961',
       main: '#f44336',
       dark: '#ba000d',
-      // contrastText: '#000',
-    },
-    accent: {
-      main: '#36EEE0',
-    },
-    tiffany: {
-      main: '#BCECE0',
     },
     background: {
-      default: '#010203',
+      default: 'black',
+      paper: '#121212',
     },
     text: {
       primary: '#ffffff',
-    },
-    shadow: '0 0 2px #FFFFFF70',
-    card: {
-      background: '#212223',
-      shadow: '0 0 2px #FFFFFF70',
-    },
-    footer: {
-      text: '#CC3363',
     },
   },
 };

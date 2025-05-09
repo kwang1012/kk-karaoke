@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cal+Sans&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap');
 @import '~material-design-icons/iconfont/material-icons.css';
 @import 'react-loading-skeleton/dist/skeleton.css';
 @import 'tailwindcss/preflight';
@@ -29,9 +29,8 @@ body {
   height: 100%;
   padding: 0;
   margin: 0;
-  font-family: 'Cal Sans', -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen, Ubuntu, Cantarell, Fira Sans,
+  font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen, Ubuntu, Cantarell, Fira Sans,
     Droid Sans, Helvetica Neue, sans-serif˝;
-  background-color: black;
   scroll-behavior: smooth;
 }
 
@@ -102,11 +101,4 @@ a {
 }
 .scrollbar:hover::-webkit-scrollbar-thumb {
   box-shadow: inset 0 0 10px 10px #ffffff70;
-}
-
-#nprogress .bar {
-  background: #cc3363 !important;
-}
-#nprogress .peg {
-  box-shadow: 0 0 10px #cc3363dd, 0 0 5px #cc3363dd !important;
 }

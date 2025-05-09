@@ -5,6 +5,7 @@ from typing import Optional, List
 import redis
 from managers.db import DatabaseManager
 from models.song import Song
+import time
 
 
 class RedisQueueInterface:
@@ -17,6 +18,7 @@ class RedisQueueInterface:
     # --- Queue Operations ---
     def add_song_to_queue(self, room_id: str, song: Song) -> int:
         try:
+            song.time_added = int(time.time())
             user_queue_key = f"{self.room_prefix}{room_id}:queue"
             song_json = json.dumps(song.model_dump())
             return self.redis.rpush(user_queue_key, song_json)

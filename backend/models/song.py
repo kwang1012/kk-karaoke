@@ -13,7 +13,7 @@ class Song(BaseModel):
     name: str
     artists: list[Artist]
     album: Optional[dict[str, Any]] = None
-    timeAdded: Optional[str] = None
+    time_added: Optional[int] = None
 
 
 class LyricsDelay(BaseModel):

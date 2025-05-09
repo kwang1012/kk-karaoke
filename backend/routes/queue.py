@@ -103,4 +103,24 @@ async def remove_from_queue_endpoint(
     except redis.RedisError as e:
         raise HTTPException(status_code=500, detail=f"Redis error: {e}")
 
+# clear songs in a queue
+@router.post("/{room_id}/tracks/clear")  
+async def clear_queue_endpoint(
+    room_id: str,
+    redis_interface: RedisQueueInterface = Depends(
+        lambda: RedisQueueInterface(get_db())),
+):
+    """
+    Removes all songs from a room's queue.
 
+    Args:
+        room_id: The ID of the room.
+    """
+    try:
+        redis_interface.clear_queue(room_id)  # Call the clear_queue method
+        await ws_manager.broadcast(
+            {"type": "queue", "data": {"action": "cleared", "room_id": room_id}}
+        )
+        return JSONResponse(content={"message": f"Queue for room {room_id} cleared"}, status_code=200)
+    except redis.RedisError as e:
+        raise HTTPException(status_code=500, detail=f"Redis error: {e}")

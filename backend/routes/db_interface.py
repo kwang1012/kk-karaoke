@@ -57,9 +57,7 @@ class RedisQueueInterface:
             user_queue_key = f"{self.room_prefix}{room_id}:queue"
             idx_key = f"room:{room_id}:queue:current_idx"
             current_idx = self.redis.get(idx_key)
-            queue = self.redis.get(user_queue_key)
-            queue = queue[:current_idx]
-            self.redis.set(queue)
+            self.redis.ltrim(user_queue_key,0,current_idx)
         except redis.RedisError as e:
             print(f"Error clearing song queue for room {room_id}: {e}")
             raise

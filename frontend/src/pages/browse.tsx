@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { api } from 'src/utils/api';
 import placeholder from 'src/assets/placeholder.png';
 import Carousel, { CarouselItem } from 'src/components/Carousel';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import AppScrollbar from 'src/components/Scrollbar';
 import Skeleton from 'react-loading-skeleton';

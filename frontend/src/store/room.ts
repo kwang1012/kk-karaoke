@@ -37,13 +37,17 @@ export const useRoomStore = create<RoomState>()(
       //
       fetchRoom: async () => {
         const activeRoomId = get().joinedRoom || get().roomId;
-        const { data } = await api.get(`/room/${activeRoomId}/participants`).catch((err) => {
-          console.error('Error fetching room participants:', err);
-          return { data: { participants: [] } };
-        });
-        set(() => ({
-          participants: data.participants,
-        }));
+        try {
+          const { data } = await api.get(`/room/${activeRoomId}/participants`);
+          set(() => ({
+            participants: data.participants,
+          }));
+        } catch (error) {
+          console.error('Error fetching room participants:', error);
+          set(() => ({
+            participants: [] as User[],
+          }));
+        }
       },
     }),
     {

@@ -4,10 +4,13 @@ const AppSelect = styled(NativeSelect)(({ theme }) => ({
   border: 'none',
   backgroundColor: '#333333',
   borderRadius: 4,
+  fontSize: 12,
   color: '#b3b3b3',
+  height: 32,
   '& .MuiNativeSelect-select': {
     border: 'none',
-    padding: '4px 12px 4px 12px',
+    height: '100%',
+    padding: '0 12px',
   },
   '& svg': {
     right: 4,

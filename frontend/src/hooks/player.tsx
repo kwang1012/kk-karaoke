@@ -219,7 +219,7 @@ export const usePlayer = () => {
   useEffect(() => {
     // fetching queue
     if (fetchedQueue) {
-      setQueue(fetchedQueue);
+      setQueue(fetchedQueue.tracks);
     }
   }, [fetchedQueue]);
 

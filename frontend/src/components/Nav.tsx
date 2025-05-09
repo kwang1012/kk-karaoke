@@ -11,7 +11,7 @@ import { useHistoryBoundaries } from 'src/hooks/history';
 
 export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>) {
   const navigate = useNavigate();
-  const { isTop, isBottom } = useHistoryBoundaries();
+  // const { isTop, isBottom } = useHistoryBoundaries();
 
   const setSearching = useAppStore((state) => state.setSearching);
   const searchValue = useAppStore((state) => state.searchValue);
@@ -32,7 +32,7 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
             <img src={Logo} className="w-[52px] h-[52px]" />
           </div>
         )}
-        {!(isBottom && isTop) && (
+        {/* {!(isBottom && isTop) && (
           <div className="ml-2 flex items-center">
             <IconButton
               disabled={isBottom}
@@ -51,7 +51,7 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
               <ArrowForwardIos />
             </IconButton>
           </div>
-        )}
+        )} */}
       </div>
 
       <div className="w-[500px] flex items-center">

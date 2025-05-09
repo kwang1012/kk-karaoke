@@ -102,7 +102,14 @@ export default function Queue() {
             {queue.length - queueIdx > 1 ? (
               queue
                 .slice(queueIdx + 1)
-                .map((song, index) => <SongCard key={index} className="mt-1" song={song} onDelete={rmSongFromQueue} />)
+                .map((song, index) => (
+                  <SongCard
+                    key={index}
+                    className="mt-1"
+                    song={song}
+                    onDelete={() => rmSongFromQueue(song, index + 1)}
+                  />
+                ))
             ) : (
               <>
                 <div className="text-gray-400 mt-2 w-full pl-2">There's no music in the queue.</div>

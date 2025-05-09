@@ -85,7 +85,7 @@ export default function PlayView() {
               <>
                 <span>Queue</span>
                 {queue.slice(queueIdx + 1).map((song, index) => (
-                  <SongCard key={index} className="mt-1" song={song} onDelete={rmSongFromQueue} />
+                  <SongCard key={index} className="mt-1" song={song} onDelete={() => rmSongFromQueue(song, index)} />
                 ))}
               </>
             ) : (

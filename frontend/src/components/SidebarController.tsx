@@ -48,7 +48,7 @@ export default function SidebarController({ className }: { className?: string })
             sx={{
               width: 48,
               height: 48,
-              borderRadius: '50%',
+              borderRadius: '6px',
               backgroundColor: '#cc3363',
               border: '2px solid transparent',
               '&:hover': {
@@ -75,7 +75,7 @@ export default function SidebarController({ className }: { className?: string })
         <span className="mt-6 text-white text-center mb-2 font-bold">Vocal</span>
         <Tooltip title={vocalOn ? 'Turn off Vocal' : 'Turn on Vocal'} placement="right">
           <IconButton onClick={toggleVocal} style={{ fontSize: 24 }}>
-            <SvgIcon src={vocalOn ? Mic : MicMuted} className="w-10 h-10" stroke={vocalOn ? '#c5c5c5' : 'red'} />
+            <SvgIcon src={vocalOn ? Mic : MicMuted} className="w-10 h-10" stroke={vocalOn ? '#c5c5c5' : '#f25757'} />
           </IconButton>
         </Tooltip>
         <Divider className="w-4/5 h-[1px] bg-[#2f2f2f] mt-4" />

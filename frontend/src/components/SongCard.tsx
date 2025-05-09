@@ -50,7 +50,6 @@ const HoverLayout = styled('div')(({ theme }) => ({
     backgroundColor: '#ffffff3a',
   },
   '&.disable-hover': {
-    // backgroundColor: 'transparent',
     '&:hover, &:active': {
       backgroundColor: 'transparent',
     },
@@ -237,10 +236,10 @@ export default function SongCard({
         </div>
       )}
       <div className="relative w-10 h-10 bg-[#b3b3b3] rounded-md mr-4 overflow-hidden shrink-0">
-        {hasActions && (
+        {onAdd && (
           <div
             className="actions absolute flex items-center justify-center w-full h-full bg-[#3b3b3b70] cursor-pointer"
-            onClick={() => song && onAdd?.(parsedSong)}
+            onClick={() => song && onAdd(parsedSong)}
           >
             <PlayArrow />
           </div>
@@ -248,8 +247,10 @@ export default function SongCard({
         <img src={parsedSong.album.image} className="w-full h-full" />
       </div>
       <div className="flex flex-col justify-between py-1 flex-1">
-        <span className="text-white line-clamp-1">{parsedSong.name}</span>
-        <span className="text-sm text-gray-400 line-clamp-1">{parsedSong.artists.join(', ')}</span>
+        <span className="text-white line-clamp-1 inline-block">{parsedSong.name}</span>
+        <span className="text-sm text-gray-400 line-clamp-1 hover:underline inline-block cursor-pointer size-fit">
+          {parsedSong.artists.join(', ')}
+        </span>
       </div>
       {hasActions && isReady && !disable && (
         <div className="actions shrink-0">

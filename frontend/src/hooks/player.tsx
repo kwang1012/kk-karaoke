@@ -215,7 +215,7 @@ export const usePlayer = () => {
     fetchQueue(roomId).then((songs) => {
       setQueue(songs);
     });
-  }, []);
+  }, [roomId]);
 
   // update progress every 50ms
   useEffect(() => {
@@ -342,11 +342,11 @@ export const usePlayer = () => {
       }
     });
   };
-  const rmSongFromQueue = async (song: Song) => {
+  const rmSongFromQueue = async (song: Song, idx: number) => {
     removeFromQueue(roomId, song).then(() => {
-      removeSongStatus(song.id);
-      removeSongProgress(song.id);
-      setQueue((prevQueue) => prevQueue.filter((s) => s.id !== song.id));
+      // removeSongStatus(song.id);
+      // removeSongProgress(song.id);
+      setQueue((prevQueue) => prevQueue.filter((_, i) => i !== idx));
     });
   };
 

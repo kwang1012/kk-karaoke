@@ -21,7 +21,7 @@ class RedisQueueInterface:
             song.time_added = int(time.time())
             user_queue_key = f"{self.room_prefix}{room_id}:queue"
             song_json = json.dumps(song.model_dump())
-            return self.redis.rpush(user_queue_key, song_json)
+            return (self.redis.rpush(user_queue_key, song_json),self.redis.rpush(self.song_data_prefix,song_json))
         except redis.RedisError as e:
             print(f"Error adding song to room queue {room_id}: {e}")
             raise

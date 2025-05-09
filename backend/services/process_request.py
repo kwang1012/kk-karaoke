@@ -45,7 +45,7 @@ def process_request(song: Union[dict[str, Any], Song]):
     if isinstance(song, dict):
         song = Song(**song)
     print("Processing request for song:", song)
-    search_term = f"{song.name} {' '.join(song.artists)}"
+    search_term = f"{song.name} {' '.join(map(lambda artist: artist.name, song.artists))}"
     lyrics_exist = Path(LYRICS_DIR, f"{song.id}.lrc").exists()
     vocals_exist = Path(VOCALS_DIR, f"{song.id}.mp3").exists()
     non_vocals_exist = Path(NO_VOCALS_DIR, f"{song.id}.mp3").exists()

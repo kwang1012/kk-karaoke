@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from routes.db_interface import RedisQueueInterface
 from managers.websocket import WebSocketManager
 from managers.db import get_db
-from models.song import Room, Song
+from models.song import Song
 from services.process_request import send_process_request, is_ready
 
 router = APIRouter()
@@ -32,7 +32,7 @@ async def add_to_queue_endpoint(
                 "action": "added", "song": song.model_dump()}}
         )
 
-        if redis_interface.is_song_data_ready(song) and is_ready(song):
+        if is_ready(song):
             return JSONResponse(content={"is_ready": True, "task": None}, status_code=200)
 
         loop = asyncio.get_event_loop()
@@ -99,28 +99,3 @@ async def remove_from_queue_endpoint(
         raise HTTPException(status_code=500, detail=f"Redis error: {e}")
 
 
-# create a room for each user -
-@router.post("/room")
-async def create_room(
-    room: Room,
-    redis_interface: RedisQueueInterface = Depends(
-        lambda: RedisQueueInterface(get_db())),
-):
-    """
-    Create a Room / Jam for each user.
-    Use userId as roomId, check whether the room exists or not, if not, create one.
-    """
-    try:
-        room_exists = redis_interface.room_exists(
-            room.id)  # Use the new room_exists method
-
-        if not room_exists:
-            # Use the new create_room method
-            redis_interface.create_room(room.id)
-            return {"message": f"Room {room.id} and queue created successfully."}
-        else:
-            return {"message": f"Room {room.id} already exists."}
-
-    except redis.RedisError as e:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to create room: {e}")

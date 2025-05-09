@@ -70,7 +70,6 @@ class RedisQueueInterface:
             self.redis.set(room_key, "created")  # Set a value for the room.
             room_queue_key = f"{self.room_prefix}{room_id}:queue"
             # Initialize the queue as an empty list
-            self.redis.lpush(room_queue_key, "[]")
         except redis.RedisError as e:
             print(f"Error creating room {room_id}: {e}")
             raise

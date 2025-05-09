@@ -30,7 +30,7 @@ const Overlay = styled('div')(({ theme }) => ({
 }));
 export default function PlayView() {
   const { currentSong, queue, queueIdx } = usePlayer();
-  const { rmSongFromQueue, fetchDefaultTracks } = usePlayer();
+  const { rmSongFromQueue, getRandomTracks } = usePlayer();
   const [scrollTop, setScrollTop] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
   const sticky = useMemo(() => {
@@ -92,7 +92,7 @@ export default function PlayView() {
               <>
                 <div className="text-white mt-10 w-full text-center">There's no music in the queue.</div>
                 <div className="mt-5 px-2 flex justify-center">
-                  <Button variant="text" className="text-[#bcbcbc]" onClick={() => fetchDefaultTracks()}>
+                  <Button variant="text" className="text-[#bcbcbc]" onClick={getRandomTracks}>
                     Random songs?
                   </Button>
                 </div>

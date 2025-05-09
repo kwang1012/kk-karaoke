@@ -1,7 +1,7 @@
 import React from 'react';
 import { faHome } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { IconButton, AvatarGroup, Avatar, Tooltip } from '@mui/material';
+import { IconButton, AvatarGroup, Avatar, Tooltip, Button } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import SearchBox from './SearchBox';
 import { useAppStore } from 'src/store';
@@ -106,9 +106,19 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
             src="/static/images/avatar/5.jpg"
           /> */}
         </AvatarGroup>
-        <IconButton onClick={() => navigate('/setting')}>
+        <Button
+          sx={{
+            padding: 2,
+            minWidth: 'unset',
+            color: '#8a8a8a',
+            borderColor: '#5a5a5a',
+          }}
+          className="mr-2"
+          variant="outlined"
+          onClick={() => navigate('/setting')}
+        >
           <Settings />
-        </IconButton>
+        </Button>
       </div>
     </div>
   );

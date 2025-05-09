@@ -12,8 +12,10 @@ export interface AudioState {
   setLyricsDelay: (songId: string, delay: number) => void; // Set the delay of a song in the queue
   songStatus: Record<string, SongStatus>; // Status of each song in the queue. used for adding song to queue
   setSongStatus: (songId: string, status: SongStatus) => void; // Set the status of a song in the queue
+  removeSongStatus: (songId: string) => void; // Remove the status of a song in the queue
   songProgress: Record<string, number>; // Status of each song in the queue. used for adding song to queue
   setSongProgress: (songId: string, progress: number) => void; // Set the progress of a song in the queue
+  removeSongProgress: (songId: string) => void; // Remove the progress of a song in the queue
 }
 export const useAudioStore = create<AudioState>((set, get) => ({
   snackbar: {
@@ -37,6 +39,12 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         [songId]: status,
       },
     })),
+  removeSongStatus: (songId: string) => {
+    const { [songId]: _, ...rest } = get().songStatus;
+    set({
+      songStatus: rest,
+    });
+  },
   songProgress: {},
   setSongProgress: (songId: string, progress: number) =>
     set((state) => ({
@@ -45,6 +53,12 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         [songId]: progress,
       },
     })),
+  removeSongProgress: (songId: string) => {
+    const { [songId]: _, ...rest } = get().songProgress;
+    set({
+      songProgress: rest,
+    });
+  },
   // snackbar
   showSnackbar: () =>
     set((state) => ({

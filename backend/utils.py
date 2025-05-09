@@ -69,7 +69,6 @@ def get_lyrics_path(filename: str) -> str | None:
         str: The full path to the lyrics file.
     """
     path = Path(LYRICS_DIR, f"{filename}.lrc")
-    print(path, path.exists(), os.path.exists(str(path)))
 
     if path.exists():
         return str(path)

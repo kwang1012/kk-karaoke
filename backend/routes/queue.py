@@ -12,6 +12,8 @@ router = APIRouter()
 ws_manager = WebSocketManager()
 
 # --- FastAPI Integration ---
+
+
 @router.post("/{room_id}/add")
 async def add_to_queue_endpoint(
     room_id: str,
@@ -32,7 +34,7 @@ async def add_to_queue_endpoint(
                 "action": "added", "song": song.model_dump()}}
         )
 
-        if redis_interface.is_song_data_ready(song) and is_ready(song):
+        if is_ready(song):
             return JSONResponse(content={"is_ready": True, "task": None}, status_code=200)
 
         loop = asyncio.get_event_loop()
@@ -53,6 +55,7 @@ async def add_to_queue_endpoint(
     except redis.RedisError as e:
         raise HTTPException(status_code=500, detail=f"Redis error: {e}")
 
+
 @router.get("/{room_id}/songs")
 async def get_room_songs(
     room_id: str,
@@ -69,12 +72,14 @@ async def get_room_songs(
         A list of Song objects in the queue.
     """
     try:
-        songs = redis_interface.get_queue(room_id)  # Use the get_queue method from RedisQueueInterface
+        # Use the get_queue method from RedisQueueInterface
+        songs = redis_interface.get_queue(room_id)
         return songs
     except redis.RedisError as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to retrieve songs for room {room_id}: {e}"
         )
+
 
 @router.post("/{room_id}/remove")
 async def remove_from_queue_endpoint(

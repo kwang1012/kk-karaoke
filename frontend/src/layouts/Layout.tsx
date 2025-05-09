@@ -1,5 +1,4 @@
-import { useMemo } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import Nav from 'src/components/Nav';
 import SidebarController from 'src/components/SidebarController';
 import Queue from 'src/components/Queue';
@@ -42,6 +41,9 @@ const Header = styled('div')(({ theme }) => ({
 const Sidebar = styled('div')(({ theme }) => ({
   gridArea: 'sidebar',
   height: '100%',
+  backgroundColor: theme.palette.background.paper,
+  margin: '0 8px',
+  borderRadius: 8,
   [theme.breakpoints.down('md')]: {
     display: 'none',
   },
@@ -50,12 +52,19 @@ const Sidebar = styled('div')(({ theme }) => ({
 const Main = styled('div')(({ theme }) => ({
   gridArea: 'main',
   height: '100%',
+  flex: 1,
+  overflow: 'hidden',
+  borderRadius: 8,
+  backgroundColor: theme.palette.background.paper,
 }));
 
 const QueueContainer = styled('div')(({ theme }) => ({
   gridArea: 'queue',
   height: '100%',
   width: 280,
+  backgroundColor: theme.palette.background.paper,
+  margin: '0 8px',
+  borderRadius: 8,
   [theme.breakpoints.up('xl')]: {
     width: 420,
   },
@@ -75,7 +84,6 @@ const Footer = styled('div')(({ theme }) => ({
 export default function Layout() {
   const theme = useTheme();
   const mobile = useMediaQuery(theme.breakpoints.down('md'));
-
   return (
     <Grid>
       {/* Header */}
@@ -87,7 +95,7 @@ export default function Layout() {
         <SidebarController />
       </Sidebar>
       {/* Main Content */}
-      <Main className="bg-[#121212] flex-1 md:rounded-lg overflow-hidden">
+      <Main>
         <Outlet />
       </Main>
       {/* Queue */}

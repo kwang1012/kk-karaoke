@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect } from 'react';
 import 'src/styles/globals.css';
 import { StyledEngineProvider, ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -12,6 +12,7 @@ import LyricsView from './pages/lyrics';
 import BrowseView, { MainView } from './pages/browse';
 import PlaylistView from './pages/playlist';
 import SearchView from './pages/search';
+import { v4 as uuid } from 'uuid';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Message, useWebSocketStore } from './store/ws';
@@ -22,6 +23,7 @@ import { useMediaQuery, useTheme } from '@mui/material';
 import { PlayerProvider } from './hooks/player';
 import PlayView from './pages/play';
 import SettingView from './pages/setting';
+import { useRoomStore } from './store/room';
 
 const faSingStyle = {
   prefix: 'fas' as IconPrefix,
@@ -150,20 +152,28 @@ const AppRouters = () => {
 };
 
 function App() {
-  // React.useEffect(() => {
-  //   // theme
-  //   const darkThemeMq = window.matchMedia('(prefers-color-scheme: dark)');
+  React.useEffect(() => {
+    // theme
+    const darkThemeMq = window.matchMedia('(prefers-color-scheme: dark)');
 
-  //   onBrowserThemeChange(darkThemeMq.matches);
-  //   darkThemeMq.addEventListener('change', (_) => {
-  //     onBrowserThemeChange(darkThemeMq.matches);
-  //   });
-  // }, []);
+    onBrowserThemeChange(darkThemeMq.matches);
+    darkThemeMq.addEventListener('change', (_) => {
+      onBrowserThemeChange(darkThemeMq.matches);
+    });
+  }, []);
 
   const connect = useWebSocketStore((state) => state.connect);
   const setSongStatus = useAudioStore((state) => state.setSongStatus);
   const setSongProgress = useAudioStore((state) => state.setSongProgress);
-  React.useEffect(() => {
+  const roomId = useRoomStore((state) => state.roomId);
+  const setRoomId = useRoomStore((state) => state.setRoomId);
+
+  useEffect(() => {
+    if (!roomId) {
+      setRoomId(uuid());
+    }
+  }, [roomId]);
+  useEffect(() => {
     connect();
   }, [connect]);
 
@@ -180,13 +190,17 @@ function App() {
 
   useRemoteMessageQueue('notify', { onAddItem: onNotifyMessage });
 
-  // const onBrowserThemeChange = useThemeStore((state) => state.onBrowserThemeChange);
+  const onBrowserThemeChange = useSettingStore((state) => state.onBrowserThemeChange);
+
+  // const refreshKey = useSettingStore((state) => state.refreshKey);
 
   return (
+    // <div key={refreshKey} className="h-full w-full">
     <Providers>
       <CssBaseline />
       <AppRouters />
     </Providers>
+    // </div>
   );
 }
 

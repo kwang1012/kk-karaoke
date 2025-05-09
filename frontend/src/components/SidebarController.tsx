@@ -41,7 +41,7 @@ export default function SidebarController({ className }: { className?: string })
   };
 
   return (
-    <div className={`w-20 h-full bg-[#121212] rounded-lg mx-2 ${className}`}>
+    <div className={`w-20 h-full ${className}`}>
       <div className="flex flex-col items-center justify-start h-full py-5">
         <Tooltip title="Lyrics" placement="right">
           <IconButton
@@ -75,7 +75,7 @@ export default function SidebarController({ className }: { className?: string })
         <span className="mt-6 text-white text-center mb-2 font-bold">Vocal</span>
         <Tooltip title={vocalOn ? 'Turn off Vocal' : 'Turn on Vocal'} placement="right">
           <IconButton onClick={toggleVocal} style={{ fontSize: 24 }}>
-            <SvgIcon src={vocalOn ? Mic : MicMuted} className="w-10 h-10" stroke="#c5c5c5" />
+            <SvgIcon src={vocalOn ? Mic : MicMuted} className="w-10 h-10" stroke={vocalOn ? '#c5c5c5' : 'red'} />
           </IconButton>
         </Tooltip>
         <Divider className="w-4/5 h-[1px] bg-[#2f2f2f] mt-4" />

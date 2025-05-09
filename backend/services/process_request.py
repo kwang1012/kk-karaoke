@@ -14,7 +14,7 @@ from services.voice_remover import separate_vocals
 
 ws_manager = WebSocketManager()
 
-redis_uri = f"redis://{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', 6379)}/0"
+redis_uri = f"redis://{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', 6379)}/1"
 celery = Celery("worker", broker=redis_uri, backend=redis_uri)
 
 r = redis.Redis(host=os.getenv("REDIS_HOST", "localhost"),

@@ -1,6 +1,8 @@
 import React, { createContext, useMemo, useState, useContext, useRef, useEffect } from 'react';
+import { fetchLyrics, fetchQueue, fetchRandomTracks, pushToQueue, removeFromQueue } from 'src/apis/player';
 import ShiftedAutioPlayer from 'src/shiftedPlayer';
 import { useAudioStore } from 'src/store/audio';
+import { useRoomStore } from 'src/store/room';
 import { useSettingStore } from 'src/store/setting';
 import SyncedAudioPlayer from 'src/syncedPlayer';
 import { api } from 'src/utils/api';
@@ -15,7 +17,7 @@ type PlayerContextType = {
   semitone: number;
   setSemitone: React.Dispatch<React.SetStateAction<number>>;
   volume: number;
-  setVolume: React.Dispatch<React.SetStateAction<number>>;
+  setVolume: (value: number) => void;
   progress: number;
   setProgress: React.Dispatch<React.SetStateAction<number>>;
   duration: number;
@@ -23,7 +25,7 @@ type PlayerContextType = {
   seeking: boolean;
   setSeeking: React.Dispatch<React.SetStateAction<boolean>>;
   vocalOn: boolean;
-  setVocalOn: React.Dispatch<React.SetStateAction<boolean>>;
+  setVocalOn: (value: boolean) => void;
   vocalVolume: number;
   setVocalVolume: React.Dispatch<React.SetStateAction<number>>;
   // lyrics context
@@ -43,8 +45,8 @@ type PlayerContextType = {
 export const PlayerContext = createContext<PlayerContextType | null>(null);
 
 const DEFAULT_VOCAL_VOLUME = 0.6; // Default vocal volume
-const DEFAULT_VOCALESS_VOCAL_VOLUME = 0.05; // Default volume for voiceless playback
-const DEFAULT_INSTRUMENTAL_VOLUME = 0.8; // Default instrumental volume
+const DEFAULT_VOCALESS_VOCAL_VOLUME = 0; // Default volume for voiceless playback
+// const DEFAULT_INSTRUMENTAL_VOLUME = 0.8; // Default instrumental volume
 
 function createPlayerContext({
   syncedPlayerRef,
@@ -55,12 +57,17 @@ function createPlayerContext({
   const [loading, setLoading] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [semitone, setSemitone] = useState(0);
-  const [volume, setVolume] = useState(DEFAULT_INSTRUMENTAL_VOLUME);
+  // const [volume, setVolume] = useState(DEFAULT_INSTRUMENTAL_VOLUME);
   const [vocalVolume, setVocalVolume] = useState(DEFAULT_VOCAL_VOLUME);
   const [duration, setDuration] = useState(0);
   const [progress, setProgress] = useState(0);
-  const [vocalOn, setVocalOn] = useState(false);
+  // const [vocalOn, setVocalOn] = useState(false);
   const [seeking, setSeeking] = useState(false);
+  // persistent settings
+  const setVolume = useSettingStore((state) => state.setVolume);
+  const volume = useSettingStore((state) => state.volume);
+  const vocalOn = useSettingStore((state) => state.vocalOn);
+  const setVocalOn = useSettingStore((state) => state.setVocalOn);
   // lyrics context
   const [lyrics, setLyrics] = useState<Lyrics[]>([]);
   const [currentLine, setCurrentLine] = useState(-1);
@@ -142,15 +149,19 @@ function createPlayerContext({
 }
 
 export const PlayerProvider = ({ children }) => {
+  // the states that should be initialized only once go here
   const syncedPlayerRef = useRef<SyncedAudioPlayer | null>(null);
-  const ctx = createPlayerContext({ syncedPlayerRef });
+
+  // 🔧 Initialize player based on setting
+  // We put it here because everytime we change the setting we reload the window
   const enabledPitchShift = useSettingStore((state) => state.enabledPitchShift);
-  // 🔧 Initialize once
   useEffect(() => {
-    console.log('Initializing player. Pitch shift enabled:', enabledPitchShift);
+    // console.log('Initializing player. Pitch shift enabled:', enabledPitchShift);
     if (enabledPitchShift) syncedPlayerRef.current = new ShiftedAutioPlayer();
     else syncedPlayerRef.current = new SyncedAudioPlayer();
-  }, [enabledPitchShift]);
+  }, []);
+
+  const ctx = createPlayerContext({ syncedPlayerRef });
   return <PlayerContext.Provider value={ctx}>{children}</PlayerContext.Provider>;
 };
 
@@ -189,35 +200,24 @@ export const usePlayer = () => {
     lastSongId,
   } = ctx;
 
+  // =============== hooks from other stores ===============
   const songStatus = useAudioStore((state) => state.songStatus);
   const setSongStatus = useAudioStore((state) => state.setSongStatus);
+  const removeSongStatus = useAudioStore((state) => state.removeSongStatus);
+  const removeSongProgress = useAudioStore((state) => state.removeSongProgress);
+  const roomId = useRoomStore((state) => state.roomId);
 
-  const next = () => {
-    if (queueIdx >= queue.length - 1) {
-      console.log('No next song in the queue');
-    }
-    setQueueIdx(queueIdx + 1);
-  };
+  // =============== useEffect ===============
 
-  const previous = () => {
-    if (queueIdx <= 0) {
-      console.log('No previous song in the queue');
-    }
-    setQueueIdx(queueIdx - 1);
-  };
+  // 🔧 Initialize once
+  useEffect(() => {
+    // fetching queue
+    fetchQueue(roomId).then((songs) => {
+      setQueue(songs);
+    });
+  }, []);
 
-  // load song/lyrics when currentSong changes
-  const fetchLyrics = async (songId: string) => {
-    api
-      .get(`lyrics/${songId}`)
-      .then(({ data }) => {
-        setLyrics(data.lyrics);
-      })
-      .catch((error) => {
-        console.error('Error fetching lyrics:', error);
-      });
-  };
-
+  // update progress every 50ms
   useEffect(() => {
     if (!playing) return;
 
@@ -231,11 +231,12 @@ export const usePlayer = () => {
           next();
         }
       }
-    }, 200);
+    }, 50);
 
     return () => clearInterval(interval);
   }, [playing, duration, seeking]);
 
+  // detect current song change
   useEffect(() => {
     // no next song
     if (!currentSong) {
@@ -243,28 +244,37 @@ export const usePlayer = () => {
       setCurrentLine(-1);
       setProgress(0);
       lastSongId.current = null;
+      return;
     }
 
     // prevent re-initialization on every render
-    if (!currentSong || currentSong.id === lastSongId.current) return;
+    if (currentSong.id === lastSongId.current) return;
 
     // skip if the song is not ready and songStatus is not undefined
     if (songStatus[currentSong.id] !== undefined && songStatus[currentSong.id] !== 'ready') {
       console.log('Song is still processing, skipping initialization:', currentSong.name);
       return;
     }
-    setLyrics([]);
-    setCurrentLine(-1);
-    setProgress(0);
-    const shouldPlay = lastSongId.current === null;
+
+    // const shouldPlay = lastSongId.current === null;
     lastSongId.current = currentSong.id;
-    console.log('Play new song:', currentSong.name);
 
     const player = syncedPlayerRef.current;
     if (!player) return;
 
-    player.pause();
-    player.seek(0);
+    console.log('Play new song:', currentSong.name);
+
+    // reset state related to the previous song
+    setLyrics([]);
+    setCurrentLine(-1);
+    setProgress(0);
+    // player.pause();
+    // player.seek(0);
+    if (player instanceof ShiftedAutioPlayer) {
+      player.setSemitone(0);
+      setSemitone(0);
+    }
+
     setLoading(true);
 
     Promise.all([
@@ -274,9 +284,10 @@ export const usePlayer = () => {
       ),
       fetchLyrics(currentSong.id),
     ])
-      .then(() => {
+      .then(([_, lyrics]) => {
+        setLyrics(lyrics);
         setDuration(player.getDuration());
-        if (playing || shouldPlay) {
+        if (playing) {
           playAudio();
         }
       })
@@ -287,6 +298,23 @@ export const usePlayer = () => {
         setLoading(false);
       });
   }, [currentSong?.id, songStatus[currentSong?.id || '']]);
+
+  // =============== functions that affect states ===============
+  const next = () => {
+    if (queueIdx >= queue.length - 1) {
+      console.log('No next song in the queue');
+      return;
+    }
+    setQueueIdx(queueIdx + 1);
+  };
+
+  const previous = () => {
+    if (queueIdx <= 0) {
+      console.log('No previous song in the queue');
+      return;
+    }
+    setQueueIdx(queueIdx - 1);
+  };
 
   const playAudio = () => {
     if (!currentSong || !syncedPlayerRef.current) return;
@@ -301,34 +329,24 @@ export const usePlayer = () => {
     setPlaying(false);
   };
 
-  const fetchDefaultTracks = async () => {
-    api
-      .get('tracks')
-      .then(({ data }) => {
-        setQueue((prevQueue) => [...prevQueue, ...data.tracks]);
-      })
-      .catch((error) => {
-        console.error('Error fetching default tracks:', error);
-      });
+  const getRandomTracks = async () => {
+    fetchRandomTracks().then((tracks) => {
+      setQueue((prevQueue) => [...prevQueue, ...tracks]);
+    });
   };
   const addSongToQueue = async (song: Song) => {
-    api
-      .post('queue/add', song)
-      .then(({ data }) => {
-        if (data.is_ready) {
-          setSongStatus(song.id, 'ready');
-        } else {
-          setSongStatus(song.id, 'submitted');
-        }
-      })
-      .catch((error) => {
-        console.error('Error adding song to queue:', error);
-      });
+    setSongStatus(song.id, 'submitted');
+    pushToQueue(roomId, song).then((data) => {
+      if (data.is_ready) {
+        setSongStatus(song.id, 'ready');
+      }
+    });
   };
   const rmSongFromQueue = async (song: Song) => {
-    // TODO: implement remove song from queue
-    api.post('queue/remove', song).catch((error) => {
-      console.error('Error removing song from queue:', error);
+    removeFromQueue(roomId, song).then(() => {
+      removeSongStatus(song.id);
+      removeSongProgress(song.id);
+      setQueue((prevQueue) => prevQueue.filter((s) => s.id !== song.id));
     });
   };
 
@@ -354,7 +372,7 @@ export const usePlayer = () => {
       const newVolume = vocalOn ? DEFAULT_VOCALESS_VOCAL_VOLUME : DEFAULT_VOCAL_VOLUME;
       setVocalVolume(newVolume);
       syncedPlayerRef.current.setVolume(volume, newVolume);
-      setVocalOn((prev) => !prev);
+      setVocalOn(!vocalOn);
     },
     increaseVolume: () => {
       const newVolume = Math.min(1, volume + 0.1);
@@ -402,6 +420,6 @@ export const usePlayer = () => {
     },
     addSongToQueue,
     rmSongFromQueue,
-    fetchDefaultTracks,
+    getRandomTracks,
   };
 };

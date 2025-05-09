@@ -92,7 +92,7 @@ export function MainView() {
           const playlists = categories?.[section.keyword] || [];
           return (
             <div key={section.keyword} className="mb-8">
-              <h1 className="mx-4 md:mx-8 mb-1 text-lg tracking-widest">{section.name}</h1>
+              <h1 className="mx-4 md:mx-8 mb-1 text-lg">{section.name}</h1>
               <Carousel>
                 {isLoading
                   ? Array.from({ length: 5 }).map((_, index) => <PlaylistCard key={index} />)

@@ -10,7 +10,6 @@ import { styled } from '@mui/material/styles';
 import { ExpandMore } from '@mui/icons-material';
 import { useRemoteMessageQueue } from 'src/hooks/queue';
 import { usePlayer } from 'src/hooks/player';
-import { api } from 'src/utils/api';
 
 const QRCodeAccordion = styled(Accordion)(({ theme }) => ({
   backgroundColor: '#2f2f2f',
@@ -41,7 +40,7 @@ export default function Queue() {
   const setSongStatus = useAudioStore((state) => state.setSongStatus);
 
   const { currentSong, queue, queueIdx } = usePlayer();
-  const { addToQueue, fetchDefaultTracks, rmFromQueue, rmSongFromQueue } = usePlayer();
+  const { addToQueue, getRandomTracks, rmFromQueue, rmSongFromQueue } = usePlayer();
 
   useRemoteMessageQueue('queue', {
     onAddItem: (item: Message) => {
@@ -68,13 +67,11 @@ export default function Queue() {
   };
 
   return (
-    <QueueLayout className="flex-1 h-full bg-[#121212] rounded-lg mx-2 text-white max-w-[400px]">
-      <div className={['p-5 font-medium text-lg tracking-wide h-[68px]', scrollTop > 0 ? 'shadow-xl' : ''].join(' ')}>
-        Queue
-      </div>
+    <QueueLayout className="flex-1 h-full text-white max-w-[400px]">
+      <div className={['p-5 font-medium text-lg h-[68px]', scrollTop > 0 ? 'shadow-xl' : ''].join(' ')}>Queue</div>
       <div className="h-full">
-        <AppScrollbar className="h-full" ref={(el) => (scrollbarRef.current = el)} onScroll={handleScroll}>
-          <div className="px-5 mt-5 font-medium text-lg tracking-wide">Now playing</div>
+        <AppScrollbar className="h-full" ref={(el: Scrollbar) => (scrollbarRef.current = el)} onScroll={handleScroll}>
+          <div className="px-5 mt-5 font-medium text-lg">Now playing</div>
           <div className="px-3">
             <SongCard className="mt-1" disable song={currentSong} />
           </div>
@@ -100,7 +97,7 @@ export default function Queue() {
             </QRCodeAccordion>
           </div>
 
-          <div className="px-5 mt-8 font-medium text-lg tracking-wide">Next from the queue</div>
+          <div className="px-5 mt-8 font-medium text-lg">Next from the queue</div>
           <div className="px-3">
             {queue.length - queueIdx > 1 ? (
               queue
@@ -110,7 +107,7 @@ export default function Queue() {
               <>
                 <div className="text-gray-400 mt-2 w-full pl-2">There's no music in the queue.</div>
                 <div className="mt-5 px-2 flex justify-center">
-                  <Button variant="contained" onClick={() => fetchDefaultTracks()}>
+                  <Button variant="contained" onClick={getRandomTracks}>
                     Random songs?
                   </Button>
                 </div>

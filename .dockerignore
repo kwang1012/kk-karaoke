@@ -1,8 +1,8 @@
-**/node_modules
-**/*.lrc
-**/*.mp3
-**/*.webm
-!**/test.lrc
-!**/test.mp3
+frontend/node_modules
+frontend/dist
+frontend/build
+
+backend/storage
 
 **/venv
+**/.venv

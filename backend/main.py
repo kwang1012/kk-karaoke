@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 load_dotenv()  # Load environment variables from .env file
 
 app = FastAPI()
-
+app.mount("/api", app)
 
 app.add_middleware(FormatReponseMiddleware)
 app.add_middleware(
@@ -25,14 +25,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(song_router, prefix="/api/songs", tags=["songs"])
-app.include_router(lyrics_router, prefix="/api/lyrics", tags=["lyrics"])
-app.include_router(queue_router, prefix="/api/queue", tags=["queue"])
-app.include_router(room_router, prefix= "/api/room", tags = ["room"])
+app.include_router(song_router, prefix="/songs", tags=["songs"])
+app.include_router(lyrics_router, prefix="/lyrics", tags=["lyrics"])
+app.include_router(queue_router, prefix="/queue", tags=["queue"])
+app.include_router(room_router, prefix= "/room", tags = ["room"])
 ws_manager = WebSocketManager()
 
+@app.get("/")
+async def root():
+    """
+    Root endpoint to check if the server is running.
+    Returns a simple JSON response.
+    """
+    return JSONResponse(content={"message": "Server is running!"}, status_code=200)
 
-@app.get("/api/top-categories")
+@app.get("/top-categories")
 async def get_top_categories(keyword: str):
     """
     Endpoint to fetch the top categories.
@@ -41,7 +48,7 @@ async def get_top_categories(keyword: str):
     return JSONResponse(content={"categories": getTopCategories(keyword)}, status_code=200)
 
 
-@app.get("/api/playlist/{playlist_id}/tracks")
+@app.get("/playlist/{playlist_id}/tracks")
 async def get_playlist_tracks(playlist_id: str):
     """
     Endpoint to fetch tracks from a specific playlist.
@@ -51,7 +58,7 @@ async def get_playlist_tracks(playlist_id: str):
     return JSONResponse(content={"collection": collection, "tracks": tracks})
 
 
-@app.get("/api/album/{album_id}/tracks")
+@app.get("/album/{album_id}/tracks")
 async def get_album_tracks(album_id: str):
     """
     Endpoint to fetch tracks from a specific playlist.
@@ -61,7 +68,7 @@ async def get_album_tracks(album_id: str):
     return JSONResponse(content={"collection": collection, "tracks": tracks})
 
 
-@app.get("/api/tracks")
+@app.get("/tracks")
 async def get_tracks():
     default_playlist_id = "3AEkt2VeAAHFc1TC5FLuIl"
     _, tracks = getCollectionTracks("playlists", default_playlist_id)
@@ -70,7 +77,7 @@ async def get_tracks():
     return JSONResponse(content={"tracks": tracks[:10]}, status_code=200)
 
 
-@app.get("/api/search")
+@app.get("/search")
 def search(q: str):
     """
     Search for songs based on a keyword.

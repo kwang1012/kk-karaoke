@@ -11,6 +11,7 @@ FROM python:3.13-slim AS backend
 
 WORKDIR /app
 COPY backend/ ./backend/
+VOLUME ./backend/storage /app/backend/storage
 COPY --from=frontend /app/frontend/build/ ./frontend-dist/
 
 # Install Python dependencies
@@ -54,6 +55,6 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY run.sh /run.sh
 RUN chmod +x /run.sh
 
-EXPOSE 8000
+EXPOSE 8080
 
 CMD ["/run.sh"]

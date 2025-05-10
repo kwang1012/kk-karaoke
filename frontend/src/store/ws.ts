@@ -46,12 +46,11 @@ export const useWebSocketStore = create<WebSocketState>()(
     error: null,
     sendMessage: (msg: any) => {
       // TODO: temporarily disable sending messages
-      // return
-      if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify(msg));
-      } else {
-        console.error('WebSocket is not connected');
-      }
+      // if (socket && socket.readyState === WebSocket.OPEN) {
+      //   socket.send(JSON.stringify(msg));
+      // } else {
+      //   console.error('WebSocket is not connected');
+      // }
     },
     // Enqueue a message into a queue
     enqueueMessage: (queue, message) => {

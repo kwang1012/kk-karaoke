@@ -132,7 +132,7 @@ function createPlayerContext({
         // we dont update the player ref because it won't be played on device
         setProgress(currentTime);
       }
-      console.log('Received message:', message);
+      // console.log('Received message:', message);
       if (action == 'control') {
         console.log('Operation:', op, 'data:', data);
         switch (op) {

@@ -69,7 +69,7 @@ export default function SidebarController({ className }: { className?: string })
               src={vocalOn ? Mic : MicMuted}
               className="w-10 h-10"
               stroke={vocalOn ? '#ffeaed' : '#fa6171'}
-              strokeWidth={1}
+              strokeWidth={1.5}
             />
           </IconButton>
         </Tooltip>

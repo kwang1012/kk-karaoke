@@ -12,7 +12,11 @@ export default function Jam() {
     <Card sx={{ backgroundColor: '#2f2f2f' }}>
       <CardContent className="text-sm text-[#d3d3d3]">
         <div className="flex items-start">
-          <div className="flex-1">Invite your friends to join your room. Sing together, or just hang out.</div>
+          <div className="flex-1">
+            {showQRCode
+              ? 'Copy and share the link with your friends, or ask them to join the QRCode'
+              : 'Invite your friends to join your room. Sing together, or just hang out.'}
+          </div>
           {showQRCode && (
             <Button
               disableRipple
@@ -45,7 +49,9 @@ export default function Jam() {
                   boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
                 },
               }}
-              //   onClick={() => setShowQRCode(true)}
+              onClick={() => {
+                navigator.clipboard.writeText(joinURL);
+              }}
             >
               <ContentCopyOutlined className="mr-2" fontSize="small" />
               Copy Link

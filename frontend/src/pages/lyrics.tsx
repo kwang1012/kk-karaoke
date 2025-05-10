@@ -2,13 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import AppScrollbar from 'src/components/Scrollbar';
 import { usePlayer } from 'src/hooks/player';
 import { useAudioStore } from 'src/store';
-import { getAvgRGB, getBrightestRGB } from 'src/utils';
+import { getLyricsRGB } from 'src/utils';
 
+const DEFAULT_COLOR = '#d3d3d3';
+const DEFAULT_BG_COLOR = '#3a3a3a';
 export default function LyricsView() {
   // local states
   const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  const { progress, currentLine, setCurrentLine, currentSong, lyrics, seeking } = usePlayer();
+  const { progress, currentLine, setCurrentLine, currentSong, lyrics, seeking, loading } = usePlayer();
   const { seek } = usePlayer();
   const lyricsDelay = useAudioStore((state) => state.lyricsDelays[currentSong?.id || ''] || 0);
   const syncedLyrics = useMemo(() => {
@@ -24,16 +26,19 @@ export default function LyricsView() {
     lineRefs.current = Array(lyrics.length).fill(null);
   }, [lyrics]);
 
-  const [color, setColor] = useState<string>('#535353');
+  const [color, setColor] = useState<string>(DEFAULT_COLOR);
+  const [bgColor, setBgColor] = useState<string>(DEFAULT_BG_COLOR);
   const image = currentSong?.album?.images?.[0]?.url;
   useEffect(() => {
     if (!image) {
-      setColor('#535353');
+      setColor(DEFAULT_COLOR);
+      setBgColor(DEFAULT_BG_COLOR);
       return;
     }
-    getBrightestRGB(image)
-      .then((data) => {
-        setColor(data);
+    getLyricsRGB(image)
+      .then(({ lyrics, background }) => {
+        setColor(lyrics);
+        setBgColor(background);
       })
       .catch((error) => {
         console.error('Error fetching average RGB:', error);
@@ -52,7 +57,7 @@ export default function LyricsView() {
 
   useEffect(() => {
     if (!currentSong) return;
-    document.title = `${currentSong.name}．${currentSong.artists.join(',')}`;
+    document.title = `${currentSong.name}．${currentSong.artists.map((artist) => artist.name).join('、')} - Lyrics`;
   }, [currentSong]);
 
   useEffect(() => {
@@ -73,11 +78,11 @@ export default function LyricsView() {
     <div
       className="h-full"
       style={{
-        backgroundColor: color,
+        backgroundColor: bgColor,
       }}
     >
       <AppScrollbar>
-        <div className="text-lg px-8 text-white">
+        <div className="text-lg px-8" style={{ color: color }}>
           {syncedLyrics.length > 0 ? (
             syncedLyrics.map((line, i) => (
               <div
@@ -89,7 +94,7 @@ export default function LyricsView() {
                 <span
                   className={
                     'text-3xl cursor-pointer font-bold hover:underline hover:opacity-100 ' +
-                    (i <= currentLine ? 'opacity-100' : 'opacity-50')
+                    (i <= currentLine ? 'text-white' : '')
                   }
                 >
                   {line.text}
@@ -97,8 +102,8 @@ export default function LyricsView() {
               </div>
             ))
           ) : (
-            <div className="text-center text-gray-400 mt-20 text-4xl">
-              <p>{currentSong ? 'No lyrics available for this track.' : 'Start playing a track!'}</p>
+            <div className="text-center mt-20 text-4xl font-bold" style={{ color: color }}>
+              {!loading && <p>{currentSong ? 'No lyrics available for this track.' : 'Start playing a track!'}</p>}
             </div>
           )}
         </div>

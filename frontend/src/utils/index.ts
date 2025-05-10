@@ -85,26 +85,43 @@ export function getAvgRGB(src: string): Promise<any> {
   });
 }
 
-export function getBrightestRGB(src: string): Promise<any> {
+export function getLyricsRGB(src: string): Promise<any> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.setAttribute('crossOrigin', '');
     img.src = src;
     img.onload = () => {
       const colorThief = new ColorThief();
-      const palette = colorThief.getPalette(img, 3);
-      let max = -1;
-      let index = 0;
+      const palette = colorThief.getPalette(img, 6);
+      let min = 755;
+      let index = -1;
       for (let i = 0; i < 3; i++) {
         const [r, g, b] = palette[i];
         const sum = r + g + b;
-        if (sum > max) {
-          max = sum;
+        if (sum < 180) continue;
+        if (Math.abs(r - g) < 20 && Math.abs(g - b) < 20 && Math.abs(b - r) < 20) continue;
+        if (sum < min) {
+          min = sum;
           index = i;
         }
       }
-      const [r, g, b] = palette[index];
-      resolve(rgbToHex(r, g, b));
+      let color: number[] = [];
+      if (!palette[index]) {
+        color = [183, 183, 183];
+      } else {
+        color = palette[index];
+      }
+      const offset = 100;
+      if (color[0] > 100 || color[1] > 100 || color[2] > 100) {
+        var [r, g, b] = color.map((c: number) => Math.max(0, c - offset));
+      } else {
+        var [r, g, b] = color;
+      }
+      const [r2, g2, b2] = color.map((c: number) => Math.min(222, c + offset));
+      resolve({
+        lyrics: rgbToHex(r2, g2, b2),
+        background: rgbToHex(r, g, b),
+      });
     };
   });
 }

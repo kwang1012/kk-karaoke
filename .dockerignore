@@ -1,0 +1,8 @@
+**/node_modules
+**/*.lrc
+**/*.mp3
+**/*.webm
+!**/test.lrc
+!**/test.mp3
+
+**/venv

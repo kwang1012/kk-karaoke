@@ -1,20 +1,17 @@
+import { useMemo } from 'react';
+import { User } from 'src/models/user';
 import { api } from 'src/utils/api';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
-type Person = {
-  nickName: string; // The ID of the person
-  avatar: string; // The ID of the person
-};
-
 export interface RoomState {
   roomId: string; // The ID of the room
-  joinedRoom: string;
-  participants: Person[];
+  joinedRoom?: string;
+  participants: User[];
   setJoinedRoom: (roomId: string) => void; // Set the ID of the room
   setRoomId: (roomId: string) => void; // Set the ID of the room
-  addParticipant: (person: Person) => void; // Add a participant to the room
-  removeParticipant: (person: Person) => void; // Remove a participant from the room
+  addParticipant: (person: User) => void; // Add a participant to the room
+  removeParticipant: (person: User) => void; // Remove a participant from the room
   fetchRoom: () => Promise<void>; // Fetch the room ID from the server
 }
 
@@ -22,7 +19,6 @@ export const useRoomStore = create<RoomState>()(
   persist(
     (set, get) => ({
       roomId: 'default', // this will be overwritten by App.tsx
-      joinedRoom: 'default', // this will be overwritten by App.tsx
       participants: [],
       setRoomId: (roomId: string) =>
         set(() => ({
@@ -32,17 +28,20 @@ export const useRoomStore = create<RoomState>()(
         set(() => ({
           joinedRoom: roomId,
         })),
-      addParticipant: (person: Person) => ({
+      addParticipant: (person: User) => ({
         participants: [...get().participants, person],
       }),
-      removeParticipant: (person: Person) => ({
-        participants: get().participants.filter((p) => p.nickName !== person.nickName),
+      removeParticipant: (person: User) => ({
+        participants: get().participants.filter((p) => p.id !== person.id),
       }),
       //
       fetchRoom: async () => {
-        const { data } = await api.get('/room');
+        const activeRoomId = get().joinedRoom || get().roomId;
+        const { data } = await api.get(`/room/${activeRoomId}/participants`).catch((err) => {
+          console.error('Error fetching room participants:', err);
+          return { data: { participants: [] } };
+        });
         set(() => ({
-          roomId: data.roomId,
           participants: data.participants,
         }));
       },
@@ -54,11 +53,22 @@ export const useRoomStore = create<RoomState>()(
   )
 );
 
-export const useRoom = () => {
-  const roomId = useRoomStore((state) => ({
-    id: state.roomId,
-    joinedId: state.joinedRoom,
-    participants: state.participants,
-  }));
-  return roomId;
+export const useJam = () => {
+  const roomId = useRoomStore((state) => state.roomId);
+  const joinedRoom = useRoomStore((state) => state.joinedRoom);
+  const participants = useRoomStore((state) => state.participants);
+  const isInJam = useMemo(() => {
+    if (roomId === 'default') return false;
+    if (joinedRoom === undefined) return false;
+    if (joinedRoom === '') return false;
+    return roomId !== joinedRoom;
+  }, [roomId, joinedRoom]);
+  const isOwner = useMemo(() => !isInJam, [roomId, joinedRoom]);
+  const shouldBroadcast = useMemo(() => participants.length > 0, [roomId, joinedRoom]);
+  return {
+    isInJam,
+    isOwner,
+    participants,
+    shouldBroadcast,
+  };
 };

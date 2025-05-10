@@ -152,15 +152,15 @@ const AppRouters = () => {
 };
 
 function App() {
-  React.useEffect(() => {
-    // theme
-    const darkThemeMq = window.matchMedia('(prefers-color-scheme: dark)');
+  // React.useEffect(() => {
+  //   // theme
+  //   const darkThemeMq = window.matchMedia('(prefers-color-scheme: dark)');
 
-    onBrowserThemeChange(darkThemeMq.matches);
-    darkThemeMq.addEventListener('change', (_) => {
-      onBrowserThemeChange(darkThemeMq.matches);
-    });
-  }, []);
+  //   onBrowserThemeChange(darkThemeMq.matches);
+  //   darkThemeMq.addEventListener('change', (_) => {
+  //     onBrowserThemeChange(darkThemeMq.matches);
+  //   });
+  // }, []);
 
   const connect = useWebSocketStore((state) => state.connect);
   const setSongStatus = useAudioStore((state) => state.setSongStatus);
@@ -180,7 +180,8 @@ function App() {
   const onNotifyMessage = (message: Message) => {
     if (message.type === 'notify') {
       if (message.data.action === 'progress') {
-        setSongStatus(message.data.songId, message.data.status);
+        console.log('progress', message.data);
+        setSongStatus(message.data.song.id, message.data.status);
         if (message.data.value) {
           setSongProgress(message.data.songId, (100 * message.data.value) / message.data.total);
         }
@@ -190,7 +191,7 @@ function App() {
 
   useRemoteMessageQueue('notify', { onAddItem: onNotifyMessage });
 
-  const onBrowserThemeChange = useSettingStore((state) => state.onBrowserThemeChange);
+  // const onBrowserThemeChange = useSettingStore((state) => state.onBrowserThemeChange);
 
   // const refreshKey = useSettingStore((state) => state.refreshKey);
 

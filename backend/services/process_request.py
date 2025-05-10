@@ -56,7 +56,7 @@ def process_request(song: Union[dict[str, Any], Song]):
             "type": "notify",
             "data": {
                 "action": "progress",
-                "song_id": song.id,
+                "track": song.model_dump(),
                 "status": "downloading_lyrics",
             },
         }))
@@ -67,7 +67,7 @@ def process_request(song: Union[dict[str, Any], Song]):
             "type": "notify",
             "data": {
                 "action": "progress",
-                "song_id": song.id,
+                "track": song.model_dump(),
                 "status": "downloading_audio",
             },
         }))
@@ -77,7 +77,7 @@ def process_request(song: Union[dict[str, Any], Song]):
             "type": "notify",
             "data": {
                 "action": "progress",
-                "song_id": song.id,
+                "track": song.model_dump(),
                 "status": "separating",
             },
         }))
@@ -90,7 +90,7 @@ def process_request(song: Union[dict[str, Any], Song]):
                 "type": "notify",
                 "data": {
                     "action": "progress",
-                    "song_id": song.id,
+                    "track": song.model_dump(),
                     "status": "separating",
                     "value": progress,
                     "total": total
@@ -105,7 +105,7 @@ def process_request(song: Union[dict[str, Any], Song]):
         "type": "queue",
         "data": {
                 "action": "updated",
-                "song_id": song.id,
+                "track": song.model_dump(),
                 "status": "ready"
         },
     }))

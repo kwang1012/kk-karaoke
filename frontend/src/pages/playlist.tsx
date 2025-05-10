@@ -227,36 +227,48 @@ const TrackRow = memo(
     initialized,
     connected,
     onAdd,
+    isLoading,
   }: {
     index: number;
     collectionType: string;
     headers: { key: string; label: string }[];
-    track: Track;
+    track?: Track;
     initialized: boolean;
     connected: boolean;
     onAdd: (track: Track) => void;
+    isLoading: boolean;
   }) => {
+    const parsedTrack = useMemo(() => {
+      if (!track)
+        return {
+          id: '',
+          name: 'Not playing',
+          artists: [],
+          timeAdded: Date.now(),
+        };
+      return track;
+    }, [track]);
     const [menuOpen, setMenuOpen] = useState(false);
-    const image = track.album?.images[0].url || placeholder;
+    const image = parsedTrack.album?.images[0].url || placeholder;
     const trackRow = {
       row_id: (
         <div className="flex items-center justify-center">
           <span className="row-id">{index + 1}</span>
-          <div className="cursor-pointer" onClick={() => initialized && connected && onAdd(track)}>
+          <div className="cursor-pointer" onClick={() => initialized && connected && track && onAdd(parsedTrack)}>
             <PlayArrow className="row-play" fontSize="small" />
           </div>
         </div>
       ),
-      name: (
+      name: !isLoading ? (
         <div className="flex items-center">
           {collectionType === 'playlist' && (
-            <img src={image} className="w-10 h-10 object-cover rounded-md inline-block mr-2" alt={track.name} />
+            <img src={image} className="w-10 h-10 object-cover rounded-md inline-block mr-2" alt={parsedTrack.name} />
           )}
           <div>
-            <span className="line-clamp-1 ml-2">{track.name}</span>
+            <span className="line-clamp-1 ml-2">{parsedTrack.name}</span>
             {collectionType === 'album' && (
               <span className="text-gray-400 ml-2">
-                {track.artists.map((artist, index) => (
+                {parsedTrack.artists.map((artist, index) => (
                   <span key={index}>
                     {index > 0 && ', '}
                     <a
@@ -273,10 +285,12 @@ const TrackRow = memo(
             )}
           </div>
         </div>
+      ) : (
+        <Skeleton baseColor="transparent" highlightColor="#ffffff1a" width="100%" height={32} />
       ),
-      artists: (
+      artists: !isLoading ? (
         <span className="line-clamp-1">
-          {track.artists.map((artist, index) => (
+          {parsedTrack.artists.map((artist, index) => (
             <span key={index}>
               {index > 0 && ', '}
               <a href={artist.uri} target="_blank" rel="noopener noreferrer" className="hover:underline cursor-pointer">
@@ -285,10 +299,21 @@ const TrackRow = memo(
             </span>
           ))}
         </span>
+      ) : (
+        <Skeleton baseColor="transparent" highlightColor="#ffffff1a" width="100%" height={32} />
       ),
-      album: <span className="line-clamp-1">{track.album?.name || '-'}</span>,
-      action: (
-        <ActionMenu track={track} onAdd={onAdd} onOpen={() => setMenuOpen(true)} onClose={() => setMenuOpen(false)} />
+      album: !isLoading ? (
+        <span className="line-clamp-1">{parsedTrack.album?.name || '-'}</span>
+      ) : (
+        <Skeleton baseColor="transparent" highlightColor="#ffffff1a" width="100%" height={32} />
+      ),
+      action: !isLoading && (
+        <ActionMenu
+          track={parsedTrack}
+          onAdd={onAdd}
+          onOpen={() => setMenuOpen(true)}
+          onClose={() => setMenuOpen(false)}
+        />
       ),
     };
     return (
@@ -364,6 +389,13 @@ export default function PlaylistView() {
   }, [scrollTop, headerRef]);
   const [halfway, setHalfway] = useState(false);
   const [isSticky, setIsSticky] = useState(false);
+  const showingTracks = useMemo(() => {
+    if (isLoading) {
+      const totalTracks = collectionType === 'album' ? collection.totalTracks : collection.tracks?.total || 0;
+      return Array(totalTracks).fill({} as Track);
+    }
+    return tracks;
+  }, [tracks, isLoading]);
 
   return (
     <div className="h-full relative pb-4">
@@ -434,35 +466,22 @@ export default function PlaylistView() {
                     ))}
                   </TableRow>
                 </TableHead>
-                {!isLoading && (
-                  <TableBody>
-                    {tracks.map((track, i) => (
-                      <TrackRow
-                        key={i}
-                        index={i}
-                        collectionType={collectionType}
-                        headers={headers}
-                        track={track}
-                        onAdd={onAdd}
-                        initialized={initialized}
-                        connected={connected}
-                      />
-                    ))}
-                  </TableBody>
-                )}
+                <TableBody>
+                  {showingTracks.map((track, i) => (
+                    <TrackRow
+                      key={i}
+                      index={i}
+                      collectionType={collectionType}
+                      headers={headers}
+                      track={track}
+                      onAdd={onAdd}
+                      initialized={initialized}
+                      connected={connected}
+                      isLoading={isLoading}
+                    />
+                  ))}
+                </TableBody>
               </Table>
-              {isLoading && (
-                <div className="p-5 pt-3">
-                  <Skeleton
-                    count={10}
-                    baseColor="transparent"
-                    highlightColor="#2a2a2a"
-                    width="100%"
-                    height={48}
-                    className="my-1"
-                  />
-                </div>
-              )}
             </div>
           </div>
         </div>

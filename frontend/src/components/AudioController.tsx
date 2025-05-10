@@ -70,7 +70,7 @@ export default function AudioController() {
       <div className="flex h-full w-full">
         {/* Current Track */}
         <div className="w-[30%] pl-2 mr-auto flex items-center">
-          <SongCard disable className="w-full" track={currentSong} />
+          <SongCard disableHover className="w-full" track={currentSong} />
         </div>
         {/* Audio Controls */}
         <div className="flex flex-col items-center justify-center text-lg mx-auto max-w-3xl w-2/5 shrink-0">

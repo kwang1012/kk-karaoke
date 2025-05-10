@@ -3,7 +3,7 @@ import json
 import redis
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
-from routes.db_interface import RedisQueueInterface
+from interfaces.queue import RedisQueueInterface
 from managers.websocket import WebSocketManager
 from managers.db import get_db
 from models.song import Song
@@ -77,6 +77,8 @@ async def get_room_songs(
         # Use the get_queue method from RedisQueueInterface
         songs = redis_interface.get_queue(room_id)
         key = f"room:{room_id}:queue:current_idx"
+        if not redis_interface.redis.exists(key):
+            return JSONResponse(content={"tracks": [], "index": -1}, status_code=200)
         current_idx = json.loads(redis_interface.redis.get(key))
         return {"tracks": songs, "index": current_idx}
     except redis.RedisError as e:
@@ -101,7 +103,7 @@ async def remove_from_queue_endpoint(
             return JSONResponse(content={"message": "Song not found"}, status_code=404)
         await ws_manager.broadcast(
             {"type": "queue", "data": {
-                "action": "removed", "song": song.model_dump()}}
+                "action": "removed", "track": song.model_dump()}}
         )
         return JSONResponse(content={"message": "Song removed from queue"}, status_code=200)
     except redis.RedisError as e:

@@ -10,6 +10,10 @@ export const fetchQueue = async (roomId: string) => {
     })
     .catch((error) => {
       console.error('Error fetching queue:', error);
+      return {
+        index: -1,
+        tracks: [],
+      };
     });
 };
 

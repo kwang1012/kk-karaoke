@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
+import { useRoomStore } from './room';
 
 export type Message = {
   type: string;
@@ -13,7 +14,7 @@ interface WebSocketState {
   connected: boolean;
   initialized: boolean;
   error: any;
-  // sendMessage: (msg: any) => void;
+  sendMessage: (msg: any) => void;
   enqueueMessage: (queue: string, message: Message) => void;
   dequeueMessage: (queue: string) => Message | undefined;
   connect: () => void;
@@ -43,16 +44,17 @@ export const useWebSocketStore = create<WebSocketState>()(
     connected: false,
     initialized: false,
     error: null,
+    sendMessage: (msg: any) => {
+      // TODO: temporarily disable sending messages
+      // return
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify(msg));
+      } else {
+        console.error('WebSocket is not connected');
+      }
+    },
     // Enqueue a message into a queue
     enqueueMessage: (queue, message) => {
-      // if (get().connected) {
-      //   socket?.send(
-      //     JSON.stringify({
-      //       type: 'enqueue',
-      //       message,
-      //     })
-      //   );
-      // }
       set((state) => ({
         messageQueues: {
           ...state.messageQueues,
@@ -66,14 +68,6 @@ export const useWebSocketStore = create<WebSocketState>()(
       if (current.length === 0) return undefined;
 
       const [first, ...rest] = current;
-      // if (get().connected) {
-      //   socket?.send(
-      //     JSON.stringify({
-      //       type: 'dequeue',
-      //       message: first,
-      //     })
-      //   );
-      // }
       set((state) => ({
         messageQueues: {
           ...state.messageQueues,
@@ -90,7 +84,11 @@ export const useWebSocketStore = create<WebSocketState>()(
       socket.onmessage = (event) => {
         const msg = JSON.parse(event.data) as Message;
         if (msg.type === 'init') {
+          const roomId = useRoomStore.getState().roomId;
+          const joinedRoomId = useRoomStore.getState().joinedRoom;
+          const activeRoomId = joinedRoomId || roomId;
           ('Initalized websocket connection');
+          socket?.send(JSON.stringify({ roomId: activeRoomId }));
           set({ initialized: true });
           return;
         }

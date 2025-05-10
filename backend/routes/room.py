@@ -1,7 +1,8 @@
+import json
 import redis
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import JSONResponse
-from routes.db_interface import RedisQueueInterface
+from models.user import User
+from interfaces.queue import RedisQueueInterface
 from managers.websocket import WebSocketManager
 from managers.db import get_db
 from models.song import Room
@@ -10,6 +11,8 @@ router = APIRouter()
 ws_manager = WebSocketManager()
 
 # create a room for each user -
+
+
 @router.post("/create")
 async def create_room(
     room: Room,
@@ -35,23 +38,28 @@ async def create_room(
         raise HTTPException(
             status_code=500, detail=f"Failed to create room: {e}")
 
-@router.post("/join/{room_id}/{user_token}")
-async def join_room(room_id:str, user_token:str, redis_interface:RedisQueueInterface=Depends(lambda:RedisQueueInterface(get_db()))):
+
+@router.post("/join/{room_id}")
+async def join_room(room_id: str, user: User, redis_interface: RedisQueueInterface = Depends(lambda: RedisQueueInterface(get_db()))):
     """
     Add participants into a room, they should share the same queue under the same room_id
     """
     try:
         # Check if the room exists
         if not redis_interface.room_exists(room_id):
-            raise HTTPException(status_code=404, detail=f"Room {room_id} not found")
+            raise HTTPException(
+                status_code=404, detail=f"Room {room_id} not found")
 
         room_participants_key = f"room:{room_id}:participants"
-        redis_interface.redis.sadd(room_participants_key, user_token)
+        redis_interface.redis.sadd(
+            room_participants_key, json.dumps(user.model_dump()))
 
-        return {"message": f"User {user_token} joined room {room_id} successfully."}
+        return {"message": f"User {user.name} joined room {room_id} successfully."}
 
     except redis.RedisError as e:
-        raise HTTPException(status_code=500, detail=f"Failed to join room {room_id}: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to join room {room_id}: {e}")
+
 
 @router.get("/{room_id}/participants")
 async def get_room_participants(
@@ -64,8 +72,12 @@ async def get_room_participants(
     """
     try:
         room_participants_key = f"room:{room_id}:participants"
-        participants = redis_interface.redis.smembers(room_participants_key)
-        return participants
+        participants = [json.loads(participant)
+                        for participant in redis_interface.redis.smembers(room_participants_key)]
+        if not participants:
+            raise HTTPException(
+                status_code=404, detail=f"No participants found in room {room_id}")
+        return {"participants": participants}
     except redis.RedisError as e:
         raise HTTPException(
             status_code=500,

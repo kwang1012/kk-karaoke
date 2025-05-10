@@ -4,7 +4,7 @@ from utils import get_lyrics_path
 from redis import RedisError
 import re
 from fastapi.responses import JSONResponse
-from routes.db_interface import RedisQueueInterface
+from interfaces.queue import RedisQueueInterface
 from managers.db import get_db
 
 router = APIRouter()

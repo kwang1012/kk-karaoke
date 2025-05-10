@@ -146,6 +146,7 @@ class SyncedAudioPlayer {
   }
 
   getDuration(): number {
+    if (!this.vocalBuffer || !this.instrumentalBuffer) return 0;
     return Math.max(this.vocalBuffer.duration, this.instrumentalBuffer.duration);
   }
 }

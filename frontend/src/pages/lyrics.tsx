@@ -2,10 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import AppScrollbar from 'src/components/Scrollbar';
 import { usePlayer } from 'src/hooks/player';
 import { useAudioStore } from 'src/store';
-import { getLyricsRGB } from 'src/utils';
+import { DEFAULT_BG_COLOR, DEFAULT_COLOR, getLyricsRGB } from 'src/utils';
 
-const DEFAULT_COLOR = '#d3d3d3';
-const DEFAULT_BG_COLOR = '#3a3a3a';
 export default function LyricsView() {
   // local states
   const lineRefs = useRef<(HTMLDivElement | null)[]>([]);

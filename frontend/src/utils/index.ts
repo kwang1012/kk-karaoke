@@ -7,6 +7,8 @@ export const format = (date: string | Date) => {
   else return moment(date).format('h a');
 };
 
+export const DEFAULT_COLOR = '#d3d3d3';
+export const DEFAULT_BG_COLOR = '#3a3a3a';
 export function getAvgRGB(src: string): Promise<any> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -15,7 +17,7 @@ export function getAvgRGB(src: string): Promise<any> {
     img.onload = () => {
       const vibrant = new Vibrant(img);
       vibrant.getPalette().then((palette) => {
-        const color = palette.Vibrant?.hex;
+        const color = palette.Vibrant?.hex || DEFAULT_BG_COLOR;
         resolve(color);
       });
     };
@@ -30,8 +32,8 @@ export function getLyricsRGB(src: string): Promise<any> {
     img.onload = () => {
       const vibrant = new Vibrant(img);
       vibrant.getPalette().then((palette) => {
-        const lyricsColor = palette.LightVibrant?.hex;
-        const color = palette.DarkVibrant?.hex;
+        const lyricsColor = palette.LightVibrant?.hex || DEFAULT_COLOR;
+        const color = palette.DarkVibrant?.hex || DEFAULT_BG_COLOR;
         resolve({
           lyrics: lyricsColor,
           background: color,

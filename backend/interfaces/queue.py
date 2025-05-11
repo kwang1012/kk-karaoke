@@ -123,7 +123,6 @@ class RedisQueueInterface:
         """
         try:
 
-
             track_key = f"track_data:{track_id}"
             track_data: Any = self.redis.get(track_key)  # type: ignore
             if track_data:
@@ -144,8 +143,9 @@ class RedisQueueInterface:
         Returns:
             True if the track data is ready, False otherwise.
         """
+
         track_key = f"track_data:{track.id}"
-        return self.redis.exists(track_key) # type: ignore
+        return self.redis.exists(track_key)  # type: ignore
 
     # --- Redis Pub/Sub ---
     def publish_message(self, channel: str, message: dict) -> int:

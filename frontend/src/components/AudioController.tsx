@@ -5,7 +5,7 @@ import AppSlider from './Slider';
 import SongCard from './SongCard';
 import { usePlayer } from 'src/hooks/player';
 import { useMemo, useState } from 'react';
-import { useAudioStore } from 'src/store';
+import { useTrackStore } from 'src/store';
 import { useLocation } from 'react-router-dom';
 import { api } from 'src/utils/api';
 
@@ -20,8 +20,8 @@ export default function AudioController() {
   const { currentSong, progress, seeking, setSeeking, duration, playing, resetProgress } = usePlayer();
   const { play, pause, next, previous } = usePlayer();
   const location = useLocation();
-  const lyricsDelay = useAudioStore((state) => state.lyricsDelays[currentSong?.id || ''] || 0);
-  const setLyricsDelay = useAudioStore((state) => state.setLyricsDelay);
+  const lyricsDelay = useTrackStore((state) => state.lyricsDelays[currentSong?.id || ''] || 0);
+  const setLyricsDelay = useTrackStore((state) => state.setLyricsDelay);
 
   const [localProgress, setLocalProgress] = useState(progress);
 

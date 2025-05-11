@@ -12,6 +12,7 @@ import {
   MenuItem,
   ListItemIcon,
   ListItemText,
+  Tooltip,
 } from '@mui/material';
 import { useState, useMemo, useRef, useEffect, memo } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
@@ -22,12 +23,13 @@ import { useWebSocketStore } from 'src/store/ws';
 import { useQuery } from '@tanstack/react-query';
 import { styled } from '@mui/material/styles';
 import Skeleton from 'react-loading-skeleton';
-import { Delete, MoreHoriz, PlayArrow, QueueMusic } from '@mui/icons-material';
+import { CheckCircle, Delete, MoreHoriz, PlayArrow, QueueMusic } from '@mui/icons-material';
 import AppMenu from 'src/components/Menu';
 import { getAvgRGB } from 'src/utils';
 import Scrollbar from 'react-scrollbars-custom';
 import { usePlayer } from 'src/hooks/player';
 import { Track, Collection, Album } from 'src/models/spotify';
+import { useTrackStore } from 'src/store';
 
 const ALBUM_HEADERS = [
   {
@@ -98,6 +100,9 @@ const HoverTableRow = styled(TableRow)(({ theme }) => ({
   '&:hover, &.active': {
     '*': {
       color: 'white',
+    },
+    '& .checked-icon *': {
+      color: theme.palette.success.main,
     },
     backgroundColor: '#ffffff1a',
     '.row-actions': {
@@ -238,6 +243,7 @@ const TrackRow = memo(
     onAdd: (track: Track) => void;
     isLoading: boolean;
   }) => {
+    const readyTracks = useTrackStore((state) => state.readyTracks);
     const parsedTrack = useMemo(() => {
       if (!track)
         return {
@@ -248,8 +254,11 @@ const TrackRow = memo(
         };
       return track;
     }, [track]);
+    const ready = useMemo(() => {
+      return readyTracks.has(parsedTrack.id);
+    }, [readyTracks, parsedTrack]);
     const [menuOpen, setMenuOpen] = useState(false);
-    const image = parsedTrack.album?.images[0].url || placeholder;
+    const image = parsedTrack.album?.images?.[0]?.url || placeholder;
     const trackRow = {
       row_id: (
         <div className="flex items-center justify-center">
@@ -308,12 +317,19 @@ const TrackRow = memo(
         <Skeleton baseColor="transparent" highlightColor="#ffffff1a" width="100%" height={32} />
       ),
       action: !isLoading && (
-        <ActionMenu
-          track={parsedTrack}
-          onAdd={onAdd}
-          onOpen={() => setMenuOpen(true)}
-          onClose={() => setMenuOpen(false)}
-        />
+        <div className="flex items-center justify-end">
+          {ready && (
+            <Tooltip placement="top" title="Ready">
+              <CheckCircle fontSize="small" color="success" className="mr-2 checked-icon" />
+            </Tooltip>
+          )}
+          <ActionMenu
+            track={parsedTrack}
+            onAdd={onAdd}
+            onOpen={() => setMenuOpen(true)}
+            onClose={() => setMenuOpen(false)}
+          />
+        </div>
       ),
     };
     return (
@@ -430,8 +446,8 @@ export default function PlaylistView() {
             <div className="title h-full shrink-0 w-full md:w-40 max-w-[400px]">
               <img src={collectionImage} className="w-full h-full object-cover rounded-md" alt={collection.name} />
             </div>
-            <div className="ml-4 flex flex-col justify-center md:justify-start">
-              <span className="text-2xl md:text-4xl font-bold line-clamp-2">{collection.name}</span>
+            <div className="ml-4 flex flex-col justify-center md:justify-start w-full">
+              <span className="text-2xl md:text-4xl font-bold line-clamp-2 leading-relaxed">{collection.name}</span>
               <div className="text-sm text-gray-200 mt-1 line-clamp-1">{collection.description}</div>
             </div>
           </Header>
@@ -459,7 +475,7 @@ export default function PlaylistView() {
                         key={header.key}
                         width={getWidth(header.key)}
                         align={header.key == 'row_id' ? 'center' : 'left'}
-                        sx={{ color: '#b3b3b3', pt: 2, pb: 2 }}
+                        sx={{ color: '#b3b3b3', padding: 2 }}
                       >
                         {header.label}
                       </TableCell>

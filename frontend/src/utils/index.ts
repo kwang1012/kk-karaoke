@@ -1,11 +1,4 @@
-import moment from 'moment';
 import { Vibrant } from 'node-vibrant/browser';
-
-export const format = (date: string | Date) => {
-  if (typeof date === 'string') date = new Date(date);
-  if (date.getMinutes()) return moment(date).format('h:m a');
-  else return moment(date).format('h a');
-};
 
 export const DEFAULT_COLOR = '#d3d3d3';
 export const DEFAULT_BG_COLOR = '#3a3a3a';

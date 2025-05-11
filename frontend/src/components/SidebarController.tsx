@@ -2,17 +2,16 @@ import { faPlus, faMinus } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Tooltip, IconButton, Button, Divider } from '@mui/material';
 import { usePlayer } from 'src/hooks/player';
-import { useAudioStore } from 'src/store/audio';
 import SvgIcon from './SvgIcon';
 import Mic from 'src/assets/mic.svg';
 import MicMuted from 'src/assets/mic-muted.svg';
-import singSvg from 'src/assets/sing2.svg';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSettingStore } from 'src/store/setting';
 import { InterpreterModeOutlined, Settings } from '@mui/icons-material';
+import { useNotifyStore } from 'src/store/notify';
 
 export default function SidebarController({ className }: { className?: string }) {
-  const showSnackbar = useAudioStore((state) => state.showSnackbar);
+  const showSnackbar = useNotifyStore((state) => state.showSnackbar);
   const navigate = useNavigate();
   const location = useLocation();
   const singing = location.pathname.startsWith('/lyrics');

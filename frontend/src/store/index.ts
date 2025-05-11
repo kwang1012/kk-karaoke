@@ -13,4 +13,4 @@ export const useAppStore = create<AppState>((set) => ({
   setSearchValue: (value: string) => set({ searchValue: value }),
 }));
 
-export * from './audio';
+export * from './track';

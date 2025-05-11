@@ -32,7 +32,7 @@ export const fetchLyrics = async (songId: string) => {
 // fetch random tracks
 export const fetchRandomTracks = async () => {
   return api
-    .get('tracks')
+    .get('random_tracks')
     .then(({ data }) => {
       return data.tracks;
     })

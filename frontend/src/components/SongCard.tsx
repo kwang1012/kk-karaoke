@@ -5,15 +5,16 @@ import {
   ListItemIcon,
   ListItemText,
   MenuItem,
+  Tooltip,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { memo, ReactElement, useMemo, useState } from 'react';
 import placeholderImage from 'src/assets/placeholder.png';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGears, faMusic } from '@fortawesome/free-solid-svg-icons';
-import { useAudioStore } from 'src/store';
+import { useTrackStore } from 'src/store';
 import { useWebSocketStore } from 'src/store/ws';
-import { DeleteOutline, MoreHoriz, PlayArrow } from '@mui/icons-material';
+import { CheckCircle, DeleteOutline, MoreHoriz, PlayArrow, QueueMusic } from '@mui/icons-material';
 import AppMenu from './Menu';
 import { Track } from 'src/models/spotify';
 
@@ -67,6 +68,9 @@ const HoverLayout = styled('div')(({ theme }) => ({
     '*': {
       color: 'white',
     },
+    ".checked-icon *": {
+      color: theme.palette.success.main,
+    },
     backgroundColor: '#ffffff1a',
     '& .actions': {
       opacity: 1,
@@ -111,8 +115,8 @@ const ActionMenu = memo(
     const functions = [
       {
         fn: onAdd,
-        icon: <PlayArrow />,
-        text: 'Play',
+        icon:  <QueueMusic />,
+        text: 'Add to queue',
       },
       {
         fn: onDelete,
@@ -184,8 +188,8 @@ export default function SongCard({
   onDelete,
   ...props
 }: SongCardProps) {
-  const songStatus = useAudioStore((state) => state.songStatus);
-  const songProgress = useAudioStore((state) => state.songProgress);
+  const songStatus = useTrackStore((state) => state.songStatus);
+  const songProgress = useTrackStore((state) => state.songProgress);
   const status = useMemo(() => (track ? songStatus[track.id] : 'ready'), [songStatus, track?.id]);
   const progress = useMemo(() => (track ? songProgress[track.id] : 100), [songProgress, track?.id]);
   const isReady = useMemo(() => !status || status === 'ready', [status]);
@@ -203,6 +207,10 @@ export default function SongCard({
       };
     return track;
   }, [track]);
+  const readyTracks = useTrackStore((state) => state.readyTracks);
+  const ready = useMemo(() => {
+    return readyTracks.has(parsedTrack.id);
+  }, [readyTracks, parsedTrack]);
 
   const progressIcon = useMemo(() => {
     if (status === 'downloading_lyrics' || status === 'downloading_audio')
@@ -252,6 +260,12 @@ export default function SongCard({
           ))}
         </span>
       </div>
+      {/* Only show ready icon if onAdd is not undefined */}
+      {ready && onAdd && (
+        <Tooltip placement="top" title="Ready">
+          <CheckCircle fontSize="small" color="success" className="mr-2 checked-icon" />
+        </Tooltip>
+      )}
       {hasActions && !disabled && (
         <div className="actions shrink-0">
           <ActionMenu

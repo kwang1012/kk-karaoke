@@ -11,7 +11,7 @@ import {
 } from 'src/apis/player';
 import { Lyrics, Track } from 'src/models/spotify';
 import ShiftedAutioPlayer from 'src/shiftedPlayer';
-import { useAudioStore } from 'src/store/audio';
+import { useTrackStore } from 'src/store/track';
 import { useJam, useRoomStore } from 'src/store/room';
 import { useSettingStore } from 'src/store/setting';
 import { useWebSocketStore } from 'src/store/ws';
@@ -106,10 +106,10 @@ function createPlayerContext({
     return queue[queueIdx] || null;
   }, [queue, queueIdx]);
 
-  const songStatus = useAudioStore((state) => state.songStatus);
-  const setSongStatus = useAudioStore((state) => state.setSongStatus);
-  const removeSongStatus = useAudioStore((state) => state.removeSongStatus);
-  const removeSongProgress = useAudioStore((state) => state.removeSongProgress);
+  const songStatus = useTrackStore((state) => state.songStatus);
+  const setSongStatus = useTrackStore((state) => state.setSongStatus);
+  const removeSongStatus = useTrackStore((state) => state.removeSongStatus);
+  const removeSongProgress = useTrackStore((state) => state.removeSongProgress);
   const roomId = useRoomStore((state) => state.roomId);
   const joinedRoomId = useRoomStore((state) => state.joinedRoom);
   const activeRoomId = useMemo(() => joinedRoomId || roomId, [joinedRoomId, roomId]);

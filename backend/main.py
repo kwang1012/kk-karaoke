@@ -1,7 +1,10 @@
 import random
-from fastapi import FastAPI, WebSocket
+from fastapi import Depends, FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from services.process_request import is_ready
+from managers.db import get_db
+from interfaces.queue import RedisQueueInterface
 from services.spotify import getCollectionTracks, getTopCategories, searchSpotify
 from managers.websocket import WebSocketManager
 from middlewares.format import FormatReponseMiddleware
@@ -72,7 +75,20 @@ async def get_album_tracks(album_id: str):
 
 
 @api.get("/tracks")
-async def get_tracks():
+async def get_tracks(
+    redis_interface: RedisQueueInterface = Depends(
+        lambda: RedisQueueInterface(get_db())),):
+    tracks = redis_interface.get_queue()
+    ready_tracks = []
+    for track in tracks:
+        if is_ready(track):
+            ready_tracks.append(track.id)
+    
+    return JSONResponse(content={"ready_tracks": ready_tracks}, status_code=200)
+
+
+@api.get("/random_tracks")
+async def get_random_tracks():
     default_playlist_id = "3AEkt2VeAAHFc1TC5FLuIl"
     _, tracks = getCollectionTracks("playlists", default_playlist_id)
     tracks = tracks or []

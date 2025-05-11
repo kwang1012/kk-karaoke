@@ -44,6 +44,9 @@ export const lightTheme: AppThemeOptions = {
       main: '#f44336',
       dark: '#ba000d',
     },
+    success: {
+      main: '#1ed760',
+    },
     background: {
       default: '#f7f6f0',
       paper: 'white',
@@ -65,6 +68,9 @@ export const darkTheme: AppThemeOptions = {
       light: '#ff7961',
       main: '#f44336',
       dark: '#ba000d',
+    },
+    success: {
+      main: '#1ed760',
     },
     background: {
       default: 'black',

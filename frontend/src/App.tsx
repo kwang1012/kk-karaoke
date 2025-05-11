@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { lazy, useEffect } from 'react';
 import { StyledEngineProvider, ThemeProvider } from '@mui/material/styles';
 import { darkTheme, lightTheme } from 'src/styles/theme';
 import { IconDefinition, IconName, IconPrefix, library } from '@fortawesome/fontawesome-svg-core';
@@ -15,15 +15,17 @@ import { v4 as uuid } from 'uuid';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Message, useWebSocketStore } from './store/ws';
 import { useAudioStore } from './store';
-import JoinView from './pages/join';
 import { useRemoteMessageQueue } from './hooks/queue';
 import { CssBaseline, GlobalStyles, useMediaQuery, useTheme } from '@mui/material';
 import { PlayerProvider } from './hooks/player';
 import PlayView from './pages/play';
-import SettingView from './pages/setting';
 import { useRoomStore } from './store/room';
 
 import 'src/styles/globals.css';
+
+// lazily loaded components
+const JoinView = lazy(() => import('./pages/join'));
+const SettingView = lazy(() => import('./pages/setting'));
 
 const faSearchStyle: IconDefinition = {
   prefix: 'fac' as IconPrefix,

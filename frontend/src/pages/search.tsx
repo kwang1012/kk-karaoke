@@ -5,7 +5,7 @@ import SongCard from '../components/SongCard';
 import placeholder from 'src/assets/placeholder.png';
 import AppScrollbar from '../components/Scrollbar';
 import Scrollbar from 'react-scrollbars-custom';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from 'src/store';
 import { useMediaQuery, useTheme } from '@mui/material';
@@ -156,7 +156,7 @@ export default function SearchView() {
                         <img src={album.images?.[0]?.url || placeholder} className="w-full rounded-md" />
                         <span className="text-md mt-2 text-white line-clamp-2">{album.name}</span>
                         <span className="text-sm text-gray-400 line-clamp-1">
-                          {moment(album.release_date, 'YYYY-MM-DD').format('YYYY')}．
+                          {dayjs(album.release_date, 'YYYY-MM-DD').format('YYYY')}．
                           {album.artists.map((a: any) => a.name).join(', ')}
                         </span>
                       </CarouselItem>

@@ -430,8 +430,8 @@ export default function PlaylistView() {
             <div className="title h-full shrink-0 w-full md:w-40 max-w-[400px]">
               <img src={collectionImage} className="w-full h-full object-cover rounded-md" alt={collection.name} />
             </div>
-            <div className="ml-4 flex flex-col justify-center md:justify-start">
-              <span className="text-2xl md:text-4xl font-bold line-clamp-2">{collection.name}</span>
+            <div className="ml-4 flex flex-col justify-center md:justify-start w-full">
+              <span className="text-2xl md:text-4xl font-bold line-clamp-2 leading-relaxed">{collection.name}</span>
               <div className="text-sm text-gray-200 mt-1 line-clamp-1">{collection.description}</div>
             </div>
           </Header>

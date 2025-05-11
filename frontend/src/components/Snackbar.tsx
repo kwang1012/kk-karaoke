@@ -4,11 +4,13 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Snackbar, LinearProgress } from '@mui/material';
 import { useAudioStore } from 'src/store';
 import { usePlayer } from 'src/hooks/player';
+import { useSettingStore } from 'src/store/setting';
 
 export default function AppSnackbar() {
   const { volume, semitone } = usePlayer();
   const { open, key } = useAudioStore((state) => state.snackbar);
   const closeSnackbar = useAudioStore((state) => state.closeSnackbar);
+  const enabledPitchShift = useSettingStore((state) => state.enabledPitchShift);
   return (
     <Snackbar
       style={{ top: '60px' }}
@@ -25,11 +27,13 @@ export default function AppSnackbar() {
             <LinearProgress variant="determinate" value={volume * 100} />
           </div>
         </div>
-        <div className="mt-1">
-          <span className="text-lg text-[#dcdcdc] font-bold">
-            Current Key: {semitone > 0 ? `+${semitone}` : semitone < 0 ? `${semitone}` : '0'}
-          </span>
-        </div>
+        {enabledPitchShift && (
+          <div className="mt-1">
+            <span className="text-lg text-[#dcdcdc] font-bold">
+              Current Key: {semitone > 0 ? `+${semitone}` : semitone < 0 ? `${semitone}` : '0'}
+            </span>
+          </div>
+        )}
       </div>
     </Snackbar>
   );

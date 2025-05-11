@@ -1,9 +1,7 @@
-<h2 align="center">KKaraoke - The best Spotify-like karaoke web application</h2>
-
----
+<h1 align="center">KKaraoke - The best Spotify-like karaoke web application</h1>
 
 <p align="center">
-<blockquote class="imgur-embed-pub" lang="en" data-id="r0bs2Sv" data-context="false" ><a href="//imgur.com/r0bs2Sv"></a></blockquote><script async src="//s.imgur.com/min/embed.js" charset="utf-8"></script>
+    <img src="https://github.com/user-attachments/assets/58da0768-1413-4e9c-bb51-5cb289285a80" />
 </p>
 <!-- <p align="center">
     <a href="https://www.producthunt.com/posts/moseca?utm_source=badge-featured&utm_medium=badge&utm_souce=badge-moseca" target="_blank">

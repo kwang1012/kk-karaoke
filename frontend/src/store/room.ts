@@ -21,8 +21,8 @@ export interface RoomState {
 export const useRoomStore = create<RoomState>()(
   persist(
     (set, get) => ({
-      roomId: '',
-      joinedRoom: '',
+      roomId: 'default', // this will be overwritten by App.tsx
+      joinedRoom: 'default', // this will be overwritten by App.tsx
       participants: [],
       setRoomId: (roomId: string) =>
         set(() => ({

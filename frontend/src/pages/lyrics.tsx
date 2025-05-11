@@ -25,8 +25,8 @@ export default function LyricsView() {
   }, [lyrics]);
 
   const [color, setColor] = useState<string>('#535353');
+  const image = currentSong?.album?.images?.[0]?.url;
   useEffect(() => {
-    const image = currentSong?.album?.image;
     if (!image) {
       setColor('#535353');
       return;
@@ -38,7 +38,7 @@ export default function LyricsView() {
       .catch((error) => {
         console.error('Error fetching average RGB:', error);
       });
-  }, [currentSong?.album?.image]);
+  }, [image]);
 
   useEffect(() => {
     const el = lineRefs.current[currentLine];
@@ -48,7 +48,7 @@ export default function LyricsView() {
         block: 'center', // scroll to center of container
       });
     }
-  }, [currentLine]);
+  }, [currentLine, lineRefs.current]);
 
   useEffect(() => {
     if (!currentSong) return;
@@ -98,7 +98,7 @@ export default function LyricsView() {
             ))
           ) : (
             <div className="text-center text-gray-400 mt-20 text-4xl">
-              <p>{currentSong ? 'No lyrics available for this song.' : 'Start playing a song!'}</p>
+              <p>{currentSong ? 'No lyrics available for this track.' : 'Start playing a track!'}</p>
             </div>
           )}
         </div>

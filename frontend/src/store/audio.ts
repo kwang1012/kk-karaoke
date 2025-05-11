@@ -8,14 +8,14 @@ export interface AudioState {
   };
   showSnackbar: () => void; // Set the state of the snackbar
   closeSnackbar: () => void; // Set the state of the snackbar
-  lyricsDelays: Record<string, number>; // Delay of each song in the queue. used for adding song to queue
-  setLyricsDelay: (songId: string, delay: number) => void; // Set the delay of a song in the queue
-  songStatus: Record<string, SongStatus>; // Status of each song in the queue. used for adding song to queue
-  setSongStatus: (songId: string, status: SongStatus) => void; // Set the status of a song in the queue
-  removeSongStatus: (songId: string) => void; // Remove the status of a song in the queue
-  songProgress: Record<string, number>; // Status of each song in the queue. used for adding song to queue
-  setSongProgress: (songId: string, progress: number) => void; // Set the progress of a song in the queue
-  removeSongProgress: (songId: string) => void; // Remove the progress of a song in the queue
+  lyricsDelays: Record<string, number>; // Delay of each track in the queue. used for adding track to queue
+  setLyricsDelay: (songId: string, delay: number) => void; // Set the delay of a track in the queue
+  songStatus: Record<string, SongStatus>; // Status of each track in the queue. used for adding track to queue
+  setSongStatus: (songId: string, status: SongStatus) => void; // Set the status of a track in the queue
+  removeSongStatus: (songId: string) => void; // Remove the status of a track in the queue
+  songProgress: Record<string, number>; // Status of each track in the queue. used for adding track to queue
+  setSongProgress: (songId: string, progress: number) => void; // Set the progress of a track in the queue
+  removeSongProgress: (songId: string) => void; // Remove the progress of a track in the queue
 }
 export const useAudioStore = create<AudioState>((set, get) => ({
   snackbar: {

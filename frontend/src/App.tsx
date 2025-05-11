@@ -143,7 +143,7 @@ const AppRouters = () => {
           </Route>
           <Route path="lyrics" element={<LyricsView />} />
           <Route path="play" element={mobile ? <PlayView /> : <BrowseView />} />
-          <Route path="setting" element={<SettingView />} />
+          <Route path="settings" element={<SettingView />} />
         </Route>
         <Route path="join" element={<JoinView />} />
       </Routes>
@@ -169,7 +169,7 @@ function App() {
   const setRoomId = useRoomStore((state) => state.setRoomId);
 
   useEffect(() => {
-    if (!roomId) {
+    if (!roomId || roomId === 'default') {
       setRoomId(uuid());
     }
   }, [roomId]);
@@ -180,9 +180,9 @@ function App() {
   const onNotifyMessage = (message: Message) => {
     if (message.type === 'notify') {
       if (message.data.action === 'progress') {
-        setSongStatus(message.data.song_id, message.data.status);
+        setSongStatus(message.data.songId, message.data.status);
         if (message.data.value) {
-          setSongProgress(message.data.song_id, (100 * message.data.value) / message.data.total);
+          setSongProgress(message.data.songId, (100 * message.data.value) / message.data.total);
         }
       }
     }

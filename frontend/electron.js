@@ -3,6 +3,7 @@ const path = require('path');
 
 function createWindow() {
   const win = new BrowserWindow({
+    useContentSize: true,
     width: 1635,
     height: 1080,
     webPreferences: {

@@ -25,9 +25,9 @@ export default function AppSnackbar() {
             <LinearProgress variant="determinate" value={volume * 100} />
           </div>
         </div>
-        <div className='mt-1'>
-          <span className="text-lg text-[#dcdcdc]">
-            Key: {semitone > 0 ? `+${semitone}` : semitone < 0 ? `${semitone}` : '0'}
+        <div className="mt-1">
+          <span className="text-lg text-[#dcdcdc] font-bold">
+            Current Key: {semitone > 0 ? `+${semitone}` : semitone < 0 ? `${semitone}` : '0'}
           </span>
         </div>
       </div>

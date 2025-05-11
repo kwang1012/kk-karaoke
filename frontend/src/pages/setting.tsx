@@ -29,17 +29,11 @@ export default function SettingView() {
           Separation quality - Recommended setting: High
         </span>
         <AppSelect
+          disabled
           disableUnderline
           size="small"
           className="text-sm w-[200px]"
-          IconComponent={(props) => (
-            <KeyboardArrowDownOutlined
-              sx={{
-                fill: '#b3b3b3',
-              }}
-              {...props}
-            />
-          )}
+          IconComponent={(props) => <KeyboardArrowDownOutlined {...props} />}
         >
           <option value="vocal_remover">Low (Fast)</option>
           <option value="htdemucs">High</option>

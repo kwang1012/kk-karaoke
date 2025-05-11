@@ -27,6 +27,7 @@ import AppMenu from 'src/components/Menu';
 import { getAvgRGB } from 'src/utils';
 import Scrollbar from 'react-scrollbars-custom';
 import { usePlayer } from 'src/hooks/player';
+import { Track, Collection, Album } from 'src/models/spotify';
 
 const ALBUM_HEADERS = [
   {
@@ -68,7 +69,7 @@ const PLAYLIST_HEADERS = [
 
 type ReturnType = {
   collection: Collection;
-  tracks: Song[];
+  tracks: Track[];
 };
 
 const fetchTracks = async (collectionType: string, id: string): Promise<ReturnType> => {
@@ -136,15 +137,15 @@ const Header = styled('div')(({ theme }) => ({
 
 const ActionMenu = memo(
   ({
-    song,
+    track,
     onAdd,
     onDelete,
     onOpen,
     onClose,
   }: {
-    song: Song;
-    onAdd?: (song: Song) => void;
-    onDelete?: (song: Song) => void;
+    track: Track;
+    onAdd?: (track: Track) => void;
+    onDelete?: (track: Track) => void;
     onOpen: () => void;
     onClose: () => void;
   }) => {
@@ -176,7 +177,7 @@ const ActionMenu = memo(
           {onAdd && (
             <MenuItem
               onClick={() => {
-                onAdd(song);
+                onAdd(track);
                 handleClose();
               }}
             >
@@ -189,7 +190,7 @@ const ActionMenu = memo(
           {onDelete && (
             <MenuItem
               onClick={() => {
-                onDelete(song);
+                onDelete(track);
                 handleClose();
               }}
             >
@@ -208,7 +209,7 @@ const ActionMenu = memo(
 const getWidth = (key: string) => {
   switch (key) {
     case 'artists':
-      return 120;
+      return 150;
     case 'row_id':
     case 'action':
       return 30;
@@ -222,7 +223,7 @@ const TrackRow = memo(
     index,
     collectionType,
     headers,
-    song,
+    track,
     initialized,
     connected,
     onAdd,
@@ -230,17 +231,18 @@ const TrackRow = memo(
     index: number;
     collectionType: string;
     headers: { key: string; label: string }[];
-    song: Song;
+    track: Track;
     initialized: boolean;
     connected: boolean;
-    onAdd: (song: Song) => void;
+    onAdd: (track: Track) => void;
   }) => {
     const [menuOpen, setMenuOpen] = useState(false);
+    const image = track.album?.images[0].url || placeholder;
     const trackRow = {
       row_id: (
         <div className="flex items-center justify-center">
           <span className="row-id">{index + 1}</span>
-          <div className="cursor-pointer" onClick={() => initialized && connected && onAdd(song)}>
+          <div className="cursor-pointer" onClick={() => initialized && connected && onAdd(track)}>
             <PlayArrow className="row-play" fontSize="small" />
           </div>
         </div>
@@ -248,22 +250,45 @@ const TrackRow = memo(
       name: (
         <div className="flex items-center">
           {collectionType === 'playlist' && (
-            <img
-              src={song.album?.image || placeholder}
-              className="w-10 h-10 object-cover rounded-md inline-block mr-2"
-              alt={song.name}
-            />
+            <img src={image} className="w-10 h-10 object-cover rounded-md inline-block mr-2" alt={track.name} />
           )}
           <div>
-            <span className="line-clamp-1 ml-2">{song.name}</span>
-            {collectionType === 'album' && <span className="text-gray-400 ml-2">{song.artists.join(',')}</span>}
+            <span className="line-clamp-1 ml-2">{track.name}</span>
+            {collectionType === 'album' && (
+              <span className="text-gray-400 ml-2">
+                {track.artists.map((artist, index) => (
+                  <span key={index}>
+                    {index > 0 && ', '}
+                    <a
+                      href={artist.uri}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:underline cursor-pointer"
+                    >
+                      {artist.name}
+                    </a>
+                  </span>
+                ))}
+              </span>
+            )}
           </div>
         </div>
       ),
-      artists: <span className="line-clamp-1">{song.artists.join(', ')}</span>,
-      album: <span className="line-clamp-1">{song.album?.name || '-'}</span>,
+      artists: (
+        <span className="line-clamp-1">
+          {track.artists.map((artist, index) => (
+            <span key={index}>
+              {index > 0 && ', '}
+              <a href={artist.uri} target="_blank" rel="noopener noreferrer" className="hover:underline cursor-pointer">
+                {artist.name}
+              </a>
+            </span>
+          ))}
+        </span>
+      ),
+      album: <span className="line-clamp-1">{track.album?.name || '-'}</span>,
       action: (
-        <ActionMenu song={song} onAdd={onAdd} onOpen={() => setMenuOpen(true)} onClose={() => setMenuOpen(false)} />
+        <ActionMenu track={track} onAdd={onAdd} onOpen={() => setMenuOpen(true)} onClose={() => setMenuOpen(false)} />
       ),
     };
     return (
@@ -307,12 +332,13 @@ export default function PlaylistView() {
     queryKey: [collectionType, id],
     queryFn: () => fetchTracks(collectionType, id || ''),
   });
-  const collection = useMemo(() => data?.collection || initCollection, [data, initCollection]);
+  const collection = useMemo<Collection>(() => data?.collection || initCollection, [data, initCollection]);
   const tracks = useMemo(() => data?.tracks || [], [data]);
   const [color, setColor] = useState<string>('#535353');
+  const collectionImage = collection.images?.[0]?.url || placeholder;
   useEffect(() => {
-    if (collection.image) {
-      getAvgRGB(collection.image)
+    if (collectionImage) {
+      getAvgRGB(collectionImage)
         .then((data) => {
           setColor(data);
         })
@@ -320,14 +346,14 @@ export default function PlaylistView() {
           console.error('Error fetching average RGB:', error);
         });
     }
-  }, [collection.image]);
+  }, [collectionImage]);
 
-  const onAdd = (song: Song) => {
-    // Function to add a song to the queue
+  const onAdd = (track: Track) => {
+    // Function to add a track to the queue
     if (collectionType === 'album') {
-      song.album = collection;
+      track.album = collection as Album;
     }
-    addSongToQueue(song);
+    addSongToQueue(track);
   };
   const [scrollTop, setScrollTop] = useState(0);
 
@@ -353,7 +379,7 @@ export default function PlaylistView() {
         {halfway && (
           <Toolbar>
             <>
-              <img src={collection.image || placeholder} className="w-8 h-8 rounded-md" />
+              <img src={collectionImage} className="w-8 h-8 rounded-md" />
               <div className="text-xl ml-4 line-clamp-1">{collection.name}</div>
             </>
           </Toolbar>
@@ -370,11 +396,7 @@ export default function PlaylistView() {
             }}
           >
             <div className="title h-full shrink-0 w-full md:w-40 max-w-[400px]">
-              <img
-                src={collection.image || placeholder}
-                className="w-full h-full object-cover rounded-md"
-                alt={collection.name}
-              />
+              <img src={collectionImage} className="w-full h-full object-cover rounded-md" alt={collection.name} />
             </div>
             <div className="description ml-4 flex flex-col justify-center md:justify-start w-full">
               <span className="text-2xl md:text-4xl font-bold line-clamp-2 leading-1.5">{collection.name}</span>
@@ -420,7 +442,7 @@ export default function PlaylistView() {
                         index={i}
                         collectionType={collectionType}
                         headers={headers}
-                        song={track}
+                        track={track}
                         onAdd={onAdd}
                         initialized={initialized}
                         connected={connected}

@@ -1,4 +1,5 @@
 import asyncio
+import json
 import redis
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
@@ -6,6 +7,7 @@ from routes.db_interface import RedisQueueInterface
 from managers.websocket import WebSocketManager
 from managers.db import get_db
 from models.song import Song
+import json
 from services.process_request import send_process_request, is_ready
 
 router = APIRouter()
@@ -31,7 +33,7 @@ async def add_to_queue_endpoint(
 
         await ws_manager.broadcast(
             {"type": "queue", "data": {
-                "action": "added", "song": song.model_dump()}}
+                "action": "added", "track": song.model_dump()}}
         )
 
         if is_ready(song):
@@ -74,7 +76,9 @@ async def get_room_songs(
     try:
         # Use the get_queue method from RedisQueueInterface
         songs = redis_interface.get_queue(room_id)
-        return songs
+        key = f"room:{room_id}:queue:current_idx"
+        current_idx = json.loads(redis_interface.redis.get(key))
+        return {"tracks": songs, "index": current_idx}
     except redis.RedisError as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to retrieve songs for room {room_id}: {e}"
@@ -103,4 +107,41 @@ async def remove_from_queue_endpoint(
     except redis.RedisError as e:
         raise HTTPException(status_code=500, detail=f"Redis error: {e}")
 
+# clear songs in a queue
 
+
+@router.post("/{room_id}/tracks/clear")
+async def clear_queue_endpoint(
+    room_id: str,
+    redis_interface: RedisQueueInterface = Depends(
+        lambda: RedisQueueInterface(get_db())),
+):
+    """
+    Removes all songs from a room's queue.
+
+    Args:
+        room_id: The ID of the room.
+    """
+    try:
+        redis_interface.clear_queue(room_id)  # Call the clear_queue method
+        await ws_manager.broadcast(
+            {"type": "queue", "data": {"action": "cleared", "room_id": room_id}}
+        )
+        return JSONResponse(content={"message": f"Queue for room {room_id} cleared"}, status_code=200)
+    except redis.RedisError as e:
+        raise HTTPException(status_code=500, detail=f"Redis error: {e}")
+
+# Use as a pointer to which song is now playing
+
+
+@router.post("/{room_id}/{current_idx}")
+async def store_current_idx(room_id: str, current_idx: int, redis_interface: RedisQueueInterface = Depends(
+        lambda: RedisQueueInterface(get_db()))):
+    # Use a Redis key that includes the room ID
+    try:
+        key = f"room:{room_id}:queue:current_idx"
+        redis_interface.redis.set(key, current_idx)
+        return JSONResponse(content={"message": f"Current index for room {room_id} 's queue is set to {current_idx}"}, status_code=200)
+    except redis.RedisError as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to store current index: {e}")

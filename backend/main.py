@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from services.spotify import getCollectionTracks, getTopCategories, searchSpotify
 from managers.websocket import WebSocketManager
+from middlewares.format import FormatReponseMiddleware
 from routes.song import router as song_router
 from routes.lyrics import router as lyrics_router
 from routes.queue import router as queue_router
@@ -14,6 +15,8 @@ load_dotenv()  # Load environment variables from .env file
 
 app = FastAPI()
 
+
+app.add_middleware(FormatReponseMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

@@ -131,7 +131,7 @@ export default function SearchView() {
           </div>
         </div>
       ) : (
-        <div className={['px-8 h-[68px] flex items-center', scrollTop > 0 ? 'shadow-xl' : ''].join(' ')}>
+        <div className={['px-8 h-[68px] flex items-center font-bold', scrollTop > 0 ? 'shadow-xl' : ''].join(' ')}>
           Search Results for: <strong className="ml-1 underline">{searchValue}</strong>
         </div>
       )}
@@ -145,7 +145,7 @@ export default function SearchView() {
                   <h1 className="text-2xl mt-2">Songs</h1>
                   <div className="mt-2">
                     {tracks.map((track: any, i: number) => (
-                      <SongCard key={i} song={track} dense className="mt-1" onAdd={addSongToQueue} />
+                      <SongCard key={i} track={track} dense className="mt-1" onAdd={addSongToQueue} />
                     ))}
                   </div>
                 </div>

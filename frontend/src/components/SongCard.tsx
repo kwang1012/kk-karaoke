@@ -15,10 +15,23 @@ import { useAudioStore } from 'src/store';
 import { useWebSocketStore } from 'src/store/ws';
 import { DeleteOutline, MoreHoriz, PlayArrow } from '@mui/icons-material';
 import AppMenu from './Menu';
+import { Track } from 'src/models/spotify';
 
 const CircularProgressWithLabel = ({ children, ...props }: { children?: ReactElement } & CircularProgressProps) => (
   <div className="relative inline-flex">
-    <CircularProgress variant="determinate" {...props} />
+    {/* Background track */}
+    {props.variant === 'determinate' && (
+      <CircularProgress
+        {...props}
+        className="absolute"
+        variant="determinate"
+        value={100}
+        sx={{
+          color: '#a0a0a0', // light gray background
+        }}
+      />
+    )}
+    <CircularProgress {...props} />
     <div className="top-0 left-0 bottom-0 right-0 absolute flex items-center justify-center">
       {children ? children : <span className="text-white text-xs">{props.value}%</span>}
     </div>
@@ -50,7 +63,6 @@ const HoverLayout = styled('div')(({ theme }) => ({
     backgroundColor: '#ffffff3a',
   },
   '&.disable-hover': {
-    // backgroundColor: 'transparent',
     '&:hover, &:active': {
       backgroundColor: 'transparent',
     },
@@ -64,15 +76,15 @@ const HoverLayout = styled('div')(({ theme }) => ({
 
 const ActionMenu = memo(
   ({
-    song,
+    track,
     onAdd,
     onDelete,
     onOpen,
     onClose,
   }: {
-    song: Song;
-    onAdd?: (song: Song) => void;
-    onDelete?: (song: Song) => void;
+    track: Track;
+    onAdd?: (track: Track) => void;
+    onDelete?: (track: Track) => void;
     onOpen: () => void;
     onClose: () => void;
   }) => {
@@ -80,6 +92,7 @@ const ActionMenu = memo(
     const open = Boolean(anchorEl);
     const id = open ? 'simple-popover' : undefined;
     const handleClick = (event: React.MouseEvent<HTMLElement>) => {
+      event.stopPropagation();
       setAnchorEl(event.currentTarget);
       onOpen();
     };
@@ -120,8 +133,8 @@ const ActionMenu = memo(
                 <MenuItem
                   key={index}
                   onClick={() => {
-                    if (!song || !func.fn) return;
-                    func.fn(song);
+                    if (!track || !func.fn) return;
+                    func.fn(track);
                     handleClose();
                   }}
                 >
@@ -146,16 +159,16 @@ const ActionMenu = memo(
 
 type SongCardProps = {
   className?: string;
-  song?: Song | null;
+  track?: Track | null;
   dense?: boolean;
   disable?: boolean;
   disableHover?: boolean;
-  onAdd?: (song: Song) => void;
-  onDelete?: (song: Song) => void;
+  onAdd?: (track: Track) => void;
+  onDelete?: (track: Track) => void;
 };
 export default function SongCard({
   className,
-  song,
+  track,
   dense,
   disable,
   disableHover,
@@ -165,45 +178,22 @@ export default function SongCard({
 }: SongCardProps) {
   const songStatus = useAudioStore((state) => state.songStatus);
   const songProgress = useAudioStore((state) => state.songProgress);
-  const status = useMemo(() => (song ? songStatus[song.id] : 'ready'), [songStatus, song?.id]);
-  const progress = useMemo(() => (song ? songProgress[song.id] : 100), [songProgress, song?.id]);
+  const status = useMemo(() => (track ? songStatus[track.id] : 'ready'), [songStatus, track?.id]);
+  const progress = useMemo(() => (track ? songProgress[track.id] : 100), [songProgress, track?.id]);
   const isReady = useMemo(() => !status || status === 'ready', [status]);
   const initialized = useWebSocketStore((state) => state.initialized);
   const connected = useWebSocketStore((state) => state.connected);
   const hasActions = useMemo(() => !!onAdd || !!onDelete, [onAdd, onDelete]);
-  const parsedSong = useMemo(() => {
-    if (!song)
+  const parsedTrack = useMemo(() => {
+    if (!track)
       return {
         id: '',
         name: 'Not playing',
         artists: [],
-        album: {
-          name: '',
-          image: placeholderImage,
-        },
+        timeAdded: Date.now(),
       };
-    let albumImage: any;
-    if (typeof song.album?.image === 'string') {
-      albumImage = song.album.image;
-    } else if (Array.isArray(song.album!.images) && song.album!.images!.length > 0) {
-      albumImage = song.album!.images[0].url;
-    } else {
-      albumImage = placeholderImage; // Fallback to placeholder if no image is available
-    }
-    return {
-      id: song.id,
-      name: song.name,
-      artists:
-        song.artists.map((artist: any) => {
-          if (typeof artist === 'string') return artist;
-          return artist.name || artist; // Fallback to string if artist object is not structured
-        }) || [],
-      album: {
-        name: song.album?.name || '',
-        image: albumImage,
-      },
-    };
-  }, [song]);
+    return track;
+  }, [track]);
 
   const progressIcon = useMemo(() => {
     if (status === 'downloading_lyrics' || status === 'downloading_audio')
@@ -217,15 +207,54 @@ export default function SongCard({
     <HoverLayout
       className={[
         className,
-        isReady && !disable && initialized && connected ? 'hover:bg-[#ffffff1a]' : '',
         dense ? 'py-0 px-1' : 'px-2',
         menuOpen ? 'active' : '',
-        disable ? 'disable-hover' : '',
+        !isReady || disable ? 'disable-hover' : '',
       ].join(' ')}
       {...props}
     >
+      <div className="relative w-10 h-10 bg-[#b3b3b3] rounded-md mr-4 overflow-hidden shrink-0">
+        {onAdd && (
+          <div
+            className="actions absolute flex items-center justify-center w-full h-full bg-[#3b3b3b70] cursor-pointer"
+            onClick={() => track && onAdd(parsedTrack)}
+          >
+            <PlayArrow />
+          </div>
+        )}
+        <img src={parsedTrack.album?.images[0].url || placeholderImage} className="w-full h-full" />
+      </div>
+      <div className="flex flex-col justify-between py-1 flex-1">
+        <span className="text-white line-clamp-1">{parsedTrack.name}</span>
+        <span className="text-sm text-gray-400 line-clamp-1">
+          {parsedTrack.artists.map((artist, index) => (
+            <span key={index}>
+              {index > 0 && ', '}
+              <a
+                href={artist.uri}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:underline cursor-pointer size-fit"
+              >
+                {artist.name}
+              </a>
+            </span>
+          ))}
+        </span>
+      </div>
+      {hasActions && isReady && !disable && (
+        <div className="actions shrink-0">
+          <ActionMenu
+            track={parsedTrack}
+            onAdd={onAdd}
+            onDelete={onDelete}
+            onOpen={() => setMenuOpen(true)}
+            onClose={() => setMenuOpen(false)}
+          />
+        </div>
+      )}
       {!isReady && !disable && (
-        <div className="absolute inset-0 bg-[#3b3b3b] opacity-70 flex items-center justify-end px-4">
+        <div className="flex items-center justify-end px-4">
           <CircularProgressWithLabel
             size={36}
             sx={{ color: 'white' }}
@@ -234,32 +263,6 @@ export default function SongCard({
           >
             {progressIcon}
           </CircularProgressWithLabel>
-        </div>
-      )}
-      <div className="relative w-10 h-10 bg-[#b3b3b3] rounded-md mr-4 overflow-hidden shrink-0">
-        {hasActions && (
-          <div
-            className="actions absolute flex items-center justify-center w-full h-full bg-[#3b3b3b70] cursor-pointer"
-            onClick={() => song && onAdd?.(parsedSong)}
-          >
-            <PlayArrow />
-          </div>
-        )}
-        <img src={parsedSong.album.image} className="w-full h-full" />
-      </div>
-      <div className="flex flex-col justify-between py-1 flex-1">
-        <span className="text-white line-clamp-1">{parsedSong.name}</span>
-        <span className="text-sm text-gray-400 line-clamp-1">{parsedSong.artists.join(', ')}</span>
-      </div>
-      {hasActions && isReady && !disable && (
-        <div className="actions shrink-0">
-          <ActionMenu
-            song={parsedSong}
-            onAdd={onAdd}
-            onDelete={onDelete}
-            onOpen={() => setMenuOpen(true)}
-            onClose={() => setMenuOpen(false)}
-          />
         </div>
       )}
     </HoverLayout>

@@ -4,6 +4,8 @@ import uuid
 from fastapi import WebSocket, WebSocketDisconnect
 from typing import Dict, List
 
+from middlewares.format import convert_keys
+
 
 class WebSocketManager:
     _instance = None
@@ -33,6 +35,7 @@ class WebSocketManager:
 
     async def broadcast(self, data):
         # print("Broadcasting message to all clients:", data)
+        data = convert_keys(data)
         disconnected = []
         for client in self.connected_clients:
             try:

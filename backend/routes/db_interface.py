@@ -5,6 +5,7 @@ from typing import Optional, List
 import redis
 from managers.db import DatabaseManager
 from models.song import Song
+import time
 
 
 class RedisQueueInterface:
@@ -17,9 +18,10 @@ class RedisQueueInterface:
     # --- Queue Operations ---
     def add_song_to_queue(self, room_id: str, song: Song) -> int:
         try:
+            song.time_added = int(time.time())
             user_queue_key = f"{self.room_prefix}{room_id}:queue"
             song_json = json.dumps(song.model_dump())
-            return self.redis.rpush(user_queue_key, song_json)
+            return (self.redis.rpush(user_queue_key, song_json), self.redis.rpush(self.song_data_prefix, song_json))
         except redis.RedisError as e:
             print(f"Error adding song to room queue {room_id}: {e}")
             raise
@@ -32,6 +34,7 @@ class RedisQueueInterface:
                 song_data = self.redis.lindex(user_queue_key, i)
                 if song_data:
                     stored_song = Song(**json.loads(song_data))
+                    # TODO: add time_added
                     if stored_song.id == song.id:
                         self.redis.lrem(user_queue_key, 1, song_data)
                         return "OK"
@@ -53,7 +56,9 @@ class RedisQueueInterface:
     def clear_queue(self, room_id: str) -> None:
         try:
             user_queue_key = f"{self.room_prefix}{room_id}:queue"
-            self.redis.delete(user_queue_key)
+            idx_key = f"room:{room_id}:queue:current_idx"
+            current_idx = self.redis.get(idx_key)
+            self.redis.ltrim(user_queue_key, 0, current_idx)
         except redis.RedisError as e:
             print(f"Error clearing song queue for room {room_id}: {e}")
             raise

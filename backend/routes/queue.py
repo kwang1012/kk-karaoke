@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from interfaces.queue import RedisQueueInterface
 from managers.websocket import WebSocketManager
 from managers.db import get_db
-from models.song import Song
+from models.track import Track
 import json
 from services.process_request import send_process_request, is_ready
 
@@ -19,97 +19,97 @@ ws_manager = WebSocketManager()
 @router.post("/{room_id}/add")
 async def add_to_queue_endpoint(
     room_id: str,
-    song: Song,
+    track: Track,
     redis_interface: RedisQueueInterface = Depends(
         lambda: RedisQueueInterface(get_db())),
 ):
     """
-    Add a song to the room's queue.
+    Add a track to the room's queue.
     """
     try:
-        # Add the song to the user-specific queue, if song exists.
-        redis_interface.add_song_to_queue(
-            room_id, song)  # Use the new method
+        # Add the track to the user-specific queue, if track exists.
+        redis_interface.add_track_to_queue(
+            room_id, track)  # Use the new method
 
         await ws_manager.broadcast(
             {"type": "queue", "data": {
-                "action": "added", "track": song.model_dump()}}
+                "action": "added", "track": track.model_dump()}}
         )
 
-        if is_ready(song):
+        if is_ready(track):
             return JSONResponse(content={"is_ready": True, "task": None}, status_code=200)
 
         loop = asyncio.get_event_loop()
 
         def process_message_callback(message_data: dict):
             """
-            Callback to handle messages from the Redis pub/sub related to song processing.
+            Callback to handle messages from the Redis pub/sub related to track processing.
             """
             asyncio.run_coroutine_threadsafe(ws_manager.broadcast(
                 message_data), loop)
 
         redis_interface.subscribe_to_channel(
-            song.id, process_message_callback)
+            track.id, process_message_callback)
 
-        task = send_process_request(song)
+        task = send_process_request(track)
         return JSONResponse(content={"is_ready": False, "task": task.id}, status_code=200)
 
     except redis.RedisError as e:
         raise HTTPException(status_code=500, detail=f"Redis error: {e}")
 
 
-@router.get("/{room_id}/songs")
-async def get_room_songs(
+@router.get("/{room_id}/tracks")
+async def get_room_tracks(
     room_id: str,
     redis_interface: RedisQueueInterface = Depends(
         lambda: RedisQueueInterface(get_db())),
 ):
     """
-    Retrieves all songs from a specific room's queue.
+    Retrieves all tracks from a specific room's queue.
 
     Args:
         room_id: The ID of the room.
 
     Returns:
-        A list of Song objects in the queue.
+        A list of Track objects in the queue.
     """
     try:
         # Use the get_queue method from RedisQueueInterface
-        songs = redis_interface.get_queue(room_id)
+        tracks = redis_interface.get_queue(room_id)
         key = f"room:{room_id}:queue:current_idx"
         if not redis_interface.redis.exists(key):
             return JSONResponse(content={"tracks": [], "index": -1}, status_code=200)
         current_idx = json.loads(redis_interface.redis.get(key))
-        return {"tracks": songs, "index": current_idx}
+        return {"tracks": tracks, "index": current_idx}
     except redis.RedisError as e:
         raise HTTPException(
-            status_code=500, detail=f"Failed to retrieve songs for room {room_id}: {e}"
+            status_code=500, detail=f"Failed to retrieve tracks for room {room_id}: {e}"
         )
 
 
 @router.post("/{room_id}/remove")
 async def remove_from_queue_endpoint(
     room_id: str,
-    song: Song,
+    track: Track,
     redis_interface: RedisQueueInterface = Depends(
         lambda: RedisQueueInterface(get_db())),
 ):
     """
-    Remove a song from the queue.
+    Remove a track from the queue.
     """
     try:
-        res = redis_interface.remove_song_from_queue(room_id, song)
+        res = redis_interface.remove_track_from_queue(room_id, track)
         if not res:
-            return JSONResponse(content={"message": "Song not found"}, status_code=404)
+            return JSONResponse(content={"message": "Track not found"}, status_code=404)
         await ws_manager.broadcast(
             {"type": "queue", "data": {
-                "action": "removed", "track": song.model_dump()}}
+                "action": "removed", "track": track.model_dump()}}
         )
-        return JSONResponse(content={"message": "Song removed from queue"}, status_code=200)
+        return JSONResponse(content={"message": "Track removed from queue"}, status_code=200)
     except redis.RedisError as e:
         raise HTTPException(status_code=500, detail=f"Redis error: {e}")
 
-# clear songs in a queue
+# clear tracks in a queue
 
 
 @router.post("/{room_id}/tracks/clear")
@@ -119,7 +119,7 @@ async def clear_queue_endpoint(
         lambda: RedisQueueInterface(get_db())),
 ):
     """
-    Removes all songs from a room's queue.
+    Removes all tracks from a room's queue.
 
     Args:
         room_id: The ID of the room.
@@ -133,7 +133,7 @@ async def clear_queue_endpoint(
     except redis.RedisError as e:
         raise HTTPException(status_code=500, detail=f"Redis error: {e}")
 
-# Use as a pointer to which song is now playing
+# Use as a pointer to which track is now playing
 
 
 @router.post("/{room_id}/{current_idx}")

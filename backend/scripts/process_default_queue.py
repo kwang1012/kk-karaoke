@@ -1,6 +1,6 @@
 import asyncio
 from celery.result import AsyncResult
-from models.song import Song
+from backend.models.track import Track
 from services.process_request import send_process_request
 from services.spotify import getCollectionTracks
 
@@ -15,13 +15,13 @@ async def main():
         return
 
     print("Start processing playlist:", playlist["name"])
-    songs = [Song(id=track["id"], name=track["name"],
-                  artists=track["artists"], album=track["album"]) for track in tracks]
+    tracks = [Track(id=track["id"], name=track["name"],
+                    artists=track["artists"], album=track["album"]) for track in tracks]
 
     tasks: list[AsyncResult] = []
-    for song in songs:
-        print("Start processing song:", song.name)
-        task = send_process_request(song)
+    for track in tracks:
+        print("Start processing track:", track.name)
+        task = send_process_request(track)
         tasks.append(task)
     for task in tasks:
         task.wait()

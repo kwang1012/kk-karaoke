@@ -8,7 +8,7 @@ class Artist(BaseModel):
     name: str
 
 
-class Song(BaseModel):
+class Track(BaseModel):
     id: str
     name: str
     artists: list[Artist]
@@ -27,8 +27,3 @@ class LyricsDelay(BaseModel):
                 "delay": 1.5,
             }
         }
-
-
-class Room(BaseModel):
-    id: str
-    song: Optional[Song] = None

@@ -6,7 +6,7 @@ from typing import Any, Union
 
 from celery import Celery
 import redis
-from models.song import Song
+from models.track import Track
 from managers.websocket import WebSocketManager
 from services.downloader import LYRICS_DIR, NO_VOCALS_DIR, RAW_AUDIO_DIR, VOCALS_DIR
 from services.downloader import download_lyrics, download_audio
@@ -21,63 +21,63 @@ r = redis.Redis(host=os.getenv("REDIS_HOST", "localhost"),
                 port=int(os.getenv("REDIS_PORT", 6379)))
 
 
-def is_ready(song: Song) -> bool:
+def is_ready(track: Track) -> bool:
     """
-    Check if the song is ready for processing.
-    A song is considered ready if it has lyrics, audio, and non-vocals available.
+    Check if the track is ready for processing.
+    A track is considered ready if it has lyrics, audio, and non-vocals available.
     """
-    lyrics_exist = Path(LYRICS_DIR, f"{song.id}.lrc").exists()
-    vocals_exist = Path(VOCALS_DIR, f"{song.id}.mp3").exists()
-    non_vocals_exist = Path(NO_VOCALS_DIR, f"{song.id}.mp3").exists()
+    lyrics_exist = Path(LYRICS_DIR, f"{track.id}.lrc").exists()
+    vocals_exist = Path(VOCALS_DIR, f"{track.id}.mp3").exists()
+    non_vocals_exist = Path(NO_VOCALS_DIR, f"{track.id}.mp3").exists()
 
     return lyrics_exist and vocals_exist and non_vocals_exist
 
 
-def send_process_request(song: Song) -> AsyncResult:
+def send_process_request(track: Track) -> AsyncResult:
     """
-    Send a request to process a song. This will download lyrics, audio, and separate vocals if needed.
+    Send a request to process a track. This will download lyrics, audio, and separate vocals if needed.
     """
-    return celery.send_task("process_request", args=[song.model_dump()])
+    return celery.send_task("process_request", args=[track.model_dump()])
 
 
 @celery.task(name="process_request")
-def process_request(song: Union[dict[str, Any], Song]):
-    if isinstance(song, dict):
-        song = Song(**song)
-    print("Processing request for song:", song)
-    search_term = f"{song.name} {' '.join(map(lambda artist: artist.name, song.artists))}"
-    lyrics_exist = Path(LYRICS_DIR, f"{song.id}.lrc").exists()
-    vocals_exist = Path(VOCALS_DIR, f"{song.id}.mp3").exists()
-    non_vocals_exist = Path(NO_VOCALS_DIR, f"{song.id}.mp3").exists()
+def process_request(track: Union[dict[str, Any], Track]):
+    if isinstance(track, dict):
+        track = Track(**track)
+    print("Processing request for track:", track)
+    search_term = f"{track.name} {' '.join(map(lambda artist: artist.name, track.artists))}"
+    lyrics_exist = Path(LYRICS_DIR, f"{track.id}.lrc").exists()
+    vocals_exist = Path(VOCALS_DIR, f"{track.id}.mp3").exists()
+    non_vocals_exist = Path(NO_VOCALS_DIR, f"{track.id}.mp3").exists()
 
     if not lyrics_exist:
 
-        r.publish(song.id, json.dumps({
+        r.publish(track.id, json.dumps({
             "type": "notify",
             "data": {
                 "action": "progress",
-                "track": song.model_dump(),
+                "track": track.model_dump(),
                 "status": "downloading_lyrics",
             },
         }))
-        download_lyrics(song.id, search_term)
+        download_lyrics(track.id, search_term)
 
     if not vocals_exist or not non_vocals_exist:
-        r.publish(song.id, json.dumps({
+        r.publish(track.id, json.dumps({
             "type": "notify",
             "data": {
                 "action": "progress",
-                "track": song.model_dump(),
+                "track": track.model_dump(),
                 "status": "downloading_audio",
             },
         }))
-        download_audio(song.id, search_term)
+        download_audio(track.id, search_term)
 
-        r.publish(song.id, json.dumps({
+        r.publish(track.id, json.dumps({
             "type": "notify",
             "data": {
                 "action": "progress",
-                "track": song.model_dump(),
+                "track": track.model_dump(),
                 "status": "separating",
             },
         }))
@@ -86,26 +86,26 @@ def process_request(song: Union[dict[str, Any], Song]):
             """
             Callback function to handle progress updates during vocal separation.
             """
-            r.publish(song.id, json.dumps({
+            r.publish(track.id, json.dumps({
                 "type": "notify",
                 "data": {
                     "action": "progress",
-                    "track": song.model_dump(),
+                    "track": track.model_dump(),
                     "status": "separating",
                     "value": progress,
                     "total": total
                 },
             }))
         # If the audio is not downloaded, we will wait for it to finish before starting the separation
-        separate_vocals(song.id, on_progress=on_progress)
+        separate_vocals(track.id, on_progress=on_progress)
 
-    if os.path.exists(Path(RAW_AUDIO_DIR, f"{song.id}.mp3")):
-        os.remove(Path(RAW_AUDIO_DIR, f"{song.id}.mp3"))
-    r.publish(song.id, json.dumps({
+    if os.path.exists(Path(RAW_AUDIO_DIR, f"{track.id}.mp3")):
+        os.remove(Path(RAW_AUDIO_DIR, f"{track.id}.mp3"))
+    r.publish(track.id, json.dumps({
         "type": "notify",
         "data": {
                 "action": "progress",
-                "track": song.model_dump(),
+                "track": track.model_dump(),
                 "status": "ready"
         },
     }))

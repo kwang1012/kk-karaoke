@@ -274,8 +274,8 @@ function createPlayerContext({
 
     Promise.all([
       player.loadAudio(
-        `${api.getUri()}/songs/vocal/${currentSong.id}`,
-        `${api.getUri()}/songs/instrumental/${currentSong.id}`
+        `${api.getUri()}/tracks/vocal/${currentSong.id}`,
+        `${api.getUri()}/tracks/instrumental/${currentSong.id}`
       ),
       fetchLyrics(currentSong.id),
     ])

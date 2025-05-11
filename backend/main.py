@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from services.spotify import getCollectionTracks, getTopCategories, searchSpotify
 from managers.websocket import WebSocketManager
 from middlewares.format import FormatReponseMiddleware
-from routes.song import router as song_router
+from routes.track import router as track_router
 from routes.lyrics import router as lyrics_router
 from routes.queue import router as queue_router
 from routes.room import router as room_router
@@ -26,11 +26,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-api.include_router(song_router, prefix="/songs", tags=["songs"])
+api.include_router(track_router, prefix="/tracks", tags=["tracks"])
 api.include_router(lyrics_router, prefix="/lyrics", tags=["lyrics"])
 api.include_router(queue_router, prefix="/queue", tags=["queue"])
-api.include_router(room_router, prefix= "/room", tags = ["room"])
+api.include_router(room_router, prefix="/room", tags=["room"])
 ws_manager = WebSocketManager()
+
 
 @api.get("/")
 async def root():
@@ -39,6 +40,7 @@ async def root():
     Returns a simple JSON response.
     """
     return JSONResponse(content={"message": "Server is running!"}, status_code=200)
+
 
 @api.get("/top-categories")
 async def get_top_categories(keyword: str):
@@ -81,7 +83,7 @@ async def get_tracks():
 @api.get("/search")
 def search(q: str):
     """
-    Search for songs based on a keyword.
+    Search for trakcs based on a keyword.
     Returns a list of dictionaries containing song details.
     """
     searchResults = searchSpotify(q)

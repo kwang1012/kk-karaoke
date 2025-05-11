@@ -4,53 +4,54 @@ import threading
 from typing import Optional, List
 import redis
 from managers.db import DatabaseManager
-from models.song import Song
+from models.track import Track
 import time
 
 
 class RedisQueueInterface:
     def __init__(self, redis_client: redis.Redis):
         self.redis = redis_client
-        self.song_data_prefix = "song_data:"
-        self.delay_key_prefix = "song_delay:"
+        self.track_data_prefix = "track_data:"
+        self.delay_key_prefix = "track_delay:"
         self.room_prefix = "room:"  # Added room prefix  # ADDED
 
     # --- Queue Operations ---
-    def add_song_to_queue(self, room_id: str, song: Song) -> int:
+    def add_track_to_queue(self, room_id: str, track: Track) -> int:
         try:
-            song.time_added = int(time.time())
+            track.time_added = int(time.time())
             user_queue_key = f"{self.room_prefix}{room_id}:queue"
-            song_json = json.dumps(song.model_dump())
-            return (self.redis.rpush(user_queue_key, song_json), self.redis.rpush(self.song_data_prefix, song_json))
+            track_json = json.dumps(track.model_dump())
+            return (self.redis.rpush(user_queue_key, track_json), self.redis.rpush(self.track_data_prefix, track_json))
         except redis.RedisError as e:
-            print(f"Error adding song to room queue {room_id}: {e}")
+            print(f"Error adding track to room queue {room_id}: {e}")
             raise
 
-    def remove_song_from_queue(self, room_id: str, song: Song) -> Optional[str]:
+    def remove_track_from_queue(self, room_id: str, track: Track) -> Optional[str]:
         try:
             user_queue_key = f"{self.room_prefix}{room_id}:queue"
             queue_length = self.redis.llen(user_queue_key)
             for i in range(queue_length):
-                song_data = self.redis.lindex(user_queue_key, i)
-                if song_data:
-                    stored_song = Song(**json.loads(song_data))
+                track_data = self.redis.lindex(user_queue_key, i)
+                if track_data:
+                    stored_track = Track(**json.loads(track_data))
                     # TODO: add time_added
-                    if stored_song.id == song.id:
-                        self.redis.lrem(user_queue_key, 1, song_data)
+                    if stored_track.id == track.id:
+                        self.redis.lrem(user_queue_key, 1, track_data)
                         return "OK"
             return None  # not found
         except redis.RedisError as e:
-            print(f"Error removing song from room queue {room_id}: {e}")
+            print(f"Error removing track from room queue {room_id}: {e}")
             raise
 
-    def get_queue(self, room_id: str) -> List[Song]:
+    def get_queue(self, room_id: str) -> List[Track]:
         try:
             user_queue_key = f"{self.room_prefix}{room_id}:queue"
             queue_data = self.redis.lrange(user_queue_key, 0, -1)
-            songs = [Song(**json.loads(song_data)) for song_data in queue_data]
-            return songs
+            tracks = [Track(**json.loads(track_data))
+                      for track_data in queue_data]
+            return tracks
         except redis.RedisError as e:
-            print(f"Error getting song queue for room {room_id}: {e}")
+            print(f"Error getting track queue for room {room_id}: {e}")
             return []
 
     def clear_queue(self, room_id: str) -> None:
@@ -60,7 +61,7 @@ class RedisQueueInterface:
             current_idx = self.redis.get(idx_key)
             self.redis.ltrim(user_queue_key, 0, current_idx)
         except redis.RedisError as e:
-            print(f"Error clearing song queue for room {room_id}: {e}")
+            print(f"Error clearing track queue for room {room_id}: {e}")
             raise
 
     def create_room(self, room_id: str) -> None:
@@ -87,55 +88,55 @@ class RedisQueueInterface:
             print(f"Error checking if room {room_id} exists: {e}")
             raise  # Important:  Re-raise the exception.
 
-    # --- Song Data Operations ---
-    def store_song_data(self, song: Song) -> None:
+    # --- Track Data Operations ---
+    def store_track_data(self, track: Track) -> None:
         """
-        Stores song data in Redis, using a separate key for each song.
+        Stores track data in Redis, using a separate key for each track.
 
         Args:
-            song: The Song object to store.
+            track: The Track object to store.
         """
         try:
-            song_key = f"song_data:{song.id}"
-            song_json = json.dumps(song.model_dump())
-            self.redis.set(song_key, song_json)
+            track_key = f"track_data:{track.id}"
+            track_json = json.dumps(track.model_dump())
+            self.redis.set(track_key, track_json)
         except redis.RedisError as e:
-            print(f"Error storing song data: {e}")
+            print(f"Error storing track data: {e}")
             raise
 
-    def get_song_data(self, song_id: str) -> Optional[Song]:
+    def get_track_data(self, track_id: str) -> Optional[Track]:
         """
-        Retrieves song data from Redis.
+        Retrieves track data from Redis.
 
         Args:
-            song_id: The ID of the song.
+            track_id: The ID of the track.
 
         Returns:
-            The Song object, or None if not found.
+            The Track object, or None if not found.
         """
         try:
-            song_key = f"song_data:{song_id}"
-            song_data = self.redis.get(song_key)
-            if song_data:
-                return Song(**json.loads(song_data))
+            track_key = f"track_data:{track_id}"
+            track_data = self.redis.get(track_key)
+            if track_data:
+                return Track(**json.loads(track_data))
             else:
                 return None
         except redis.RedisError as e:
-            print(f"Error getting song data: {e}")
+            print(f"Error getting track data: {e}")
             return None
 
-    def is_song_data_ready(self, song: Song) -> bool:
+    def is_track_data_ready(self, track: Track) -> bool:
         """
-        Checks if song data is ready (present) in Redis.
+        Checks if track data is ready (present) in Redis.
 
         Args:
-            song: the song to check
+            track: the track to check
 
         Returns:
-            True if the song data is ready, False otherwise.
+            True if the track data is ready, False otherwise.
         """
-        song_key = f"song_data:{song.id}"
-        return self.redis.exists(song_key)
+        track_key = f"track_data:{track.id}"
+        return self.redis.exists(track_key)
 
     # --- Redis Pub/Sub ---
     def publish_message(self, channel: str, message: dict) -> int:
@@ -187,22 +188,22 @@ class RedisQueueInterface:
         return thread
     # --- Delay Mapping Operations ---
 
-    def store_song_delay(self, song_id: str, delay: float) -> None:
+    def store_track_delay(self, track_id: str, delay: float) -> None:
         try:
-            key = f"{self.delay_key_prefix}{song_id}"
+            key = f"{self.delay_key_prefix}{track_id}"
             self.redis.set(key, delay)
         except redis.RedisError as e:
-            print(f"Error storing song delay: {e}")
+            print(f"Error storing track delay: {e}")
             raise
 
-    def get_song_delay(self, song_id: str) -> Optional[float]:
+    def get_track_delay(self, track_id: str) -> Optional[float]:
         try:
-            key = f"{self.delay_key_prefix}{song_id}"
+            key = f"{self.delay_key_prefix}{track_id}"
             delay_sec = self.redis.get(key)  # Get the value as bytes
             if delay_sec:
                 return float(delay_sec)
             else:
                 return None
         except redis.RedisError as e:
-            print(f"Error getting song delay: {e}")
+            print(f"Error getting track delay: {e}")
             return None

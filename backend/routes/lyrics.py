@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from models.song import LyricsDelay
+from models.track import LyricsDelay
 from utils import get_lyrics_path
 from redis import RedisError
 import re
@@ -24,27 +24,27 @@ def update_delay(
         lambda: RedisQueueInterface(get_db())),
 ):
     """
-    Updates the delay for a song in the database (Redis).
+    Updates the delay for a track in the database (Redis).
 
     Args:
-        song_id: The ID of the song.
+        track_id: The ID of the track.
         delay: The delay in seconds.
 
     Returns:
         A JSON response indicating the result of the operation.
     """
     try:
-        redis_interface.store_song_delay(lyrics_delay.id, lyrics_delay.delay)
+        redis_interface.store_track_delay(lyrics_delay.id, lyrics_delay.delay)
         return {"message": "Delay updated successfully"}
     except RedisError as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to update delay: {e}")
 
 
-@router.get("/{song_id}")
-def get_lyrics(song_id: str,
+@router.get("/{track_id}")
+def get_lyrics(track_id: str,
                redis_interface: RedisQueueInterface = Depends(lambda: RedisQueueInterface(get_db())),):
-    file_path = get_lyrics_path(song_id)
+    file_path = get_lyrics_path(track_id)
     if not file_path:
         return JSONResponse(status_code=404, content={"error": "Lyrics not found"})
     try:
@@ -53,14 +53,14 @@ def get_lyrics(song_id: str,
         # Parse the lyrics file
         pattern = re.compile(r"\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)")
         lyrics = []
-        delay = redis_interface.get_song_delay(song_id)
+        delay = redis_interface.get_track_delay(track_id)
         for line in raw_lines:
             match = pattern.match(line.strip())
             if match:
                 minutes = int(match.group(1))
                 seconds = float(match.group(2))
                 ms = float("0." + match.group(3))
-              
+
                 timestamp = round(minutes * 60 + seconds + ms, 2)
                 if delay is not None:
                     timestamp += delay

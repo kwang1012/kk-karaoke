@@ -5,7 +5,7 @@ from models.user import User
 from interfaces.queue import RedisQueueInterface
 from managers.websocket import WebSocketManager
 from managers.db import get_db
-from models.song import Room
+from models.jam import Room
 
 router = APIRouter()
 ws_manager = WebSocketManager()

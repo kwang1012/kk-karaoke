@@ -3,11 +3,24 @@ import { Button, Card, CardContent, Divider } from '@mui/material';
 import { useState } from 'react';
 import QRCode from 'react-qr-code';
 import { useRoomStore } from 'src/store/room';
+import { api } from 'src/utils/api';
 
 export default function Jam() {
   const [showQRCode, setShowQRCode] = useState(false);
   const roomId = useRoomStore((state) => state.roomId);
   const joinURL = window.location.protocol + '//' + window.location.host + '/join?room=' + roomId;
+  const handleStartRoom = () => {
+    api
+      .post(`room/create`, {
+        id: roomId,
+      })
+      .then(() => {
+        setShowQRCode(true);
+      })
+      .catch((error) => {
+        console.error('Error creating room:', error);
+      });
+  };
   return (
     <Card sx={{ backgroundColor: '#2f2f2f' }}>
       <CardContent className="text-sm text-[#d3d3d3]">
@@ -71,7 +84,7 @@ export default function Jam() {
                 boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
               },
             }}
-            onClick={() => setShowQRCode(true)}
+            onClick={handleStartRoom}
           >
             <ConnectWithoutContactOutlined className="mr-2" fontSize="small" />
             Start a room

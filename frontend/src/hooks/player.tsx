@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import React, { createContext, useMemo, useState, useContext, useRef, useEffect } from 'react';
+import React, { createContext, useMemo, useState, useContext, useRef, useEffect, act } from 'react';
 import {
   emptyQueue,
   fetchLyrics,
@@ -12,10 +12,12 @@ import {
 import { Lyrics, Track } from 'src/models/spotify';
 import ShiftedAutioPlayer from 'src/shiftedPlayer';
 import { useAudioStore } from 'src/store/audio';
-import { useRoomStore } from 'src/store/room';
+import { useJam, useRoomStore } from 'src/store/room';
 import { useSettingStore } from 'src/store/setting';
+import { useWebSocketStore } from 'src/store/ws';
 import SyncedAudioPlayer from 'src/syncedPlayer';
 import { api } from 'src/utils/api';
+import { useRemoteMessageQueue } from './queue';
 
 type PlayerContextType = {
   syncedPlayerRef: React.MutableRefObject<SyncedAudioPlayer | null>;
@@ -58,6 +60,11 @@ type PlayerContextType = {
   addSongToQueue: (track: Track) => Promise<void>;
   rmSongFromQueue: (track: Track, idx: number) => Promise<void>;
   clearQueue: () => Promise<void>;
+  // jam
+  isInJam: boolean;
+  isOwner: boolean;
+  shouldBroadcast: boolean;
+  activeRoomId: string;
 };
 
 export const PlayerContext = createContext<PlayerContextType | null>(null);
@@ -104,12 +111,75 @@ function createPlayerContext({
   const removeSongStatus = useAudioStore((state) => state.removeSongStatus);
   const removeSongProgress = useAudioStore((state) => state.removeSongProgress);
   const roomId = useRoomStore((state) => state.roomId);
+  const joinedRoomId = useRoomStore((state) => state.joinedRoom);
+  const activeRoomId = useMemo(() => joinedRoomId || roomId, [joinedRoomId, roomId]);
+  const sendMessage = useWebSocketStore((state) => state.sendMessage);
+
+  const { isInJam, isOwner, shouldBroadcast } = useJam();
+
+  useRemoteMessageQueue('jam', {
+    onAddItem: (message) => {
+      if (message.type !== 'jam') return;
+      const data = message.data;
+      const rid = message.roomId;
+      const action = message.action;
+      const op = message.op;
+      if (rid !== activeRoomId) return; // ignore message if not in the same room
+      if (action == 'update' && rid === roomId) return; // ignore message if owner and action is update
+      if (action == 'update') {
+        const currentTime = data.currentTime;
+        if (!currentTime) return;
+        // we dont update the player ref because it won't be played on device
+        setProgress(currentTime);
+      }
+      console.log('Received message:', message);
+      if (action == 'control') {
+        console.log('Operation:', op, 'data:', data);
+        switch (op) {
+          case 'play':
+            if (isOwner) playAudio();
+            else setPlaying(true);
+            break;
+          case 'pause':
+            if (syncedPlayerRef.current && isOwner) pauseAudio();
+            else setPlaying(false);
+            break;
+          case 'next':
+            if (isOwner) next();
+            else setQueueIdx((prev) => prev + 1);
+            break;
+          case 'previous':
+            if (isOwner) previous();
+            else setQueueIdx((prev) => prev - 1);
+            break;
+          case 'seek':
+            if (isOwner) {
+              const seekTime = data.seekTime;
+              if (seekTime) {
+                syncedPlayerRef.current?.seek(seekTime);
+                setProgress(seekTime);
+              }
+            }
+            break;
+          case 'setVolume':
+            if (isOwner) {
+              if (data.volume) {
+                setVolume(data.volume);
+                const newVolume = Math.min(1, Math.max(0, data.volume));
+                syncedPlayerRef.current?.setVolume(newVolume, vocalVolume);
+              }
+            }
+            break;
+        }
+      }
+    },
+  });
 
   const {
     data: { index, tracks },
   } = useQuery({
-    queryKey: ['queue', roomId],
-    queryFn: () => fetchQueue(roomId),
+    queryKey: ['queue', activeRoomId],
+    queryFn: () => fetchQueue(activeRoomId),
     refetchOnWindowFocus: false,
     initialData: {
       index: -1,
@@ -137,19 +207,31 @@ function createPlayerContext({
       if (!seeking && syncedPlayerRef.current && syncedPlayerRef.current.isPlaying) {
         const currentTime = syncedPlayerRef.current?.getCurrentTime();
         setProgress(currentTime);
+        // owner, and someone in jam
+        if (isOwner) {
+          sendMessage({
+            type: 'jam',
+            action: 'update',
+            roomId: activeRoomId,
+            data: {
+              currentTime,
+            },
+          });
+        }
         if (currentTime >= duration) {
           syncedPlayerRef.current?.stop();
           setProgress(0);
           next();
         }
       }
-    }, 100);
+    }, 200);
 
     return () => clearInterval(interval);
   }, [playing, duration, seeking]);
 
   // detect current track change
   useEffect(() => {
+    if (isInJam) return;
     // no next track
     if (!currentSong) {
       setLyrics([]);
@@ -227,7 +309,7 @@ function createPlayerContext({
       console.log('No next track in the queue');
       return;
     }
-    updateQueueIdx(roomId, queueIdx + 1);
+    updateQueueIdx(activeRoomId, queueIdx + 1);
     setQueueIdx(queueIdx + 1);
   };
 
@@ -236,7 +318,7 @@ function createPlayerContext({
       console.log('No previous track in the queue');
       return;
     }
-    updateQueueIdx(roomId, queueIdx - 1);
+    updateQueueIdx(activeRoomId, queueIdx - 1);
     setQueueIdx(queueIdx - 1);
   };
 
@@ -252,21 +334,21 @@ function createPlayerContext({
   };
   const addSongToQueue = async (track: Track) => {
     setSongStatus(track.id, 'submitted');
-    pushToQueue(roomId, track).then((data) => {
+    pushToQueue(activeRoomId, track).then((data) => {
       if (data.isReady) {
         setSongStatus(track.id, 'ready');
       }
     });
   };
   const rmSongFromQueue = async (track: Track, idx: number) => {
-    removeFromQueue(roomId, track).then(() => {
+    removeFromQueue(activeRoomId, track).then(() => {
       // removeSongStatus(track.id);
       // removeSongProgress(track.id);
       setQueue((prevQueue) => prevQueue.filter((_, i) => i !== idx));
     });
   };
   const clearQueue = async () => {
-    emptyQueue(roomId).then(() => {
+    emptyQueue(activeRoomId).then(() => {
       setQueue((prev) => prev.slice(0, queueIdx + 1));
     });
   };
@@ -310,10 +392,14 @@ function createPlayerContext({
       addSongToQueue,
       rmSongFromQueue,
       clearQueue,
-      roomId,
       setSongStatus,
       removeSongStatus,
       removeSongProgress,
+      // jam
+      isInJam,
+      isOwner,
+      shouldBroadcast,
+      activeRoomId,
     }),
     [
       syncedPlayerRef,
@@ -353,10 +439,14 @@ function createPlayerContext({
       addSongToQueue,
       rmSongFromQueue,
       clearQueue,
-      roomId,
       setSongStatus,
       removeSongStatus,
       removeSongProgress,
+      // jam
+      isInJam,
+      isOwner,
+      shouldBroadcast,
+      activeRoomId,
     ]
   );
   return ctx;
@@ -414,8 +504,14 @@ export const usePlayer = () => {
     rmSongFromQueue,
     getRandomTracks,
     clearQueue,
+    // jam
+    isInJam,
+    isOwner,
+    shouldBroadcast,
+    activeRoomId,
   } = ctx;
 
+  const sendMessage = useWebSocketStore((state) => state.sendMessage);
   return {
     loading,
     playing,
@@ -425,14 +521,43 @@ export const usePlayer = () => {
     setVolume: (value: number) => {
       const newVolume = Math.min(1, Math.max(0, value));
       syncedPlayerRef.current?.setVolume(newVolume, vocalVolume);
+      setVolume(newVolume);
     },
     seeking,
     setSeeking,
     progress,
     setProgress,
     vocalOn,
-    play: playAudio,
-    pause: pauseAudio,
+    play: () => {
+      if (isOwner) {
+        playAudio();
+      }
+      // if (shouldBroadcast) {
+      sendMessage({
+        type: 'jam',
+        data: {
+          action: 'control',
+          op: 'play',
+          roomId: activeRoomId,
+        },
+      });
+      // }
+    },
+    pause: () => {
+      if (isOwner) {
+        pauseAudio();
+      }
+      // if (shouldBroadcast) {
+      sendMessage({
+        type: 'jam',
+        data: {
+          action: 'control',
+          op: 'pause',
+          roomId: activeRoomId,
+        },
+      });
+      // }
+    },
     toggleVocal: () => {
       if (!syncedPlayerRef.current) return;
       const newVolume = vocalOn ? DEFAULT_VOCALESS_VOCAL_VOLUME : DEFAULT_VOCAL_VOLUME;

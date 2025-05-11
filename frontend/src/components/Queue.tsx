@@ -43,7 +43,7 @@ export default function Queue() {
         });
       } else if (item.data.action === 'updated') {
         if (item.data.status === 'ready') {
-          setSongStatus(item.data.songId, 'ready');
+          setSongStatus(item.data.track.id, 'ready');
         }
       } else if (item.data.action === 'removed') {
         rmFromQueue(item.data.track);
@@ -64,7 +64,7 @@ export default function Queue() {
         <AppScrollbar className="h-full" ref={(el: Scrollbar) => (scrollbarRef.current = el)} onScroll={handleScroll}>
           <div className="px-5 mt-5 font-bold text-lg tracking-tighter">Now playing</div>
           <div className="px-3">
-            <SongCard className="mt-1" disable track={currentSong} />
+            <SongCard className="mt-1" disableHover track={currentSong} />
           </div>
 
           <div className="mx-4 mt-5">

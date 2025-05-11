@@ -89,23 +89,14 @@ export default function SearchView() {
   const handleClickPlaylist = (playlist: any) => {
     navigate(`/playlist/${playlist.id}`, {
       state: {
-        collection: {
-          image: playlist.images?.[0]?.url,
-          name: playlist.name,
-          id: playlist.id,
-          description: playlist.description,
-        },
+        collection: playlist,
       },
     });
   };
   const handleClickAlbum = (album: any) => {
     navigate(`/album/${album.id}`, {
       state: {
-        collection: {
-          image: album.images?.[0]?.url,
-          name: album.name,
-          id: album.id,
-        },
+        collection: album,
       },
     });
   };

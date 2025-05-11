@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { faHome } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { IconButton, AvatarGroup, Avatar, Tooltip, Button } from '@mui/material';
@@ -8,6 +8,7 @@ import { useAppStore } from 'src/store';
 import Logo from 'src/assets/logo.png';
 import { ArrowBackIos, ArrowForwardIos, Settings } from '@mui/icons-material';
 import { useHistoryBoundaries } from 'src/hooks/history';
+import { useRoomStore } from 'src/store/room';
 
 export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>) {
   const navigate = useNavigate();
@@ -16,6 +17,13 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
   const setSearching = useAppStore((state) => state.setSearching);
   const searchValue = useAppStore((state) => state.searchValue);
   const setSearchValue = useAppStore((state) => state.setSearchValue);
+  const fetchRoom = useRoomStore((state) => state.fetchRoom);
+  const participants = useRoomStore((state) => state.participants);
+
+  useEffect(() => {
+    fetchRoom();
+  }, []);
+
   const handleSearchChange = (value: string) => {
     setSearchValue(value);
     if (value === '') {
@@ -97,16 +105,16 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
             },
           }}
         >
-          {/* <Avatar
-            sx={{ width: 32, height: 32, backgroundColor: 'orange' }}
-            alt="kk"
-            src="/static/images/avatar/1.jpg"
-          />
-          <Avatar
-            sx={{ width: 32, height: 32, backgroundColor: 'teal' }}
-            alt="james"
-            src="/static/images/avatar/5.jpg"
-          /> */}
+          {participants.map((participant) => (
+            <Tooltip title={participant.name} placement="bottom">
+              <Avatar
+                key={participant.id}
+                sx={{ width: 32, height: 32 }}
+                alt={participant.name}
+                src={participant.avatar}
+              />
+            </Tooltip>
+          ))}
         </AvatarGroup>
       </div>
     </div>

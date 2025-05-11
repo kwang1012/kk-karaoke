@@ -4,6 +4,9 @@ import { Backdrop, Button, Card, CardActions, CardContent, TextField } from '@mu
 import Carousel, { CarouselItem } from 'src/components/Carousel';
 import { useMemo, useState } from 'react';
 import { styled } from '@mui/material/styles';
+import { api } from 'src/utils/api';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useRoomStore } from 'src/store/room';
 
 const Layout = styled('div')(({ theme }) => ({
   width: '100%',
@@ -26,18 +29,36 @@ function generateAvatars() {
 }
 
 export default function JoinView() {
+  const navigate = useNavigate();
   const avatars = useMemo(() => generateAvatars(), []);
   const [nickname, setNickname] = useState('');
   const [nameError, setNameError] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState<Result | null>(avatars[0]);
+  const setJoinedRoom = useRoomStore((state) => state.setJoinedRoom);
+
+  const [searchParams] = useSearchParams();
+  const roomId = searchParams.get('room');
 
   const handleJoin = () => {
     if (!nickname) {
       setNameError(true);
       return;
     }
+    if (!roomId) {
+      console.error('Room ID is required');
+      return;
+    }
     // Handle join logic here, e.g., send data to server
-    console.log('Joining with nickname:', nickname, 'and avatar:', selectedAvatar?.toJson());
+    api
+      .post(`room/join/${roomId}`, {
+        id: roomId,
+        name: nickname,
+        avatar: selectedAvatar?.toDataUri(),
+      })
+      .then(() => {
+        setJoinedRoom(roomId);
+        navigate('/');
+      });
   };
   return (
     <Backdrop open>

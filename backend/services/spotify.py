@@ -143,7 +143,7 @@ def _get_collection(collection_type: str, collection_id: str):
         response = client.get(f"https://api.spotify.com/v1/{collection_type}/{collection_id}", headers={
             "Authorization": access_token,
         }, params={
-            "fields": "id,name,description,images",
+            "fields": "id,name,description,images,total_tracks,tracks",
         })
     return response
 

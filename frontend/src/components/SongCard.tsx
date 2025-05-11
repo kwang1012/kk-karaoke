@@ -17,26 +17,30 @@ import { DeleteOutline, MoreHoriz, PlayArrow } from '@mui/icons-material';
 import AppMenu from './Menu';
 import { Track } from 'src/models/spotify';
 
-const CircularProgressWithLabel = ({ children, ...props }: { children?: ReactElement } & CircularProgressProps) => (
-  <div className="relative inline-flex">
-    {/* Background track */}
-    {props.variant === 'determinate' && (
-      <CircularProgress
+const CircularProgressWithLabel = ({
+  children,
+  value,
+  ...props
+}: { children?: ReactElement } & CircularProgressProps) => {
+  return (
+    <div className="relative inline-flex">
+      {/* Background track */}
+      {/* <CircularProgress
         {...props}
-        className="absolute"
+        className="absolute z-0"
         variant="determinate"
         value={100}
         sx={{
-          color: '#a0a0a0', // light gray background
+          color: '#535353', // light gray background
         }}
-      />
-    )}
-    <CircularProgress {...props} />
-    <div className="top-0 left-0 bottom-0 right-0 absolute flex items-center justify-center">
-      {children ? children : <span className="text-white text-xs">{props.value}%</span>}
+      /> */}
+      <CircularProgress {...props} value={value} className="z-1" sx={{ color: 'white' }} />
+      <div className="top-0 left-0 bottom-0 right-0 absolute flex items-center justify-center">
+        {children ? children : <span className="text-white text-xs">{value}%</span>}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const HoverLayout = styled('div')(({ theme }) => ({
   display: 'flex',
@@ -50,11 +54,14 @@ const HoverLayout = styled('div')(({ theme }) => ({
   '& .actions': {
     opacity: 0,
   },
-  '&.disable-hover': {
+  '&.disabled': {
     backgroundColor: 'transparent !important',
     '*': {
       color: '#b3b3b3 !important',
     },
+  },
+  '&.disable-hover': {
+    backgroundColor: 'transparent !important',
   },
   '&:hover, &.active': {
     '*': {
@@ -163,10 +170,20 @@ type SongCardProps = {
   track?: Track | null;
   dense?: boolean;
   disable?: boolean;
+  disableHover?: boolean;
   onAdd?: (track: Track) => void;
   onDelete?: (track: Track) => void;
 };
-export default function SongCard({ className, track, dense, disable, onAdd, onDelete, ...props }: SongCardProps) {
+export default function SongCard({
+  className,
+  track,
+  dense,
+  disable,
+  disableHover,
+  onAdd,
+  onDelete,
+  ...props
+}: SongCardProps) {
   const songStatus = useAudioStore((state) => state.songStatus);
   const songProgress = useAudioStore((state) => state.songProgress);
   const status = useMemo(() => (track ? songStatus[track.id] : 'ready'), [songStatus, track?.id]);
@@ -175,6 +192,7 @@ export default function SongCard({ className, track, dense, disable, onAdd, onDe
   const initialized = useWebSocketStore((state) => state.initialized);
   const connected = useWebSocketStore((state) => state.connected);
   const hasActions = useMemo(() => !!onAdd || !!onDelete, [onAdd, onDelete]);
+  const disabled = useMemo(() => !isReady || disable, [isReady, disable]);
   const parsedTrack = useMemo(() => {
     if (!track)
       return {
@@ -200,7 +218,8 @@ export default function SongCard({ className, track, dense, disable, onAdd, onDe
         className,
         dense ? 'py-0 px-1' : 'px-2',
         menuOpen ? 'active' : '',
-        !isReady || disable ? 'disable-hover' : '',
+        !isReady || disable ? 'disabled' : '',
+        disableHover ? 'disable-hover' : '',
       ].join(' ')}
       {...props}
     >
@@ -222,10 +241,10 @@ export default function SongCard({ className, track, dense, disable, onAdd, onDe
             <span key={index}>
               {index > 0 && ', '}
               <a
-                href={disable ? undefined : artist.uri}
+                href={disabled ? undefined : artist.uri}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={['size-fit', disable ? '' : 'hover:underline cursor-pointer'].join(' ')}
+                className={['size-fit', disabled ? 'cursor-default' : 'hover:underline cursor-pointer'].join(' ')}
               >
                 {artist.name}
               </a>
@@ -233,7 +252,7 @@ export default function SongCard({ className, track, dense, disable, onAdd, onDe
           ))}
         </span>
       </div>
-      {hasActions && isReady && !disable && (
+      {hasActions && !disabled && (
         <div className="actions shrink-0">
           <ActionMenu
             track={parsedTrack}
@@ -248,7 +267,6 @@ export default function SongCard({ className, track, dense, disable, onAdd, onDe
         <div className="flex items-center justify-end">
           <CircularProgressWithLabel
             size={36}
-            sx={{ color: 'white' }}
             variant={status === 'separating' ? 'determinate' : 'indeterminate'}
             value={progress}
           >

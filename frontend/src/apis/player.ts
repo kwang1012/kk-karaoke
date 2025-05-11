@@ -4,7 +4,7 @@ import { api } from 'src/utils/api';
 // apis
 export const fetchQueue = async (roomId: string) => {
   return api
-    .get(`queue/${roomId}/songs`)
+    .get(`queue/${roomId}/tracks`)
     .then(({ data }) => {
       return data;
     })

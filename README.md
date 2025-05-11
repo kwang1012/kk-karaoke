@@ -1,96 +1,56 @@
----
-title: KKaraoke
-emoji: 🎤🎸🥁🎹
-colorFrom: yellow
-colorTo: purple
-sdk: docker
-app_port: "3000, 8000"
-tags:
-  [
-    "audio",
-    "music",
-    "vocal-removal",
-    "karaoke",
-    "music-separation",
-    "music-source-separation",
-  ]
-pinned: true
+<h2 align="center">KKaraoke - The best Spotify-like karaoke web application</h2>
+
 ---
 
-<h2 align="center">KKaraoke - The best Spotify-like karaoke web application</h1>
 <p align="center">
-    <a href="https://colab.research.google.com/drive/1ODoK3VXajprNbskqy7G8P1h-Zom92TMA?usp=sharing">
-        <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab">
-    </a>
-    <a href="https://huggingface.co/spaces/fabiogra/moseca">
-        <img src="https://img.shields.io/badge/🤗%20Hugging%20Face-Spaces-blue" alt="Hugging Face Spaces">
-    </a>
-    <a href="https://huggingface.co/spaces/fabiogra/moseca/discussions?docker=true">
-        <img src="https://img.shields.io/badge/-Docker%20Image-blue?logo=docker&labelColor=white" alt="Docker">
-    </a>
-    <a href="https://www.buymeacoffee.com/fabiogra">
-        <img src="https://img.shields.io/badge/Buy%20me%20a%20coffee--yellow.svg?logo=buy-me-a-coffee&logoColor=orange&style=social" alt="Buy me a coffee">
-    </a>
+<blockquote class="imgur-embed-pub" lang="en" data-id="r0bs2Sv" data-context="false" ><a href="//imgur.com/r0bs2Sv"></a></blockquote><script async src="//s.imgur.com/min/embed.js" charset="utf-8"></script>
 </p>
-
----
-
-<p align="center">
-  <img src="https://i.imgur.com/QoSd3Fg.gif" alt="Demo KKaraoke"/>
-</p>
-<p align="center">
+<!-- <p align="center">
     <a href="https://www.producthunt.com/posts/moseca?utm_source=badge-featured&utm_medium=badge&utm_souce=badge-moseca" target="_blank">
         <img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=415833&theme=light" alt="KKaraoke - Extract vocals and instrument from any song | Product Hunt" width="250" height="54" />
     </a>
-</p>
+</p> -->
 
-- [Setup](#setup)
+<!-- - [Setup](#setup)
   - [(Recommended) Docker](#docker)
   - [Local environment](#local-environment)
-  - [(Optional) Preprocess tracks](#optional-preprocess-tracks)
-  - [About](#about)
+  - [(Optional) Preprocess tracks](#optional-preprocess-tracks) -->
+  <!-- - [About](#about)
   - [Spotify Appearance](#spotify-appearance)
   - [Karaoke Fun](#karaoke-fun)
   - [Easy Deployment](#easy-deployment)
   - [Open-Source and Free](#open-source-and-free)
-  - [Support](#support)
-<!-- - [FAQs](#faqs)
+  - [Support](#support) -->
+  <!-- - [FAQs](#faqs)
   - [What is KKaraoke?](#what-is-moseca)
   - [Are there any limitations?](#are-there-any-limitations)
   - [How does KKaraoke work?](#how-does-moseca-work)
   - [How do I use KKaraoke?](#how-do-i-use-moseca)
   - [Where can I find the code for KKaraoke?](#where-can-i-find-the-code-for-moseca)
   - [How can I get in touch with you?](#how-can-i-get-in-touch-with-you) -->
-- [Disclaimer](#disclaimer)
+<!-- - [Disclaimer](#disclaimer) -->
 
 ---
 
 ## Setup
 
-### Docker (Recommended)
+For both local and docker setups, please first create/update environment variable files (Follow `.env.example` under **BOTH** frontend and backend)
 
-You can also run the app with Docker:
+### (Recommended) Docker
+
+You can easily start the app with Docker.
 
 ```bash
 docker build -t kkaraoke .
 docker run -it --rm -p 8080:8080 -v $(pwd)/backend/storage:/app/backend/storage kkaraoke
 ```
 
-### (Optional) Preprocess tracks
-
-If you want to preprocess the tracks so that the users can immediately enjoy the vocaless music, you can preprocess the tracks in advance.
-
-```
-cd backend
-python -m scripts.process_default_queue.py
-```
-
 ### Local environment
 
 #### Prerequisites:
+
 1. ffmpeg in your system PATH.
 2. A running redis in your system
-3. A running postgres in you system
 
 #### Backend (FastAPI)
 
@@ -100,6 +60,7 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 uvicorn main:app --reload
+celery -A services.process_request.celery worker -l info --concurrency=1
 ```
 
 #### Frontend
@@ -110,9 +71,18 @@ yarn
 yarn start
 ```
 
----
+### (Optional) Preprocess tracks
 
-## About
+If you want to preprocess the tracks so that the users can immediately enjoy the vocaless music, you can preprocess the tracks in advance. 
+
+```
+cd backend
+python -m scripts.process_default_queue.py
+```
+
+<!-- --- -->
+
+<!-- ## About
 
 Welcome to KKaraoke, your personal web application designed to redefine your music experience.
 Whether you're a karaoke
@@ -181,4 +151,4 @@ KKaraoke is designed to separate vocals and instruments from copyrighted music f
 legally permissible purposes, such as learning, practicing, research, or other non-commercial
 activities that fall within the scope of fair use or exceptions to copyright. As a user, you are
 responsible for ensuring that your use of separated audio tracks complies with the legal
-requirements in your jurisdiction.
+requirements in your jurisdiction. -->

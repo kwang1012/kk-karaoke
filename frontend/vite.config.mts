@@ -10,7 +10,6 @@ export default defineConfig({
     tailwindcss(),
     visualizer({
       filename: 'build/stats.html',
-      open: true, // Opens the report automatically
       gzipSize: true,
       brotliSize: true,
     }),

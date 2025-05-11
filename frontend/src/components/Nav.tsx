@@ -1,14 +1,23 @@
 import React, { useEffect } from 'react';
 import { faHome } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { IconButton, AvatarGroup, Avatar, Tooltip, Button } from '@mui/material';
+import { IconButton, AvatarGroup, Avatar, Tooltip } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import SearchBox from './SearchBox';
 import { useAppStore } from 'src/store';
 import Logo from 'src/assets/logo.png';
-import { ArrowBackIos, ArrowForwardIos, Settings } from '@mui/icons-material';
+import { ArrowBackIos, ArrowForwardIos } from '@mui/icons-material';
 import { useHistoryBoundaries } from 'src/hooks/history';
 import { useRoomStore } from 'src/store/room';
+import { styled } from '@mui/material/styles';
+
+const Header = styled('div')(({ theme }) => ({
+  gridArea: 'header',
+  height: 72,
+  [theme.breakpoints.down('md')]: {
+    display: 'none',
+  },
+}));
 
 export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>) {
   const navigate = useNavigate();
@@ -34,7 +43,7 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
     }
   };
   return (
-    <div className={['w-full flex items-center', className].join(' ')}>
+    <Header className={['w-full flex items-center', className].join(' ')}>
       <div className="flex justify-start flex-1 items-center">
         {!import.meta.env.VITE_ELECTRON && (
           <div className="w-20 flex justify-center cursor-pointer">
@@ -118,6 +127,6 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
           ))}
         </AvatarGroup>
       </div>
-    </div>
+    </Header>
   );
 }

@@ -132,7 +132,6 @@ function createPlayerContext({
         // we dont update the player ref because it won't be played on device
         setProgress(currentTime);
       }
-      // console.log('Received message:', message);
       if (action == 'control') {
         console.log('Operation:', op, 'data:', data);
         switch (op) {
@@ -231,7 +230,8 @@ function createPlayerContext({
 
   // detect current track change
   useEffect(() => {
-    if (isInJam) return;
+    // Still need to load the track to get the duration. Should we do this?
+    // if (isInJam) return;
     // no next track
     if (!currentSong) {
       setLyrics([]);
@@ -476,6 +476,7 @@ export const usePlayer = () => {
     syncedPlayerRef,
     loading,
     playing,
+    setPlaying,
     semitone,
     setSemitone,
     volume,
@@ -531,32 +532,28 @@ export const usePlayer = () => {
     play: () => {
       if (isOwner) {
         playAudio();
+      } else {
+        setPlaying(true);
       }
-      // if (shouldBroadcast) {
       sendMessage({
         type: 'jam',
-        data: {
-          action: 'control',
-          op: 'play',
-          roomId: activeRoomId,
-        },
+        action: 'control',
+        op: 'play',
+        roomId: activeRoomId,
       });
-      // }
     },
     pause: () => {
       if (isOwner) {
         pauseAudio();
+      } else {
+        setPlaying(false);
       }
-      // if (shouldBroadcast) {
       sendMessage({
         type: 'jam',
-        data: {
-          action: 'control',
-          op: 'pause',
-          roomId: activeRoomId,
-        },
+        action: 'control',
+        op: 'pause',
+        roomId: activeRoomId,
       });
-      // }
     },
     toggleVocal: () => {
       if (!syncedPlayerRef.current) return;

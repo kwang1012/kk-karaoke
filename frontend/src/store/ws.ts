@@ -25,7 +25,7 @@ let socket: WebSocket | null = null;
 
 export type MessageQueue = Record<string, Message[]>;
 
-let reconnectTimeout: NodeJS.Timeout | null = null;
+let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 let manualDisconnect = false; // Tracks intentional disconnects
 let retryCount = 0;
 const maxRetries = 10;
@@ -46,11 +46,11 @@ export const useWebSocketStore = create<WebSocketState>()(
     error: null,
     sendMessage: (msg: any) => {
       // TODO: temporarily disable sending messages
-      // if (socket && socket.readyState === WebSocket.OPEN) {
-      //   socket.send(JSON.stringify(msg));
-      // } else {
-      //   console.error('WebSocket is not connected');
-      // }
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify(msg));
+      } else {
+        console.error('WebSocket is not connected');
+      }
     },
     // Enqueue a message into a queue
     enqueueMessage: (queue, message) => {

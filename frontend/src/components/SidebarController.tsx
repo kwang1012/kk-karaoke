@@ -9,6 +9,18 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useSettingStore } from 'src/store/setting';
 import { InterpreterModeOutlined, Settings } from '@mui/icons-material';
 import { useNotifyStore } from 'src/store/notify';
+import { styled } from '@mui/material/styles';
+
+const Sidebar = styled('div')(({ theme }) => ({
+  gridArea: 'sidebar',
+  width: 80,
+  height: '100%',
+  backgroundColor: theme.palette.background.paper,
+  borderRadius: 8,
+  [theme.breakpoints.down('md')]: {
+    display: 'none',
+  },
+}));
 
 export default function SidebarController({ className }: { className?: string }) {
   const showSnackbar = useNotifyStore((state) => state.showSnackbar);
@@ -41,7 +53,7 @@ export default function SidebarController({ className }: { className?: string })
   };
 
   return (
-    <div className={`w-20 h-full ${className}`}>
+    <Sidebar className={className}>
       <div className="flex flex-col items-center justify-start h-full py-5">
         <Tooltip title="Lyrics" placement="right">
           <Button
@@ -52,7 +64,7 @@ export default function SidebarController({ className }: { className?: string })
               navigate('/lyrics');
             }}
           >
-            <InterpreterModeOutlined sx={{ fontSize: 48 }} color="success" />
+            <InterpreterModeOutlined sx={{ fontSize: 40 }} color="success" />
           </Button>
         </Tooltip>
         <Divider className="w-4/5 h-[1px] bg-[#2f2f2f] mt-4" />
@@ -108,6 +120,6 @@ export default function SidebarController({ className }: { className?: string })
           </Button>
         </Tooltip>
       </div>
-    </div>
+    </Sidebar>
   );
 }

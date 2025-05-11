@@ -71,7 +71,6 @@ export const useTrackStore = create<TrackStore>((set, get) => ({
     api
       .get('/tracks')
       .then(({ data }) => {
-        console.log('getReadyTracks', data);
         set({
           readyTracks: new Set(data.readyTracks),
         });

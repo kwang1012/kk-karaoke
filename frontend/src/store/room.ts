@@ -8,6 +8,10 @@ export interface RoomState {
   roomId: string; // The ID of the room
   joinedRoom?: string;
   participants: User[];
+  currentTime: number; // The current time of the room
+  isOn: boolean; // Whether the user is online
+  playing: boolean; // Whether the user is playing
+  volume: number; // The volume of the room
   setJoinedRoom: (roomId: string) => void; // Set the ID of the room
   setRoomId: (roomId: string) => void; // Set the ID of the room
   addParticipant: (person: User) => void; // Add a participant to the room
@@ -20,6 +24,10 @@ export const useRoomStore = create<RoomState>()(
     (set, get) => ({
       roomId: 'default', // this will be overwritten by App.tsx
       participants: [],
+      currentTime: 0,
+      isOn: false,
+      playing: false,
+      volume: 0.8,
       setRoomId: (roomId: string) =>
         set(() => ({
           roomId,
@@ -38,9 +46,13 @@ export const useRoomStore = create<RoomState>()(
       fetchRoom: async () => {
         const activeRoomId = get().joinedRoom || get().roomId;
         try {
-          const { data } = await api.get(`/room/${activeRoomId}/participants`);
+          const { data } = await api.get(`/room/${activeRoomId}`);
           set(() => ({
             participants: data.participants,
+            currentTime: data.currentTime,
+            isOn: data.isOn,
+            playing: data.playing,
+            volume: data.volume,
           }));
         } catch (error) {
           console.error('Error fetching room participants:', error);

@@ -6,7 +6,10 @@ import AudioController from 'src/components/AudioController';
 import AppSnackbar from 'src/components/Snackbar';
 import { styled } from '@mui/material/styles';
 import { useMediaQuery, useTheme } from '@mui/material';
-import AppNavigation from 'src/components/Navigation';
+import { lazy } from 'react';
+
+// lazy import mobile components
+const AppNavigation = lazy(() => import('src/components/Navigation'));
 
 const Grid = styled('div')(({ theme }) => ({
   display: 'grid',

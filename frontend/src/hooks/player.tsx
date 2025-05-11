@@ -100,7 +100,7 @@ function createPlayerContext({
   // queue context
   const lastSongId = useRef<string | null>(null);
   const [queue, setQueue] = useState<Track[]>([]);
-  const [queueIdx, setQueueIdx] = useState(-1);
+  const [queueIdx, setQueueIdx] = useState(0);
 
   const currentSong = useMemo(() => {
     return queue[queueIdx] || null;

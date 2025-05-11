@@ -75,8 +75,7 @@ async def get_room_participants(
         participants = [json.loads(participant)
                         for participant in redis_interface.redis.smembers(room_participants_key)]
         if not participants:
-            raise HTTPException(
-                status_code=404, detail=f"No participants found in room {room_id}")
+            return {"participants": []}
         return {"participants": participants}
     except redis.RedisError as e:
         raise HTTPException(

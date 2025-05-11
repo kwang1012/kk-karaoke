@@ -33,13 +33,13 @@ export default function AppNavigation() {
   const onChange = (event: React.SyntheticEvent, newValue: number) => {
     switch (newValue) {
       case 0:
-        navigate('/');
+        location.pathname !== '/' && navigate('/');
         break;
       case 1:
-        navigate('/search');
+        location.pathname !== '/search' && navigate('/search');
         break;
       case 2:
-        navigate('/play');
+        location.pathname !== '/play' && navigate('/play');
         break;
       default:
         break;

@@ -79,7 +79,7 @@ async def get_room_tracks(
         key = f"room:{room_id}:queue:current_idx"
         if not redis_interface.redis.exists(key):
             return JSONResponse(content={"tracks": [], "index": -1}, status_code=200)
-        current_idx = json.loads(redis_interface.redis.get(key))
+        current_idx = json.loads(redis_interface.redis.get(key)) # type: ignore
         return {"tracks": tracks, "index": current_idx}
     except redis.RedisError as e:
         raise HTTPException(

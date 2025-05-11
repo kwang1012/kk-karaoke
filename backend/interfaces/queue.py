@@ -1,7 +1,7 @@
 import asyncio
 import json
 import threading
-from typing import Optional, List
+from typing import Callable, Optional, List, Any
 import redis
 from managers.db import DatabaseManager
 from models.track import Track
@@ -21,7 +21,9 @@ class RedisQueueInterface:
             track.time_added = int(time.time())
             user_queue_key = f"{self.room_prefix}{room_id}:queue"
             track_json = json.dumps(track.model_dump())
-            return (self.redis.rpush(user_queue_key, track_json), self.redis.rpush(self.track_data_prefix, track_json))
+            idx = self.redis.rpush(user_queue_key, track_json)
+            self.redis.rpush(self.track_data_prefix, track_json)
+            return idx  # type: ignore
         except redis.RedisError as e:
             print(f"Error adding track to room queue {room_id}: {e}")
             raise
@@ -29,9 +31,10 @@ class RedisQueueInterface:
     def remove_track_from_queue(self, room_id: str, track: Track) -> Optional[str]:
         try:
             user_queue_key = f"{self.room_prefix}{room_id}:queue"
-            queue_length = self.redis.llen(user_queue_key)
+            queue_length: int = self.redis.llen(user_queue_key)  # type: ignore
             for i in range(queue_length):
-                track_data = self.redis.lindex(user_queue_key, i)
+                track_data: Any = self.redis.lindex(
+                    user_queue_key, i)  # type: ignore
                 if track_data:
                     stored_track = Track(**json.loads(track_data))
                     # TODO: add time_added
@@ -43,10 +46,13 @@ class RedisQueueInterface:
             print(f"Error removing track from room queue {room_id}: {e}")
             raise
 
-    def get_queue(self, room_id: str) -> List[Track]:
+    def get_queue(self, room_id: Optional[str] = None) -> List[Track]:
         try:
-            user_queue_key = f"{self.room_prefix}{room_id}:queue"
-            queue_data = self.redis.lrange(user_queue_key, 0, -1)
+            if room_id is None:
+                key = self.track_data_prefix
+            else:
+                key = f"{self.room_prefix}{room_id}:queue"
+            queue_data: list[Any] = self.redis.lrange(key, 0, -1) # type: ignore
             tracks = [Track(**json.loads(track_data))
                       for track_data in queue_data]
             return tracks
@@ -58,7 +64,7 @@ class RedisQueueInterface:
         try:
             user_queue_key = f"{self.room_prefix}{room_id}:queue"
             idx_key = f"room:{room_id}:queue:current_idx"
-            current_idx = self.redis.get(idx_key)
+            current_idx: int = self.redis.get(idx_key)  # type: ignore
             self.redis.ltrim(user_queue_key, 0, current_idx)
         except redis.RedisError as e:
             print(f"Error clearing track queue for room {room_id}: {e}")
@@ -83,7 +89,7 @@ class RedisQueueInterface:
     def room_exists(self, room_id: str) -> bool:
         try:
             room_key = f"{self.room_prefix}{room_id}"
-            return self.redis.exists(room_key)
+            return self.redis.exists(room_key)  # type: ignore
         except redis.RedisError as e:
             print(f"Error checking if room {room_id} exists: {e}")
             raise  # Important:  Re-raise the exception.
@@ -115,8 +121,10 @@ class RedisQueueInterface:
             The Track object, or None if not found.
         """
         try:
+
+
             track_key = f"track_data:{track_id}"
-            track_data = self.redis.get(track_key)
+            track_data: Any = self.redis.get(track_key)  # type: ignore
             if track_data:
                 return Track(**json.loads(track_data))
             else:
@@ -136,7 +144,7 @@ class RedisQueueInterface:
             True if the track data is ready, False otherwise.
         """
         track_key = f"track_data:{track.id}"
-        return self.redis.exists(track_key)
+        return self.redis.exists(track_key) # type: ignore
 
     # --- Redis Pub/Sub ---
     def publish_message(self, channel: str, message: dict) -> int:
@@ -152,12 +160,12 @@ class RedisQueueInterface:
         """
         try:
             message_json = json.dumps(message)
-            return self.redis.publish(channel, message_json)
+            return self.redis.publish(channel, message_json)  # type: ignore
         except redis.RedisError as e:
             print(f"Error publishing message: {e}")
             raise
 
-    def subscribe_to_channel(self, channel: str, callback: callable) -> threading.Thread:
+    def subscribe_to_channel(self, channel: str, callback: Callable) -> threading.Thread:
         def _subscriber_thread(redis_client, channel_name, callback_func):  # Pass redis_client
             pubsub = redis_client.pubsub()
             pubsub.subscribe(channel_name)
@@ -201,7 +209,7 @@ class RedisQueueInterface:
             key = f"{self.delay_key_prefix}{track_id}"
             delay_sec = self.redis.get(key)  # Get the value as bytes
             if delay_sec:
-                return float(delay_sec)
+                return float(delay_sec)  # type: ignore
             else:
                 return None
         except redis.RedisError as e:

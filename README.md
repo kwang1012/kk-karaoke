@@ -73,7 +73,7 @@ You can also run the app with Docker:
 
 ```bash
 docker build -t kkaraoke .
-docker run -it --rm -v $(pwd)/backend/storage:/app/backend/storage -p 8000:8000 --name karaoke kkaraoke
+docker run -it --rm -v $(pwd)/backend/storage:/app/backend/storage -p 8080:8080 --name karaoke kkaraoke
 ```
 
 ### (Optional) Preprocess tracks

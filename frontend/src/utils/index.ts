@@ -14,8 +14,8 @@ export function getAvgRGB(src: string): Promise<any> {
     img.src = src;
     img.onload = () => {
       const vibrant = new Vibrant(img);
-      vibrant.getPalette().then((palatte) => {
-        const color = palatte.Vibrant?.hex;
+      vibrant.getPalette().then((palette) => {
+        const color = palette.Vibrant?.hex;
         resolve(color);
       });
     };
@@ -29,9 +29,9 @@ export function getLyricsRGB(src: string): Promise<any> {
     img.src = src;
     img.onload = () => {
       const vibrant = new Vibrant(img);
-      vibrant.getPalette().then((palatte) => {
-        const lyricsColor = palatte.LightVibrant?.hex;
-        const color = palatte.DarkVibrant?.hex;
+      vibrant.getPalette().then((palette) => {
+        const lyricsColor = palette.LightVibrant?.hex;
+        const color = palette.DarkVibrant?.hex;
         resolve({
           lyrics: lyricsColor,
           background: color,

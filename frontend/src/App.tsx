@@ -12,9 +12,9 @@ import PlaylistView from './pages/playlist';
 import SearchView from './pages/search';
 import { v4 as uuid } from 'uuid';
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { Message, useWebSocketStore } from './store/ws';
-import { useAudioStore } from './store';
+import { useTrackStore } from './store';
 import { useRemoteMessageQueue } from './hooks/queue';
 import { CssBaseline, GlobalStyles, useMediaQuery, useTheme } from '@mui/material';
 import { PlayerProvider } from './hooks/player';
@@ -94,10 +94,15 @@ function App() {
   // }, []);
 
   const connect = useWebSocketStore((state) => state.connect);
-  const setSongStatus = useAudioStore((state) => state.setSongStatus);
-  const setSongProgress = useAudioStore((state) => state.setSongProgress);
+  const setSongStatus = useTrackStore((state) => state.setSongStatus);
+  const setSongProgress = useTrackStore((state) => state.setSongProgress);
   const roomId = useRoomStore((state) => state.roomId);
   const setRoomId = useRoomStore((state) => state.setRoomId);
+  const getReadyTracks = useTrackStore((state) => state.getReadyTracks);
+
+  useEffect(() => {
+    getReadyTracks();
+  }, []);
 
   useEffect(() => {
     if (!roomId || roomId === 'default') {

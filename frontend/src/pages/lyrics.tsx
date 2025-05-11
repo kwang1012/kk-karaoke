@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import AppScrollbar from 'src/components/Scrollbar';
 import { usePlayer } from 'src/hooks/player';
-import { useAudioStore } from 'src/store';
+import { useTrackStore } from 'src/store';
 import { DEFAULT_BG_COLOR, DEFAULT_COLOR, getLyricsRGB } from 'src/utils';
 
 export default function LyricsView() {
@@ -10,7 +10,7 @@ export default function LyricsView() {
 
   const { progress, currentLine, setCurrentLine, currentSong, lyrics, seeking, loading } = usePlayer();
   const { seek } = usePlayer();
-  const lyricsDelay = useAudioStore((state) => state.lyricsDelays[currentSong?.id || ''] || 0);
+  const lyricsDelay = useTrackStore((state) => state.lyricsDelays[currentSong?.id || ''] || 0);
   const syncedLyrics = useMemo(() => {
     return lyrics.map((line) => {
       return {

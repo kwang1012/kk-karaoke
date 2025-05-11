@@ -22,7 +22,7 @@ class RedisQueueInterface:
             user_queue_key = f"{self.room_prefix}{room_id}:queue"
             track_json = json.dumps(track.model_dump())
             idx = self.redis.rpush(user_queue_key, track_json)
-            self.redis.rpush(self.track_data_prefix, track_json)
+            self.redis.sadd(self.track_data_prefix, track_json)
             return idx  # type: ignore
         except redis.RedisError as e:
             print(f"Error adding track to room queue {room_id}: {e}")
@@ -50,11 +50,12 @@ class RedisQueueInterface:
         try:
             if room_id is None:
                 key = self.track_data_prefix
+                data: list[Any] = self.redis.smembers(key)  # type: ignore
             else:
                 key = f"{self.room_prefix}{room_id}:queue"
-            queue_data: list[Any] = self.redis.lrange(key, 0, -1) # type: ignore
-            tracks = [Track(**json.loads(track_data))
-                      for track_data in queue_data]
+                data: list[Any] = self.redis.lrange(
+                    key, 0, -1)  # type: ignore
+            tracks = [Track(**json.loads(track_data)) for track_data in data]
             return tracks
         except redis.RedisError as e:
             print(f"Error getting track queue for room {room_id}: {e}")

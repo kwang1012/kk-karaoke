@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import SongCard from './SongCard';
-import { useAudioStore } from 'src/store/audio';
+import { useTrackStore } from 'src/store/track';
 import AppScrollbar from './Scrollbar';
 import { Message } from 'src/store/ws';
 import Scrollbar from 'react-scrollbars-custom';
@@ -19,7 +19,7 @@ const QueueLayout = styled('div')(({ theme }) => ({
 export default function Queue() {
   const scrollbarRef = useRef<Scrollbar | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
-  const setSongStatus = useAudioStore((state) => state.setSongStatus);
+  const setSongStatus = useTrackStore((state) => state.setSongStatus);
 
   const { currentSong, queue, queueIdx } = usePlayer();
   const { addToQueue, getRandomTracks, rmFromQueue, clearQueue } = usePlayer();

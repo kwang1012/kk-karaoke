@@ -50,7 +50,7 @@ class WebSocketManager:
             except WebSocketDisconnect:
                 # Handle disconnection
                 print("Client disconnected:", connection.client)
-                connections.remove(connection)
+                disconnected.append(connection)
         for client in disconnected:
             connections.remove(client)
 

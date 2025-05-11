@@ -43,7 +43,7 @@ export default function Queue() {
         });
       } else if (item.data.action === 'updated') {
         if (item.data.status === 'ready') {
-          setSongStatus(item.data.songId, 'ready');
+          setSongStatus(item.data.track.id, 'ready');
         }
       } else if (item.data.action === 'removed') {
         rmFromQueue(item.data.track);

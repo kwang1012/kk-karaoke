@@ -9,7 +9,7 @@ export default function Jam() {
   const [showQRCode, setShowQRCode] = useState(false);
   const roomId = useRoomStore((state) => state.roomId);
   const joinURL = window.location.protocol + '//' + window.location.host + '/join?room=' + roomId;
-  const handlStartRoom = () => {
+  const handleStartRoom = () => {
     api
       .post(`room/create`, {
         id: roomId,
@@ -84,7 +84,7 @@ export default function Jam() {
                 boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
               },
             }}
-            onClick={handlStartRoom}
+            onClick={handleStartRoom}
           >
             <ConnectWithoutContactOutlined className="mr-2" fontSize="small" />
             Start a room

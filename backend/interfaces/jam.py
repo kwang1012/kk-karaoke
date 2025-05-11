@@ -41,4 +41,4 @@ class RedisJamInterface:
 
         key = f"{self.jam_prefix}{jam_id}"
         serialized = {k: json.dumps(v) for k, v in state.model_dump().items()}
-        self.redis.hmset(key, serialized)
+        self.redis.hset(key, mapping=serialized)

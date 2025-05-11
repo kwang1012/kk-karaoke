@@ -105,26 +105,16 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
             },
           }}
         >
-          {participants.map((participant, index) => (
+          {participants.map((participant) => (
             <Tooltip title={participant.name} placement="bottom">
-              <Avatar key={index} sx={{ width: 32, height: 32 }} alt={participant.name} src={participant.avatar} />
+              <Avatar
+                key={participant.id}
+                sx={{ width: 32, height: 32 }}
+                alt={participant.name}
+                src={participant.avatar}
+              />
             </Tooltip>
           ))}
-          {/* <Avatar
-            sx={{ width: 32, height: 32, backgroundColor: 'blue' }}
-            alt="kk"
-            src="/static/images/avatar/1.jpg"
-          }
-          {/* <Avatar
-            sx={{ width: 32, height: 32, backgroundColor: 'orange' }}
-            alt="kk"
-            src="/static/images/avatar/1.jpg"
-          />
-          <Avatar
-            sx={{ width: 32, height: 32, backgroundColor: 'teal' }}
-            alt="james"
-            src="/static/images/avatar/5.jpg"
-          /> */}
         </AvatarGroup>
       </div>
     </div>

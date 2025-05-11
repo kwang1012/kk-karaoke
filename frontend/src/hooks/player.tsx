@@ -295,7 +295,6 @@ function createPlayerContext({
   }, [currentSong?.id, songStatus[currentSong?.id || '']]);
 
   const playAudio = () => {
-    console.log('Play audio', loading, currentSong, syncedPlayerRef.current);
     if (loading) return;
     if (!currentSong || !syncedPlayerRef.current) return;
     const player = syncedPlayerRef.current;

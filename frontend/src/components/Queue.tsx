@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { forwardRef, useMemo, useRef, useState } from 'react';
 import SongCard from './SongCard';
 import { useTrackStore } from 'src/store/track';
 import AppScrollbar from './Scrollbar';
@@ -11,12 +11,24 @@ import { usePlayer } from 'src/hooks/player';
 import TrackQueue from './TrackQueue';
 import Jam from './Jam';
 
-const QueueLayout = styled('div')(({ theme }) => ({
+const QueueContainer = styled('div')(({ theme }) => ({
+  gridArea: 'queue',
+  height: '100%',
   display: 'grid',
   gridTemplateRows: 'auto 1fr',
+  minWidth: 280,
+  maxWidth: 400,
+  backgroundColor: theme.palette.background.paper,
+  borderRadius: 8,
+  [theme.breakpoints.up('xl')]: {
+    maxWidth: 420,
+  },
+  [theme.breakpoints.down('md')]: {
+    display: 'none',
+  },
 }));
 
-export default function Queue() {
+const Queue = forwardRef<HTMLDivElement>((props, ref) => {
   const scrollbarRef = useRef<Scrollbar | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const setSongStatus = useTrackStore((state) => state.setSongStatus);
@@ -56,7 +68,7 @@ export default function Queue() {
   };
 
   return (
-    <QueueLayout className="flex-1 h-full text-white max-w-[400px]">
+    <QueueContainer className="flex-1 h-full text-white" ref={ref}>
       <div className={['p-5 font-bold text-lg h-[68px] tracking-tighter', scrollTop > 0 ? 'shadow-xl' : ''].join(' ')}>
         Queue
       </div>
@@ -89,7 +101,7 @@ export default function Queue() {
               <>
                 <div className="text-gray-400 mt-2 w-full pl-2">There's no music in the queue.</div>
                 <div className="mt-5 px-2 flex justify-center text-primary">
-                  <Button variant="contained" className='bg-primary' onClick={getRandomTracks}>
+                  <Button variant="contained" className="bg-primary" onClick={getRandomTracks}>
                     Random songs?
                   </Button>
                 </div>
@@ -98,6 +110,8 @@ export default function Queue() {
           </div>
         </AppScrollbar>
       </div>
-    </QueueLayout>
+    </QueueContainer>
   );
-}
+});
+
+export default Queue;

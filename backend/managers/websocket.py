@@ -97,7 +97,7 @@ class WebSocketManager:
         """
         Handle messages related to the jam session.
         """
-        print("Received jam message:", message)
+        # print("Received jam message:", message)
         room_id = message.get("roomId")
         if not room_id:
             print("No roomId found in the message.")

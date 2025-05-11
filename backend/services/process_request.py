@@ -102,9 +102,9 @@ def process_request(song: Union[dict[str, Any], Song]):
     if os.path.exists(Path(RAW_AUDIO_DIR, f"{song.id}.mp3")):
         os.remove(Path(RAW_AUDIO_DIR, f"{song.id}.mp3"))
     r.publish(song.id, json.dumps({
-        "type": "queue",
+        "type": "notify",
         "data": {
-                "action": "updated",
+                "action": "progress",
                 "track": song.model_dump(),
                 "status": "ready"
         },

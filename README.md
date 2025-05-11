@@ -45,8 +45,8 @@ pinned: true
 </p>
 
 - [Setup](#setup)
+  - [(Recommended) Docker](#docker)
   - [Local environment](#local-environment)
-  - [Docker](#docker)
   - [(Optional) Preprocess tracks](#optional-preprocess-tracks)
   - [About](#about)
   - [Spotify Appearance](#spotify-appearance)
@@ -66,6 +66,24 @@ pinned: true
 ---
 
 ## Setup
+
+### Docker (Recommended)
+
+You can also run the app with Docker:
+
+```bash
+docker build -t kkaraoke .
+docker run -it --rm -v $(pwd)/backend/storage:/app/backend/storage -p 8080:8080 --name karaoke kkaraoke
+```
+
+### (Optional) Preprocess tracks
+
+If you want to preprocess the tracks so that the users can immediately enjoy the vocaless music, you can preprocess the tracks in advance.
+
+```
+cd backend
+python -m scripts.process_default_queue.py
+```
 
 ### Local environment
 
@@ -90,24 +108,6 @@ uvicorn main:app --reload
 cd frontend
 yarn
 yarn start
-```
-
-### Docker
-
-You can also run the app with Docker:
-
-```bash
-docker build -t kkaraoke .
-docker run -it --rm -p 3000:3000 8000:8000 $(DOCKER_IMAGE_NAME)
-```
-
-### (Optional) Preprocess tracks
-
-If you want to preprocess the tracks so that the users can immediately enjoy the vocaless music, you can preprocess the tracks in advance.
-
-```
-cd backend
-python -m scripts.process_default_queue.py
 ```
 
 ---

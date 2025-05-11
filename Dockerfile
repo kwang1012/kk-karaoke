@@ -1,0 +1,60 @@
+# --- Stage 1: Build React frontend ---
+FROM node:22-alpine AS frontend
+
+WORKDIR /app/frontend
+COPY frontend/ ./
+RUN yarn install && yarn build
+
+
+# --- Stage 2: Build FastAPI backend ---
+FROM python:3.13-slim AS backend
+
+WORKDIR /app
+COPY backend/ ./backend/
+VOLUME ./backend/storage /app/backend/storage
+COPY --from=frontend /app/frontend/build/ ./frontend-dist/
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r backend/requirements.txt
+
+
+# --- Stage 3: Final container with FFmpeg + Redis + app ---
+FROM debian:stable-slim
+
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y \
+    ffmpeg \
+    redis-server \
+    python3 \
+    python3-pip \
+    python3-venv \
+    nginx \
+    curl \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up work directory
+WORKDIR /app
+
+# Copy backend app and frontend assets
+COPY --from=backend /app/backend /app/backend
+COPY --from=backend /app/frontend-dist /usr/share/nginx/html
+
+# Install Python deps
+RUN python3 -m venv /venv
+
+ENV PATH="/venv/bin:$PATH"
+COPY backend/requirements.txt .
+# Make sure uvicorn uses the venv Python
+RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install "uvicorn[standard]" fastapi
+
+# Copy Nginx config and start script
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY run.sh /run.sh
+RUN chmod +x /run.sh
+
+EXPOSE 8080
+
+CMD ["/run.sh"]

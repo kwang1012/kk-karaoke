@@ -45,7 +45,6 @@ class WebSocketManager:
             if connection.client_state != WebSocketState.CONNECTED:
                 continue
             try:
-                print("Sending message to client:", connection.client)
                 await connection.send_json(data)
             except WebSocketDisconnect:
                 # Handle disconnection
@@ -103,6 +102,6 @@ class WebSocketManager:
             print("No roomId found in the message.")
             return
         # update the jam state in Redis
-        # jam.handle_message(message)
+        jam.handle_message(message)
         # Process the message and broadcast it to all connected clients
         await self.multicast(socket, room_id, message)

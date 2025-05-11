@@ -6,12 +6,14 @@ import AudioController from 'src/components/AudioController';
 import AppSnackbar from 'src/components/Snackbar';
 import { styled } from '@mui/material/styles';
 import { useMediaQuery, useTheme } from '@mui/material';
-import { lazy } from 'react';
+import { lazy, useRef } from 'react';
+import Resizer from 'src/components/Resizer';
 
 // lazy import mobile components
 const AppNavigation = lazy(() => import('src/components/Navigation'));
 
 const Grid = styled('div')(({ theme }) => ({
+  position: 'relative',
   display: 'grid',
   gridTemplateAreas: `
     "header header header"
@@ -22,6 +24,8 @@ const Grid = styled('div')(({ theme }) => ({
   gridTemplateRows: 'auto 1fr auto',
   width: '100%',
   height: '100%',
+  gap: 8,
+  margin: -4,
   [theme.breakpoints.down('md')]: {
     gridTemplateAreas: `
       "main"
@@ -35,7 +39,6 @@ const Grid = styled('div')(({ theme }) => ({
 const Header = styled('div')(({ theme }) => ({
   gridArea: 'header',
   height: 72,
-  padding: theme.spacing(2),
   [theme.breakpoints.down('md')]: {
     display: 'none',
   },
@@ -45,7 +48,6 @@ const Sidebar = styled('div')(({ theme }) => ({
   gridArea: 'sidebar',
   height: '100%',
   backgroundColor: theme.palette.background.paper,
-  margin: '0 8px',
   borderRadius: 8,
   [theme.breakpoints.down('md')]: {
     display: 'none',
@@ -66,7 +68,6 @@ const QueueContainer = styled('div')(({ theme }) => ({
   height: '100%',
   width: 280,
   backgroundColor: theme.palette.background.paper,
-  margin: '0 8px',
   borderRadius: 8,
   [theme.breakpoints.up('xl')]: {
     width: 420,
@@ -87,6 +88,8 @@ const Footer = styled('div')(({ theme }) => ({
 export default function Layout() {
   const theme = useTheme();
   const mobile = useMediaQuery(theme.breakpoints.down('md'));
+  const mainRef = useRef<HTMLDivElement>(null);
+  const queueRef = useRef<HTMLDivElement>(null);
   return (
     <Grid>
       {/* Header */}
@@ -98,11 +101,12 @@ export default function Layout() {
         <SidebarController />
       </Sidebar>
       {/* Main Content */}
-      <Main>
+      <Main ref={mainRef}>
         <Outlet />
       </Main>
+      <Resizer leftRef={mainRef} rightRef={queueRef} />
       {/* Queue */}
-      <QueueContainer>
+      <QueueContainer ref={queueRef}>
         <Queue />
       </QueueContainer>
       {/* Audio Player */}

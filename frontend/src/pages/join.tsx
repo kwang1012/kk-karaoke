@@ -49,7 +49,7 @@ export default function JoinView() {
     }
     // Handle join logic here, e.g., send data to server
     api
-      .post(`room/join/${roomId}`, {
+      .post(`room/${roomId}/join`, {
         id: roomId,
         name: nickname,
         avatar: selectedAvatar?.toDataUri(),

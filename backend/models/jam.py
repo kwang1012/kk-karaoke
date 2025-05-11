@@ -15,3 +15,4 @@ class JamState(BaseModel):
 class Room(BaseModel):
     id: str
     track: Optional[Track] = None
+    is_on: bool = False

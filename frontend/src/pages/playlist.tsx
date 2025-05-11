@@ -217,7 +217,7 @@ const getWidth = (key: string) => {
       return 150;
     case 'row_id':
     case 'action':
-      return 30;
+      return 50;
     default:
       return undefined;
   }
@@ -274,9 +274,9 @@ const TrackRow = memo(
             <img src={image} className="w-10 h-10 object-cover rounded-md inline-block mr-2" alt={parsedTrack.name} />
           )}
           <div>
-            <span className="line-clamp-1 ml-2">{parsedTrack.name}</span>
+            <span className="line-clamp-1">{parsedTrack.name}</span>
             {collectionType === 'album' && (
-              <span className="text-gray-400 ml-2">
+              <span className="text-gray-400">
                 {parsedTrack.artists.map((artist, index) => (
                   <span key={index}>
                     {index > 0 && ', '}
@@ -447,7 +447,7 @@ export default function PlaylistView() {
               <img src={collectionImage} className="w-full h-full object-cover rounded-md" alt={collection.name} />
             </div>
             <div className="ml-4 flex flex-col justify-center md:justify-start w-full">
-              <span className="text-2xl md:text-4xl font-bold line-clamp-2 leading-relaxed">{collection.name}</span>
+              <span className="text-2xl md:text-4xl font-bold line-clamp-2 leading-tight">{collection.name}</span>
               <div className="text-sm text-gray-200 mt-1 line-clamp-1">{collection.description}</div>
             </div>
           </Header>

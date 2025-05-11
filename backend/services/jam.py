@@ -16,6 +16,8 @@ def handle_message(message):
         print("No roomId found in the message.")
         return
     # action = message.get("action")
-    # op = message.get("op")
+    op = message.get("op")
+    if op:
+        print("Received jam op:", op)
     data = message.get("data")
     interface.create_or_update_jam_state(room_id, data)

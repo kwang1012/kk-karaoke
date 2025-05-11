@@ -89,7 +89,7 @@ export default function Queue() {
               <>
                 <div className="text-gray-400 mt-2 w-full pl-2">There's no music in the queue.</div>
                 <div className="mt-5 px-2 flex justify-center text-primary">
-                  <Button variant="contained" onClick={getRandomTracks}>
+                  <Button variant="contained" className='bg-primary' onClick={getRandomTracks}>
                     Random songs?
                   </Button>
                 </div>

@@ -140,10 +140,10 @@ const AppRouters = () => {
             <Route path="playlist/:id" element={<PlaylistView />} />
             <Route path="album/:id" element={<PlaylistView />} />
             <Route path="search/*" element={<SearchView />} />
+            <Route path="lyrics" element={<LyricsView />} />
+            <Route path="play" element={mobile ? <PlayView /> : <BrowseView />} />
+            <Route path="settings" element={<SettingView />} />
           </Route>
-          <Route path="lyrics" element={<LyricsView />} />
-          <Route path="play" element={mobile ? <PlayView /> : <BrowseView />} />
-          <Route path="settings" element={<SettingView />} />
         </Route>
         <Route path="join" element={<JoinView />} />
       </Routes>

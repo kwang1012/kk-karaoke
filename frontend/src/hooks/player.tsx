@@ -50,6 +50,14 @@ type PlayerContextType = {
   setQueueIdx: React.Dispatch<React.SetStateAction<number>>;
   currentSong: Track | null;
   lastSongId: React.MutableRefObject<string | null>;
+  playAudio: () => void;
+  pauseAudio: () => void;
+  next: () => void;
+  previous: () => void;
+  getRandomTracks: () => Promise<void>;
+  addSongToQueue: (track: Track) => Promise<void>;
+  rmSongFromQueue: (track: Track, idx: number) => Promise<void>;
+  clearQueue: () => Promise<void>;
 };
 
 export const PlayerContext = createContext<PlayerContextType | null>(null);
@@ -85,154 +93,41 @@ function createPlayerContext({
   // queue context
   const lastSongId = useRef<string | null>(null);
   const [queue, setQueue] = useState<Track[]>([]);
-  const [queueIdx, setQueueIdx] = useState(0);
+  const [queueIdx, setQueueIdx] = useState(-1);
 
   const currentSong = useMemo(() => {
     return queue[queueIdx] || null;
   }, [queue, queueIdx]);
 
-  const ctx = useMemo(
-    () => ({
-      syncedPlayerRef,
-      loading,
-      setLoading,
-      playing,
-      setPlaying,
-      semitone,
-      setSemitone,
-      volume,
-      setVolume,
-      progress,
-      setProgress,
-      duration,
-      setDuration,
-      seeking,
-      setSeeking,
-      vocalOn,
-      setVocalOn,
-      vocalVolume,
-      setVocalVolume,
-      lyrics,
-      setLyrics,
-      currentLine,
-      setCurrentLine,
-      queue,
-      setQueue,
-      queueIdx,
-      setQueueIdx,
-      currentSong,
-      lastSongId,
-    }),
-    [
-      syncedPlayerRef,
-      loading,
-      setLoading,
-      playing,
-      setPlaying,
-      semitone,
-      setSemitone,
-      volume,
-      setVolume,
-      duration,
-      setDuration,
-      seeking,
-      setSeeking,
-      vocalOn,
-      setVocalOn,
-      vocalVolume,
-      setVocalVolume,
-      progress,
-      setProgress,
-      lyrics,
-      setLyrics,
-      currentLine,
-      setCurrentLine,
-      queue,
-      setQueue,
-      queueIdx,
-      setQueueIdx,
-      currentSong,
-      lastSongId,
-    ]
-  );
-  return ctx;
-}
-
-export const PlayerProvider = ({ children }) => {
-  // the states that should be initialized only once go here
-  const syncedPlayerRef = useRef<SyncedAudioPlayer | null>(null);
-
-  // 🔧 Initialize player based on setting
-  // We put it here because everytime we change the setting we reload the window
-  const enabledPitchShift = useSettingStore((state) => state.enabledPitchShift);
-  useEffect(() => {
-    // console.log('Initializing player. Pitch shift enabled:', enabledPitchShift);
-    if (enabledPitchShift) syncedPlayerRef.current = new ShiftedAutioPlayer();
-    else syncedPlayerRef.current = new SyncedAudioPlayer();
-  }, []);
-
-  const ctx = createPlayerContext({ syncedPlayerRef });
-  return <PlayerContext.Provider value={ctx}>{children}</PlayerContext.Provider>;
-};
-
-export const usePlayer = () => {
-  const ctx = useContext(PlayerContext);
-  if (!ctx) throw new Error('usePlayer must be used within PlayerProvider');
-  const {
-    syncedPlayerRef,
-    loading,
-    setLoading,
-    playing,
-    setPlaying,
-    semitone,
-    setSemitone,
-    volume,
-    setVolume,
-    vocalVolume,
-    setVocalVolume,
-    duration,
-    setDuration,
-    seeking,
-    setSeeking,
-    vocalOn,
-    setVocalOn,
-    progress,
-    setProgress,
-    lyrics,
-    setLyrics,
-    currentLine,
-    setCurrentLine,
-    queue,
-    setQueue,
-    queueIdx,
-    setQueueIdx,
-    currentSong,
-    lastSongId,
-  } = ctx;
-
-  // =============== hooks from other stores ===============
   const songStatus = useAudioStore((state) => state.songStatus);
   const setSongStatus = useAudioStore((state) => state.setSongStatus);
   const removeSongStatus = useAudioStore((state) => state.removeSongStatus);
   const removeSongProgress = useAudioStore((state) => state.removeSongProgress);
   const roomId = useRoomStore((state) => state.roomId);
 
-  // =============== useEffect ===============
-
-  const { data: fetchedQueue } = useQuery({
+  const {
+    data: { index, tracks },
+  } = useQuery({
     queryKey: ['queue', roomId],
     queryFn: () => fetchQueue(roomId),
+    refetchOnWindowFocus: false,
+    initialData: {
+      index: -1,
+      tracks: [],
+    },
   });
   // 🔧 Initialize once
   useEffect(() => {
     // fetching queue
-    if (fetchedQueue) {
-      setQueue(fetchedQueue.tracks);
-      if (fetchedQueue.index) {
-        setQueueIdx(fetchedQueue.index);
-      }
+    if (tracks) {
+      setQueue(tracks);
     }
-  }, [fetchedQueue]);
+    if (index !== -1 && index !== queueIdx) {
+      setQueueIdx(index);
+    }
+  }, [index, tracks]);
+
+  // =============== useEffect ===============
 
   // update progress every 50ms
   useEffect(() => {
@@ -260,6 +155,9 @@ export const usePlayer = () => {
       setLyrics([]);
       setCurrentLine(-1);
       setProgress(0);
+      setDuration(0);
+      setPlaying(false);
+      syncedPlayerRef.current?.stop();
       lastSongId.current = null;
       return;
     }
@@ -285,8 +183,6 @@ export const usePlayer = () => {
     setLyrics([]);
     setCurrentLine(-1);
     setProgress(0);
-    // player.pause();
-    // player.seek(0);
     if (player instanceof ShiftedAutioPlayer) {
       player.setSemitone(0);
       setSemitone(0);
@@ -316,9 +212,18 @@ export const usePlayer = () => {
       });
   }, [currentSong?.id, songStatus[currentSong?.id || '']]);
 
+  const playAudio = () => {
+    if (loading) return;
+    if (!currentSong || !syncedPlayerRef.current) return;
+    const player = syncedPlayerRef.current;
+    player.setVolume(volume, vocalOn ? vocalVolume : DEFAULT_VOCALESS_VOCAL_VOLUME);
+    player.play();
+    setPlaying(true);
+  };
+
   // =============== functions that affect states ===============
   const next = () => {
-    if (queueIdx >= queue.length - 1) {
+    if (queueIdx >= queue.length) {
       console.log('No next track in the queue');
       return;
     }
@@ -333,14 +238,6 @@ export const usePlayer = () => {
     }
     updateQueueIdx(roomId, queueIdx - 1);
     setQueueIdx(queueIdx - 1);
-  };
-
-  const playAudio = () => {
-    if (!currentSong || !syncedPlayerRef.current) return;
-    const player = syncedPlayerRef.current;
-    player.setVolume(volume, vocalOn ? vocalVolume : DEFAULT_VOCALESS_VOCAL_VOLUME);
-    player.play();
-    setPlaying(true);
   };
 
   const pauseAudio = () => {
@@ -373,6 +270,151 @@ export const usePlayer = () => {
       setQueue((prev) => prev.slice(0, queueIdx + 1));
     });
   };
+
+  const ctx = useMemo(
+    () => ({
+      syncedPlayerRef,
+      loading,
+      setLoading,
+      playing,
+      setPlaying,
+      semitone,
+      setSemitone,
+      volume,
+      setVolume,
+      progress,
+      setProgress,
+      duration,
+      setDuration,
+      seeking,
+      setSeeking,
+      vocalOn,
+      setVocalOn,
+      vocalVolume,
+      setVocalVolume,
+      lyrics,
+      setLyrics,
+      currentLine,
+      setCurrentLine,
+      queue,
+      setQueue,
+      queueIdx,
+      setQueueIdx,
+      currentSong,
+      lastSongId,
+      playAudio,
+      pauseAudio,
+      next,
+      previous,
+      getRandomTracks,
+      addSongToQueue,
+      rmSongFromQueue,
+      clearQueue,
+      roomId,
+      setSongStatus,
+      removeSongStatus,
+      removeSongProgress,
+    }),
+    [
+      syncedPlayerRef,
+      loading,
+      setLoading,
+      playing,
+      setPlaying,
+      semitone,
+      setSemitone,
+      volume,
+      setVolume,
+      duration,
+      setDuration,
+      seeking,
+      setSeeking,
+      vocalOn,
+      setVocalOn,
+      vocalVolume,
+      setVocalVolume,
+      progress,
+      setProgress,
+      lyrics,
+      setLyrics,
+      currentLine,
+      setCurrentLine,
+      queue,
+      setQueue,
+      queueIdx,
+      setQueueIdx,
+      currentSong,
+      lastSongId,
+      playAudio,
+      pauseAudio,
+      next,
+      previous,
+      getRandomTracks,
+      addSongToQueue,
+      rmSongFromQueue,
+      clearQueue,
+      roomId,
+      setSongStatus,
+      removeSongStatus,
+      removeSongProgress,
+    ]
+  );
+  return ctx;
+}
+
+export const PlayerProvider = ({ children }) => {
+  // the states that should be initialized only once go here
+  const syncedPlayerRef = useRef<SyncedAudioPlayer | null>(null);
+
+  // 🔧 Initialize player based on setting
+  // We put it here because everytime we change the setting we reload the window
+  const enabledPitchShift = useSettingStore((state) => state.enabledPitchShift);
+  useEffect(() => {
+    // console.log('Initializing player. Pitch shift enabled:', enabledPitchShift);
+    if (enabledPitchShift) syncedPlayerRef.current = new ShiftedAutioPlayer();
+    else syncedPlayerRef.current = new SyncedAudioPlayer();
+  }, []);
+
+  const ctx = createPlayerContext({ syncedPlayerRef });
+  return <PlayerContext.Provider value={ctx}>{children}</PlayerContext.Provider>;
+};
+
+export const usePlayer = () => {
+  const ctx = useContext(PlayerContext);
+  if (!ctx) throw new Error('usePlayer must be used within PlayerProvider');
+  const {
+    syncedPlayerRef,
+    loading,
+    playing,
+    semitone,
+    setSemitone,
+    volume,
+    setVolume,
+    vocalVolume,
+    setVocalVolume,
+    duration,
+    seeking,
+    setSeeking,
+    vocalOn,
+    setVocalOn,
+    progress,
+    setProgress,
+    lyrics,
+    currentLine,
+    setCurrentLine,
+    queue,
+    setQueue,
+    queueIdx,
+    currentSong,
+    playAudio,
+    pauseAudio,
+    next,
+    previous,
+    addSongToQueue,
+    rmSongFromQueue,
+    getRandomTracks,
+    clearQueue,
+  } = ctx;
 
   return {
     loading,

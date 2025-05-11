@@ -50,6 +50,12 @@ const HoverLayout = styled('div')(({ theme }) => ({
   '& .actions': {
     opacity: 0,
   },
+  '&.disable-hover': {
+    backgroundColor: 'transparent !important',
+    '*': {
+      color: '#b3b3b3 !important',
+    },
+  },
   '&:hover, &.active': {
     '*': {
       color: 'white',
@@ -61,11 +67,6 @@ const HoverLayout = styled('div')(({ theme }) => ({
   },
   '&.active': {
     backgroundColor: '#ffffff3a',
-  },
-  '&.disable-hover': {
-    '&:hover, &:active': {
-      backgroundColor: 'transparent',
-    },
   },
   [theme.breakpoints.down('md')]: {
     '& .actions': {
@@ -162,20 +163,10 @@ type SongCardProps = {
   track?: Track | null;
   dense?: boolean;
   disable?: boolean;
-  disableHover?: boolean;
   onAdd?: (track: Track) => void;
   onDelete?: (track: Track) => void;
 };
-export default function SongCard({
-  className,
-  track,
-  dense,
-  disable,
-  disableHover,
-  onAdd,
-  onDelete,
-  ...props
-}: SongCardProps) {
+export default function SongCard({ className, track, dense, disable, onAdd, onDelete, ...props }: SongCardProps) {
   const songStatus = useAudioStore((state) => state.songStatus);
   const songProgress = useAudioStore((state) => state.songProgress);
   const status = useMemo(() => (track ? songStatus[track.id] : 'ready'), [songStatus, track?.id]);
@@ -214,7 +205,7 @@ export default function SongCard({
       {...props}
     >
       <div className="relative w-10 h-10 bg-[#b3b3b3] rounded-md mr-4 overflow-hidden shrink-0">
-        {onAdd && (
+        {onAdd && !disable && (
           <div
             className="actions absolute flex items-center justify-center w-full h-full bg-[#3b3b3b70] cursor-pointer"
             onClick={() => track && onAdd(parsedTrack)}
@@ -231,10 +222,10 @@ export default function SongCard({
             <span key={index}>
               {index > 0 && ', '}
               <a
-                href={artist.uri}
+                href={disable ? undefined : artist.uri}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hover:underline cursor-pointer size-fit"
+                className={['size-fit', disable ? '' : 'hover:underline cursor-pointer'].join(' ')}
               >
                 {artist.name}
               </a>
@@ -254,7 +245,7 @@ export default function SongCard({
         </div>
       )}
       {!isReady && !disable && (
-        <div className="flex items-center justify-end px-4">
+        <div className="flex items-center justify-end">
           <CircularProgressWithLabel
             size={36}
             sx={{ color: 'white' }}

@@ -101,7 +101,7 @@ export default function TrackQueue({ tracks }: { tracks: Track[] }) {
   const { reorderQueue, queueIdx } = usePlayer();
   const { rmSongFromQueue } = usePlayer();
   const activeRoomId = useActiveRoomId();
-  const items = useMemo(() => tracks.map((item) => item.uniqueId), [tracks]);
+  const items = tracks.map((item) => item.uniqueId);
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (active.id !== over?.id) {

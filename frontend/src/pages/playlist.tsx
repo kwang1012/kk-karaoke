@@ -1,20 +1,5 @@
-import {
-  TableRow,
-  TableCell,
-  AppBar,
-  Toolbar,
-  Table,
-  TableHead,
-  TableBody,
-  useTheme,
-  useMediaQuery,
-  IconButton,
-  MenuItem,
-  ListItemIcon,
-  ListItemText,
-  Tooltip,
-} from '@mui/material';
-import { useState, useMemo, useRef, useEffect, memo } from 'react';
+import { AppBar, Toolbar, useTheme, useMediaQuery } from '@mui/material';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import AppScrollbar from 'src/components/Scrollbar';
 import { api } from 'src/utils/api';
@@ -22,60 +7,11 @@ import placeholder from 'src/assets/placeholder.png';
 import { useWebSocketStore } from 'src/store/ws';
 import { useQuery } from '@tanstack/react-query';
 import { styled } from '@mui/material/styles';
-import Skeleton from 'react-loading-skeleton';
-import {
-  CheckCircle,
-  Delete,
-  DownloadForOfflineOutlined,
-  Downloading,
-  MoreHoriz,
-  PlayArrow,
-  QueueMusic,
-} from '@mui/icons-material';
-import AppMenu from 'src/components/Menu';
 import { getAvgRGB } from 'src/utils';
 import Scrollbar from 'react-scrollbars-custom';
 import { usePlayerStore } from 'src/store/player';
 import { Track, Collection, Album } from 'src/models/spotify';
-import { useTrackStore } from 'src/store';
-
-const ALBUM_HEADERS = [
-  {
-    key: 'row_id',
-    label: '#',
-  },
-  {
-    key: 'name',
-    label: 'Title',
-  },
-  {
-    key: 'action',
-    label: '',
-  },
-];
-
-const PLAYLIST_HEADERS = [
-  {
-    key: 'row_id',
-    label: '#',
-  },
-  {
-    key: 'name',
-    label: 'Title',
-  },
-  {
-    key: 'album',
-    label: 'Album',
-  },
-  {
-    key: 'artists',
-    label: 'Artists',
-  },
-  {
-    key: 'action',
-    label: '',
-  },
-];
+import PlaylistTable from 'src/components/playlist/Table';
 
 type ReturnType = {
   collection: Collection;
@@ -94,45 +30,6 @@ const fetchTracks = async (collectionType: string, id: string): Promise<ReturnTy
     });
 };
 
-const HoverTableRow = styled(TableRow)(({ theme }) => ({
-  cursor: 'default',
-  '& .row-actions': {
-    opacity: 0,
-  },
-  '& .row-id': {
-    display: ' block',
-  },
-  '& .row-play': {
-    display: 'none',
-  },
-  '&:hover, &.active': {
-    '*': {
-      color: 'white',
-    },
-    '& .checked-icon *': {
-      color: theme.palette.success.main,
-    },
-    backgroundColor: '#ffffff1a',
-    '.row-actions': {
-      opacity: 1,
-    },
-    '& .row-id': {
-      display: 'none',
-    },
-    '& .row-play': {
-      display: 'flex',
-    },
-  },
-  '&.active': {
-    backgroundColor: '#ffffff3a',
-  },
-  [theme.breakpoints.down('md')]: {
-    '& .row-actions': {
-      opacity: 1,
-    },
-  },
-}));
-
 const Header = styled('div')(({ theme }) => ({
   display: 'grid',
   padding: 20,
@@ -148,258 +45,23 @@ const Header = styled('div')(({ theme }) => ({
   },
 }));
 
-const ActionMenu = memo(
-  ({
-    track,
-    onAdd,
-    onDelete,
-    onOpen,
-    onClose,
-  }: {
-    track: Track;
-    onAdd?: (track: Track) => void;
-    onDelete?: (track: Track) => void;
-    onOpen: () => void;
-    onClose: () => void;
-  }) => {
-    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-    const open = Boolean(anchorEl);
-    const id = open ? 'simple-popover' : undefined;
-    const handleClick = (event: React.MouseEvent<HTMLElement>) => {
-      setAnchorEl(event.currentTarget);
-      onOpen();
-    };
-    const handleClose = () => {
-      setAnchorEl(null);
-      onClose();
-    };
-    return (
-      <div>
-        <IconButton
-          className="row-actions"
-          sx={{ minWidth: 40 }}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleClick(e);
-          }}
-          aria-describedby={id}
-        >
-          <MoreHoriz className="text-[#b3b3b3]" />
-        </IconButton>
-        <AppMenu id={id} open={open} anchorEl={anchorEl} onClose={handleClose}>
-          {onAdd && (
-            <MenuItem
-              onClick={() => {
-                onAdd(track);
-                handleClose();
-              }}
-            >
-              <ListItemIcon>
-                <QueueMusic />
-              </ListItemIcon>
-              <ListItemText>Add to queue</ListItemText>
-            </MenuItem>
-          )}
-          {onDelete && (
-            <MenuItem
-              onClick={() => {
-                onDelete(track);
-                handleClose();
-              }}
-            >
-              <ListItemIcon>
-                <Delete />
-              </ListItemIcon>
-              <ListItemText>Remove from queue</ListItemText>
-            </MenuItem>
-          )}
-        </AppMenu>
-      </div>
-    );
-  }
-);
-
-const getWidth = (key: string) => {
-  switch (key) {
-    case 'artists':
-      return 150;
-    case 'row_id':
-    case 'action':
-      return 50;
-    default:
-      return undefined;
-  }
-};
-
-const TrackRow = memo(
-  ({
-    index,
-    collectionType,
-    headers,
-    track,
-    initialized,
-    connected,
-    onAdd,
-    isLoading,
-    onDownload,
-  }: {
-    index: number;
-    collectionType: string;
-    headers: { key: string; label: string }[];
-    track?: Track;
-    initialized: boolean;
-    connected: boolean;
-    onAdd: (track: Track) => void;
-    onDownload: (track: Track) => void;
-    isLoading: boolean;
-  }) => {
-    const songStatus = useTrackStore((state) => state.songStatus);
-    const status = useMemo(() => (track ? songStatus[track.id] : 'ready'), [songStatus, track?.id]);
-    const unknown = useMemo(() => status === undefined, [status]); // for processing
-    const downloaded = useMemo(() => status === 'ready', [status]); // for processing
-    const readyTracks = useTrackStore((state) => state.readyTracks);
-    const parsedTrack = useMemo(() => {
-      if (!track)
-        return {
-          id: '',
-          name: 'Not playing',
-          artists: [],
-          timeAdded: Date.now(),
-        };
-      return track;
-    }, [track]);
-    const ready = useMemo(() => {
-      return readyTracks.has(parsedTrack.id);
-    }, [readyTracks, parsedTrack]);
-    const [menuOpen, setMenuOpen] = useState(false);
-    const image = parsedTrack.album?.images?.[0]?.url || placeholder;
-    const trackRow = {
-      row_id: (
-        <div className="flex items-center justify-center">
-          <span className="row-id">{index + 1}</span>
-          <div className="cursor-pointer" onClick={() => initialized && connected && track && onAdd(parsedTrack)}>
-            <PlayArrow className="row-play" fontSize="small" />
-          </div>
-        </div>
-      ),
-      name: !isLoading ? (
-        <div className="flex items-center">
-          {collectionType === 'playlist' && (
-            <img src={image} className="w-10 h-10 object-cover rounded-md inline-block mr-2" alt={parsedTrack.name} />
-          )}
-          <div>
-            <span className="line-clamp-1">{parsedTrack.name}</span>
-            {collectionType === 'album' && (
-              <span className="text-gray-400">
-                {parsedTrack.artists.map((artist, index) => (
-                  <span key={index}>
-                    {index > 0 && ', '}
-                    <a
-                      href={artist.uri}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:underline cursor-pointer"
-                    >
-                      {artist.name}
-                    </a>
-                  </span>
-                ))}
-              </span>
-            )}
-          </div>
-        </div>
-      ) : (
-        <Skeleton baseColor="transparent" highlightColor="#ffffff1a" width="100%" height={32} />
-      ),
-      artists: !isLoading ? (
-        <span className="line-clamp-1">
-          {parsedTrack.artists.map((artist, index) => (
-            <span key={index}>
-              {index > 0 && ', '}
-              <a href={artist.uri} target="_blank" rel="noopener noreferrer" className="hover:underline cursor-pointer">
-                {artist.name}
-              </a>
-            </span>
-          ))}
-        </span>
-      ) : (
-        <Skeleton baseColor="transparent" highlightColor="#ffffff1a" width="100%" height={32} />
-      ),
-      album: !isLoading ? (
-        <span className="line-clamp-1">{parsedTrack.album?.name || '-'}</span>
-      ) : (
-        <Skeleton baseColor="transparent" highlightColor="#ffffff1a" width="100%" height={32} />
-      ),
-      action: !isLoading && (
-        <div className="flex items-center justify-end">
-          {ready || downloaded ? (
-            <Tooltip placement="top" title="Ready">
-              <CheckCircle fontSize="small" color="success" className="mr-2 checked-icon" />
-            </Tooltip>
-          ) : unknown ? (
-            <Tooltip placement="top" title="Download and process">
-              <IconButton disableRipple className="p-0 mr-2 row-actions" onClick={() => onDownload(parsedTrack)}>
-                <DownloadForOfflineOutlined fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          ) : (
-            <Tooltip placement="top" title="Downloading">
-              <Downloading fontSize="small" className="mr-2" />
-            </Tooltip>
-          )}
-          <ActionMenu
-            track={parsedTrack}
-            onAdd={onAdd}
-            onOpen={() => setMenuOpen(true)}
-            onClose={() => setMenuOpen(false)}
-          />
-        </div>
-      ),
-    };
-    return (
-      <HoverTableRow key={index} className={menuOpen ? 'active' : ''} sx={{ '& td': { border: 0, py: 2 } }}>
-        {headers.map((header) => (
-          <TableCell
-            key={header.key}
-            width={getWidth(header.key)}
-            align={header.key == 'row_id' ? 'center' : 'left'}
-            sx={{
-              color: header.key == 'name' ? 'white' : '#b3b3b3',
-              paddingY: 0,
-              paddingX: header.key == 'action' ? 1 : 2,
-            }}
-          >
-            {trackRow[header.key]}
-          </TableCell>
-        ))}
-      </HoverTableRow>
-    );
-  }
-);
-
 export default function PlaylistView() {
   const location = useLocation();
   const initCollection = location.state?.collection || {};
   const { id } = useParams();
-  const collectionType = useMemo(() => location.pathname.split('/')[1], [location.pathname]);
+  const collectionType = location.pathname.split('/')[1];
   const initialized = useWebSocketStore((state) => state.initialized);
   const connected = useWebSocketStore((state) => state.connected);
   const headerRef = useRef<HTMLDivElement>(null);
-  const theme = useTheme();
-  const mobile = useMediaQuery(theme.breakpoints.down('md'));
   const addSongToQueue = usePlayerStore((state) => state.addSongToQueue);
   const downloadSong = usePlayerStore((state) => state.downloadSong);
-
-  const headers = useMemo(() => {
-    return collectionType === 'album' || mobile ? ALBUM_HEADERS : PLAYLIST_HEADERS;
-  }, [collectionType]);
 
   const { data, isLoading } = useQuery({
     queryKey: [collectionType, id],
     queryFn: () => fetchTracks(collectionType, id || ''),
   });
-  const collection = useMemo<Collection>(() => data?.collection || initCollection, [data, initCollection]);
-  const tracks = useMemo(() => data?.tracks || [], [data]);
+  const collection = data?.collection || initCollection;
+  const tracks = data?.tracks || [];
   const [color, setColor] = useState<string>('#535353');
   const collectionImage = collection.images?.[0]?.url || placeholder;
   useEffect(() => {
@@ -486,48 +148,16 @@ export default function PlaylistView() {
             className="absolute top-[335px] md:top-[200px] w-full h-[150px] z-0"
           ></div>
           <div className="z-1 relative">
-            <div className="text-white">
-              <Table aria-label="simple table" stickyHeader>
-                <TableHead>
-                  <TableRow
-                    sx={{
-                      '& th': {
-                        borderColor: '#b3b3b3',
-                        bgcolor: isSticky ? '#1a1a1a' : 'transparent',
-                        top: mobile ? 56 : 64,
-                      },
-                    }}
-                  >
-                    {headers.map((header) => (
-                      <TableCell
-                        key={header.key}
-                        width={getWidth(header.key)}
-                        align={header.key == 'row_id' ? 'center' : 'left'}
-                        sx={{ color: '#b3b3b3', padding: 2 }}
-                      >
-                        {header.label}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {showingTracks.map((track, i) => (
-                    <TrackRow
-                      key={i}
-                      index={i}
-                      collectionType={collectionType}
-                      headers={headers}
-                      track={track}
-                      onAdd={onAdd}
-                      onDownload={onDownload}
-                      initialized={initialized}
-                      connected={connected}
-                      isLoading={isLoading}
-                    />
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <PlaylistTable
+              collectionType={collectionType}
+              tracks={showingTracks}
+              onAdd={onAdd}
+              onDownload={onDownload}
+              initialized={initialized}
+              connected={connected}
+              isLoading={isLoading}
+              isSticky={isSticky}
+            />
           </div>
         </div>
       </AppScrollbar>

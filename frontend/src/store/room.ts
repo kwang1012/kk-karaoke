@@ -80,7 +80,7 @@ export const useJam = () => {
     return roomId !== joinedRoom;
   }, [roomId, joinedRoom]);
   const isOwner = !isInJam;
-  const shouldBroadcast = useMemo(() => participants.length > 0, [roomId, joinedRoom]);
+  const shouldBroadcast = participants.length > 0;
   return {
     isInJam,
     isOwner,

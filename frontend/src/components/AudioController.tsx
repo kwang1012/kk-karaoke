@@ -25,12 +25,7 @@ export default function AudioController() {
 
   const [localProgress, setLocalProgress] = useState(progress);
 
-  const realProgress = useMemo(() => {
-    if (seeking) {
-      return localProgress;
-    }
-    return progress;
-  }, [progress, localProgress, seeking]);
+  const realProgress = seeking ? localProgress : progress;
 
   const handlePlayPause = () => {
     if (playing) {

@@ -191,9 +191,9 @@ export default function SongCard({
 }: SongCardProps) {
   const songStatus = useTrackStore((state) => state.songStatus);
   const songProgress = useTrackStore((state) => state.songProgress);
-  const status = useMemo(() => (track ? songStatus[track.id] : 'ready'), [songStatus, track?.id]);
-  const progress = useMemo(() => (track ? songProgress[track.id] : 100), [songProgress, track?.id]);
-  const isReady = useMemo(() => !status || status === 'ready', [status]);
+  const status = track ? songStatus[track.id] : 'ready';
+  const progress = track ? songProgress[track.id] : 100;
+  const isReady = !status || status === 'ready';
   const initialized = useWebSocketStore((state) => state.initialized);
   const connected = useWebSocketStore((state) => state.connected);
   const hasActions = useMemo(() => !!onAdd || !!onDelete, [onAdd, onDelete]);

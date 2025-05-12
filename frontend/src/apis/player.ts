@@ -55,9 +55,26 @@ export const pushToQueue = async (roomId: string, track: Track) => {
 
 export const removeFromQueue = async (roomId: string, track: Track) => {
   // TODO: implement remove track from queue
-  return api.post(`queue/${roomId}/remove`, track).catch((error) => {
-    console.error('Error removing track from queue:', error);
-  });
+  return api
+    .post(`queue/${roomId}/remove`, {
+      ...track,
+      time_added: track.timeAdded,
+    })
+    .then(({ data }) => data.track)
+    .catch((error) => {
+      console.error('Error removing track from queue:', error);
+    });
+};
+
+export const downloadTrack = async (track: Track) => {
+  return api
+    .post(`/download`, track)
+    .then(({ data }) => {
+      return data;
+    })
+    .catch((error) => {
+      console.error('Error downloading track:', error);
+    });
 };
 
 export const emptyQueue = async (roomId: string) => {

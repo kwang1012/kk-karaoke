@@ -1,8 +1,11 @@
+import asyncio
+import json
 import random
 from fastapi import Depends, FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from services.process_request import is_ready
+from models.track import Track
+from services.process_request import is_ready, send_process_request
 from managers.db import get_db
 from interfaces.queue import RedisQueueInterface
 from services.spotify import getCollectionTracks, getTopCategories, searchSpotify
@@ -83,7 +86,7 @@ async def get_tracks(
     for track in tracks:
         if is_ready(track):
             ready_tracks.append(track.id)
-    
+
     return JSONResponse(content={"ready_tracks": ready_tracks}, status_code=200)
 
 
@@ -104,6 +107,34 @@ def search(q: str):
     """
     searchResults = searchSpotify(q)
     return JSONResponse(content=searchResults, status_code=200)
+
+
+@api.post("/download")
+async def download_track(track: Track, redis_interface: RedisQueueInterface = Depends(
+        lambda: RedisQueueInterface(get_db()))):
+    """
+    Download a track based on the provided track object.
+    Returns a JSON response indicating the status of the download.
+    """
+    if is_ready(track):
+        return JSONResponse(content={"task": None}, status_code=200)
+
+    redis_interface.redis.sadd(
+        redis_interface.track_data_prefix, json.dumps(track.model_dump()))
+    loop = asyncio.get_event_loop()
+
+    def process_message_callback(message_data: dict):
+        """
+        Callback to handle messages from the Redis pub/sub related to track processing.
+        """
+        asyncio.run_coroutine_threadsafe(ws_manager.broadcast(
+            message_data), loop)
+
+    redis_interface.subscribe_to_channel(
+        track.id, process_message_callback)
+
+    task = send_process_request(track)
+    return JSONResponse(content={"task": task.id}, status_code=200)
 
 # websocket endpoint for real-time updates
 

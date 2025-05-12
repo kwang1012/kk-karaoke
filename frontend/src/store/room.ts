@@ -16,7 +16,7 @@ export interface RoomState {
   setRoomId: (roomId: string) => void; // Set the ID of the room
   addParticipant: (person: User) => void; // Add a participant to the room
   removeParticipant: (person: User) => void; // Remove a participant from the room
-  fetchRoom: () => Promise<void>; // Fetch the room ID from the server
+  fetchRoom: () => Promise<any>; // Fetch the room ID from the server
 }
 
 export const useRoomStore = create<RoomState>()(
@@ -54,6 +54,7 @@ export const useRoomStore = create<RoomState>()(
             playing: data.playing,
             volume: data.volume,
           }));
+          return data;
         } catch (error) {
           console.error('Error fetching room participants:', error);
           set(() => ({
@@ -87,4 +88,10 @@ export const useJam = () => {
     participants,
     shouldBroadcast,
   };
+};
+
+export const useActiveRoomId = () => {
+  const roomId = useRoomStore((state) => state.roomId);
+  const joinedRoomId = useRoomStore((state) => state.joinedRoom);
+  return joinedRoomId || roomId;
 };

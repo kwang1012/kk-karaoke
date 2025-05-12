@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import React, { createContext, useMemo, useState, useContext, useRef, useEffect, act } from 'react';
 import {
+  downloadTrack,
   emptyQueue,
   fetchLyrics,
   fetchQueue,
@@ -38,8 +39,6 @@ type PlayerContextType = {
   setSeeking: React.Dispatch<React.SetStateAction<boolean>>;
   vocalOn: boolean;
   setVocalOn: (value: boolean) => void;
-  vocalVolume: number;
-  setVocalVolume: React.Dispatch<React.SetStateAction<number>>;
   // lyrics context
   lyrics: Lyrics[];
   setLyrics: React.Dispatch<React.SetStateAction<Lyrics[]>>;
@@ -58,7 +57,8 @@ type PlayerContextType = {
   previous: () => void;
   getRandomTracks: () => Promise<void>;
   addSongToQueue: (track: Track) => Promise<void>;
-  rmSongFromQueue: (track: Track, idx: number) => Promise<void>;
+  rmSongFromQueue: (track: Track) => Promise<void>;
+  downloadSong: (track: Track) => Promise<void>;
   clearQueue: () => Promise<void>;
   // jam
   isInJam: boolean;
@@ -69,21 +69,20 @@ type PlayerContextType = {
 
 export const PlayerContext = createContext<PlayerContextType | null>(null);
 
-const DEFAULT_VOCAL_VOLUME = 0.6; // Default vocal volume
 const DEFAULT_VOCALESS_VOCAL_VOLUME = 0; // Default volume for voiceless playback
-// const DEFAULT_INSTRUMENTAL_VOLUME = 0.8; // Default instrumental volume
 
 function createPlayerContext({
   syncedPlayerRef,
 }: {
   syncedPlayerRef: React.MutableRefObject<SyncedAudioPlayer | null>;
 }) {
+  // initial
+  const [loadingInitial, setLoadingInitial] = useState(true);
   // audio context
   const [loading, setLoading] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [semitone, setSemitone] = useState(0);
   // const [volume, setVolume] = useState(DEFAULT_INSTRUMENTAL_VOLUME);
-  const [vocalVolume, setVocalVolume] = useState(DEFAULT_VOCAL_VOLUME);
   const [duration, setDuration] = useState(0);
   const [progress, setProgress] = useState(0);
   // const [vocalOn, setVocalOn] = useState(false);
@@ -114,6 +113,7 @@ function createPlayerContext({
   const joinedRoomId = useRoomStore((state) => state.joinedRoom);
   const activeRoomId = useMemo(() => joinedRoomId || roomId, [joinedRoomId, roomId]);
   const sendMessage = useWebSocketStore((state) => state.sendMessage);
+  const fetchRoom = useRoomStore((state) => state.fetchRoom);
 
   const { isInJam, isOwner, shouldBroadcast } = useJam();
 
@@ -165,7 +165,7 @@ function createPlayerContext({
               if (data.volume) {
                 setVolume(data.volume);
                 const newVolume = Math.min(1, Math.max(0, data.volume));
-                syncedPlayerRef.current?.setVolume(newVolume, vocalVolume);
+                syncedPlayerRef.current?.setVolume(newVolume, vocalOn ? newVolume : DEFAULT_VOCALESS_VOCAL_VOLUME);
               }
             }
             break;
@@ -187,7 +187,19 @@ function createPlayerContext({
   });
   // 🔧 Initialize once
   useEffect(() => {
-    // fetching queue
+    fetchRoom()
+      .then((data) => {
+        // setProgress(data.currentTime);
+        // if (syncedPlayerRef.current) {
+        //   syncedPlayerRef.current.seek(data.currentTime);
+        // }
+      })
+      .finally(() => {
+        setLoadingInitial(false);
+      });
+  }, []);
+
+  useEffect(() => {
     if (tracks) {
       setQueue(tracks);
     }
@@ -198,11 +210,12 @@ function createPlayerContext({
 
   // =============== useEffect ===============
 
-  // update progress every 50ms
+  // update progress every 200ms
   useEffect(() => {
     if (!playing) return;
 
     const interval = setInterval(() => {
+      if (loadingInitial) return;
       if (!seeking && syncedPlayerRef.current && syncedPlayerRef.current.isPlaying) {
         const currentTime = syncedPlayerRef.current?.getCurrentTime();
         setProgress(currentTime);
@@ -219,7 +232,6 @@ function createPlayerContext({
         }
         if (currentTime >= duration) {
           syncedPlayerRef.current?.stop();
-          setProgress(0);
           next();
         }
       }
@@ -231,7 +243,7 @@ function createPlayerContext({
   // detect current track change
   useEffect(() => {
     // Still need to load the track to get the duration. Should we do this?
-    // if (isInJam) return;
+    if (loadingInitial) return;
     // no next track
     if (!currentSong) {
       setLyrics([]);
@@ -262,9 +274,6 @@ function createPlayerContext({
     console.log('Play new track:', currentSong.name);
 
     // reset state related to the previous track
-    setLyrics([]);
-    setCurrentLine(-1);
-    setProgress(0);
     if (player instanceof ShiftedAutioPlayer) {
       player.setSemitone(0);
       setSemitone(0);
@@ -298,7 +307,7 @@ function createPlayerContext({
     if (loading) return;
     if (!currentSong || !syncedPlayerRef.current) return;
     const player = syncedPlayerRef.current;
-    player.setVolume(volume, vocalOn ? vocalVolume : DEFAULT_VOCALESS_VOCAL_VOLUME);
+    player.setVolume(volume, vocalOn ? volume : DEFAULT_VOCALESS_VOCAL_VOLUME);
     player.play();
     setPlaying(true);
   };
@@ -309,6 +318,9 @@ function createPlayerContext({
       console.log('No next track in the queue');
       return;
     }
+    setLyrics([]);
+    setCurrentLine(-1);
+    setProgress(0);
     updateQueueIdx(activeRoomId, queueIdx + 1);
     setQueueIdx(queueIdx + 1);
   };
@@ -318,6 +330,9 @@ function createPlayerContext({
       console.log('No previous track in the queue');
       return;
     }
+    setLyrics([]);
+    setCurrentLine(-1);
+    setProgress(0);
     updateQueueIdx(activeRoomId, queueIdx - 1);
     setQueueIdx(queueIdx - 1);
   };
@@ -340,11 +355,25 @@ function createPlayerContext({
       }
     });
   };
-  const rmSongFromQueue = async (track: Track, idx: number) => {
-    removeFromQueue(activeRoomId, track).then(() => {
-      // removeSongStatus(track.id);
-      // removeSongProgress(track.id);
-      setQueue((prevQueue) => prevQueue.filter((_, i) => i !== idx));
+  const rmSongFromQueue = async (track: Track) => {
+    removeFromQueue(activeRoomId, track).then((removedTrack) => {
+      if (removedTrack) {
+        removeSongStatus(removedTrack.id);
+        removeSongProgress(removedTrack.id);
+        const newQueue = queue.filter((t) => t.timeAdded !== removedTrack.timeAdded || t.id !== removedTrack.id);
+        setQueue(newQueue);
+      }
+    });
+  };
+  const downloadSong = async (track: Track) => {
+    downloadTrack(track).then((data) => {
+      // no task, is ready
+      if (!data.task) {
+        setSongStatus(track.id, 'ready');
+        return;
+      } else {
+        setSongStatus(track.id, 'submitted');
+      }
     });
   };
   const clearQueue = async () => {
@@ -372,8 +401,6 @@ function createPlayerContext({
       setSeeking,
       vocalOn,
       setVocalOn,
-      vocalVolume,
-      setVocalVolume,
       lyrics,
       setLyrics,
       currentLine,
@@ -391,6 +418,7 @@ function createPlayerContext({
       getRandomTracks,
       addSongToQueue,
       rmSongFromQueue,
+      downloadSong,
       clearQueue,
       setSongStatus,
       removeSongStatus,
@@ -417,8 +445,6 @@ function createPlayerContext({
       setSeeking,
       vocalOn,
       setVocalOn,
-      vocalVolume,
-      setVocalVolume,
       progress,
       setProgress,
       lyrics,
@@ -438,6 +464,7 @@ function createPlayerContext({
       getRandomTracks,
       addSongToQueue,
       rmSongFromQueue,
+      downloadSong,
       clearQueue,
       setSongStatus,
       removeSongStatus,
@@ -481,8 +508,6 @@ export const usePlayer = () => {
     setSemitone,
     volume,
     setVolume,
-    vocalVolume,
-    setVocalVolume,
     duration,
     seeking,
     setSeeking,
@@ -503,6 +528,7 @@ export const usePlayer = () => {
     previous,
     addSongToQueue,
     rmSongFromQueue,
+    downloadSong,
     getRandomTracks,
     clearQueue,
     // jam
@@ -521,7 +547,7 @@ export const usePlayer = () => {
     volume,
     setVolume: (value: number) => {
       const newVolume = Math.min(1, Math.max(0, value));
-      syncedPlayerRef.current?.setVolume(newVolume, vocalVolume);
+      syncedPlayerRef.current?.setVolume(newVolume, vocalOn ? newVolume : DEFAULT_VOCALESS_VOCAL_VOLUME);
       setVolume(newVolume);
     },
     seeking,
@@ -557,19 +583,18 @@ export const usePlayer = () => {
     },
     toggleVocal: () => {
       if (!syncedPlayerRef.current) return;
-      const newVolume = vocalOn ? DEFAULT_VOCALESS_VOCAL_VOLUME : DEFAULT_VOCAL_VOLUME;
-      setVocalVolume(newVolume);
+      const newVolume = vocalOn ? DEFAULT_VOCALESS_VOCAL_VOLUME : volume;
       syncedPlayerRef.current.setVolume(volume, newVolume);
       setVocalOn(!vocalOn);
     },
     increaseVolume: () => {
       const newVolume = Math.min(1, volume + 0.1);
-      syncedPlayerRef.current?.setVolume(newVolume, vocalVolume);
+      syncedPlayerRef.current?.setVolume(newVolume, vocalOn ? newVolume : DEFAULT_VOCALESS_VOCAL_VOLUME);
       setVolume(newVolume);
     },
     decreaseVolume: () => {
       const newVolume = Math.max(0, volume - 0.1);
-      syncedPlayerRef.current?.setVolume(newVolume, vocalVolume);
+      syncedPlayerRef.current?.setVolume(newVolume, vocalOn ? newVolume : DEFAULT_VOCALESS_VOCAL_VOLUME);
       setVolume(newVolume);
     },
     increaseSemitone: () => {
@@ -609,6 +634,7 @@ export const usePlayer = () => {
     },
     addSongToQueue,
     rmSongFromQueue,
+    downloadSong,
     getRandomTracks,
     clearQueue,
   };

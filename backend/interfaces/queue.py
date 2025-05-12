@@ -18,7 +18,7 @@ class RedisQueueInterface:
     # --- Queue Operations ---
     def add_track_to_queue(self, room_id: str, track: Track) -> int:
         try:
-            track.time_added = int(time.time())
+            track.time_added = time.time_ns()
             user_queue_key = f"{self.room_prefix}{room_id}:queue"
             track_json = json.dumps(track.model_dump())
             idx = self.redis.rpush(user_queue_key, track_json)
@@ -28,7 +28,7 @@ class RedisQueueInterface:
             print(f"Error adding track to room queue {room_id}: {e}")
             raise
 
-    def remove_track_from_queue(self, room_id: str, track: Track) -> Optional[str]:
+    def remove_track_from_queue(self, room_id: str, track: Track) -> Optional[dict]:
         try:
             user_queue_key = f"{self.room_prefix}{room_id}:queue"
             queue_length: int = self.redis.llen(user_queue_key)  # type: ignore
@@ -37,14 +37,24 @@ class RedisQueueInterface:
                     user_queue_key, i)  # type: ignore
                 if track_data:
                     stored_track = Track(**json.loads(track_data))
-                    # TODO: add time_added
-                    if stored_track.id == track.id:
+                    if stored_track.id == track.id and stored_track.time_added == track.time_added:
                         self.redis.lrem(user_queue_key, 1, track_data)
-                        return "OK"
+                        return stored_track.model_dump()
             return None  # not found
         except redis.RedisError as e:
             print(f"Error removing track from room queue {room_id}: {e}")
             raise
+
+    def set_queue(self, room_id: str, tracks: List[Track]) -> Any:
+        try:
+            user_queue_key = f"{self.room_prefix}{room_id}:queue"
+            self.redis.delete(user_queue_key)  # Clear existing queue
+            for track in tracks:
+                track_json = json.dumps(track.model_dump())
+                self.redis.rpush(user_queue_key, track_json)
+        except redis.RedisError as e:
+            print(f"Error setting track queue for room {room_id}: {e}")
+            return {"error": str(e)}
 
     def get_queue(self, room_id: Optional[str] = None) -> List[Track]:
         try:

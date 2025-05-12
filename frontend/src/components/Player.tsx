@@ -1,12 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
-import { fetchQueue, fetchLyrics, updateQueueIdx } from 'src/apis/player';
+import { useEffect } from 'react';
+import { fetchQueue, fetchLyrics } from 'src/apis/player';
 import { useRemoteMessageQueue } from 'src/hooks/queue';
-import ShiftedAutioPlayer from 'src/shiftedPlayer';
+import ShiftedAudioPlayer from 'src/shiftedPlayer';
 import { useTrackStore } from 'src/store';
 import { usePlayer } from 'src/store/player';
 import { useActiveRoomId, useJam, useRoomStore } from 'src/store/room';
-import { useSettingStore } from 'src/store/setting';
 import { useWebSocketStore } from 'src/store/ws';
 import SyncedAudioPlayer from 'src/syncedPlayer';
 import { api } from 'src/utils/api';
@@ -122,7 +121,7 @@ export const Player = () => {
   });
   useEffect(() => {
     let playerCls: typeof SyncedAudioPlayer;
-    if (enabledPitchShift) playerCls = ShiftedAutioPlayer;
+    if (enabledPitchShift) playerCls = ShiftedAudioPlayer;
     else playerCls = SyncedAudioPlayer;
 
     setSyncedPlayer(new playerCls());

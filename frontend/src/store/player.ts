@@ -45,6 +45,7 @@ type PlayerStore = {
   // queue context
   queue: Track[];
   setQueue: (value: Track[]) => void;
+  reorderQueue: (newItems: Track[]) => void;
   queueIdx: number;
   setQueueIdx: (queIdx: number) => void;
   addToQueue: (track: Track) => void;
@@ -59,7 +60,7 @@ type PlayerStore = {
   clearQueue: () => Promise<void>;
 };
 
-const usePlayerStore = create<PlayerStore>()(
+export const usePlayerStore = create<PlayerStore>()(
   persist(
     (set, get) => ({
       syncedPlayer: null,
@@ -88,6 +89,14 @@ const usePlayerStore = create<PlayerStore>()(
       setCurrentLine: (value: number) => set({ currentLine: value }),
       queue: [],
       setQueue: (value: Track[]) => set({ queue: value }),
+      reorderQueue: (newItems: Track[]) => {
+        set((state) => {
+          const updatedQueue = [...state.queue.slice(0, get().queueIdx + 1), ...newItems];
+          return {
+            queue: updatedQueue,
+          };
+        });
+      },
       queueIdx: 0,
       setQueueIdx: (queueIdx: number) => set({ queueIdx }),
       addToQueue: (track: Track) => {
@@ -395,5 +404,16 @@ export const usePlayer = () => {
     decreaseVolume,
     increaseSemitone,
     decreaseSemitone,
+  };
+};
+
+export const useQueue = () => {
+  const queue = usePlayerStore((state) => state.queue);
+  const queueIdx = usePlayerStore((state) => state.queueIdx);
+  const currentSong = queue[queueIdx] || null;
+  return {
+    queue,
+    queueIdx,
+    currentSong,
   };
 };

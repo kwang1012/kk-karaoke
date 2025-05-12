@@ -1,7 +1,7 @@
 import asyncio
 import json
 import random
-from fastapi import Depends, FastAPI, WebSocket
+from fastapi import APIRouter, Depends, FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from models.track import Track
@@ -20,8 +20,7 @@ from dotenv import load_dotenv
 load_dotenv()  # Load environment variables from .env file
 
 app = FastAPI()
-api = FastAPI()
-app.mount("/api", api)
+api = APIRouter()
 
 app.add_middleware(FormatReponseMiddleware)
 app.add_middleware(
@@ -31,6 +30,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 api.include_router(track_router, prefix="/tracks", tags=["tracks"])
 api.include_router(lyrics_router, prefix="/lyrics", tags=["lyrics"])
@@ -142,3 +142,5 @@ async def download_track(track: Track, redis_interface: RedisQueueInterface = De
 @api.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await ws_manager.websocket_endpoint(websocket)
+
+app.include_router(api, prefix="/api")

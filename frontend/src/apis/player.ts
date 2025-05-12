@@ -54,7 +54,6 @@ export const pushToQueue = async (roomId: string, track: Track) => {
 };
 
 export const removeFromQueue = async (roomId: string, track: Track) => {
-  // TODO: implement remove track from queue
   return api
     .post(`queue/${roomId}/remove`, {
       ...track,

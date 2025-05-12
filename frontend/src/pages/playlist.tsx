@@ -35,7 +35,7 @@ import {
 import AppMenu from 'src/components/Menu';
 import { getAvgRGB } from 'src/utils';
 import Scrollbar from 'react-scrollbars-custom';
-import { usePlayer } from 'src/store/player';
+import { usePlayerStore } from 'src/store/player';
 import { Track, Collection, Album } from 'src/models/spotify';
 import { useTrackStore } from 'src/store';
 
@@ -387,7 +387,8 @@ export default function PlaylistView() {
   const headerRef = useRef<HTMLDivElement>(null);
   const theme = useTheme();
   const mobile = useMediaQuery(theme.breakpoints.down('md'));
-  const { addSongToQueue, downloadSong } = usePlayer();
+  const addSongToQueue = usePlayerStore((state) => state.addSongToQueue);
+  const downloadSong = usePlayerStore((state) => state.downloadSong);
 
   const headers = useMemo(() => {
     return collectionType === 'album' || mobile ? ALBUM_HEADERS : PLAYLIST_HEADERS;

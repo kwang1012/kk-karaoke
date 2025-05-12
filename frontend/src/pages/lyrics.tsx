@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import AppScrollbar from 'src/components/Scrollbar';
-import { usePlayer } from 'src/store/player';
+import { usePlayer, usePlayerStore } from 'src/store/player';
 import { useTrackStore } from 'src/store';
 import { DEFAULT_BG_COLOR, DEFAULT_COLOR, getLyricsRGB } from 'src/utils';
 

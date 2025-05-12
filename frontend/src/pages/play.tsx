@@ -1,8 +1,7 @@
 import MobileAudioController from 'src/components/MobielAudioController';
 import { styled } from '@mui/material/styles';
-import { usePlayer } from 'src/store/player';
+import { usePlayerStore, useQueue } from 'src/store/player';
 import placeholder from 'src/assets/placeholder.png';
-import SongCard from 'src/components/SongCard';
 import AppScrollbar from 'src/components/Scrollbar';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@mui/material';
@@ -30,8 +29,8 @@ const Overlay = styled('div')(({ theme }) => ({
   zIndex: 1,
 }));
 export default function PlayView() {
-  const { currentSong, queue, queueIdx } = usePlayer();
-  const { rmSongFromQueue, getRandomTracks } = usePlayer();
+  const { currentSong, queue, queueIdx } = useQueue();
+  const getRandomTracks = usePlayerStore((state) => state.getRandomTracks);
   const [scrollTop, setScrollTop] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
   const sticky = useMemo(() => {

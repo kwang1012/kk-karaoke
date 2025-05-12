@@ -2,7 +2,7 @@ import { faStepBackward, faCirclePause, faCirclePlay, faForwardStep } from '@for
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { IconButton } from '@mui/material';
 import AppSlider from './Slider';
-import { usePlayer } from 'src/hooks/player';
+import { usePlayer } from 'src/store/player';
 import { VolumeMuteOutlined, VolumeUpOutlined } from '@mui/icons-material';
 import { useMemo, useState } from 'react';
 
@@ -14,7 +14,7 @@ function formatTime(seconds: number): string {
 }
 export default function MobileAudioController() {
   const { volume, progress, seeking, setSeeking, duration, playing } = usePlayer();
-  const { play, pause, next, previous, resetProgress, setVolume } = usePlayer();
+  const { play, pause, next, previous, seek, setVolume } = usePlayer();
 
   const [localProgress, setLocalProgress] = useState(progress);
 
@@ -41,7 +41,7 @@ export default function MobileAudioController() {
 
   const handleSliderCommit = (event: React.SyntheticEvent | Event, value: number | number[]) => {
     if (typeof value === 'number') {
-      resetProgress(value);
+      seek(value);
       setSeeking(false);
     }
   };
@@ -68,7 +68,11 @@ export default function MobileAudioController() {
         </div>
       </div>
       <div className="flex items-center justify-center">
-        <IconButton style={{ fontSize: 28, padding: 0, transform: 'scaleY(0.8)' }} size="small" onClick={previous}>
+        <IconButton
+          style={{ fontSize: 28, padding: 0, transform: 'scaleY(0.8)' }}
+          size="small"
+          onClick={() => previous()}
+        >
           <FontAwesomeIcon icon={faStepBackward} size="xl" color="white" />
         </IconButton>
         <IconButton style={{ fontSize: 28, padding: 0 }} onClick={handlePlayPause} className="mx-10">
@@ -78,7 +82,7 @@ export default function MobileAudioController() {
             <FontAwesomeIcon icon={faCirclePlay} size="xl" color="white" />
           )}
         </IconButton>
-        <IconButton style={{ fontSize: 28, padding: 0, transform: 'scaleY(0.8)' }} size="small" onClick={next}>
+        <IconButton style={{ fontSize: 28, padding: 0, transform: 'scaleY(0.8)' }} size="small" onClick={() => next()}>
           <FontAwesomeIcon icon={faForwardStep} size="xl" color="white" />
         </IconButton>
       </div>

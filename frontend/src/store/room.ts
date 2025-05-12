@@ -16,7 +16,7 @@ export interface RoomState {
   setRoomId: (roomId: string) => void; // Set the ID of the room
   addParticipant: (person: User) => void; // Add a participant to the room
   removeParticipant: (person: User) => void; // Remove a participant from the room
-  fetchRoom: () => Promise<any>; // Fetch the room ID from the server
+  fetchRoom: (roomId: string) => Promise<any>; // Fetch the room ID from the server
 }
 
 export const useRoomStore = create<RoomState>()(
@@ -43,8 +43,7 @@ export const useRoomStore = create<RoomState>()(
         participants: get().participants.filter((p) => p.id !== person.id),
       }),
       //
-      fetchRoom: async () => {
-        const activeRoomId = get().joinedRoom || get().roomId;
+      fetchRoom: async (activeRoomId: string) => {
         try {
           const { data } = await api.get(`/room/${activeRoomId}`);
           set(() => ({
@@ -80,7 +79,7 @@ export const useJam = () => {
     if (joinedRoom === '') return false;
     return roomId !== joinedRoom;
   }, [roomId, joinedRoom]);
-  const isOwner = useMemo(() => !isInJam, [roomId, joinedRoom]);
+  const isOwner = !isInJam;
   const shouldBroadcast = useMemo(() => participants.length > 0, [roomId, joinedRoom]);
   return {
     isInJam,

@@ -11,7 +11,7 @@ import { useAppStore } from 'src/store';
 import { useMediaQuery, useTheme } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import SearchBox from 'src/components/SearchBox';
-import { usePlayer } from 'src/hooks/player';
+import { usePlayer } from 'src/store/player';
 
 const getArtistsStr = (artists: any[]) => {
   return artists

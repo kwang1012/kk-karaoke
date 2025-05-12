@@ -3,6 +3,7 @@ import { Button, Card, CardContent, Divider } from '@mui/material';
 import { useState } from 'react';
 import QRCode from 'react-qr-code';
 import { useRoomStore } from 'src/store/room';
+import { copyToClipboard } from 'src/utils';
 import { api } from 'src/utils/api';
 
 export default function Jam() {
@@ -63,7 +64,11 @@ export default function Jam() {
                 },
               }}
               onClick={() => {
-                navigator.clipboard.writeText(joinURL);
+                try {
+                  navigator.clipboard.writeText(joinURL);
+                } catch (err) {
+                  copyToClipboard(joinURL);
+                }
               }}
             >
               <ContentCopyOutlined className="mr-2" fontSize="small" />

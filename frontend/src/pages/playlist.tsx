@@ -35,7 +35,7 @@ import {
 import AppMenu from 'src/components/Menu';
 import { getAvgRGB } from 'src/utils';
 import Scrollbar from 'react-scrollbars-custom';
-import { usePlayer } from 'src/hooks/player';
+import { usePlayer } from 'src/store/player';
 import { Track, Collection, Album } from 'src/models/spotify';
 import { useTrackStore } from 'src/store';
 

@@ -38,20 +38,12 @@ class WebSocketManager:
 
     async def multicast(self, socket, roomId, data):
         connections = self.rooms.get(roomId, [])
-        disconnected = []
         for connection in connections:
             if connection == socket:
                 continue
             if connection.client_state != WebSocketState.CONNECTED:
                 continue
-            try:
-                await connection.send_json(data)
-            except WebSocketDisconnect:
-                # Handle disconnection
-                print("Client disconnected:", connection.client)
-                disconnected.append(connection)
-        for client in disconnected:
-            connections.remove(client)
+            await connection.send_json(data)
 
     async def broadcast(self, data):
         # print("Broadcasting message to all clients:", data)

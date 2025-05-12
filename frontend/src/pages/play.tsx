@@ -1,12 +1,13 @@
 import MobileAudioController from 'src/components/MobielAudioController';
 import { styled } from '@mui/material/styles';
-import { usePlayer } from 'src/hooks/player';
+import { usePlayer } from 'src/store/player';
 import placeholder from 'src/assets/placeholder.png';
 import SongCard from 'src/components/SongCard';
 import AppScrollbar from 'src/components/Scrollbar';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@mui/material';
-import { getAvgRGB } from 'src/utils';
+import { getAvgRGB, getUniqueId } from 'src/utils';
+import TrackQueue from 'src/components/TrackQueue';
 
 const Layout = styled('div')(({ theme }) => ({
   display: 'grid',
@@ -44,6 +45,14 @@ export default function PlayView() {
   }, []);
   const [color, setColor] = useState<string>('#535353');
   const image = currentSong?.album?.images?.[0]?.url;
+
+  const tracks = useMemo(() => {
+    return queue.slice(queueIdx + 1).map((track, index) => ({
+      index,
+      ...track,
+      uniqueId: getUniqueId(track),
+    }));
+  }, [queue, queueIdx]);
   useEffect(() => {
     if (!image) {
       setColor('#535353');
@@ -76,23 +85,18 @@ export default function PlayView() {
           )}
           <div ref={ref} className="sticky top-0 flex items-center w-full z-50 px-6">
             <div className="w-16 h-16 rounded-md bg-[#c3c3c3] overflow-hidden">
-              <img src={currentSong?.album?.image || placeholder} className="w-full h-full" />
+              <img src={currentSong?.album?.images?.[0]?.url || placeholder} className="w-full h-full" />
             </div>
             <span className="text-xl ml-2 text-white">{currentSong?.name || 'Not Playing'}</span>
           </div>
           <div className="w-full px-6 pt-5 text-white">
-            {queue.length - queueIdx > 1 ? (
-              <>
-                <span>Queue</span>
-                {queue.slice(queueIdx + 1).map((track, index) => (
-                  <SongCard key={index} className="mt-1" track={track} onDelete={() => rmSongFromQueue(track, index)} />
-                ))}
-              </>
+            {tracks.length ? (
+              <TrackQueue tracks={tracks} />
             ) : (
               <>
-                <div className="text-white mt-10 w-full text-center">There's no music in the queue.</div>
-                <div className="mt-5 px-2 flex justify-center">
-                  <Button variant="text" className="text-[#bcbcbc]" onClick={getRandomTracks}>
+                <div className="text-gray-400 mt-2 w-full pl-2">There's no music in the queue.</div>
+                <div className="mt-5 px-2 flex justify-center text-primary">
+                  <Button variant="contained" className="bg-primary" onClick={getRandomTracks}>
                     Random songs?
                   </Button>
                 </div>

@@ -23,7 +23,15 @@ import { useWebSocketStore } from 'src/store/ws';
 import { useQuery } from '@tanstack/react-query';
 import { styled } from '@mui/material/styles';
 import Skeleton from 'react-loading-skeleton';
-import { CheckCircle, Delete, MoreHoriz, PlayArrow, QueueMusic } from '@mui/icons-material';
+import {
+  CheckCircle,
+  Delete,
+  DownloadForOfflineOutlined,
+  Downloading,
+  MoreHoriz,
+  PlayArrow,
+  QueueMusic,
+} from '@mui/icons-material';
 import AppMenu from 'src/components/Menu';
 import { getAvgRGB } from 'src/utils';
 import Scrollbar from 'react-scrollbars-custom';
@@ -233,6 +241,7 @@ const TrackRow = memo(
     connected,
     onAdd,
     isLoading,
+    onDownload,
   }: {
     index: number;
     collectionType: string;
@@ -241,8 +250,13 @@ const TrackRow = memo(
     initialized: boolean;
     connected: boolean;
     onAdd: (track: Track) => void;
+    onDownload: (track: Track) => void;
     isLoading: boolean;
   }) => {
+    const songStatus = useTrackStore((state) => state.songStatus);
+    const status = useMemo(() => (track ? songStatus[track.id] : 'ready'), [songStatus, track?.id]);
+    const unknown = useMemo(() => status === undefined, [status]); // for processing
+    const downloaded = useMemo(() => status === 'ready', [status]); // for processing
     const readyTracks = useTrackStore((state) => state.readyTracks);
     const parsedTrack = useMemo(() => {
       if (!track)
@@ -318,9 +332,19 @@ const TrackRow = memo(
       ),
       action: !isLoading && (
         <div className="flex items-center justify-end">
-          {ready && (
+          {ready || downloaded ? (
             <Tooltip placement="top" title="Ready">
               <CheckCircle fontSize="small" color="success" className="mr-2 checked-icon" />
+            </Tooltip>
+          ) : unknown ? (
+            <Tooltip placement="top" title="Download and process">
+              <IconButton disableRipple className="p-0 mr-2 row-actions" onClick={() => onDownload(parsedTrack)}>
+                <DownloadForOfflineOutlined fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          ) : (
+            <Tooltip placement="top" title="Downloading">
+              <Downloading fontSize="small" className="mr-2" />
             </Tooltip>
           )}
           <ActionMenu
@@ -363,7 +387,7 @@ export default function PlaylistView() {
   const headerRef = useRef<HTMLDivElement>(null);
   const theme = useTheme();
   const mobile = useMediaQuery(theme.breakpoints.down('md'));
-  const { addSongToQueue } = usePlayer();
+  const { addSongToQueue, downloadSong } = usePlayer();
 
   const headers = useMemo(() => {
     return collectionType === 'album' || mobile ? ALBUM_HEADERS : PLAYLIST_HEADERS;
@@ -395,6 +419,9 @@ export default function PlaylistView() {
       track.album = collection as Album;
     }
     addSongToQueue(track);
+  };
+  const onDownload = (track: Track) => {
+    downloadSong(track);
   };
   const [scrollTop, setScrollTop] = useState(0);
 
@@ -491,6 +518,7 @@ export default function PlaylistView() {
                       headers={headers}
                       track={track}
                       onAdd={onAdd}
+                      onDownload={onDownload}
                       initialized={initialized}
                       connected={connected}
                       isLoading={isLoading}

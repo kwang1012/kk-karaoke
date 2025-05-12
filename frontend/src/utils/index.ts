@@ -1,4 +1,5 @@
 import { Vibrant } from 'node-vibrant/browser';
+import { Track } from 'src/models/spotify';
 
 export const DEFAULT_COLOR = '#d3d3d3';
 export const DEFAULT_BG_COLOR = '#3a3a3a';
@@ -34,4 +35,8 @@ export function getLyricsRGB(src: string): Promise<any> {
       });
     };
   });
+}
+
+export function getUniqueId(track: Track) {
+  return `${track.id}-${track.timeAdded}`;
 }

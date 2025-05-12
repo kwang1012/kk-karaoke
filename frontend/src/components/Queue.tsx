@@ -10,6 +10,7 @@ import { useRemoteMessageQueue } from 'src/hooks/queue';
 import { usePlayer } from 'src/hooks/player';
 import TrackQueue from './TrackQueue';
 import Jam from './Jam';
+import { getUniqueId } from 'src/utils';
 
 const QueueContainer = styled('div')(({ theme }) => ({
   gridArea: 'queue',
@@ -40,6 +41,7 @@ const Queue = forwardRef<HTMLDivElement>((props, ref) => {
     return queue.slice(queueIdx + 1).map((track, index) => ({
       index,
       ...track,
+      uniqueId: getUniqueId(track),
     }));
   }, [queue, queueIdx]);
 

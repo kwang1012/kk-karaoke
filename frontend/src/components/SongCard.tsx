@@ -68,7 +68,7 @@ const HoverLayout = styled('div')(({ theme }) => ({
     '*': {
       color: 'white',
     },
-    ".checked-icon *": {
+    '.checked-icon *': {
       color: theme.palette.success.main,
     },
     backgroundColor: '#ffffff1a',
@@ -115,7 +115,7 @@ const ActionMenu = memo(
     const functions = [
       {
         fn: onAdd,
-        icon:  <QueueMusic />,
+        icon: <QueueMusic />,
         text: 'Add to queue',
       },
       {
@@ -127,7 +127,7 @@ const ActionMenu = memo(
     return (
       <div>
         <IconButton
-          className="row-actions"
+          className="row-actions interactive-section"
           disableTouchRipple
           sx={{ minWidth: 40 }}
           onClick={(e) => {
@@ -144,6 +144,7 @@ const ActionMenu = memo(
               func.fn && (
                 <MenuItem
                   key={index}
+                  className="interactive-section"
                   onClick={() => {
                     if (!track || !func.fn) return;
                     func.fn(track);

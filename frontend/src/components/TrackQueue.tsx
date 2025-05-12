@@ -35,6 +35,8 @@ function SortableItem({ id, children }: { id: string; children?: React.ReactNode
   );
 }
 import { useMemo, type PointerEvent } from 'react';
+import { api } from 'src/utils/api';
+import { useActiveRoomId, useRoomStore } from 'src/store/room';
 /**
  * An extended "PointerSensor" that prevent some
  * interactive html element(button, input, textarea, select, option...) from dragging
@@ -54,8 +56,10 @@ export class SmartPointerSensor extends PointerSensor {
   ];
 }
 
-function isInteractiveElement(element: Element | null) {
-  const interactiveElements = ['button', 'input', 'textarea', 'select', 'option', 'svg', 'path'];
+function isInteractiveElement(element: any | null) {
+  const interactiveParent = element.closest('.interactive-section');
+  if (interactiveParent) return true;
+  const interactiveElements = ['button', 'input', 'textarea', 'select', 'option'];
   if (element?.classList?.contains('MuiBackdrop-root')) return true;
   if (element?.tagName && interactiveElements.includes(element.tagName.toLowerCase())) {
     return true;
@@ -94,36 +98,39 @@ function SortableList({
   );
 }
 
-function getUniqueId(track: Track) {
-  return track.index.toString() + track.timeAdded.toString();
-}
 export default function TrackQueue({ tracks }: { tracks: Track[] }) {
-  const { queue, setQueue } = usePlayer();
+  const { setQueue, queueIdx } = usePlayer();
   const { rmSongFromQueue } = usePlayer();
-  const realQueue = queue.slice(1);
+  const activeRoomId = useActiveRoomId();
+  const items = useMemo(() => tracks.map((item) => item.uniqueId), [tracks]);
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (active.id !== over?.id) {
-      const oldIndex = tracksWithUniqueId.findIndex((track) => track.uniqueId === active.id);
-      const newIndex = tracksWithUniqueId.findIndex((track) => track.uniqueId === over?.id);
-      const newItems = [...realQueue];
-      newItems.splice(oldIndex, 1);
-      const activeItem = realQueue[oldIndex];
-      newItems.splice(newIndex, 0, activeItem);
-      setQueue((prev) => [prev[0], ...newItems]);
+      const oldIndex = tracks.findIndex((track) => track.uniqueId === active.id);
+      const newIndex = tracks.findIndex((track) => track.uniqueId === over?.id);
+      const newItems = [...tracks];
+      const [element] = newItems.splice(oldIndex, 1);
+      newItems.splice(newIndex, 0, element);
+      setQueue((prev) => [...prev.slice(0, queueIdx + 1), ...newItems]);
+      // The offset 0 of the queue is at the offset queueIdx + 1 in the total queue.
+      api
+        .post(`queue/${activeRoomId}/reorder`, {
+          oldIndex: queueIdx + oldIndex + 1,
+          newIndex: queueIdx + newIndex + 1,
+        })
+        .then(({ data }) => {
+          console.log(data);
+        })
+        .catch((err) => {
+          console.error(err);
+        });
     }
   };
-  const tracksWithUniqueId = useMemo(() => {
-    return tracks.map((track) => ({
-      uniqueId: getUniqueId(track),
-      ...track,
-    }));
-  }, [tracks]);
   return (
-    <SortableList onDragEnd={handleDragEnd} items={tracksWithUniqueId.map((item) => item.uniqueId)}>
-      {tracksWithUniqueId.map((track, index) => (
+    <SortableList onDragEnd={handleDragEnd} items={items}>
+      {tracks.map((track) => (
         <SortableItem key={track.uniqueId} id={track.uniqueId}>
-          <SongCard className="mt-1" track={track} onDelete={() => rmSongFromQueue(track, index + 1)} />
+          <SongCard className="mt-1" track={track} onDelete={() => rmSongFromQueue(track)} />
         </SortableItem>
       ))}
     </SortableList>

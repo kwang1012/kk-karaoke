@@ -16,6 +16,35 @@ ws_manager = WebSocketManager()
 # --- FastAPI Integration ---
 
 
+@router.post("/{room_id}/reorder")
+async def reorder_queue_endpoint(
+    room_id: str,
+    new_order: dict,
+    redis_interface: RedisQueueInterface = Depends(
+        lambda: RedisQueueInterface(get_db())),
+):
+    """
+    Reorder the queue for a specific room.
+
+    Args:
+        room_id: The ID of the room.
+        new_order: The new order of tracks.
+    """
+    try:
+        old_idx = new_order["oldIndex"]
+        new_idx = new_order["newIndex"]
+        tracks = redis_interface.get_queue(room_id)
+        element = tracks.pop(old_idx)
+        tracks.insert(new_idx, element)
+        redis_interface.set_queue(room_id, tracks)
+        await ws_manager.broadcast(
+            {"type": "queue", "data": {"action": "reordered", "tracks": new_order}}
+        )
+        return JSONResponse(content={"message": "Queue reordered"}, status_code=200)
+    except redis.RedisError as e:
+        raise HTTPException(status_code=500, detail=f"Redis error: {e}")
+
+
 @router.post("/{room_id}/add")
 async def add_to_queue_endpoint(
     room_id: str,
@@ -79,7 +108,8 @@ async def get_room_tracks(
         key = f"room:{room_id}:queue:current_idx"
         if not redis_interface.redis.exists(key):
             return JSONResponse(content={"tracks": [], "index": -1}, status_code=200)
-        current_idx = json.loads(redis_interface.redis.get(key)) # type: ignore
+        current_idx = json.loads(
+            redis_interface.redis.get(key))  # type: ignore
         return {"tracks": tracks, "index": current_idx}
     except redis.RedisError as e:
         raise HTTPException(
@@ -99,13 +129,11 @@ async def remove_from_queue_endpoint(
     """
     try:
         res = redis_interface.remove_track_from_queue(room_id, track)
-        if not res:
-            return JSONResponse(content={"message": "Track not found"}, status_code=404)
         await ws_manager.broadcast(
             {"type": "queue", "data": {
                 "action": "removed", "track": track.model_dump()}}
         )
-        return JSONResponse(content={"message": "Track removed from queue"}, status_code=200)
+        return JSONResponse(content={"track": res}, status_code=200)
     except redis.RedisError as e:
         raise HTTPException(status_code=500, detail=f"Redis error: {e}")
 

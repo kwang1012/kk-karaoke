@@ -27,12 +27,7 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
   const setSearching = useAppStore((state) => state.setSearching);
   const searchValue = useAppStore((state) => state.searchValue);
   const setSearchValue = useAppStore((state) => state.setSearchValue);
-  const fetchRoom = useRoomStore((state) => state.fetchRoom);
   const participants = useRoomStore((state) => state.participants);
-
-  useEffect(() => {
-    fetchRoom();
-  }, []);
 
   const handleSearchChange = (value: string) => {
     setSearchValue(value);

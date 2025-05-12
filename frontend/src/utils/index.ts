@@ -38,5 +38,5 @@ export function getLyricsRGB(src: string): Promise<any> {
 }
 
 export function getUniqueId(track: Track) {
-  return track.id.toString() + track.timeAdded.toString();
+  return `${track.id}-${track.timeAdded}`;
 }

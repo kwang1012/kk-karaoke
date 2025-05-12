@@ -112,6 +112,7 @@ export default function TrackQueue({ tracks }: { tracks: Track[] }) {
       const [element] = newItems.splice(oldIndex, 1);
       newItems.splice(newIndex, 0, element);
       setQueue((prev) => [...prev.slice(0, queueIdx + 1), ...newItems]);
+      // The offset 0 of the queue is at the offset queueIdx + 1 in the total queue.
       api
         .post(`queue/${activeRoomId}/reorder`, {
           oldIndex: queueIdx + oldIndex + 1,

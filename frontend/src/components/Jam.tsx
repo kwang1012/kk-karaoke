@@ -27,6 +27,7 @@ export default function Jam() {
   const [showQRCode, setShowQRCode] = useState(false);
   const [minimized, setMinimized] = useState(false);
   const roomId = useRoomStore((state) => state.roomId);
+  const setJoinedRoom = useRoomStore((state) => state.setJoinedRoom);
   const joinURL = window.location.protocol + '//' + window.location.host + '/join?room=' + roomId;
   const handleStartRoom = () => {
     setMinimized(false);
@@ -36,6 +37,7 @@ export default function Jam() {
       })
       .then(() => {
         setShowQRCode(true);
+        setJoinedRoom(roomId);
       })
       .catch((error) => {
         console.error('Error creating room:', error);
@@ -48,7 +50,7 @@ export default function Jam() {
         <StartButton onClick={handleStartRoom} />
       ) : (
         <Card sx={{ backgroundColor: theme.palette.background.secondary }}>
-          <CardContent className="text-sm text-[#d3d3d3]">
+          <CardContent className="text-sm text-[black] dark:text-[#d3d3d3]">
             <div className="flex items-start">
               <div className="flex-1">
                 {showQRCode

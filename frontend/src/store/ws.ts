@@ -12,7 +12,6 @@ export type Message = {
 interface WebSocketState {
   messageQueues: MessageQueue;
   connected: boolean;
-  initialized: boolean;
   error: any;
   sendMessage: (msg: any) => void;
   enqueueMessage: (queue: string, message: Message) => void;
@@ -42,7 +41,6 @@ export const useWebSocketStore = create<WebSocketState>()(
   subscribeWithSelector((set, get) => ({
     messageQueues: {},
     connected: false,
-    initialized: false,
     error: null,
     sendMessage: (msg: any) => {
       // TODO: temporarily disable sending messages
@@ -83,15 +81,6 @@ export const useWebSocketStore = create<WebSocketState>()(
 
       socket.onmessage = (event) => {
         const msg = JSON.parse(event.data) as Message;
-        if (msg.type === 'init') {
-          const roomId = useRoomStore.getState().roomId;
-          const joinedRoomId = useRoomStore.getState().joinedRoom;
-          const activeRoomId = joinedRoomId || roomId;
-          ('Initalized websocket connection');
-          socket?.send(JSON.stringify({ roomId: activeRoomId }));
-          set({ initialized: true });
-          return;
-        }
         get().enqueueMessage(msg.type, msg);
       };
 

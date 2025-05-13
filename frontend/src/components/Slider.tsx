@@ -50,7 +50,7 @@ const AppSlider = styled(Slider)(({ theme }) => ({
   '& .MuiSlider-track': {
     border: 'none',
     height: 4,
-    backgroundColor: 'white',
+    backgroundColor: theme.palette.mode === 'dark' ? 'white' : '#9d9986',
   },
   '& .MuiSlider-rail': {
     opacity: 0.5,

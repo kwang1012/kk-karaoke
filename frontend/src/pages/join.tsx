@@ -93,10 +93,6 @@ export default function JoinView() {
       setAvatarError(true);
       return;
     }
-    if (!roomIdToJoin) {
-      console.error('Room ID is required');
-      return;
-    }
     if (roomIdToJoin) {
       setJoinedRoom(roomIdToJoin);
     }

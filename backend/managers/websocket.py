@@ -66,16 +66,14 @@ class WebSocketManager:
             await connection.send_json(data)
 
     async def broadcast(self, data):
-        # print("Broadcasting message to all clients:", data)
         data = convert_keys(data)
-        disconnected = []
+        disconnected_clients = []
         for client in self.connected_clients:
-            try:
-                await client.send_json(data)
-            except WebSocketDisconnect:
-                disconnected.append(client)
-        # Remove disconnected clients
-        for client in disconnected:
+            if client.client_state == WebSocketState.DISCONNECTED:
+                disconnected_clients.append(client)
+                continue
+            await client.send_json(data)
+        for client in disconnected_clients:
             self.connected_clients.remove(client)
 
     async def websocket_endpoint(self, websocket: WebSocket):

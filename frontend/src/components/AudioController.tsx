@@ -4,7 +4,7 @@ import { Button, IconButton, TextField, Tooltip, useTheme } from '@mui/material'
 import AppSlider from './Slider';
 import SongCard from './SongCard';
 import { usePlayer } from 'src/store/player';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useTrackStore } from 'src/store';
 import { useLocation } from 'react-router-dom';
 import { api } from 'src/utils/api';

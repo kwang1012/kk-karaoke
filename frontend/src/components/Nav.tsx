@@ -52,13 +52,11 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
     onAddItem: (message) => {
       if (message.action == 'joined') {
         const participant = message.data.participant;
-        console.log('joined', participant);
         if (participant) {
           addParticipant(participant);
         }
       } else if (message.action == 'left') {
         const participant = message.data.participant;
-        console.log('left', participant);
         if (participant) {
           removeParticipant(participant);
         }
@@ -119,20 +117,15 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
           max={4}
           slotProps={{
             surplus: {
-              style: {
-                backgroundColor: '#1a1a1a',
-                width: 32,
-                height: 32,
-                fontSize: '1rem',
-              },
+              className: 'w-10 h-10 bg-[#bdb9a6] dark:bg-[#3a3a3a] text-sm',
             },
           }}
         >
           {participants.values().map((participant) => (
             <Tooltip title={participant.name} placement="bottom">
               <Avatar
+                className="w-10 h-10 bg-[#bdb9a6] dark:bg-[#3a3a3a] border-none"
                 key={participant.id}
-                sx={{ width: 40, height: 40 }}
                 alt={participant.name}
                 src={participant.avatar}
               />

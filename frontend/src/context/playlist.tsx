@@ -8,7 +8,6 @@ export const PlaylistContext = createContext({
   collectionType: '',
   onAdd: (track: Track) => {},
   onDownload: (track: Track) => {},
-  initialized: false,
   connected: false,
   isLoading: false,
   isSticky: false,

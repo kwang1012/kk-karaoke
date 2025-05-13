@@ -40,7 +40,7 @@ You can easily start the app with Docker.
 
 ```bash
 docker build -t kkaraoke .
-docker run -it --rm -p 8080:8080 -v $(pwd)/backend/storage:/app/backend/storage kkaraoke
+docker run -it --rm -p 8080:8080 -v $(pwd)/backend/storage:/app/backend/storage --env-file ./backend/.env kkaraoke
 ```
 
 ### Local environment

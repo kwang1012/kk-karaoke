@@ -6,3 +6,6 @@ backend/storage
 
 **/venv
 **/.venv
+
+# Ignore backend environment variables
+backend/.env

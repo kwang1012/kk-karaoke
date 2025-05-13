@@ -83,12 +83,12 @@ const PlaylistRow = memo(({ track, index }: { track: Track; index: number }) => 
     setMenuOpenStatus(index, open);
   };
   const image = parsedTrack.album?.images?.[0]?.url || placeholder;
-  const { collectionType, onAdd, onDownload, initialized, connected, isLoading, headers } = useContext(PlaylistContext);
+  const { collectionType, onAdd, onDownload, isLoading, headers } = useContext(PlaylistContext);
   const trackRow = {
     row_id: (
       <div className="flex items-center justify-center">
         <span className="row-id">{index + 1}</span>
-        <div className="cursor-pointer" onClick={() => initialized && connected && track && onAdd(parsedTrack)}>
+        <div className="cursor-pointer" onClick={() => track && onAdd(parsedTrack)}>
           <PlayArrow className="row-play" fontSize="small" />
         </div>
       </div>

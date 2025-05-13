@@ -53,8 +53,13 @@ async def join_room(room_id: str, user: User, redis_interface: RedisJamInterface
     try:
         # Check if the room exists
         if not redis_interface.jam_exists(room_id):
-            raise HTTPException(
-                status_code=404, detail=f"Room {room_id} not found")
+            if user.id == room_id:
+                # Create a new room if it doesn't exist
+                redis_interface.create_or_update_jam_state(
+                    room_id, {"id": room_id, "is_on": True})
+            else:
+                raise HTTPException(
+                    status_code=404, detail=f"Room {room_id} not found")
 
         # redis_interface.update_participants(room_id, user)
 

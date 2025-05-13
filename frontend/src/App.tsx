@@ -81,16 +81,6 @@ const AppRouters = () => {
 };
 
 function App() {
-  React.useEffect(() => {
-    // theme
-    const darkThemeMq = window.matchMedia('(prefers-color-scheme: dark)');
-
-    onBrowserThemeChange(darkThemeMq.matches);
-    darkThemeMq.addEventListener('change', (_) => {
-      onBrowserThemeChange(darkThemeMq.matches);
-    });
-  }, []);
-
   const connect = useWebSocketStore((state) => state.connect);
   const setSongStatus = useTrackStore((state) => state.setSongStatus);
   const setSongProgress = useTrackStore((state) => state.setSongProgress);
@@ -145,7 +135,22 @@ function App() {
 
   useRemoteMessageQueue('notify', { onAddItem: onNotifyMessage });
 
-  const onBrowserThemeChange = useSettingStore((state) => state.onBrowserThemeChange);
+  const theme = useSettingStore((state) => state.theme);
+  const dark = useSettingStore((state) => state.dark);
+  const light = useSettingStore((state) => state.light);
+  React.useEffect(() => {
+    // theme
+    if (theme === 'dark') dark();
+    else light();
+    // const darkThemeMq = window.matchMedia('(prefers-color-scheme: dark)');
+
+    // onBrowserThemeChange(darkThemeMq.matches);
+    // darkThemeMq.addEventListener('change', (_) => {
+    //   onBrowserThemeChange(darkThemeMq.matches);
+    // });
+  }, []);
+
+  // const onBrowserThemeChange = useSettingStore((state) => state.onBrowserThemeChange);
 
   // const refreshKey = useSettingStore((state) => state.refreshKey);
 

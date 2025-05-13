@@ -122,7 +122,7 @@ export const usePlayerStore = create<PlayerStore>()(
         useTrackStore.getState().setSongStatus(track.id, 'submitted');
         const roomId = useRoomStore.getState().roomId;
         const joinedRoomId = useRoomStore.getState().joinedRoom;
-        const activeRoomId = joinedRoomId || roomId;
+        const activeRoomId = joinedRoomId || roomId || 'default';
         pushToQueue(activeRoomId, track).then((data) => {
           if (data.isReady) {
             useTrackStore.getState().setSongStatus(track.id, 'ready');
@@ -132,7 +132,7 @@ export const usePlayerStore = create<PlayerStore>()(
       rmSongFromQueue: async (track: Track) => {
         const roomId = useRoomStore.getState().roomId;
         const joinedRoomId = useRoomStore.getState().joinedRoom;
-        const activeRoomId = joinedRoomId || roomId;
+        const activeRoomId = joinedRoomId || roomId || 'default';
         removeFromQueue(activeRoomId, track).then((removedTrack) => {
           if (removedTrack) {
             useTrackStore.getState().removeSongStatus(removedTrack.id);
@@ -158,7 +158,7 @@ export const usePlayerStore = create<PlayerStore>()(
       clearQueue: async () => {
         const roomId = useRoomStore.getState().roomId;
         const joinedRoomId = useRoomStore.getState().joinedRoom;
-        const activeRoomId = joinedRoomId || roomId;
+        const activeRoomId = joinedRoomId || roomId || 'default';
         emptyQueue(activeRoomId).then(() => {
           set((state) => ({ queue: state.queue.slice(0, state.queueIdx + 1) }));
         });

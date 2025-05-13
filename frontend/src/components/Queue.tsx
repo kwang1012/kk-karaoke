@@ -18,6 +18,7 @@ const QueueContainer = styled('div')(({ theme }) => ({
   display: 'grid',
   gridTemplateRows: 'auto 1fr',
   minWidth: 280,
+  width: 400,
   maxWidth: 400,
   backgroundColor: theme.palette.background.paper,
   borderRadius: 8,

@@ -4,13 +4,12 @@ import { darkTheme, lightTheme } from 'src/styles/theme';
 import { IconDefinition, IconName, IconPrefix, library } from '@fortawesome/fontawesome-svg-core';
 import { createTheme } from '@mui/material/styles';
 import { useSettingStore } from 'src/store/setting';
-import { Route, Routes, BrowserRouter as Router } from 'react-router-dom';
+import { Route, Routes, BrowserRouter as Router, Navigate } from 'react-router-dom';
 import Layout from './layouts/Layout';
 import LyricsView from './pages/lyrics';
 import BrowseView, { MainView } from './pages/browse';
 import PlaylistView from './pages/playlist';
 import SearchView from './pages/search';
-import { v4 as uuid } from 'uuid';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Message, useWebSocketStore } from './store/ws';
@@ -18,10 +17,11 @@ import { useTrackStore } from './store';
 import { useRemoteMessageQueue } from './hooks/queue';
 import { CssBaseline, GlobalStyles, useMediaQuery } from '@mui/material';
 import PlayView from './pages/play';
-import { useRoomStore } from './store/room';
+import { useActiveRoomId, useIsLoggedIn, useRoomStore } from './store/room';
 
 import 'src/styles/globals.css';
 import Player from './components/Player';
+import { api } from './utils/api';
 
 // lazily loaded components
 const JoinView = lazy(() => import('./pages/join'));
@@ -59,10 +59,11 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
 
 const AppRouters = () => {
   const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
+  const isLoggedIn = useIsLoggedIn();
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Layout />}>
+        <Route path="/" element={isLoggedIn ? <Layout /> : <Navigate to="/join" replace />}>
           <Route path="/" element={<BrowseView />}>
             <Route index element={<MainView />} />
             <Route path="playlist/:id" element={<PlaylistView />} />
@@ -94,21 +95,42 @@ function App() {
   const setSongStatus = useTrackStore((state) => state.setSongStatus);
   const setSongProgress = useTrackStore((state) => state.setSongProgress);
   const roomId = useRoomStore((state) => state.roomId);
-  const setRoomId = useRoomStore((state) => state.setRoomId);
+  const activeRoomId = useActiveRoomId();
+  const avatar = useRoomStore((state) => state.avatar);
+  const nickName = useRoomStore((state) => state.nickname);
   const getReadyTracks = useTrackStore((state) => state.getReadyTracks);
+  const sendMessage = useWebSocketStore((state) => state.sendMessage);
+  const connected = useWebSocketStore((state) => state.connected);
 
   useEffect(() => {
     getReadyTracks();
   }, []);
 
   useEffect(() => {
-    if (!roomId || roomId === 'default') {
-      setRoomId(uuid());
+    if (!connected) return;
+    if (!activeRoomId || activeRoomId === 'default') return;
+    if (roomId && avatar && nickName) {
+      api.post(`room/${activeRoomId}/join`, {
+        id: roomId,
+        name: nickName,
+        avatar,
+      });
+      // for updating websocket room
+      sendMessage({
+        type: 'join',
+        roomId: activeRoomId,
+        data: {
+          id: roomId,
+          name: nickName,
+          avatar,
+        },
+      });
     }
-  }, [roomId]);
+  }, [activeRoomId, connected]);
   useEffect(() => {
+    if (connected) return;
     connect();
-  }, [connect]);
+  }, [connect, connected]);
 
   const onNotifyMessage = (message: Message) => {
     if (message.type === 'notify') {

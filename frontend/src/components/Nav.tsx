@@ -10,6 +10,7 @@ import { ArrowBackIos, ArrowForwardIos } from '@mui/icons-material';
 import { useHistoryBoundaries } from 'src/hooks/history';
 import { useRoomStore } from 'src/store/room';
 import { styled } from '@mui/material/styles';
+import { useRemoteMessageQueue } from 'src/hooks/queue';
 
 const Header = styled('div')(({ theme }) => ({
   gridArea: 'header',
@@ -44,6 +45,26 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
   const searchValue = useAppStore((state) => state.searchValue);
   const setSearchValue = useAppStore((state) => state.setSearchValue);
   const participants = useRoomStore((state) => state.participants);
+  const addParticipant = useRoomStore((state) => state.addParticipant);
+  const removeParticipant = useRoomStore((state) => state.removeParticipant);
+
+  useRemoteMessageQueue('jam', {
+    onAddItem: (message) => {
+      if (message.action == 'joined') {
+        const participant = message.data.participant;
+        console.log('joined', participant);
+        if (participant) {
+          addParticipant(participant);
+        }
+      } else if (message.action == 'left') {
+        const participant = message.data.participant;
+        console.log('left', participant);
+        if (participant) {
+          removeParticipant(participant);
+        }
+      }
+    },
+  });
 
   const handleSearchChange = (value: string) => {
     setSearchValue(value);
@@ -107,11 +128,11 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
             },
           }}
         >
-          {participants.map((participant) => (
+          {participants.values().map((participant) => (
             <Tooltip title={participant.name} placement="bottom">
               <Avatar
                 key={participant.id}
-                sx={{ width: 32, height: 32 }}
+                sx={{ width: 40, height: 40 }}
                 alt={participant.name}
                 src={participant.avatar}
               />

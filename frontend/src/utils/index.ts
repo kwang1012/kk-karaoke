@@ -27,7 +27,7 @@ export function getLyricsRGB(src: string, light = false): Promise<any> {
     img.onload = () => {
       const vibrant = new Vibrant(img);
       vibrant.getPalette().then((palette) => {
-        const baseColor = palette.Vibrant?.hex;
+        const baseColor = palette.DarkVibrant?.hex;
         if (!baseColor) {
           resolve({ lyrics: DEFAULT_COLOR, background: DEFAULT_BG_COLOR });
           return;
@@ -37,14 +37,17 @@ export function getLyricsRGB(src: string, light = false): Promise<any> {
 
         // 2. Measure brightness (range: 0 = black, 1 = white)
         const luminance = base.brightness();
+        // console.log('Luminance:', luminance);
 
         // 3. Dynamically adjust based on luminance
-        let bgColor: string;
-        let textColor: string;
+        let bgColor: string = base.toHex();
+        let textColor: string = base.lighten(0.5).toHex();
 
         // Middle brightness → moderate adjustment
-        bgColor = base.darken(luminance / 2 + 0.05).toHex();
-        textColor = base.lighten((1 - luminance) / 2).toHex();
+        if (luminance < 0.2) {
+          bgColor = base.lighten(0.1).toHex();
+          textColor = base.lighten(0.6).toHex();
+        }
         resolve({
           lyrics: textColor,
           background: bgColor,
@@ -84,4 +87,15 @@ export function copyToClipboard(text: string): Promise<void> {
       reject(err);
     }
   });
+}
+
+export function generateNickname() {
+  const adjectives = ['Cool', 'Silly', 'Brave', 'Happy', 'Sleepy', 'Jolly', 'Swift', 'Witty', 'Funky', 'Chill'];
+  const nouns = ['Panda', 'Tiger', 'Eagle', 'Otter', 'Fox', 'Koala', 'Hawk', 'Bear', 'Penguin', 'Shark'];
+
+  const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+  const noun = nouns[Math.floor(Math.random() * nouns.length)];
+  const number = Math.floor(100 + Math.random() * 900); // 3-digit random number
+
+  return `${adj}${noun}${number}`; // e.g. "HappyOtter738"
 }

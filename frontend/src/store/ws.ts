@@ -76,6 +76,7 @@ export const useWebSocketStore = create<WebSocketState>()(
       return first;
     },
     connect: () => {
+      if (get().connected) return;
       if (socket && socket.readyState !== WebSocket.CLOSED) return;
 
       socket = new WebSocket(`ws://${import.meta.env.VITE_API_ADDR}/api/ws`);

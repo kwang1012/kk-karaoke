@@ -3,7 +3,7 @@ import { Track } from 'src/models/spotify';
 
 export const DEFAULT_COLOR = '#d3d3d3';
 export const DEFAULT_BG_COLOR = '#3a3a3a';
-export function getAvgRGB(src: string): Promise<any> {
+export function getAvgRGB(src: string, light = false): Promise<any> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.setAttribute('crossOrigin', '');
@@ -18,7 +18,7 @@ export function getAvgRGB(src: string): Promise<any> {
   });
 }
 
-export function getLyricsRGB(src: string): Promise<any> {
+export function getLyricsRGB(src: string, light = false): Promise<any> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.setAttribute('crossOrigin', '');
@@ -29,8 +29,8 @@ export function getLyricsRGB(src: string): Promise<any> {
         const lyricsColor = palette.LightVibrant?.hex || DEFAULT_COLOR;
         const color = palette.DarkVibrant?.hex || DEFAULT_BG_COLOR;
         resolve({
-          lyrics: lyricsColor,
-          background: color,
+          lyrics: !light ? lyricsColor : '#5a5a5a',
+          background: !light ? color : '#bdb9a6',
         });
       });
     };

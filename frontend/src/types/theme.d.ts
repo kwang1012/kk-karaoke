@@ -7,12 +7,22 @@ declare module '@mui/material/styles' {
         '2xl': number;
       };
     };
+    palette: PaletteOptions & {
+      background: {
+        secondary?: string;
+      };
+    };
   }
   // allow configuration using `createTheme`
   interface AppThemeOptions extends ThemeOptions {
     breakpoints: BreakpointsOptions & {
       values: {
         '2xl': number;
+      };
+    };
+    palette?: PaletteOptions & {
+      background: {
+        secondary?: string;
       };
     };
   }

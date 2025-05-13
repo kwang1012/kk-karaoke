@@ -1,5 +1,5 @@
 import { Close, ConnectWithoutContactOutlined, ContentCopyOutlined } from '@mui/icons-material';
-import { Button, Card, CardContent, Divider } from '@mui/material';
+import { AppTheme, Button, Card, CardContent, Divider, useTheme } from '@mui/material';
 import { useState } from 'react';
 import QRCode from 'react-qr-code';
 import { useRoomStore } from 'src/store/room';
@@ -22,9 +22,10 @@ export default function Jam() {
         console.error('Error creating room:', error);
       });
   };
+  const theme = useTheme<AppTheme>();
   return (
-    <Card sx={{ backgroundColor: '#2f2f2f' }}>
-      <CardContent className="text-sm text-[#d3d3d3]">
+    <Card sx={{ backgroundColor: theme.palette.background.secondary }} className="w-full h-full">
+      <CardContent className="text-sm text-[#3d3d3d] dark:text-[#d3d3d3]">
         <div className="flex items-start">
           <div className="flex-1">
             {showQRCode

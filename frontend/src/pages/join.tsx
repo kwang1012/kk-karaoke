@@ -65,7 +65,7 @@ export default function JoinView() {
   };
   return (
     <Layout>
-      <Card variant="outlined" className="max-w-[400px] w-full bg-[#121212] text-white">
+      <Card variant="outlined" className="max-w-[400px] w-full bg-[#121212]">
         <h1 className="text-2xl font-semibold m-4">Join KKaraoke</h1>
         <CardContent>
           <h1 className="text-lg">Nickname:</h1>

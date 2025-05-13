@@ -1,4 +1,4 @@
-import { useMediaQuery } from '@mui/material';
+import { useMediaQuery, useTheme } from '@mui/material';
 import React, { useEffect, useRef, useState } from 'react';
 
 export default function Carousel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
@@ -19,6 +19,7 @@ export default function Carousel({ children, className = '' }: { children: React
     handleScroll(); // initial check
   }, []);
 
+  const theme = useTheme();
   return (
     <div className={`relative ${className}`}>
       <div
@@ -34,7 +35,10 @@ export default function Carousel({ children, className = '' }: { children: React
         <div
           className="absolute top-0 left-0 z-2 h-full w-12 pointer-events-none"
           style={{
-            backgroundImage: 'linear-gradient(to right, #121212, transparent)',
+            backgroundImage:
+              theme.palette.mode == 'dark'
+                ? 'linear-gradient(to right, #121212, transparent)'
+                : 'linear-gradient(to right, #ffffff, transparent)',
           }}
         />
       )}
@@ -44,7 +48,10 @@ export default function Carousel({ children, className = '' }: { children: React
         <div
           className="absolute top-0 right-0 z-2 h-full w-12 pointer-events-none"
           style={{
-            backgroundImage: 'linear-gradient(to left, #121212, transparent)',
+            backgroundImage:
+              theme.palette.mode == 'dark'
+                ? 'linear-gradient(to left, #121212, transparent)'
+                : 'linear-gradient(to left, #ffffff, transparent)',
           }}
         />
       )}

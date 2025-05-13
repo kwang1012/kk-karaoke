@@ -115,7 +115,7 @@ export function MainView() {
 
 function BrowseView() {
   return (
-    <div className="text-white overflow-hidden h-full">
+    <div className="overflow-hidden h-full">
       <Outlet />
     </div>
   );

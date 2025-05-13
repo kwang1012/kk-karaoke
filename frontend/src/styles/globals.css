@@ -5,6 +5,8 @@
 @layer theme, base, mui, components, utilities;
 @import 'tailwindcss';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer utilities {
   .no-scrollbar::-webkit-scrollbar {
     display: none;

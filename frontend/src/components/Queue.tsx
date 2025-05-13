@@ -75,7 +75,7 @@ const Queue = forwardRef<HTMLDivElement>((props, ref) => {
     setScrollTop(target.scrollTop);
   };
   return (
-    <QueueContainer className="flex-1 h-full text-white overflow-hidden" ref={ref}>
+    <QueueContainer className="flex-1 h-full overflow-hidden" ref={ref}>
       <div className={['p-5 font-bold text-lg h-[68px] tracking-tighter', scrollTop > 0 ? 'shadow-xl' : ''].join(' ')}>
         Queue
       </div>

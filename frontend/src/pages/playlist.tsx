@@ -88,7 +88,6 @@ export default function PlaylistView() {
     <div className="h-full relative pb-4">
       <AppBar
         position="absolute"
-        className="text-white"
         style={{
           transition: 'background-color 0.2s ease-in-out',
           backgroundColor: halfway ? color : 'transparent',

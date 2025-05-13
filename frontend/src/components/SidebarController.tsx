@@ -1,6 +1,6 @@
 import { faPlus, faMinus } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { Tooltip, IconButton, Button, Divider } from '@mui/material';
+import { Tooltip, IconButton, Button, Divider, useTheme } from '@mui/material';
 import { usePlayer } from 'src/store/player';
 import SvgIcon from './SvgIcon';
 import Mic from 'src/assets/mic.svg';
@@ -51,6 +51,8 @@ export default function SidebarController({ className }: { className?: string })
     showSnackbar();
   };
 
+  const theme = useTheme();
+
   return (
     <Sidebar className={className}>
       <div className="flex flex-col items-center justify-start h-full py-5">
@@ -67,7 +69,7 @@ export default function SidebarController({ className }: { className?: string })
           </Button>
         </Tooltip>
         <Divider className="w-4/5 h-[1px] bg-[#2f2f2f] mt-4" />
-        <span className="mt-6 text-white text-center mb-2 font-bold">Vocal</span>
+        <span className="mt-6 text-center mb-2 font-bold">Vocal</span>
         <Tooltip title={vocalOn ? 'Turn off Vocal' : 'Turn on Vocal'} placement="right">
           <IconButton
             className="active:opacity-70 hover:opacity-90"
@@ -78,18 +80,18 @@ export default function SidebarController({ className }: { className?: string })
             <SvgIcon
               src={vocalOn ? Mic : MicMuted}
               className="w-10 h-10"
-              stroke={vocalOn ? '#ffeaed' : '#fa6171'}
+              stroke={vocalOn ? (theme.palette.mode == 'dark' ? '#ffeaed' : '#959595') : '#fa6171'}
               strokeWidth={1.5}
             />
           </IconButton>
         </Tooltip>
         <Divider className="w-4/5 h-[1px] bg-[#2f2f2f] mt-4" />
         <Button disableRipple className="mt-6 active:opacity-70 hover:opacity-90 p-0 bg-transparent" onClick={volumeUp}>
-          <FontAwesomeIcon icon={faPlus} size="2x" color="#c5c5c5" />
+          <FontAwesomeIcon icon={faPlus} size="2x" color={theme.palette.mode == 'dark' ? '#c5c5c5' : '#959595'} />
         </Button>
-        <span className="my-2 text-white text-center font-bold">Volume</span>
+        <span className="my-2 text-center font-bold">Volume</span>
         <Button disableRipple className="active:opacity-70 hover:opacity-90 p-0 bg-transparent" onClick={volumeDown}>
-          <FontAwesomeIcon icon={faMinus} size="2x" color="#c5c5c5" />
+          <FontAwesomeIcon icon={faMinus} size="2x" color={theme.palette.mode == 'dark' ? '#c5c5c5' : '#959595'} />
         </Button>
         <Divider className="w-4/5 h-[1px] bg-[#2f2f2f] mt-4" />
 
@@ -100,11 +102,11 @@ export default function SidebarController({ className }: { className?: string })
               className="mt-6 active:opacity-70 hover:opacity-90 p-0 bg-transparent"
               onClick={pitchUp}
             >
-              <FontAwesomeIcon icon={faPlus} size="2x" color="#c5c5c5" />
+              <FontAwesomeIcon icon={faPlus} size="2x" color={theme.palette.mode == 'dark' ? '#c5c5c5' : '#959595'} />
             </Button>
-            <span className="my-2 text-white text-center font-bold">Key</span>
+            <span className="my-2 text-center font-bold">Key</span>
             <Button disableRipple className="active:opacity-70 hover:opacity-90 p-0 bg-transparent" onClick={pitchDown}>
-              <FontAwesomeIcon icon={faMinus} size="2x" color="#c5c5c5" />
+              <FontAwesomeIcon icon={faMinus} size="2x" color={theme.palette.mode == 'dark' ? '#c5c5c5' : '#959595'} />
             </Button>
             <Divider className="w-4/5 h-[1px] bg-[#2f2f2f] mt-4" />
           </>
@@ -112,7 +114,7 @@ export default function SidebarController({ className }: { className?: string })
         <Tooltip title="Settings" placement="right">
           <Button
             disableRipple
-            className="mt-auto active:opacity-70 hover:opacity-90 p-0 bg-transparent text-white"
+            className="mt-auto active:opacity-70 hover:opacity-90 p-0 bg-transparent text-[#bdb9a6] dark:text-white"
             onClick={() => navigate('/settings')}
           >
             <Settings fontSize="large" />

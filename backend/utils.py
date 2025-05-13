@@ -6,21 +6,16 @@ from fastapi.logger import logger
 load_dotenv()
 
 STORAGE_DIR = os.getenv("STORAGE_DIR", "storage")
-if not os.path.exists(STORAGE_DIR):
-    os.makedirs(STORAGE_DIR)
+os.makedirs(STORAGE_DIR, exist_ok=True)
 
 LYRICS_DIR = os.path.join(STORAGE_DIR, "lyrics")
-if not os.path.exists(LYRICS_DIR):
-    os.makedirs(LYRICS_DIR)
+os.makedirs(LYRICS_DIR, exist_ok=True)
 RAW_AUDIO_DIR = os.path.join(STORAGE_DIR, "raw")
-if not os.path.exists(RAW_AUDIO_DIR):
-    os.makedirs(RAW_AUDIO_DIR)
+os.makedirs(RAW_AUDIO_DIR, exist_ok=True)
 NO_VOCALS_DIR = os.path.join(STORAGE_DIR, "no_vocals")
-if not os.path.exists(NO_VOCALS_DIR):
-    os.makedirs(NO_VOCALS_DIR)
+os.makedirs(NO_VOCALS_DIR, exist_ok=True)
 VOCALS_DIR = os.path.join(STORAGE_DIR, "vocals")
-if not os.path.exists(VOCALS_DIR):
-    os.makedirs(VOCALS_DIR)
+os.makedirs(VOCALS_DIR, exist_ok=True)
 logger.info("Storage directories initialized. Path: %s.", STORAGE_DIR)
 
 

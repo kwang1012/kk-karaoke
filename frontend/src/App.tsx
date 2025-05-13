@@ -16,7 +16,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Message, useWebSocketStore } from './store/ws';
 import { useTrackStore } from './store';
 import { useRemoteMessageQueue } from './hooks/queue';
-import { CssBaseline, GlobalStyles, useMediaQuery, useTheme } from '@mui/material';
+import { CssBaseline, GlobalStyles, useMediaQuery } from '@mui/material';
 import PlayView from './pages/play';
 import { useRoomStore } from './store/room';
 
@@ -58,8 +58,7 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
 };
 
 const AppRouters = () => {
-  const theme = useTheme();
-  const mobile = useMediaQuery(theme.breakpoints.down('md'));
+  const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
   return (
     <Router>
       <Routes>

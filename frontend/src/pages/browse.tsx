@@ -94,7 +94,7 @@ export function MainView() {
     }));
   }, [categories]);
   return (
-    <AppScrollbar>
+    <AppScrollbar className='h-full'>
       <div className="pt-6 w-full overflow-hidden">
         {sections.map((section) => (
           <div key={section.keyword} className="mb-8">

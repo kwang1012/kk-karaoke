@@ -65,6 +65,11 @@ export default function PlayView() {
         console.error('Error fetching average RGB:', error);
       });
   }, [image]);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLDivElement;
+    setScrollTop(target.scrollTop);
+  };
   return (
     <Layout
       style={{
@@ -72,7 +77,7 @@ export default function PlayView() {
       }}
     >
       <div className="flex flex-col items-center h-full relative pb-5">
-        <AppScrollbar onScroll={({ scrollTop }) => setScrollTop(scrollTop)} className="w-full h-full">
+        <AppScrollbar onScroll={handleScroll} className="w-full h-full">
           <div className="w-full">{/* PUT HISTORY */}</div>
           {sticky && (
             <Overlay

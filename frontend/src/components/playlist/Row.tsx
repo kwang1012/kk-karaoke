@@ -1,15 +1,17 @@
 import { PlayArrow, CheckCircle, DownloadForOfflineOutlined, Downloading } from '@mui/icons-material';
 import { styled, TableRow, Tooltip, IconButton, TableCell } from '@mui/material';
-import { useContext, useMemo, useState } from 'react';
+import { memo, useContext, useMemo, useState } from 'react';
 import Skeleton from 'react-loading-skeleton';
 import { Track } from 'src/models/spotify';
 import { useTrackStore } from 'src/store';
 import placeholder from 'src/assets/placeholder.png';
 import ActionMenu from './ActionMenu';
 import { PlaylistContext } from 'src/context/playlist';
+import { usePlaylistStore } from 'src/store/playlist';
 
-const HoverTableRow = styled(TableRow)(({ theme }) => ({
+export const HoverTableRow = styled(TableRow)(({ theme }) => ({
   cursor: 'default',
+  width: '100%',
   '& .row-actions': {
     opacity: 0,
   },
@@ -40,6 +42,10 @@ const HoverTableRow = styled(TableRow)(({ theme }) => ({
   '&.active': {
     backgroundColor: '#ffffff3a',
   },
+  '& td': {
+    border: 0,
+    padding: 8,
+  },
   [theme.breakpoints.down('md')]: {
     '& .row-actions': {
       opacity: 1,
@@ -59,7 +65,7 @@ export const getColWidth = (key: string) => {
   }
 };
 
-export default function PlaylistRow({ track, index }: { track: Track; index: number }) {
+const PlaylistRow = memo(({ track, index }: { track: Track; index: number }) => {
   const songStatus = useTrackStore((state) => state.songStatus);
   const status = track ? songStatus[track.id] : 'ready';
   const unknown = status === undefined; // for processing
@@ -72,7 +78,10 @@ export default function PlaylistRow({ track, index }: { track: Track; index: num
     timeAdded: Date.now(),
   };
   const ready = readyTracks.has(parsedTrack.id);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const setMenuOpenStatus = usePlaylistStore((state) => state.setMenuOpenStatus);
+  const setMenuOpen = (open: boolean) => {
+    setMenuOpenStatus(index, open);
+  };
   const image = parsedTrack.album?.images?.[0]?.url || placeholder;
   const { collectionType, onAdd, onDownload, initialized, connected, isLoading, headers } = useContext(PlaylistContext);
   const trackRow = {
@@ -159,7 +168,7 @@ export default function PlaylistRow({ track, index }: { track: Track; index: num
     ),
   };
   return (
-    <HoverTableRow key={index} className={menuOpen ? 'active' : ''} sx={{ '& td': { border: 0, py: 2 } }}>
+    <>
       {headers.map((header) => (
         <TableCell
           key={header.key}
@@ -174,6 +183,8 @@ export default function PlaylistRow({ track, index }: { track: Track; index: num
           {trackRow[header.key]}
         </TableCell>
       ))}
-    </HoverTableRow>
+    </>
   );
-}
+});
+
+export default PlaylistRow;

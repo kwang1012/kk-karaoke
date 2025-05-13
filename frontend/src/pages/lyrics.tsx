@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import AppScrollbar from 'src/components/Scrollbar';
-import { usePlayer, usePlayerStore } from 'src/store/player';
+import { usePlayer } from 'src/store/player';
 import { useTrackStore } from 'src/store';
 import { DEFAULT_BG_COLOR, DEFAULT_COLOR, getLyricsRGB } from 'src/utils';
 
@@ -73,39 +73,32 @@ export default function LyricsView() {
   };
 
   return (
-    <div
-      className="h-full"
-      style={{
-        backgroundColor: bgColor,
-      }}
-    >
-      <AppScrollbar>
-        <div className="text-lg px-8" style={{ color: color }}>
-          {syncedLyrics.length > 0 ? (
-            syncedLyrics.map((line, i) => (
-              <div
-                key={i}
-                className="my-8"
-                ref={(el) => (lineRefs.current[i] = el)}
-                onClick={handleLineClick.bind(null, i)}
+    <AppScrollbar className="h-full" style={{ backgroundColor: bgColor }}>
+      <div className="text-lg px-8" style={{ color: color }}>
+        {syncedLyrics.length > 0 ? (
+          syncedLyrics.map((line, i) => (
+            <div
+              key={i}
+              className="my-8"
+              ref={(el) => (lineRefs.current[i] = el)}
+              onClick={handleLineClick.bind(null, i)}
+            >
+              <span
+                className={
+                  'text-3xl cursor-pointer font-bold hover:underline hover:opacity-100 ' +
+                  (i <= currentLine ? 'text-white' : '')
+                }
               >
-                <span
-                  className={
-                    'text-3xl cursor-pointer font-bold hover:underline hover:opacity-100 ' +
-                    (i <= currentLine ? 'text-white' : '')
-                  }
-                >
-                  {line.text}
-                </span>
-              </div>
-            ))
-          ) : (
-            <div className="text-center mt-20 text-4xl font-bold" style={{ color: color }}>
-              {!loading && <p>{currentSong ? 'No lyrics available for this track.' : 'Start playing a track!'}</p>}
+                {line.text}
+              </span>
             </div>
-          )}
-        </div>
-      </AppScrollbar>
-    </div>
+          ))
+        ) : (
+          <div className="text-center mt-20 text-4xl font-bold" style={{ color: color }}>
+            {!loading && <p>{currentSong ? 'No lyrics available for this track.' : 'Start playing a track!'}</p>}
+          </div>
+        )}
+      </div>
+    </AppScrollbar>
   );
 }

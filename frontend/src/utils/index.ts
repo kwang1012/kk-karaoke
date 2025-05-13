@@ -1,10 +1,11 @@
 import { Vibrant } from 'node-vibrant/browser';
 import { Track } from 'src/models/spotify';
+import { colord } from 'colord';
 
 export const DEFAULT_COLOR = '#d3d3d3';
 export const DEFAULT_BG_COLOR = '#3a3a3a';
 export function getAvgRGB(src: string, light = false): Promise<any> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const img = new Image();
     img.setAttribute('crossOrigin', '');
     img.src = src;
@@ -19,18 +20,34 @@ export function getAvgRGB(src: string, light = false): Promise<any> {
 }
 
 export function getLyricsRGB(src: string, light = false): Promise<any> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const img = new Image();
     img.setAttribute('crossOrigin', '');
     img.src = src;
     img.onload = () => {
       const vibrant = new Vibrant(img);
       vibrant.getPalette().then((palette) => {
-        const lyricsColor = palette.LightVibrant?.hex || DEFAULT_COLOR;
-        const color = palette.DarkVibrant?.hex || DEFAULT_BG_COLOR;
+        const baseColor = palette.Vibrant?.hex;
+        if (!baseColor) {
+          resolve({ lyrics: DEFAULT_COLOR, background: DEFAULT_BG_COLOR });
+          return;
+        }
+        // 1. Get the base color
+        const base = colord(baseColor);
+
+        // 2. Measure brightness (range: 0 = black, 1 = white)
+        const luminance = base.brightness();
+
+        // 3. Dynamically adjust based on luminance
+        let bgColor: string;
+        let textColor: string;
+
+        // Middle brightness → moderate adjustment
+        bgColor = base.darken(luminance / 2 + 0.05).toHex();
+        textColor = base.lighten((1 - luminance) / 2).toHex();
         resolve({
-          lyrics: !light ? lyricsColor : '#5a5a5a',
-          background: !light ? color : '#bdb9a6',
+          lyrics: textColor,
+          background: bgColor,
         });
       });
     };

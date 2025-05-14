@@ -11,6 +11,7 @@ import TrackQueue from './TrackQueue';
 import Jam from './Jam';
 import { getUniqueId } from 'src/utils';
 import { OverlayScrollbarsComponentRef } from 'overlayscrollbars-react';
+import { useRoomStore } from 'src/store/room';
 
 const QueueContainer = styled('div')(({ theme }) => ({
   gridArea: 'queue',
@@ -36,8 +37,8 @@ const Queue = forwardRef<HTMLDivElement>((props, ref) => {
   const setSongStatus = useTrackStore((state) => state.setSongStatus);
 
   const { currentSong, queue, queueIdx } = usePlayer();
-  const { addToQueue, getRandomTracks, rmFromQueue, clearQueue } = usePlayer();
-
+  const { addToQueue, getRandomTracks, rmFromQueue, clearQueue, setQueue } = usePlayer();
+  const roomId = useRoomStore((state) => state.roomId);
   const tracks = useMemo(() => {
     return queue.slice(queueIdx + 1).map((track, index) => ({
       index,
@@ -67,6 +68,16 @@ const Queue = forwardRef<HTMLDivElement>((props, ref) => {
         }
       } else if (item.data.action === 'removed') {
         rmFromQueue(item.data.track);
+      } else if (item.data.action === 'reordered') {
+        const id = item.data.id;
+        if (id === roomId) return; // ignore message if owner
+        const oldIndex = item.data.oldIdx;
+        const newIndex = item.data.newIdx;
+        // the index here is already offset by queueIdx + 1, should be the same as the index in tracks
+        const newItems = [...queue];
+        const [element] = newItems.splice(oldIndex, 1);
+        newItems.splice(newIndex, 0, element);
+        setQueue(newItems);
       }
     },
   });

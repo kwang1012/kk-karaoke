@@ -17,6 +17,7 @@ class WebSocketManager:
     _instance = None
     _lock = threading.Lock()
     rooms: Dict[str, list[tuple[User, WebSocket]]] = {}
+    _send_lock = threading.Lock()
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
@@ -58,23 +59,25 @@ class WebSocketManager:
         })
 
     async def multicast(self, roomId, data, *, socket=None):
-        data = convert_keys(data)
-        connections = self.rooms.get(roomId, [])
-        for (_, connection) in connections:
-            if connection == socket:
-                continue
-            await connection.send_json(data)
+        with self._send_lock:
+            data = convert_keys(data)
+            connections = self.rooms.get(roomId, [])
+            for (_, connection) in connections:
+                if connection == socket:
+                    continue
+                await connection.send_json(data)
 
     async def broadcast(self, data):
-        data = convert_keys(data)
-        disconnected_clients = []
-        for client in self.connected_clients:
-            if client.client_state == WebSocketState.DISCONNECTED:
-                disconnected_clients.append(client)
-                continue
-            await client.send_json(data)
-        for client in disconnected_clients:
-            self.connected_clients.remove(client)
+        with self._send_lock:
+            data = convert_keys(data)
+            disconnected_clients = []
+            for client in self.connected_clients:
+                if client.client_state == WebSocketState.DISCONNECTED:
+                    disconnected_clients.append(client)
+                    continue
+                await client.send_json(data)
+            for client in disconnected_clients:
+                self.connected_clients.remove(client)
 
     async def websocket_endpoint(self, websocket: WebSocket):
         await self.connect(websocket)
@@ -119,7 +122,6 @@ class WebSocketManager:
         """
         Handle messages related to the jam session.
         """
-        # print("Received jam message:", message)
         room_id = message.get("roomId")
         if not room_id:
             print("No roomId found in the message.")

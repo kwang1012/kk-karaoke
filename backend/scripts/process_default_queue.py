@@ -1,6 +1,6 @@
 import asyncio
 from celery.result import AsyncResult
-from backend.models.track import Track
+from models.track import Track
 from services.process_request import send_process_request
 from services.spotify import getCollectionTracks
 

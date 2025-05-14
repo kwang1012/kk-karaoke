@@ -121,7 +121,7 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
             },
           }}
         >
-          {participants.values().map((participant) => (
+          {participants.map((participant) => (
             <Tooltip title={participant.name} placement="bottom">
               <Avatar
                 className="w-10 h-10 bg-[#bdb9a6] dark:bg-[#3a3a3a] border-none"

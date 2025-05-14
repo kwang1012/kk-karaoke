@@ -1,3 +1,17 @@
+---
+title: KKaraoke
+emoji: 🎤🎸🥁🎹
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: true
+license: mit
+thumbnail: >-
+  https://cdn-uploads.huggingface.co/production/uploads/667c70eeddfdd2dfa93f99a5/CfFMBlA0U1J0DYt5LQXQa.png
+short_description: The best Spotify-like karaoke web application
+---
+
 <h1 align="center">KKaraoke - The best Spotify-like karaoke web application</h1>
 <p align="center">
     <a href="https://kwang1012-kkaraoke.hf.space/">

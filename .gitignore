@@ -7,9 +7,16 @@
 *.db
 
 **/.env
-**/*.mp3
-**/*.lrc
-!**/test.mp3
-!**/test.lrc
 
 backend/storage
+# for demo
+!**/0btLaqWlXsOWLcpjE1jmIk.mp3
+!**/0btLaqWlXsOWLcpjE1jmIk.lrc
+!**/406IpEtZPvbxApWTGM3twY.mp3
+!**/406IpEtZPvbxApWTGM3twY.lrc
+!**/49oOgXKqm6xTavBtekzVHg.mp3
+!**/49oOgXKqm6xTavBtekzVHg.lrc
+!**/39gaUtq2z4ejJbno7tWHbL.mp3
+!**/39gaUtq2z4ejJbno7tWHbL.lrc
+!**/18nZWRpJIHzgb1SQr4ncwb.mp3
+!**/18nZWRpJIHzgb1SQr4ncwb.lrc

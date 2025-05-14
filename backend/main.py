@@ -1,14 +1,13 @@
-import asyncio
-import json
+import os
 import random
-from fastapi import APIRouter, Depends, FastAPI, WebSocket
+from fastapi import Depends, FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from demo import DEMO_COLLECTION
 from models.track import Track
-from services.process_request import is_ready, send_process_request
 from managers.db import get_db
 from interfaces.queue import RedisQueueInterface
-from services.spotify import getCollectionTracks, getTopCategories, searchSpotify
 from managers.websocket import WebSocketManager
 from middlewares.format import FormatReponseMiddleware
 from routes.track import router as track_router
@@ -19,7 +18,7 @@ from dotenv import load_dotenv
 
 load_dotenv()  # Load environment variables from .env file
 
-app = FastAPI(root_path="/api")
+app = FastAPI()
 
 app.add_middleware(FormatReponseMiddleware)
 app.add_middleware(
@@ -30,14 +29,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+api = FastAPI()
+app.mount("/api", api)
+api.include_router(track_router, prefix="/tracks", tags=["tracks"])
+api.include_router(lyrics_router, prefix="/lyrics", tags=["lyrics"])
+api.include_router(queue_router, prefix="/queue", tags=["queue"])
+api.include_router(room_router, prefix="/room", tags=["room"])
 
-app.include_router(track_router, prefix="/tracks", tags=["tracks"])
-app.include_router(lyrics_router, prefix="/lyrics", tags=["lyrics"])
-app.include_router(queue_router, prefix="/queue", tags=["queue"])
-app.include_router(room_router, prefix="/room", tags=["room"])
 
-
-@app.get("/")
+@api.get("/")
 async def root():
     """
     Root endpoint to check if the server is running.
@@ -46,98 +46,94 @@ async def root():
     return JSONResponse(content={"message": "Server is running!"}, status_code=200)
 
 
-@app.get("/top-categories")
+@api.get("/top-categories")
 async def get_top_categories(keyword: str):
     """
     Endpoint to fetch the top categories.
     Returns a list of dictionaries containing category details.
     """
-    return JSONResponse(content={"categories": getTopCategories(keyword)}, status_code=200)
+    return JSONResponse(content={"categories": {"demo": [DEMO_COLLECTION["collection"]]}}, status_code=200)
 
 
-@app.get("/playlist/{playlist_id}/tracks")
+@api.get("/playlist/{playlist_id}/tracks")
 async def get_playlist_tracks(playlist_id: str):
     """
     Endpoint to fetch tracks from a specific playlist.
     Returns a list of dictionaries containing track details.
     """
-    collection, tracks = getCollectionTracks("playlists", playlist_id)
-    return JSONResponse(content={"collection": collection, "tracks": tracks})
+    return JSONResponse(content=DEMO_COLLECTION)
 
 
-@app.get("/album/{album_id}/tracks")
+@api.get("/album/{album_id}/tracks")
 async def get_album_tracks(album_id: str):
     """
     Endpoint to fetch tracks from a specific playlist.
     Returns a list of dictionaries containing track details.
     """
-    collection, tracks = getCollectionTracks("albums", album_id)
-    return JSONResponse(content={"collection": collection, "tracks": tracks})
+    return JSONResponse(content=DEMO_COLLECTION)
 
 
-@app.get("/tracks")
-async def get_tracks(
-    redis_interface: RedisQueueInterface = Depends(
-        lambda: RedisQueueInterface(get_db())),):
-    tracks = redis_interface.get_queue()
+@api.get("/tracks")
+async def get_tracks():
     ready_tracks = []
-    for track in tracks:
-        if is_ready(track):
-            ready_tracks.append(track.model_dump())
+    for track in DEMO_COLLECTION["tracks"]:
+        ready_tracks.append(track["id"])
 
     return JSONResponse(content={"ready_tracks": ready_tracks}, status_code=200)
 
 
-@app.get("/random_tracks")
+@api.get("/random_tracks")
 async def get_random_tracks():
-    default_playlist_id = "3AEkt2VeAAHFc1TC5FLuIl"
-    _, tracks = getCollectionTracks("playlists", default_playlist_id)
+    _, tracks = DEMO_COLLECTION["tracks"]
     tracks = tracks or []
     random.shuffle(tracks)
     return JSONResponse(content={"tracks": tracks[:10]}, status_code=200)
 
 
-@app.get("/search")
+@api.get("/search")
 def search(q: str):
     """
     Search for trakcs based on a keyword.
     Returns a list of dictionaries containing song details.
     """
-    searchResults = searchSpotify(q)
+    searchResults = {
+        "results": {
+            "tracks": {
+                "items": DEMO_COLLECTION["tracks"],
+            }
+        }
+    }
     return JSONResponse(content=searchResults, status_code=200)
 
 
-@app.post("/download")
+@api.post("/download")
 async def download_track(track: Track, redis_interface: RedisQueueInterface = Depends(
         lambda: RedisQueueInterface(get_db()))):
     """
     Download a track based on the provided track object.
     Returns a JSON response indicating the status of the download.
     """
-    if is_ready(track):
-        return JSONResponse(content={"task": None}, status_code=200)
-
-    redis_interface.redis.sadd(
-        redis_interface.track_data_prefix, json.dumps(track.model_dump()))
-    loop = asyncio.get_event_loop()
-
-    def process_message_callback(message_data: dict):
-        """
-        Callback to handle messages from the Redis pub/sub related to track processing.
-        """
-        asyncio.run_coroutine_threadsafe(ws_manager.broadcast(
-            message_data), loop)
-
-    redis_interface.subscribe_to_channel(
-        track.id, process_message_callback)
-
-    task = send_process_request(track)
-    return JSONResponse(content={"task": task.id}, status_code=200)
+    return JSONResponse(content={"task": None}, status_code=200)
 
 ws_manager = WebSocketManager()
 # websocket endpoint for real-time updates
 
 
-@app.websocket("/ws")
+@api.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await ws_manager.websocket_endpoint(websocket)
+
+
+app.mount("/public", StaticFiles(directory="../frontend/build"), name="static")
+app.mount("/assets", StaticFiles(directory="../frontend/build/assets"), name="assets")
+
+
+@app.get("/{full_path:path}")
+async def spa_handler(full_path: str, request: Request):
+    if full_path in ("favicon.ico", "robots.txt", "manifest.json", "stats.html"):
+        return FileResponse(
+            os.path.join("../frontend/build", full_path),
+            media_type="application/octet-stream",
+        )
+    index_path = os.path.join("../frontend/build", "index.html")
+    return FileResponse(index_path)

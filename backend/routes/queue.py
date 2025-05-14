@@ -8,7 +8,6 @@ from managers.websocket import WebSocketManager
 from managers.db import get_db
 from models.track import Track
 import json
-from services.process_request import send_process_request, is_ready
 
 router = APIRouter()
 ws_manager = WebSocketManager()
@@ -59,7 +58,7 @@ async def add_to_queue_endpoint(
     """
     try:
 
-        is_track_ready = is_ready(track)
+        is_track_ready = True
         track.status = "ready" if is_track_ready else "submitted"
         # Add the track to the user-specific queue, if track exists.
         redis_interface.add_track_to_queue(
@@ -70,41 +69,7 @@ async def add_to_queue_endpoint(
                                        "action": "added", "track": track.model_dump()}}
                                    )
 
-        if is_track_ready:
-            return JSONResponse(content={"is_ready": True, "task": None}, status_code=200)
-
-        loop = asyncio.get_event_loop()
-
-        def process_message_callback(message_data: dict):
-            """
-            Callback to handle messages from the Redis pub/sub related to track processing.
-            """
-            # "type": "notify",
-            # "data": {
-            #     "action": "progress",
-            #     "track": track.model_dump(),
-            #     "status": "separating",
-            #     "value": progress,
-            #     "total": total
-            # },
-            message_type = message_data["type"]
-            if message_type == "notify":
-                # Check if the message is for the current track
-                if message_data["data"]["track"]["id"] == track.id:
-                    track.status = message_data["data"]["status"]
-                    if "total" in message_data["data"]:
-                        track.progress = message_data["data"]["value"] / message_data["data"]["total"]
-                    else:
-                        track.progress = 0
-                    redis_interface.update_track_status(room_id, track)
-            asyncio.run_coroutine_threadsafe(ws_manager.broadcast(
-                message_data), loop)
-
-        redis_interface.subscribe_to_channel(
-            track.id, process_message_callback)
-
-        task = send_process_request(track)
-        return JSONResponse(content={"is_ready": False, "task": task.id}, status_code=200)
+        return JSONResponse(content={"is_ready": True, "task": None}, status_code=200)
 
     except redis.RedisError as e:
         raise HTTPException(status_code=500, detail=f"Redis error: {e}")

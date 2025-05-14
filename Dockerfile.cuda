@@ -54,6 +54,6 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY run.sh /run.sh
 RUN chmod +x /run.sh
 
-EXPOSE 8080
+EXPOSE 7860
 
 CMD ["/run.sh"]

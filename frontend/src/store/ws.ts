@@ -77,7 +77,7 @@ export const useWebSocketStore = create<WebSocketState>()(
       if (get().connected) return;
       if (socket && socket.readyState !== WebSocket.CLOSED) return;
 
-      socket = new WebSocket(`ws://${import.meta.env.VITE_API_ADDR}/api/ws`);
+      socket = new WebSocket(`wss://${import.meta.env.VITE_API_ADDR}/api/ws`);
 
       socket.onmessage = (event) => {
         const msg = JSON.parse(event.data) as Message;

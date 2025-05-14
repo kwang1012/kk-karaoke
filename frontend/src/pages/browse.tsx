@@ -30,7 +30,7 @@ function PlaylistCard({
     >
       {playlist ? (
         <>
-          <img src={playlist.images[0].url || placeholder} className="w-full rounded-md" />
+          <img src={playlist.images?.[0].url || placeholder} className="w-full rounded-md" />
           <span className="text-sm text-gray-400 line-clamp-2">{playlist.name}</span>
         </>
       ) : (
@@ -42,20 +42,8 @@ function PlaylistCard({
 
 const SECTIONS = [
   {
-    keyword: 'chinese',
-    name: 'Top Chinese KTV Playlists',
-  },
-  {
-    keyword: 'korean',
-    name: 'Top Korean KTV Playlists',
-  },
-  {
-    keyword: 'english',
-    name: 'Top English KTV Playlists',
-  },
-  {
-    keyword: 'japanese',
-    name: 'Top Japanese KTV Playlists',
+    keyword: 'demo',
+    name: 'Demo Playlists',
   },
 ];
 
@@ -92,12 +80,14 @@ export function MainView() {
     });
   };
 
-  const sections = useMemo(() => {
-    return SECTIONS.map((section) => ({
-      ...section,
-      collections: categories?.[section.keyword] || [],
-    }));
-  }, [categories]);
+  const sections = useMemo(
+    () =>
+      SECTIONS.map((section) => ({
+        ...section,
+        collections: categories?.[section.keyword] || [],
+      })),
+    [categories]
+  );
   return (
     <AppScrollbar className="h-full">
       {mobile && isInJam && (

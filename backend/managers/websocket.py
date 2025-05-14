@@ -6,6 +6,9 @@ from typing import Dict, List
 
 from fastapi.websockets import WebSocketState
 
+from models.user import User
+from managers.redis import get_redis
+from interfaces.jam import RedisJamInterface
 from middlewares.format import convert_keys
 import services.jam as jam
 
@@ -13,7 +16,7 @@ import services.jam as jam
 class WebSocketManager:
     _instance = None
     _lock = threading.Lock()
-    rooms: Dict[str, set[WebSocket]] = {}
+    rooms: Dict[str, list[tuple[User, WebSocket]]] = {}
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
@@ -28,6 +31,7 @@ class WebSocketManager:
         self.service_id = uuid.uuid4()
         self.connected_clients: List[WebSocket] = []
         self.queue: List[dict] = []
+        self.jam_interface = RedisJamInterface(get_redis())
 
     def add_client(self, websocket):
         print("New client connected:", websocket.client)
@@ -36,53 +40,80 @@ class WebSocketManager:
     def remove_client(self, websocket):
         self.connected_clients.remove(websocket)
 
-    async def multicast(self, socket, roomId, data):
+    async def connect(self, client: WebSocket):
+        await client.accept()
+        self.connected_clients.append(client)
+
+    async def disconnect(self, client: WebSocket, room_id: str, user: User):
+        if room_id in self.rooms:
+            self.rooms[room_id] = [
+                (uid, ws) for (uid, ws) in self.rooms[room_id] if ws != client
+            ]
+        await self.multicast(room_id, {
+            "type": "jam",
+            "action": "left",
+            "data": {
+                "participant": user.model_dump()
+            }
+        })
+
+    async def multicast(self, roomId, data, *, socket=None):
+        data = convert_keys(data)
         connections = self.rooms.get(roomId, [])
-        for connection in connections:
+        for (_, connection) in connections:
             if connection == socket:
-                continue
-            if connection.client_state != WebSocketState.CONNECTED:
                 continue
             await connection.send_json(data)
 
     async def broadcast(self, data):
-        # print("Broadcasting message to all clients:", data)
         data = convert_keys(data)
-        disconnected = []
+        disconnected_clients = []
         for client in self.connected_clients:
-            try:
-                await client.send_json(data)
-            except WebSocketDisconnect:
-                disconnected.append(client)
-        # Remove disconnected clients
-        for client in disconnected:
+            if client.client_state == WebSocketState.DISCONNECTED:
+                disconnected_clients.append(client)
+                continue
+            await client.send_json(data)
+        for client in disconnected_clients:
             self.connected_clients.remove(client)
 
     async def websocket_endpoint(self, websocket: WebSocket):
-        await websocket.accept()
-        self.connected_clients.append(websocket)
+        await self.connect(websocket)
+        user = None
+        room_id = None
         try:
-            # start handshake
-            # server -> client: init
-            # client -> server: room id
-            await websocket.send_json({"type": "init"})
-            data = await websocket.receive_json()
-            roomId = data.get("roomId")
-            if not roomId:
-                print("No roomId found in the message.")
-                await websocket.close()
-                return
-            print("Client connected to room:", roomId)
-            if roomId not in self.rooms:
-                self.rooms[roomId] = set()
-            if websocket not in self.rooms[roomId]:
-                self.rooms[roomId].add(websocket)
             while True:
-                data = await websocket.receive_json()
-                if data.get("type") == "jam":
-                    await self.handle_jam_message(websocket, data)
+                msg = await websocket.receive_json()
+                msg_type = msg.get("type")
+                if not msg_type:
+                    continue
+                if msg_type == "join":
+                    room_id = msg.get("roomId")
+                    user = User(**msg.get("data", {}))
+                    await self.handle_join_message(websocket, room_id, user)
+                elif msg_type == "jam":
+                    await self.handle_jam_message(websocket, msg)
         except WebSocketDisconnect:
-            self.connected_clients.remove(websocket)
+            if user and room_id:
+                await self.disconnect(websocket, room_id, user)
+            elif websocket in self.connected_clients:
+                self.connected_clients.remove(websocket)
+
+    async def handle_join_message(self, socket: WebSocket, room_id: str, user: User):
+        """
+        Handle messages related to joining a room.
+        """
+        if room_id not in self.rooms:
+            self.rooms[room_id] = []
+        if socket not in self.rooms[room_id]:
+            self.rooms[room_id].append((user, socket))
+
+        await self.multicast(room_id, {
+            "type": "jam",
+            "action": "joined",
+            "data": {
+                "participant": user.model_dump()
+            }
+        })
 
     async def handle_jam_message(self, socket, message):
         """
@@ -96,4 +127,4 @@ class WebSocketManager:
         # update the jam state in Redis
         jam.handle_message(message)
         # Process the message and broadcast it to all connected clients
-        await self.multicast(socket, room_id, message)
+        await self.multicast(room_id, message, socket=socket)

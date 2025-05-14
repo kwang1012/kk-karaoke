@@ -49,6 +49,7 @@ export const lightTheme: AppThemeOptions = {
     },
     background: {
       default: '#f7f6f0',
+      secondary: '#bdb9a6',
       paper: 'white',
     },
     text: {
@@ -74,6 +75,7 @@ export const darkTheme: AppThemeOptions = {
     },
     background: {
       default: 'black',
+      secondary: '#2f2f2f',
       paper: '#121212',
     },
     text: {

@@ -6,7 +6,7 @@ from .track import Track
 
 class JamState(BaseModel):
     id: str = ""
-    participants: list[User] = []
+    # participants: list[User] = [] # Deprecated: WE DON'T NEED TO STORE PARTICIPANTS IN REDIS
     currentTime: float = 0
     playing: bool = False
     volume: float = 0.8

@@ -5,14 +5,18 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
 export interface RoomState {
-  roomId: string; // The ID of the room
+  roomId?: string; // The ID of the room
   joinedRoom?: string;
-  participants: User[];
+  avatar?: string; // The avatar of the user
+  setAvatar: (avatar: string) => void; // Set the avatar of the user
+  nickname?: string; // The nickname of the user
+  setNickname: (nickname: string) => void; // Set the nickname of the user
+  participants: User[]; // The participants in the room
   currentTime: number; // The current time of the room
   isOn: boolean; // Whether the user is online
   playing: boolean; // Whether the user is playing
   volume: number; // The volume of the room
-  setJoinedRoom: (roomId: string) => void; // Set the ID of the room
+  setJoinedRoom: (roomId?: string) => void; // Set the ID of the room
   setRoomId: (roomId: string) => void; // Set the ID of the room
   addParticipant: (person: User) => void; // Add a participant to the room
   removeParticipant: (person: User) => void; // Remove a participant from the room
@@ -22,7 +26,6 @@ export interface RoomState {
 export const useRoomStore = create<RoomState>()(
   persist(
     (set, get) => ({
-      roomId: 'default', // this will be overwritten by App.tsx
       participants: [],
       currentTime: 0,
       isOn: false,
@@ -31,33 +34,50 @@ export const useRoomStore = create<RoomState>()(
       setRoomId: (roomId: string) =>
         set(() => ({
           roomId,
+          currentTime: 0,
+          isOn: false,
+          playing: false,
         })),
-      setJoinedRoom: (roomId: string) =>
+      setAvatar: (avatar: string) =>
+        set(() => ({
+          avatar,
+        })),
+      setNickname: (nickname: string) =>
+        set(() => ({
+          nickname,
+        })),
+      setJoinedRoom: (roomId?: string) =>
         set(() => ({
           joinedRoom: roomId,
         })),
-      addParticipant: (person: User) => ({
-        participants: [...get().participants, person],
-      }),
-      removeParticipant: (person: User) => ({
-        participants: get().participants.filter((p) => p.id !== person.id),
-      }),
+      addParticipant: (person: User) => {
+        const existing = get().participants;
+        const exists = existing.some((item) => item.id === person.id);
+        if (!exists) {
+          set({ participants: [...existing, person] });
+        }
+      },
+      removeParticipant: (person: User) => {
+        set((state) => ({
+          participants: state.participants.filter((p) => p.id !== person.id),
+        }));
+      },
       //
       fetchRoom: async (activeRoomId: string) => {
         try {
           const { data } = await api.get(`/room/${activeRoomId}`);
-          set(() => ({
+          set({
             participants: data.participants,
             currentTime: data.currentTime,
             isOn: data.isOn,
             playing: data.playing,
             volume: data.volume,
-          }));
+          });
           return data;
         } catch (error) {
           console.error('Error fetching room participants:', error);
           set(() => ({
-            participants: [] as User[],
+            participants: [],
           }));
         }
       },
@@ -65,6 +85,12 @@ export const useRoomStore = create<RoomState>()(
     {
       name: 'room-storage', // unique name
       storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        roomId: state.roomId,
+        joinedRoom: state.joinedRoom,
+        avatar: state.avatar,
+        nickname: state.nickname,
+      }),
     }
   )
 );
@@ -80,17 +106,22 @@ export const useJam = () => {
     return roomId !== joinedRoom;
   }, [roomId, joinedRoom]);
   const isOwner = !isInJam;
-  const shouldBroadcast = participants.length > 0;
   return {
     isInJam,
     isOwner,
     participants,
-    shouldBroadcast,
   };
 };
 
 export const useActiveRoomId = () => {
   const roomId = useRoomStore((state) => state.roomId);
   const joinedRoomId = useRoomStore((state) => state.joinedRoom);
-  return joinedRoomId || roomId;
+  return joinedRoomId || roomId || 'default'; // default should not happen
+};
+
+export const useIsLoggedIn = () => {
+  const roomId = useRoomStore((state) => state.roomId);
+  const nickname = useRoomStore((state) => state.nickname);
+  const avatar = useRoomStore((state) => state.avatar);
+  return roomId && nickname && avatar;
 };

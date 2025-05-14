@@ -149,7 +149,7 @@ export default function SearchView() {
                       onClick={() => handleClickAlbum(album)}
                     >
                       <img src={album.images?.[0]?.url || placeholder} className="w-full rounded-md" />
-                      <span className="text-md mt-2 text-white line-clamp-2">{album.name}</span>
+                      <span className="text-md mt-2 line-clamp-2">{album.name}</span>
                       <span className="text-sm text-gray-400 line-clamp-1">
                         {dayjs(album.release_date, 'YYYY-MM-DD').format('YYYY')}．
                         {album.artists.map((a: any) => a.name).join(', ')}
@@ -171,7 +171,7 @@ export default function SearchView() {
                       onClick={() => handleClickPlaylist(playlist)}
                     >
                       <img src={playlist.images?.[0]?.url || placeholder} className="w-full rounded-md" />
-                      <span className="text-md mt-2 text-white line-clamp-2">{playlist.name}</span>
+                      <span className="text-md mt-2 line-clamp-2">{playlist.name}</span>
                       <span className="text-sm text-gray-400 line-clamp-1">
                         By {playlist.owner?.display_name || 'Unknown'}
                       </span>
@@ -187,7 +187,7 @@ export default function SearchView() {
                     {artists.map((artist: any) => (
                       <CarouselItem key={artist.id} className="flex-1">
                         <img src={artist.images?.[0]?.url || placeholder} className="w-full rounded-full" />
-                        <span className="text-md mt-2 text-white line-clamp-2">{artist.name}</span>
+                        <span className="text-md mt-2 line-clamp-2">{artist.name}</span>
                         <span className="text-sm text-gray-400 line-clamp-1">{capitalizeFirstLetter(artist.type)}</span>
                       </CarouselItem>
                     ))}

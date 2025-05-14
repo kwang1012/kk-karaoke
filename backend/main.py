@@ -19,8 +19,7 @@ from dotenv import load_dotenv
 
 load_dotenv()  # Load environment variables from .env file
 
-app = FastAPI()
-api = APIRouter()
+app = FastAPI(root_path="/api")
 
 app.add_middleware(FormatReponseMiddleware)
 app.add_middleware(
@@ -32,14 +31,13 @@ app.add_middleware(
 )
 
 
-api.include_router(track_router, prefix="/tracks", tags=["tracks"])
-api.include_router(lyrics_router, prefix="/lyrics", tags=["lyrics"])
-api.include_router(queue_router, prefix="/queue", tags=["queue"])
-api.include_router(room_router, prefix="/room", tags=["room"])
-ws_manager = WebSocketManager()
+app.include_router(track_router, prefix="/tracks", tags=["tracks"])
+app.include_router(lyrics_router, prefix="/lyrics", tags=["lyrics"])
+app.include_router(queue_router, prefix="/queue", tags=["queue"])
+app.include_router(room_router, prefix="/room", tags=["room"])
 
 
-@api.get("/")
+@app.get("/")
 async def root():
     """
     Root endpoint to check if the server is running.
@@ -48,7 +46,7 @@ async def root():
     return JSONResponse(content={"message": "Server is running!"}, status_code=200)
 
 
-@api.get("/top-categories")
+@app.get("/top-categories")
 async def get_top_categories(keyword: str):
     """
     Endpoint to fetch the top categories.
@@ -57,7 +55,7 @@ async def get_top_categories(keyword: str):
     return JSONResponse(content={"categories": getTopCategories(keyword)}, status_code=200)
 
 
-@api.get("/playlist/{playlist_id}/tracks")
+@app.get("/playlist/{playlist_id}/tracks")
 async def get_playlist_tracks(playlist_id: str):
     """
     Endpoint to fetch tracks from a specific playlist.
@@ -67,7 +65,7 @@ async def get_playlist_tracks(playlist_id: str):
     return JSONResponse(content={"collection": collection, "tracks": tracks})
 
 
-@api.get("/album/{album_id}/tracks")
+@app.get("/album/{album_id}/tracks")
 async def get_album_tracks(album_id: str):
     """
     Endpoint to fetch tracks from a specific playlist.
@@ -77,7 +75,7 @@ async def get_album_tracks(album_id: str):
     return JSONResponse(content={"collection": collection, "tracks": tracks})
 
 
-@api.get("/tracks")
+@app.get("/tracks")
 async def get_tracks(
     redis_interface: RedisQueueInterface = Depends(
         lambda: RedisQueueInterface(get_db())),):
@@ -90,7 +88,7 @@ async def get_tracks(
     return JSONResponse(content={"ready_tracks": ready_tracks}, status_code=200)
 
 
-@api.get("/random_tracks")
+@app.get("/random_tracks")
 async def get_random_tracks():
     default_playlist_id = "3AEkt2VeAAHFc1TC5FLuIl"
     _, tracks = getCollectionTracks("playlists", default_playlist_id)
@@ -99,7 +97,7 @@ async def get_random_tracks():
     return JSONResponse(content={"tracks": tracks[:10]}, status_code=200)
 
 
-@api.get("/search")
+@app.get("/search")
 def search(q: str):
     """
     Search for trakcs based on a keyword.
@@ -109,7 +107,7 @@ def search(q: str):
     return JSONResponse(content=searchResults, status_code=200)
 
 
-@api.post("/download")
+@app.post("/download")
 async def download_track(track: Track, redis_interface: RedisQueueInterface = Depends(
         lambda: RedisQueueInterface(get_db()))):
     """
@@ -136,11 +134,10 @@ async def download_track(track: Track, redis_interface: RedisQueueInterface = De
     task = send_process_request(track)
     return JSONResponse(content={"task": task.id}, status_code=200)
 
+ws_manager = WebSocketManager()
 # websocket endpoint for real-time updates
 
 
-@api.websocket("/ws")
+@app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await ws_manager.websocket_endpoint(websocket)
-
-app.include_router(api, prefix="/api")

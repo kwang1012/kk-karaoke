@@ -1,10 +1,11 @@
 import { Vibrant } from 'node-vibrant/browser';
 import { Track } from 'src/models/spotify';
+import { colord } from 'colord';
 
 export const DEFAULT_COLOR = '#d3d3d3';
 export const DEFAULT_BG_COLOR = '#3a3a3a';
-export function getAvgRGB(src: string): Promise<any> {
-  return new Promise((resolve, reject) => {
+export function getAvgRGB(src: string, light = false): Promise<any> {
+  return new Promise((resolve) => {
     const img = new Image();
     img.setAttribute('crossOrigin', '');
     img.src = src;
@@ -18,19 +19,38 @@ export function getAvgRGB(src: string): Promise<any> {
   });
 }
 
-export function getLyricsRGB(src: string): Promise<any> {
-  return new Promise((resolve, reject) => {
+export function getLyricsRGB(src: string, light = false): Promise<any> {
+  return new Promise((resolve) => {
     const img = new Image();
     img.setAttribute('crossOrigin', '');
     img.src = src;
     img.onload = () => {
       const vibrant = new Vibrant(img);
       vibrant.getPalette().then((palette) => {
-        const lyricsColor = palette.LightVibrant?.hex || DEFAULT_COLOR;
-        const color = palette.DarkVibrant?.hex || DEFAULT_BG_COLOR;
+        const baseColor = palette.DarkVibrant?.hex;
+        if (!baseColor) {
+          resolve({ lyrics: DEFAULT_COLOR, background: DEFAULT_BG_COLOR });
+          return;
+        }
+        // 1. Get the base color
+        const base = colord(baseColor);
+
+        // 2. Measure brightness (range: 0 = black, 1 = white)
+        const luminance = base.brightness();
+        // console.log('Luminance:', luminance);
+
+        // 3. Dynamically adjust based on luminance
+        let bgColor: string = base.toHex();
+        let textColor: string = base.lighten(0.5).toHex();
+
+        // Middle brightness → moderate adjustment
+        if (luminance < 0.2) {
+          bgColor = base.lighten(0.1).toHex();
+          textColor = base.lighten(0.6).toHex();
+        }
         resolve({
-          lyrics: lyricsColor,
-          background: color,
+          lyrics: textColor,
+          background: bgColor,
         });
       });
     };
@@ -67,4 +87,15 @@ export function copyToClipboard(text: string): Promise<void> {
       reject(err);
     }
   });
+}
+
+export function generateNickname() {
+  const adjectives = ['Cool', 'Silly', 'Brave', 'Happy', 'Sleepy', 'Jolly', 'Swift', 'Witty', 'Funky', 'Chill'];
+  const nouns = ['Panda', 'Tiger', 'Eagle', 'Otter', 'Fox', 'Koala', 'Hawk', 'Bear', 'Penguin', 'Shark'];
+
+  const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+  const noun = nouns[Math.floor(Math.random() * nouns.length)];
+  const number = Math.floor(100 + Math.random() * 900); // 3-digit random number
+
+  return `${adj}${noun}${number}`; // e.g. "HappyOtter738"
 }

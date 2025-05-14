@@ -44,6 +44,7 @@ async def create_room(
             status_code=500, detail=f"Failed to create room: {e}")
 
 
+# Deprecated: WE DON'T NEED TO STORE PARTICIPANTS IN REDIS
 @router.post("/{room_id}/join")
 async def join_room(room_id: str, user: User, redis_interface: RedisJamInterface = Depends(lambda: RedisJamInterface(get_db()))):
     """
@@ -52,10 +53,23 @@ async def join_room(room_id: str, user: User, redis_interface: RedisJamInterface
     try:
         # Check if the room exists
         if not redis_interface.jam_exists(room_id):
-            raise HTTPException(
-                status_code=404, detail=f"Room {room_id} not found")
+            if user.id == room_id:
+                # Create a new room if it doesn't exist
+                redis_interface.create_or_update_jam_state(
+                    room_id, {"id": room_id, "is_on": True})
+            else:
+                raise HTTPException(
+                    status_code=404, detail=f"Room {room_id} not found")
 
-        redis_interface.update_participants(room_id, user)
+        # redis_interface.update_participants(room_id, user)
+
+        await ws_manager.multicast(room_id, {
+            "type": "jam",
+            "action": "joined",
+            "data": {
+                "participant": user.model_dump()
+            }
+        })
 
         return {"message": f"User {user.name} joined room {room_id} successfully."}
 
@@ -75,9 +89,20 @@ async def get_room(
     """
     try:
         jam_state = redis_interface.get_jam_state(room_id)
+        participants = ws_manager.rooms.get(room_id, [])
         if not jam_state:
             return None
-        return jam_state.model_dump()
+
+        seen = set()
+        deduped = []
+        for p, _ in participants:
+            if p.id not in seen:
+                deduped.append(p.model_dump())
+                seen.add(p.id)
+        return {
+            **jam_state.model_dump(),
+            "participants": deduped,
+        }
     except redis.RedisError as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to retrieve room {room_id}: {e}"

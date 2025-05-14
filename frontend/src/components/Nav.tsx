@@ -10,12 +10,29 @@ import { ArrowBackIos, ArrowForwardIos } from '@mui/icons-material';
 import { useHistoryBoundaries } from 'src/hooks/history';
 import { useRoomStore } from 'src/store/room';
 import { styled } from '@mui/material/styles';
+import { useRemoteMessageQueue } from 'src/hooks/queue';
 
 const Header = styled('div')(({ theme }) => ({
   gridArea: 'header',
   height: 72,
   [theme.breakpoints.down('md')]: {
     display: 'none',
+  },
+}));
+
+const ThemedIconButton = styled(IconButton)(({ theme }) => ({
+  width: 48,
+  height: 48,
+  borderRadius: '50%',
+  backgroundColor: theme.palette.mode === 'dark' ? '#2a2a2a' : 'white',
+  border: '2px solid transparent',
+  '&:hover': {
+    backgroundColor: theme.palette.mode === 'dark' ? '#3a3a3a' : '#d3d3d3',
+    borderColor: theme.palette.mode === 'dark' ? '#4a4a4a' : '#c3c3c3',
+  },
+  '&:active': {
+    backgroundColor: theme.palette.mode === 'dark' ? '#4a4a4a' : '#c3c3c3',
+    borderColor: theme.palette.mode === 'dark' ? '#5a5a5a' : '#d3d3d3',
   },
 }));
 
@@ -28,6 +45,24 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
   const searchValue = useAppStore((state) => state.searchValue);
   const setSearchValue = useAppStore((state) => state.setSearchValue);
   const participants = useRoomStore((state) => state.participants);
+  const addParticipant = useRoomStore((state) => state.addParticipant);
+  const removeParticipant = useRoomStore((state) => state.removeParticipant);
+
+  useRemoteMessageQueue('jam', {
+    onAddItem: (message) => {
+      if (message.action == 'joined') {
+        const participant = message.data.participant;
+        if (participant) {
+          addParticipant(participant);
+        }
+      } else if (message.action == 'left') {
+        const participant = message.data.participant;
+        if (participant) {
+          removeParticipant(participant);
+        }
+      }
+    },
+  });
 
   const handleSearchChange = (value: string) => {
     setSearchValue(value);
@@ -69,28 +104,9 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
 
       <div className="w-[500px] flex items-center">
         <Tooltip title="Home" placement="bottom">
-          <IconButton
-            disableRipple
-            className="mr-2"
-            sx={{
-              width: 48,
-              height: 48,
-              borderRadius: '50%',
-              backgroundColor: '#2a2a2a',
-              border: '2px solid transparent',
-              '&:hover': {
-                backgroundColor: '#3a3a3a',
-                borderColor: '#4a4a4a',
-              },
-              '&:active': {
-                backgroundColor: '#4a4a4a',
-                borderColor: '#5a5a5a',
-              },
-            }}
-            onClick={() => location.pathname !== '/' && navigate('/')}
-          >
+          <ThemedIconButton disableRipple className="mr-2" onClick={() => location.pathname !== '/' && navigate('/')}>
             <FontAwesomeIcon icon={faHome} color="#afafaf" size="sm" />
-          </IconButton>
+          </ThemedIconButton>
         </Tooltip>
         <SearchBox value={searchValue} onChange={handleSearchChange} />
       </div>
@@ -101,20 +117,15 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
           max={4}
           slotProps={{
             surplus: {
-              style: {
-                backgroundColor: '#1a1a1a',
-                width: 32,
-                height: 32,
-                fontSize: '1rem',
-              },
+              className: 'w-10 h-10 bg-[#bdb9a6] dark:bg-[#3a3a3a] text-sm',
             },
           }}
         >
           {participants.map((participant) => (
             <Tooltip title={participant.name} placement="bottom">
               <Avatar
+                className="w-10 h-10 bg-[#bdb9a6] dark:bg-[#3a3a3a] border-none"
                 key={participant.id}
-                sx={{ width: 32, height: 32 }}
                 alt={participant.name}
                 src={participant.avatar}
               />

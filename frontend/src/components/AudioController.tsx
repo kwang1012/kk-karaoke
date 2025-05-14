@@ -1,10 +1,10 @@
 import { faStepBackward, faCirclePause, faCirclePlay, faForwardStep } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { Button, IconButton, TextField, Tooltip } from '@mui/material';
+import { Button, IconButton, TextField, Tooltip, useTheme } from '@mui/material';
 import AppSlider from './Slider';
 import SongCard from './SongCard';
 import { usePlayer } from 'src/store/player';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useTrackStore } from 'src/store';
 import { useLocation } from 'react-router-dom';
 import { api } from 'src/utils/api';
@@ -59,6 +59,7 @@ export default function AudioController() {
     setEditing(false);
   };
   const [editing, setEditing] = useState(false);
+  const theme = useTheme();
 
   return (
     <>
@@ -87,9 +88,17 @@ export default function AudioController() {
                 className="hover:opacity-90 mx-6"
               >
                 {playing ? (
-                  <FontAwesomeIcon icon={faCirclePause} size="xl" color="white" />
+                  <FontAwesomeIcon
+                    icon={faCirclePause}
+                    size="xl"
+                    color={theme.palette.mode == 'dark' ? 'white' : '#bdb9a6'}
+                  />
                 ) : (
-                  <FontAwesomeIcon icon={faCirclePlay} size="xl" color="white" />
+                  <FontAwesomeIcon
+                    icon={faCirclePlay}
+                    size="xl"
+                    color={theme.palette.mode == 'dark' ? 'white' : '#bdb9a6'}
+                  />
                 )}
               </IconButton>
             </Tooltip>

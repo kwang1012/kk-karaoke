@@ -6,7 +6,7 @@ from typing import Any, Union
 
 from celery import Celery
 import redis
-from models.track import Track
+from models.track import Artist, Track
 from managers.websocket import WebSocketManager
 from services.downloader import LYRICS_DIR, NO_VOCALS_DIR, RAW_AUDIO_DIR, VOCALS_DIR
 from services.downloader import download_lyrics, download_audio
@@ -109,3 +109,10 @@ def process_request(track: Union[dict[str, Any], Track]):
                 "status": "ready"
         },
     }))
+
+
+if __name__ == "__main__":
+    track = Track(id="test", name="test", artists=[Artist(
+        id="artist1", name="test", uri="")])
+
+    separate_vocals(track.id)

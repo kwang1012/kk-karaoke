@@ -3,6 +3,7 @@ import AppScrollbar from 'src/components/Scrollbar';
 import { usePlayer } from 'src/store/player';
 import { useTrackStore } from 'src/store';
 import { DEFAULT_BG_COLOR, DEFAULT_COLOR, getLyricsRGB } from 'src/utils';
+import { useTheme } from '@mui/material';
 
 export default function LyricsView() {
   // local states
@@ -27,13 +28,14 @@ export default function LyricsView() {
   const [color, setColor] = useState<string>(DEFAULT_COLOR);
   const [bgColor, setBgColor] = useState<string>(DEFAULT_BG_COLOR);
   const image = currentSong?.album?.images?.[0]?.url;
+  const theme = useTheme();
   useEffect(() => {
     if (!image) {
       setColor(DEFAULT_COLOR);
       setBgColor(DEFAULT_BG_COLOR);
       return;
     }
-    getLyricsRGB(image)
+    getLyricsRGB(image, theme.palette.mode === 'light')
       .then(({ lyrics, background }) => {
         setColor(lyrics);
         setBgColor(background);
@@ -41,7 +43,7 @@ export default function LyricsView() {
       .catch((error) => {
         console.error('Error fetching average RGB:', error);
       });
-  }, [image]);
+  }, [image, theme.palette.mode]);
 
   useEffect(() => {
     const el = lineRefs.current[currentLine];

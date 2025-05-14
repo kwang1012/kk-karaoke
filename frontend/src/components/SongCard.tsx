@@ -37,7 +37,7 @@ const CircularProgressWithLabel = ({
       /> */}
       <CircularProgress {...props} value={value} className="z-1" sx={{ color: 'white' }} />
       <div className="top-0 left-0 bottom-0 right-0 absolute flex items-center justify-center">
-        {children ? children : <span className="text-white text-xs">{value}%</span>}
+        {children ? children : <span className="text-xs">{value}%</span>}
       </div>
     </div>
   );
@@ -66,7 +66,7 @@ const HoverLayout = styled('div')(({ theme }) => ({
   },
   '&:hover, &.active': {
     '*': {
-      color: 'white',
+      color: theme.palette.mode == 'dark' ? 'white' : 'black',
     },
     '.checked-icon *': {
       color: theme.palette.success.main,
@@ -194,8 +194,6 @@ export default function SongCard({
   const status = track ? songStatus[track.id] : 'ready';
   const progress = track ? songProgress[track.id] : 100;
   const isReady = !status || status === 'ready';
-  const initialized = useWebSocketStore((state) => state.initialized);
-  const connected = useWebSocketStore((state) => state.connected);
   const hasActions = useMemo(() => !!onAdd || !!onDelete, [onAdd, onDelete]);
   const disabled = useMemo(() => !isReady || disable, [isReady, disable]);
   const parsedTrack = useMemo(() => {
@@ -244,7 +242,7 @@ export default function SongCard({
         <img src={parsedTrack.album?.images[0].url || placeholderImage} className="w-full h-full" />
       </div>
       <div className="flex flex-col justify-between py-1 flex-1">
-        <span className="text-white line-clamp-1">{parsedTrack.name}</span>
+        <span className="line-clamp-1">{parsedTrack.name}</span>
         <span className="text-sm text-gray-400 line-clamp-1">
           {parsedTrack.artists.map((artist, index) => (
             <span key={index}>

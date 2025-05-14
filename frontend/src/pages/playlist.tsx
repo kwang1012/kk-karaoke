@@ -34,7 +34,6 @@ export default function PlaylistView() {
   const initCollection = location.state?.collection || {};
   const { id } = useParams();
   const collectionType = location.pathname.split('/')[1];
-  const initialized = useWebSocketStore((state) => state.initialized);
   const connected = useWebSocketStore((state) => state.connected);
   const addSongToQueue = usePlayerStore((state) => state.addSongToQueue);
   const downloadSong = usePlayerStore((state) => state.downloadSong);
@@ -88,7 +87,6 @@ export default function PlaylistView() {
     <div className="h-full relative pb-4">
       <AppBar
         position="absolute"
-        className="text-white"
         style={{
           transition: 'background-color 0.2s ease-in-out',
           backgroundColor: halfway ? color : 'transparent',
@@ -113,7 +111,6 @@ export default function PlaylistView() {
           headers,
           onAdd,
           onDownload,
-          initialized,
           connected,
           isLoading,
           isSticky,

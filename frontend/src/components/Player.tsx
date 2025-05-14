@@ -217,9 +217,9 @@ export const Player = () => {
         setLyrics(lyrics);
         setDuration(player.getDuration());
         if (jamState) {
-          const { currentTime, playing, vocalOn } = jamState;
+          const { currentTime, playing, vocalOn, queueIdx: currentIdx } = jamState;
           syncedPlayer.seek(currentTime);
-          setProgress(currentTime);
+          if (currentIdx === queueIdx) setProgress(currentTime);
           setVocalOn(vocalOn);
           // it is fine for non-owner to play because it does not actually play any audio
           if (!isOwner && playing) {

@@ -33,13 +33,15 @@ async def reorder_queue_endpoint(
     try:
         old_idx = new_order["oldIndex"]
         new_idx = new_order["newIndex"]
+        user_id = new_order["id"]
         tracks = redis_interface.get_queue(room_id)
         element = tracks.pop(old_idx)
         tracks.insert(new_idx, element)
         redis_interface.set_queue(room_id, tracks)
-        await ws_manager.broadcast(
-            {"type": "queue", "data": {"action": "reordered", "tracks": new_order}}
-        )
+        await ws_manager.multicast(room_id,
+                                   {"type": "queue", "data": {"action": "reordered",
+                                                              "old_idx": old_idx, "new_idx": new_idx, "id": user_id}}
+                                   )
         return JSONResponse(content={"message": "Queue reordered"}, status_code=200)
     except redis.RedisError as e:
         raise HTTPException(status_code=500, detail=f"Redis error: {e}")
@@ -60,10 +62,10 @@ async def add_to_queue_endpoint(
         redis_interface.add_track_to_queue(
             room_id, track)  # Use the new method
 
-        await ws_manager.broadcast(
-            {"type": "queue", "data": {
-                "action": "added", "track": track.model_dump()}}
-        )
+        await ws_manager.multicast(room_id,
+                                   {"type": "queue", "data": {
+                                       "action": "added", "track": track.model_dump()}}
+                                   )
 
         if is_ready(track):
             return JSONResponse(content={"is_ready": True, "task": None}, status_code=200)

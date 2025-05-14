@@ -100,6 +100,7 @@ function SortableList({
 export default function TrackQueue({ tracks }: { tracks: Track[] }) {
   const { reorderQueue, queueIdx } = usePlayer();
   const { rmSongFromQueue } = usePlayer();
+  const roomId = useRoomStore((state) => state.roomId);
   const activeRoomId = useActiveRoomId();
   const items = tracks.map((item) => item.uniqueId);
   const handleDragEnd = (event: DragEndEvent) => {
@@ -111,12 +112,12 @@ export default function TrackQueue({ tracks }: { tracks: Track[] }) {
       const [element] = newItems.splice(oldIndex, 1);
       newItems.splice(newIndex, 0, element);
       reorderQueue(newItems);
-      // setQueue([...queue.slice(0, queueIdx + 1), ...newItems]);
       // The offset 0 of the queue is at the offset queueIdx + 1 in the total queue.
       api
         .post(`queue/${activeRoomId}/reorder`, {
           oldIndex: queueIdx + oldIndex + 1,
           newIndex: queueIdx + newIndex + 1,
+          id: roomId,
         })
         .catch((err) => {
           console.error(err);

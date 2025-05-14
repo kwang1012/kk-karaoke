@@ -1,3 +1,5 @@
+import { User } from './user';
+
 export type Image = {
   height: number;
   width: number;
@@ -25,6 +27,7 @@ export type Track = {
   artists: Artist[]; // Array of artist names or objects
   album?: Album;
   timeAdded: number;
+  orderedBy?: User;
   [key: string]: any; // Allow additional properties
   // ... any other metadata
 };

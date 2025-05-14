@@ -16,6 +16,7 @@ NO_VOCALS_DIR = os.path.join(STORAGE_DIR, "no_vocals")
 os.makedirs(NO_VOCALS_DIR, exist_ok=True)
 VOCALS_DIR = os.path.join(STORAGE_DIR, "vocals")
 os.makedirs(VOCALS_DIR, exist_ok=True)
+DB_FILENAME = os.path.join(STORAGE_DIR, "db.json")
 logger.info("Storage directories initialized. Path: %s.", STORAGE_DIR)
 
 

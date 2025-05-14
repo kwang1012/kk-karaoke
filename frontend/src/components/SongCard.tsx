@@ -1,4 +1,5 @@
 import {
+  Avatar,
   CircularProgress,
   CircularProgressProps,
   IconButton,
@@ -8,7 +9,7 @@ import {
   Tooltip,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { memo, ReactElement, useMemo, useState } from 'react';
+import React, { memo, ReactElement, useMemo, useState } from 'react';
 import placeholderImage from 'src/assets/placeholder.png';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGears, faMusic } from '@fortawesome/free-solid-svg-icons';
@@ -93,7 +94,8 @@ const ActionMenu = memo(
     onDelete,
     onOpen,
     onClose,
-  }: {
+    className,
+  }: React.HTMLAttributes<HTMLDivElement> & {
     track: Track;
     onAdd?: (track: Track) => void;
     onDelete?: (track: Track) => void;
@@ -125,9 +127,9 @@ const ActionMenu = memo(
       },
     ];
     return (
-      <div>
+      <>
         <IconButton
-          className="row-actions interactive-section"
+          className={`row-actions interactive-section ${className}`}
           disableTouchRipple
           sx={{ minWidth: 40 }}
           onClick={(e) => {
@@ -165,7 +167,7 @@ const ActionMenu = memo(
               )
           )}
         </AppMenu>
-      </div>
+      </>
     );
   }
 );
@@ -266,8 +268,18 @@ export default function SongCard({
         </Tooltip>
       )}
       {hasActions && !disabled && (
-        <div className="actions shrink-0">
+        <div className="flex items-center shrink-0">
+          {track?.orderedBy && (
+            <Tooltip title={track.orderedBy.name} placement="top">
+              <Avatar
+                className="w-10 h-10 bg-[#bdb9a6] dark:bg-[#3a3a3a] border-none"
+                alt={track.orderedBy.name}
+                src={track.orderedBy.avatar}
+              />
+            </Tooltip>
+          )}
           <ActionMenu
+            className="actions"
             track={parsedTrack}
             onAdd={onAdd}
             onDelete={onDelete}
@@ -277,7 +289,7 @@ export default function SongCard({
         </div>
       )}
       {!isReady && !disable && (
-        <div className="flex items-center justify-end">
+        <div className="shrink-0">
           <CircularProgressWithLabel
             size={36}
             variant={status === 'separating' ? 'determinate' : 'indeterminate'}

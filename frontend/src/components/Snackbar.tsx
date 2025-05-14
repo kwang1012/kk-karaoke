@@ -1,15 +1,14 @@
 import { faVolumeHigh } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Snackbar, LinearProgress } from '@mui/material';
-import { usePlayer } from 'src/hooks/player';
+import { usePlayer } from 'src/store/player';
 import { useSettingStore } from 'src/store/setting';
 import { useNotifyStore } from 'src/store/notify';
 
 export default function AppSnackbar() {
-  const { volume, semitone } = usePlayer();
+  const { volume, semitone, enabledPitchShift } = usePlayer();
   const { open, key } = useNotifyStore((state) => state.snackbar);
   const closeSnackbar = useNotifyStore((state) => state.closeSnackbar);
-  const enabledPitchShift = useSettingStore((state) => state.enabledPitchShift);
   return (
     <Snackbar
       style={{ top: '60px' }}

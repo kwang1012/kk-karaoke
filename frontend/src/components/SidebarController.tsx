@@ -1,7 +1,7 @@
 import { faPlus, faMinus } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Tooltip, IconButton, Button, Divider } from '@mui/material';
-import { usePlayer } from 'src/hooks/player';
+import { usePlayer } from 'src/store/player';
 import SvgIcon from './SvgIcon';
 import Mic from 'src/assets/mic.svg';
 import MicMuted from 'src/assets/mic-muted.svg';
@@ -27,9 +27,8 @@ export default function SidebarController({ className }: { className?: string })
   const navigate = useNavigate();
   const location = useLocation();
   const singing = location.pathname.startsWith('/lyrics');
-  const enabledPitchShift = useSettingStore((state) => state.enabledPitchShift);
 
-  const { vocalOn } = usePlayer();
+  const { vocalOn, enabledPitchShift } = usePlayer();
   const { toggleVocal, increaseVolume, decreaseVolume, increaseSemitone, decreaseSemitone } = usePlayer();
 
   const volumeDown = () => {
@@ -73,7 +72,7 @@ export default function SidebarController({ className }: { className?: string })
           <IconButton
             className="active:opacity-70 hover:opacity-90"
             disableRipple
-            onClick={toggleVocal}
+            onClick={() => toggleVocal()}
             style={{ fontSize: 24 }}
           >
             <SvgIcon

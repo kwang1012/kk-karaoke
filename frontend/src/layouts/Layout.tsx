@@ -62,7 +62,7 @@ export default function Layout() {
   return (
     <Grid>
       {/* Header */}
-      <Nav />
+      {!mobile && <Nav />}
       {/* Control Sidebar */}
       <SidebarController />
       {/* Main Content */}

@@ -40,3 +40,31 @@ export function getLyricsRGB(src: string): Promise<any> {
 export function getUniqueId(track: Track) {
   return `${track.id}-${track.timeAdded}`;
 }
+
+export function copyToClipboard(text: string): Promise<void> {
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    return navigator.clipboard.writeText(text);
+  }
+
+  return new Promise((resolve, reject) => {
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'absolute';
+      textarea.style.left = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.select();
+      const success = document.execCommand('copy');
+      document.body.removeChild(textarea);
+
+      if (success) {
+        resolve();
+      } else {
+        reject(new Error('Fallback: Copy command failed'));
+      }
+    } catch (err) {
+      reject(err);
+    }
+  });
+}

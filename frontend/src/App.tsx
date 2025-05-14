@@ -12,16 +12,16 @@ import PlaylistView from './pages/playlist';
 import SearchView from './pages/search';
 import { v4 as uuid } from 'uuid';
 
-import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Message, useWebSocketStore } from './store/ws';
 import { useTrackStore } from './store';
 import { useRemoteMessageQueue } from './hooks/queue';
 import { CssBaseline, GlobalStyles, useMediaQuery, useTheme } from '@mui/material';
-import { PlayerProvider } from './hooks/player';
 import PlayView from './pages/play';
 import { useRoomStore } from './store/room';
 
 import 'src/styles/globals.css';
+import Player from './components/Player';
 
 // lazily loaded components
 const JoinView = lazy(() => import('./pages/join'));
@@ -51,9 +51,7 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
     <QueryClientProvider client={queryClient}>
       <StyledEngineProvider enableCssLayer>
         <GlobalStyles styles="@layer theme, base, mui, components, utilities;" />
-        <ThemeProvider theme={appTheme}>
-          <PlayerProvider>{children}</PlayerProvider>
-        </ThemeProvider>
+        <ThemeProvider theme={appTheme}>{children}</ThemeProvider>
       </StyledEngineProvider>
     </QueryClientProvider>
   );
@@ -135,6 +133,7 @@ function App() {
     <Providers>
       <CssBaseline />
       <AppRouters />
+      <Player />
     </Providers>
     // </div>
   );

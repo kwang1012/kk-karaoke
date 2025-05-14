@@ -7,7 +7,7 @@ import Scrollbar from 'react-scrollbars-custom';
 import { Button } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { useRemoteMessageQueue } from 'src/hooks/queue';
-import { usePlayer } from 'src/hooks/player';
+import { usePlayer } from 'src/store/player';
 import TrackQueue from './TrackQueue';
 import Jam from './Jam';
 import { getUniqueId } from 'src/utils';

@@ -1,7 +1,7 @@
 import SyncedAudioPlayer from './syncedPlayer';
 import { PitchShifter } from './soundtouch';
 
-class ShiftedAutioPlayer extends SyncedAudioPlayer {
+class ShiftedAudioPlayer extends SyncedAudioPlayer {
   private instrumentalShifter: PitchShifter | null = null;
   private vocalShifter: PitchShifter | null = null;
   constructor() {
@@ -64,4 +64,4 @@ class ShiftedAutioPlayer extends SyncedAudioPlayer {
   }
 }
 
-export default ShiftedAutioPlayer;
+export default ShiftedAudioPlayer;

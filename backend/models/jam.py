@@ -10,6 +10,7 @@ class JamState(BaseModel):
     currentTime: float = 0
     playing: bool = False
     volume: float = 0.8
+    vocal_on: bool = False
     is_on: bool = False
 
 

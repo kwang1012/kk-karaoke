@@ -11,14 +11,13 @@ import {
 } from '@dnd-kit/core';
 import {
   useSortable,
-  arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { Track } from 'src/models/spotify';
 import SongCard from './SongCard';
-import { usePlayer } from 'src/hooks/player';
+import { usePlayer } from 'src/store/player';
 
 function SortableItem({ id, children }: { id: string; children?: React.ReactNode }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
@@ -99,7 +98,7 @@ function SortableList({
 }
 
 export default function TrackQueue({ tracks }: { tracks: Track[] }) {
-  const { setQueue, queueIdx } = usePlayer();
+  const { reorderQueue, queueIdx } = usePlayer();
   const { rmSongFromQueue } = usePlayer();
   const activeRoomId = useActiveRoomId();
   const items = useMemo(() => tracks.map((item) => item.uniqueId), [tracks]);
@@ -111,15 +110,13 @@ export default function TrackQueue({ tracks }: { tracks: Track[] }) {
       const newItems = [...tracks];
       const [element] = newItems.splice(oldIndex, 1);
       newItems.splice(newIndex, 0, element);
-      setQueue((prev) => [...prev.slice(0, queueIdx + 1), ...newItems]);
+      reorderQueue(newItems);
+      // setQueue([...queue.slice(0, queueIdx + 1), ...newItems]);
       // The offset 0 of the queue is at the offset queueIdx + 1 in the total queue.
       api
         .post(`queue/${activeRoomId}/reorder`, {
           oldIndex: queueIdx + oldIndex + 1,
           newIndex: queueIdx + newIndex + 1,
-        })
-        .then(({ data }) => {
-          console.log(data);
         })
         .catch((err) => {
           console.error(err);

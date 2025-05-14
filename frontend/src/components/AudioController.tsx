@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Button, IconButton, TextField, Tooltip } from '@mui/material';
 import AppSlider from './Slider';
 import SongCard from './SongCard';
-import { usePlayer } from 'src/hooks/player';
+import { usePlayer } from 'src/store/player';
 import { useMemo, useState } from 'react';
 import { useTrackStore } from 'src/store';
 import { useLocation } from 'react-router-dom';
@@ -17,7 +17,7 @@ function formatTime(seconds: number): string {
 }
 
 export default function AudioController() {
-  const { currentSong, progress, seeking, setSeeking, duration, playing, resetProgress } = usePlayer();
+  const { currentSong, progress, seeking, setSeeking, duration, playing, seek } = usePlayer();
   const { play, pause, next, previous } = usePlayer();
   const location = useLocation();
   const lyricsDelay = useTrackStore((state) => state.lyricsDelays[currentSong?.id || ''] || 0);
@@ -48,7 +48,7 @@ export default function AudioController() {
 
   const handleSliderCommit = (_: React.SyntheticEvent | Event, value: number | number[]) => {
     if (typeof value === 'number') {
-      resetProgress(value);
+      seek(value);
       setSeeking(false);
     }
   };
@@ -79,7 +79,7 @@ export default function AudioController() {
               <IconButton
                 style={{ fontSize: 16, padding: 0, transform: 'scaleY(0.8)' }}
                 size="small"
-                onClick={previous}
+                onClick={() => previous()}
                 className="hover:opacity-90"
               >
                 <FontAwesomeIcon icon={faStepBackward} size="xl" color="#c5c5c5" />
@@ -102,7 +102,7 @@ export default function AudioController() {
               <IconButton
                 style={{ fontSize: 16, padding: 0, transform: 'scaleY(0.8)' }}
                 size="small"
-                onClick={next}
+                onClick={() => next()}
                 className="hover:opacity-90"
               >
                 <FontAwesomeIcon icon={faForwardStep} size="xl" color="#c5c5c5" />

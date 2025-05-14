@@ -11,7 +11,7 @@ import { useAppStore } from 'src/store';
 import { useMediaQuery, useTheme } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import SearchBox from 'src/components/SearchBox';
-import { usePlayer } from 'src/hooks/player';
+import { usePlayerStore } from 'src/store/player';
 
 const getArtistsStr = (artists: any[]) => {
   return artists
@@ -103,7 +103,7 @@ export default function SearchView() {
 
   const setSearching = useAppStore((state) => state.setSearching);
   const setSearchValue = useAppStore((state) => state.setSearchValue);
-  const { addSongToQueue } = usePlayer();
+  const addSongToQueue = usePlayerStore((state) => state.addSongToQueue);
   const handleSearchChange = (value: string) => {
     setSearchValue(value);
     if (value === '') {

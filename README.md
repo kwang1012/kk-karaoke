@@ -41,6 +41,10 @@ You can easily start the app with Docker.
 ```bash
 docker build -t kkaraoke .
 docker run -it --rm -p 8080:8080 -v $(pwd)/backend/storage:/app/backend/storage --env-file ./backend/.env kkaraoke
+
+# For gpus (You will need this if you want to process LOTS OF SONGS!!!!)
+docker build -f Dockerfile.cuda -t kkaraoke:cuda .
+docker run -it --rm -p 8080:8080 -v $(pwd)/backend/storage:/app/backend/storage --env-file ./backend/.env --gpus all kkaraoke
 ```
 
 ### Local environment

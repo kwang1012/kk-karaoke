@@ -1,6 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap');
 /* @import '~material-design-icons/iconfont/material-icons.css'; */
 @import 'react-loading-skeleton/dist/skeleton.css';
+@import 'overlayscrollbars/overlayscrollbars.css';
 @layer theme, base, mui, components, utilities;
 @import 'tailwindcss';
 
@@ -73,12 +74,12 @@ body::-webkit-scrollbar-thumb {
 }
 
 .scrollbar {
+  width: 100%;
+  height: 100%;
   overflow: auto;
-}
 
-.scrollbar.horz {
-  overflow-x: auto;
-  overflow-y: visible;
+  /* On WebKit-based browsers (Chrome, Safari) */
+  scrollbar-gutter: stable overlay; /* For modern browsers */
 }
 
 .scrollbar::-webkit-scrollbar {
@@ -101,4 +102,22 @@ body::-webkit-scrollbar-thumb {
 }
 .scrollbar:hover::-webkit-scrollbar-thumb {
   box-shadow: inset 0 0 10px 10px #ffffff70;
+}
+
+.os-scrollbar {
+  visibility: visible;
+  opacity: 1;
+  z-index: 1101;
+  --os-size: 12px;
+  --os-handle-bg: #ffffff70;
+  --os-handle-bg-hover: #ffffffa0;
+  --os-handle-bg-active: #ffffffe0;
+}
+
+[data-testid='virtuoso-scroller']::-webkit-scrollbar {
+  display: none;
+}
+[data-testid='virtuoso-scroller'] {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

@@ -5,7 +5,7 @@ import Queue from 'src/components/Queue';
 import AudioController from 'src/components/AudioController';
 import AppSnackbar from 'src/components/Snackbar';
 import { styled } from '@mui/material/styles';
-import { useMediaQuery, useTheme } from '@mui/material';
+import { useMediaQuery } from '@mui/material';
 import { lazy, useRef } from 'react';
 import ResizeHandle from 'src/components/ResizeHandle';
 
@@ -55,8 +55,7 @@ const Footer = styled('div')(({ theme }) => ({
 }));
 
 export default function Layout() {
-  const theme = useTheme();
-  const mobile = useMediaQuery(theme.breakpoints.down('md'));
+  const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
   const mainRef = useRef<HTMLDivElement>(null);
   const queueRef = useRef<HTMLDivElement>(null);
   return (

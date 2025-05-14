@@ -2,7 +2,7 @@ import { createAvatar, Result } from '@dicebear/core';
 import { adventurer } from '@dicebear/collection';
 import { Button, Card, CardActions, CardContent, TextField } from '@mui/material';
 import Carousel, { CarouselItem } from 'src/components/Carousel';
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { styled } from '@mui/material/styles';
 import { api } from 'src/utils/api';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -29,7 +29,7 @@ function generateAvatars() {
 
 export default function JoinView() {
   const navigate = useNavigate();
-  const avatars = useMemo(() => generateAvatars(), []);
+  const [avatars, setAvatars] = useState<Result[]>([]);
   const [nickname, setNickname] = useState('');
   const [nameError, setNameError] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState<Result | null>(avatars[0]);
@@ -37,6 +37,10 @@ export default function JoinView() {
 
   const [searchParams] = useSearchParams();
   const roomId = searchParams.get('room');
+
+  useEffect(() => {
+    setAvatars(generateAvatars);
+  }, []);
 
   const handleJoin = () => {
     if (!nickname) {

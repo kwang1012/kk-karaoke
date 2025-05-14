@@ -1,38 +1,5 @@
-import { useMediaQuery, useTheme } from '@mui/material';
-import { useRef, useState } from 'react';
-import Scrollbar from 'react-scrollbars-custom';
+import { OverlayScrollbarsComponent, OverlayScrollbarsComponentProps } from 'overlayscrollbars-react';
 
-export default function AppScrollbar({ ...props }: any) {
-  const scrollbarRef = useRef<Scrollbar | null>(null);
-  const [hovering, setHovering] = useState(false);
-  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const theme = useTheme();
-  const mobile = useMediaQuery(theme.breakpoints.down('md'));
-
-  const onMouseEnter = () => {
-    if (hideTimer.current) {
-      clearTimeout(hideTimer.current);
-      hideTimer.current = null;
-    }
-    setHovering(true);
-  };
-  const onMouseLeave = () => {
-    hideTimer.current = setTimeout(() => {
-      setHovering(false);
-    }, 500);
-  };
-  return (
-    <Scrollbar
-      ref={scrollbarRef}
-      className="h-full"
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      disableTracksWidthCompensation
-      trackYProps={{ style: { background: 'transparent', width: 12, zIndex: 1101, visibility: mobile && 'hidden' } }}
-      thumbYProps={{
-        style: { background: hovering ? '#a3a3a370' : 'transparent', width: 8, display: mobile && 'hidden' },
-      }}
-      {...props}
-    />
-  );
+export default function AppScrollbar(props: OverlayScrollbarsComponentProps) {
+  return <OverlayScrollbarsComponent options={{ scrollbars: { autoHide: 'leave', autoHideDelay: 500 } }} {...props} />;
 }

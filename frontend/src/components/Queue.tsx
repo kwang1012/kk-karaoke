@@ -1,9 +1,8 @@
-import { forwardRef, useMemo, useRef, useState } from 'react';
+import React, { forwardRef, useMemo, useRef, useState } from 'react';
 import SongCard from './SongCard';
 import { useTrackStore } from 'src/store/track';
 import AppScrollbar from './Scrollbar';
 import { Message } from 'src/store/ws';
-import Scrollbar from 'react-scrollbars-custom';
 import { Button } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { useRemoteMessageQueue } from 'src/hooks/queue';
@@ -11,6 +10,7 @@ import { usePlayer } from 'src/store/player';
 import TrackQueue from './TrackQueue';
 import Jam from './Jam';
 import { getUniqueId } from 'src/utils';
+import { OverlayScrollbarsComponentRef } from 'overlayscrollbars-react';
 
 const QueueContainer = styled('div')(({ theme }) => ({
   gridArea: 'queue',
@@ -30,7 +30,7 @@ const QueueContainer = styled('div')(({ theme }) => ({
 }));
 
 const Queue = forwardRef<HTMLDivElement>((props, ref) => {
-  const scrollbarRef = useRef<Scrollbar | null>(null);
+  const scrollbarRef = useRef<OverlayScrollbarsComponentRef<'div'> | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const setSongStatus = useTrackStore((state) => state.setSongStatus);
 
@@ -52,7 +52,12 @@ const Queue = forwardRef<HTMLDivElement>((props, ref) => {
         requestAnimationFrame(() => {
           const scrollbar = scrollbarRef.current;
           if (scrollbar) {
-            scrollbar.scrollToBottom();
+            const instance = scrollbar.osInstance();
+            const viewport = instance?.elements().viewport;
+
+            if (viewport) {
+              viewport.scrollTop = viewport.scrollHeight; // scroll to bottom
+            }
           }
         });
       } else if (item.data.action === 'updated') {
@@ -65,53 +70,51 @@ const Queue = forwardRef<HTMLDivElement>((props, ref) => {
     },
   });
 
-  const handleScroll = (el: Scrollbar) => {
-    setScrollTop(el.scrollTop);
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLDivElement;
+    setScrollTop(target.scrollTop);
   };
-
   return (
-    <QueueContainer className="flex-1 h-full text-white" ref={ref}>
+    <QueueContainer className="flex-1 h-full text-white overflow-hidden" ref={ref}>
       <div className={['p-5 font-bold text-lg h-[68px] tracking-tighter', scrollTop > 0 ? 'shadow-xl' : ''].join(' ')}>
         Queue
       </div>
-      <div className="h-full">
-        <AppScrollbar className="h-full" ref={(el: Scrollbar) => (scrollbarRef.current = el)} onScroll={handleScroll}>
-          <div className="px-5 mt-5 font-bold text-lg tracking-tighter">Now playing</div>
-          <div className="px-3">
-            <SongCard className="mt-1" disableHover track={currentSong} />
-          </div>
+      <AppScrollbar className="h-full" ref={scrollbarRef} onScroll={handleScroll}>
+        <div className="px-5 mt-5 font-bold text-lg tracking-tighter">Now playing</div>
+        <div className="px-3">
+          <SongCard className="mt-1" disableHover track={currentSong} />
+        </div>
 
-          <div className="mx-4 mt-5">
-            <Jam />
-          </div>
+        <div className="mx-4 mt-5">
+          <Jam />
+        </div>
 
-          <div className="pl-5 pr-2 mt-8 flex items-center justify-between">
-            <span className="font-bold text-lg tracking-tighter"> Music in queue</span>
-            <Button
-              disableRipple
-              variant="text"
-              className="p-0 bg-transparent text-sm text-[#b3b3b3] normal-case font-bold hover:text-white"
-              onClick={clearQueue}
-            >
-              Clear queue
-            </Button>
-          </div>
-          <div className="px-3">
-            {tracks.length ? (
-              <TrackQueue tracks={tracks} />
-            ) : (
-              <>
-                <div className="text-gray-400 mt-2 w-full pl-2">There's no music in the queue.</div>
-                <div className="mt-5 px-2 flex justify-center text-primary">
-                  <Button variant="contained" className="bg-primary" onClick={getRandomTracks}>
-                    Random songs?
-                  </Button>
-                </div>
-              </>
-            )}
-          </div>
-        </AppScrollbar>
-      </div>
+        <div className="pl-5 pr-2 mt-8 flex items-center justify-between">
+          <span className="font-bold text-lg tracking-tighter"> Music in queue</span>
+          <Button
+            disableRipple
+            variant="text"
+            className="p-0 bg-transparent text-sm text-[#b3b3b3] normal-case font-bold hover:text-white"
+            onClick={clearQueue}
+          >
+            Clear queue
+          </Button>
+        </div>
+        <div className="px-3">
+          {tracks.length ? (
+            <TrackQueue tracks={tracks} />
+          ) : (
+            <>
+              <div className="text-gray-400 mt-2 w-full pl-2">There's no music in the queue.</div>
+              <div className="mt-5 px-2 flex justify-center text-primary">
+                <Button variant="contained" className="bg-primary" onClick={getRandomTracks}>
+                  Random songs?
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </AppScrollbar>
     </QueueContainer>
   );
 });

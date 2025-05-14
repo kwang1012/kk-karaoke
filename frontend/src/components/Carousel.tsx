@@ -1,12 +1,11 @@
-import { useMediaQuery, useTheme } from '@mui/material';
-import React, { act, useEffect, useRef, useState } from 'react';
+import { useMediaQuery } from '@mui/material';
+import React, { useEffect, useRef, useState } from 'react';
 
 export default function Carousel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLeft, setShowLeft] = useState(false);
   const [showRight, setShowRight] = useState(false);
-  const theme = useTheme();
-  const mobile = useMediaQuery(theme.breakpoints.down('md'));
+  const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
 
   const handleScroll = () => {
     const el = scrollRef.current;

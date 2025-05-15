@@ -24,13 +24,11 @@
   - [Spotify Appearance](#spotify-appearance)
   - [Easy Deployment](#easy-deployment)
   - [Open-Source and Free](#open-source-and-free)
-  <!-- - [FAQs](#faqs)
-  - [What is KKaraoke?](#what-is-moseca)
-  - [Are there any limitations?](#are-there-any-limitations)
-  - [How does KKaraoke work?](#how-does-moseca-work)
-  - [How do I use KKaraoke?](#how-do-i-use-moseca)
-  - [Where can I find the code for KKaraoke?](#where-can-i-find-the-code-for-moseca)
-  - [How can I get in touch with you?](#how-can-i-get-in-touch-with-you) -->
+- [FAQs](#faqs)
+  - [Can I run KKaraoke on my device?](#can-i-run-kkaraoke-on-my-device)
+  <!-- - [Are there any limitations?](#are-there-any-limitations)
+  - [How does KKaraoke work?](#how-does-kkaraoke-work)
+  - [How do I use KKaraoke?](#how-do-i-use-kkaraoke) -->
 - [Disclaimer](#disclaimer)
 
 ---
@@ -103,14 +101,6 @@ KKaraoke is for you.
 <br>
 
 Spotify-like user interface to allow you to start playing your favorite songs smoothly.
-<!-- 
-<br>
-
-### Karaoke Fun
-
-<img title="Karaoke Fun" src="https://i.imgur.com/nsn3JGV.png" width="250" ></img>
-
-<br> -->
 
 Engage with your favorite tunes in a whole new way!
 
@@ -151,6 +141,13 @@ each update.
 - Enjoy KKaraoke? [![Buymeacoffee](https://img.shields.io/badge/Buy%20me%20a%20coffee--yellow.svg?logo=buy-me-a-coffee&logoColor=orange&style=social)](https://www.buymeacoffee.com/fabiogra)
 
 --- -->
+
+---
+
+## FAQs
+
+### Can I run KKaraoke on my device?
+KKaraoke is designed to be run on all devices. However, we highly recommend you to run KKaraoke on a device with the GPU access. KKaraoke also supports Apple GPUs with `torch.backends.mps`.
 
 ## Disclaimer
 

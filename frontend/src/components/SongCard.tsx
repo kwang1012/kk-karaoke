@@ -76,6 +76,9 @@ const HoverLayout = styled('div')(({ theme }) => ({
     '& .actions': {
       opacity: 1,
     },
+    '& .avatar': {
+      display: 'none',
+    },
   },
   '&.active': {
     backgroundColor: '#ffffff3a',
@@ -268,11 +271,11 @@ export default function SongCard({
         </Tooltip>
       )}
       {hasActions && !disabled && (
-        <div className="flex items-center shrink-0">
+        <div className="flex items-center shrink-0 relative">
           {track?.orderedBy && (
             <Tooltip title={track.orderedBy.name} placement="top">
               <Avatar
-                className="w-10 h-10 bg-[#bdb9a6] dark:bg-[#3a3a3a] border-none"
+                className="w-10 h-10 bg-[#bdb9a6] dark:bg-[#3a3a3a] border-none absolute avatar"
                 alt={track.orderedBy.name}
                 src={track.orderedBy.avatar}
               />

@@ -11,11 +11,17 @@ export interface SettingState {
   dark: () => void; // Set theme to dark
   light: () => void; // Set theme to light
   onBrowserThemeChange: (isDarkMode: boolean) => void; // Handle browser theme change
+  isFullScreen: boolean; // Whether the app is in full screen mode
+  setFullScreen: (isFullScreen: boolean) => void; // Set full screen mode
 }
 
 export const useSettingStore = create<SettingState>()(
   persist(
     (set) => ({
+      isFullScreen: false, // Whether the app is in full screen mode
+      setFullScreen: (isFullScreen: boolean) => {
+        set(() => ({ isFullScreen }));
+      },
       refreshKey: 0, // Key to refresh the settings
       refresh: () => set((state) => ({ refreshKey: state.refreshKey + 1 })), // Function to refresh the settings
       theme: 'dark', // Default theme mode
@@ -57,6 +63,11 @@ export const useSettingStore = create<SettingState>()(
     {
       name: 'setting-storage', // name of the item in the storage (must be unique)
       storage: createJSONStorage(() => localStorage), // (optional) by default, 'localStorage' is used
+      partialize: (state) => ({
+        theme: state.theme,
+        refreshKey: state.refreshKey,
+        modified: state.modified,
+      }),
     }
   )
 );

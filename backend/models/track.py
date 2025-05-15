@@ -1,6 +1,8 @@
 from typing import Any, Optional
 from pydantic import BaseModel
 
+from models.user import User
+
 
 class Artist(BaseModel):
     id: str
@@ -14,6 +16,7 @@ class Track(BaseModel):
     artists: list[Artist]
     album: Optional[dict[str, Any]] = None
     time_added: Optional[int] = None
+    ordered_by: Optional[User] = None
 
 
 class LyricsDelay(BaseModel):

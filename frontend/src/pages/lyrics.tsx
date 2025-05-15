@@ -3,11 +3,13 @@ import AppScrollbar from 'src/components/Scrollbar';
 import { usePlayer } from 'src/store/player';
 import { useTrackStore } from 'src/store';
 import { DEFAULT_BG_COLOR, DEFAULT_COLOR, getLyricsRGB } from 'src/utils';
-import { useTheme } from '@mui/material';
+import { IconButton, Tooltip, useTheme } from '@mui/material';
+import { FullscreenExitOutlined, FullscreenOutlined } from '@mui/icons-material';
+import { useSettingStore } from 'src/store/setting';
 
 export default function LyricsView() {
   // local states
-  const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const lineRefs = useRef<(HTMLSpanElement | null)[]>([]);
 
   const { progress, currentLine, setCurrentLine, currentSong, lyrics, seeking, loading } = usePlayer();
   const { seek } = usePlayer();
@@ -73,34 +75,72 @@ export default function LyricsView() {
     const seekTime = syncedLyrics[index].time + lyricsDelay;
     seek(seekTime);
   };
+  const isFullscreen = useSettingStore((state) => state.isFullScreen);
+  const setIsFullscreen = useSettingStore((state) => state.setFullScreen);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen);
+    if (containerRef.current) {
+      if (isFullscreen) {
+        document.exitFullscreen();
+      } else {
+        const el = containerRef.current;
+        // const el = document.documentElement;
+
+        if (el.requestFullscreen) {
+          el.requestFullscreen();
+        } else if ((el as any).webkitRequestFullscreen) {
+          (el as any).webkitRequestFullscreen(); // Safari
+        } else if ((el as any).msRequestFullscreen) {
+          (el as any).msRequestFullscreen(); // IE11
+        }
+      }
+    }
+  };
 
   return (
-    <AppScrollbar className="h-full" style={{ backgroundColor: bgColor }}>
-      <div className="text-lg px-8" style={{ color: color }}>
-        {syncedLyrics.length > 0 ? (
-          syncedLyrics.map((line, i) => (
-            <div
-              key={i}
-              className="my-8"
-              ref={(el) => (lineRefs.current[i] = el)}
-              onClick={handleLineClick.bind(null, i)}
-            >
-              <span
-                className={
-                  'text-3xl cursor-pointer font-bold hover:underline hover:opacity-100 ' +
-                  (i <= currentLine ? 'text-white' : '')
-                }
-              >
-                {line.text}
-              </span>
-            </div>
-          ))
-        ) : (
-          <div className="text-center mt-20 text-4xl font-bold" style={{ color: color }}>
-            {!loading && <p>{currentSong ? 'No lyrics available for this track.' : 'Start playing a track!'}</p>}
-          </div>
-        )}
+    <div className="relative w-full h-full" ref={containerRef}>
+      {currentSong?.orderedBy && (
+        <div className="absolute top-2 right-3 z-10 flex items-center cursor-pointer px-2 bg-black/30 rounded-md">
+          <img src={currentSong.orderedBy.avatar} className="w-12 h-12" alt={currentSong.orderedBy.name} />
+          <span className="font-bold pr-2">{currentSong.orderedBy.name}</span>
+        </div>
+      )}
+      <div className="absolute bottom-2 right-3 z-10">
+        <IconButton
+          disableRipple
+          className="opacity-70 hover:opacity-90 active:opacity-100 active:scale-110"
+          onClick={toggleFullscreen}
+        >
+          {isFullscreen ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
+        </IconButton>
       </div>
-    </AppScrollbar>
+      <AppScrollbar className="w-full h-full" style={{ color, backgroundColor: bgColor }}>
+        <>
+          {syncedLyrics.length > 0 ? (
+            syncedLyrics.map((line, i) => (
+              <div key={i} className={['m-8', isFullscreen ? 'text-center' : ''].join(' ')}>
+                <span
+                  className={[
+                    'text-3xl cursor-pointer font-bold hover:underline hover:opacity-100',
+                    i <= currentLine ? 'text-white' : '',
+                    isFullscreen ? 'text-6xl leading-loose text-center' : '',
+                  ].join(' ')}
+                  ref={(el) => (lineRefs.current[i] = el)}
+                  onClick={handleLineClick.bind(null, i)}
+                >
+                  {line.text}
+                </span>
+              </div>
+            ))
+          ) : (
+            <div className="text-center mt-20 text-4xl font-bold" style={{ color }}>
+              {!loading && <p>{currentSong ? 'No lyrics available for this track.' : 'Start playing a track!'}</p>}
+            </div>
+          )}
+        </>
+      </AppScrollbar>
+    </div>
   );
 }

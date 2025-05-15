@@ -8,6 +8,7 @@ import { styled } from '@mui/material/styles';
 import { useMediaQuery } from '@mui/material';
 import { lazy, useRef } from 'react';
 import ResizeHandle from 'src/components/ResizeHandle';
+import { useSettingStore } from 'src/store/setting';
 
 // lazy import mobile components
 const AppNavigation = lazy(() => import('src/components/Navigation'));
@@ -58,10 +59,11 @@ export default function Layout() {
   const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
   const mainRef = useRef<HTMLDivElement>(null);
   const queueRef = useRef<HTMLDivElement>(null);
+  const isFullScreen = useSettingStore(state => state.isFullScreen);
   return (
     <Grid>
       {/* Header */}
-      {!mobile && <Nav />}
+      {!mobile && !isFullScreen && <Nav />}
       {/* Control Sidebar */}
       <SidebarController />
       {/* Main Content */}

@@ -121,9 +121,18 @@ export const usePlayerStore = create<PlayerStore>()(
       addSongToQueue: async (track: Track) => {
         useTrackStore.getState().setSongStatus(track.id, 'submitted');
         const roomId = useRoomStore.getState().roomId;
+        const name = useRoomStore.getState().nickname;
+        const avatar = useRoomStore.getState().avatar;
         const joinedRoomId = useRoomStore.getState().joinedRoom;
         const activeRoomId = joinedRoomId || roomId || 'default';
-        pushToQueue(activeRoomId, track).then((data) => {
+        pushToQueue(activeRoomId, {
+          ...track,
+          ordered_by: {
+            id: roomId,
+            name,
+            avatar,
+          },
+        }).then((data) => {
           if (data.isReady) {
             useTrackStore.getState().setSongStatus(track.id, 'ready');
           }

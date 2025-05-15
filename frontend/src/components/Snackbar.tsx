@@ -2,7 +2,6 @@ import { faVolumeHigh } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Snackbar, LinearProgress } from '@mui/material';
 import { usePlayer } from 'src/store/player';
-import { useSettingStore } from 'src/store/setting';
 import { useNotifyStore } from 'src/store/notify';
 
 export default function AppSnackbar() {

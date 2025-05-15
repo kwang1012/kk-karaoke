@@ -62,7 +62,7 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 uvicorn main:app --reload
-celery -A services.process_request.celery worker -l info --concurrency=1
+celery -A services.process_request.celery worker -l info --concurrency=1 --pool=solo
 ```
 
 #### Frontend

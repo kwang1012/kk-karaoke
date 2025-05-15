@@ -138,6 +138,7 @@ function App() {
   const theme = useSettingStore((state) => state.theme);
   const dark = useSettingStore((state) => state.dark);
   const light = useSettingStore((state) => state.light);
+  const setFullScreen = useSettingStore((state) => state.setFullScreen);
   React.useEffect(() => {
     // theme
     if (theme === 'dark') dark();
@@ -153,6 +154,18 @@ function App() {
   // const onBrowserThemeChange = useSettingStore((state) => state.onBrowserThemeChange);
 
   // const refreshKey = useSettingStore((state) => state.refreshKey);
+
+  useEffect(() => {
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  const handleFullscreenChange = () => {
+    const isFullscreen = !!document.fullscreenElement;
+    setFullScreen(isFullscreen);
+  };
 
   return (
     // <div key={refreshKey} className="h-full w-full">

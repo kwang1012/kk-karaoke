@@ -94,13 +94,13 @@ function SortableList({
   children,
   onDragEnd,
   onDragStart,
-  onDragCanecel,
+  onDragCancel,
 }: {
   items: string[];
   children: React.ReactNode;
   onDragEnd: (event: DragEndEvent) => void;
   onDragStart?: (event: DragStartEvent) => void;
-  onDragCanecel?: (event: DragStartEvent) => void;
+  onDragCancel?: (event: DragStartEvent) => void;
 }) {
   const sensors = useSensors(
     useSensor(SmartPointerSensor, {
@@ -120,7 +120,7 @@ function SortableList({
       collisionDetection={closestCenter}
       onDragEnd={onDragEnd}
       onDragStart={onDragStart}
-      onDragCancel={onDragCanecel}
+      onDragCancel={onDragCancel}
     >
       <SortableContext items={items} strategy={verticalListSortingStrategy}>
         {children}
@@ -162,7 +162,7 @@ export default function TrackQueue({ tracks }: { tracks: Track[] }) {
     <SortableList
       onDragEnd={handleDragEnd}
       onDragStart={() => setDragging(true)}
-      onDragCanecel={() => setDragging(false)}
+      onDragCancel={() => setDragging(false)}
       items={items}
     >
       {tracks.map((track) => (

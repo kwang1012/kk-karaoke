@@ -7,6 +7,7 @@ import {
   ListItemText,
   MenuItem,
   Tooltip,
+  useMediaQuery,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import React, { memo, ReactElement, useEffect, useMemo, useState } from 'react';
@@ -247,6 +248,7 @@ export default function SongCard({
   }, [status]);
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
   return (
     <HoverLayout
       className={[
@@ -298,7 +300,7 @@ export default function SongCard({
           {track?.orderedBy && (
             <Tooltip title={track.orderedBy.name} placement="top">
               <Avatar
-                className="w-10 h-10 border-none absolute avatar"
+                className={['w-10 h-10 border-none', mobile ? 'relative' : 'absolute avatar'].join(' ')}
                 alt={track.orderedBy.name}
                 src={track.orderedBy.avatar}
               />

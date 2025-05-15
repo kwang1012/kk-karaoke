@@ -19,7 +19,7 @@ const Layout = styled('div')(({ theme }) => ({
   height: '100%',
   paddingTop: 10,
   paddingBottom: 10,
-  overflow: 'hidden'
+  overflow: 'hidden',
 }));
 
 const Overlay = styled('div')(({ theme }) => ({
@@ -37,9 +37,7 @@ export default function PlayView() {
   const ref = useRef<HTMLDivElement>(null);
   const sticky = useMemo(() => {
     if (!ref.current) return false;
-    const { top } = ref.current.getBoundingClientRect();
-    if (top > 10) return false;
-    return true;
+    return scrollTop !== 0;
   }, [scrollTop]);
   useEffect(() => {
     window.scrollTo(0, 1);

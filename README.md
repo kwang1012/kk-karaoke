@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-    <img src="https://github.com/user-attachments/assets/58da0768-1413-4e9c-bb51-5cb289285a80" />
+    <img src="https://imgur.com/xkm7lKt.gif" />
 </p>
 
 <h3 align="start"><a href="https://kwang1012-kkaraoke.hf.space/">DEMO</a></h3>

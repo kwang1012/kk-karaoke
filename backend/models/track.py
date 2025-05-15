@@ -17,6 +17,8 @@ class Track(BaseModel):
     album: Optional[dict[str, Any]] = None
     time_added: Optional[int] = None
     ordered_by: Optional[User] = None
+    status: Optional[str] = None
+    progress: Optional[float] = None
 
 
 class LyricsDelay(BaseModel):

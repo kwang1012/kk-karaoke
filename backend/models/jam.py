@@ -12,6 +12,7 @@ class JamState(BaseModel):
     volume: float = 0.8
     vocal_on: bool = False
     is_on: bool = False
+    queue_idx: Optional[int] = None
 
 
 class Room(BaseModel):

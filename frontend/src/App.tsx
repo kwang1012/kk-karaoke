@@ -58,7 +58,6 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
 };
 
 const AppRouters = () => {
-  const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
   const isLoggedIn = useIsLoggedIn();
   return (
     <Router>
@@ -70,7 +69,7 @@ const AppRouters = () => {
             <Route path="album/:id" element={<PlaylistView />} />
             <Route path="search/*" element={<SearchView />} />
             <Route path="lyrics" element={<LyricsView />} />
-            <Route path="play" element={mobile ? <PlayView /> : <BrowseView />} />
+            <Route path="play" element={<PlayView />} />
             <Route path="settings" element={<SettingView />} />
           </Route>
         </Route>

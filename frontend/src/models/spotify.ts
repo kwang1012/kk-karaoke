@@ -1,3 +1,4 @@
+import { SongStatus } from 'src/store';
 import { User } from './user';
 
 export type Image = {
@@ -28,6 +29,8 @@ export type Track = {
   album?: Album;
   timeAdded: number;
   orderedBy?: User;
+  status?: SongStatus;
+  progress?: number;
   [key: string]: any; // Allow additional properties
   // ... any other metadata
 };

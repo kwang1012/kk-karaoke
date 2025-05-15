@@ -70,6 +70,31 @@ class RedisQueueInterface:
         except redis.RedisError as e:
             print(f"Error getting track queue for room {room_id}: {e}")
             return []
+    
+    def update_track_status(self, room_id: str, track: Track) -> None:
+        """
+        Updates the status of a track in the queue.
+
+        Args:
+            room_id: The ID of the room.
+            track: The Track object with updated status.
+        """
+        try:
+            user_queue_key = f"{self.room_prefix}{room_id}:queue"
+            queue_length: int = self.redis.llen(user_queue_key)  # type: ignore
+            for i in range(queue_length):
+                track_data: Any = self.redis.lindex(
+                    user_queue_key, i)  # type: ignore
+                if track_data:
+                    stored_track = Track(**json.loads(track_data))
+                    if stored_track.id == track.id and stored_track.time_added == track.time_added:
+                        stored_track.status = track.status
+                        stored_track.progress = track.progress
+                        self.redis.lset(user_queue_key, i, json.dumps(stored_track.model_dump()))
+                        break
+        except redis.RedisError as e:
+            print(f"Error updating track status for room {room_id}: {e}")
+            raise
 
     def clear_queue(self, room_id: str) -> None:
         try:

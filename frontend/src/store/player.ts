@@ -35,6 +35,7 @@ type PlayerStore = {
   setEnabledPitchShift: (enabled: boolean) => void; // Set pitch shift enabled state
   vocalOn: boolean; // Set vocal on
   setVocalOn: (enabled: boolean) => void; // Set vocal on state
+  toggleVocalOn: () => void; // Toggle vocal on state
   volume: number; // Volume level
   setVolume: (volume: number) => void; // Set volume level
   // lyrics context
@@ -72,6 +73,7 @@ export const usePlayerStore = create<PlayerStore>()(
       enabledPitchShift: false,
       vocalOn: false,
       setVocalOn: (enabled: boolean) => set({ vocalOn: enabled }),
+      toggleVocalOn: () => set((state) => ({ vocalOn: !state.vocalOn })),
       volume: 0.8,
       setVolume: (volume: number) => set({ volume }),
       setEnabledPitchShift: (enabled: boolean) => set({ enabledPitchShift: enabled }),
@@ -195,7 +197,7 @@ export const usePlayer = () => {
     volume,
     setVolume,
     vocalOn,
-    setVocalOn,
+    toggleVocalOn,
     semitone,
     setSemitone,
     setProgress,
@@ -296,7 +298,7 @@ export const usePlayer = () => {
       syncedPlayer.setVolume(volume, newVolume);
     }
 
-    setVocalOn(!vocalOn);
+    toggleVocalOn();
     if (isCallback) return;
     sendMessage({
       type: 'jam',

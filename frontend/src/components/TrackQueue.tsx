@@ -19,21 +19,43 @@ import { Track } from 'src/models/spotify';
 import SongCard from './SongCard';
 import { usePlayer } from 'src/store/player';
 
-function SortableItem({ id, children }: { id: string; children?: React.ReactNode }) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
+function SortableItem({
+  id,
+  children,
+  dragging,
+}: { id: string; dragging?: boolean } & React.HTMLAttributes<HTMLDivElement>) {
+  const { attributes, listeners, setNodeRef, transform, transition, active } = useSortable({ id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
   };
 
+  const isActive = active?.id === id;
+
   return (
-    <div ref={setNodeRef} {...listeners} {...attributes} style={style}>
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      style={{
+        ...style,
+        touchAction: dragging ? 'none' : 'manipulation',
+        userSelect: 'none',
+        ...(isActive && {
+          scale: 0.98,
+          zIndex: 50,
+          borderRadius: 8,
+          backgroundColor: '#12121270',
+          boxShadow: '0 0 0 4px rgba(204, 51, 99, 0.8)',
+        }),
+      }}
+    >
       {children}
     </div>
   );
 }
-import { useMemo, type PointerEvent } from 'react';
+import { useState, type PointerEvent } from 'react';
 import { api } from 'src/utils/api';
 import { useActiveRoomId, useRoomStore } from 'src/store/room';
 /**
@@ -71,25 +93,35 @@ function SortableList({
   items,
   children,
   onDragEnd,
+  onDragStart,
+  onDragCanecel,
 }: {
   items: string[];
   children: React.ReactNode;
   onDragEnd: (event: DragEndEvent) => void;
+  onDragStart?: (event: DragStartEvent) => void;
+  onDragCanecel?: (event: DragStartEvent) => void;
 }) {
   const sensors = useSensors(
-    useSensor(SmartPointerSensor),
+    useSensor(SmartPointerSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
-  const onDragStart = (event: DragStartEvent) => {
-    if ((event.active?.data?.current?.target as HTMLElement)?.tagName === 'BUTTON') {
-      event.activatorEvent.preventDefault();
-    }
-  };
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd} onDragStart={onDragStart}>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragEnd={onDragEnd}
+      onDragStart={onDragStart}
+      onDragCancel={onDragCanecel}
+    >
       <SortableContext items={items} strategy={verticalListSortingStrategy}>
         {children}
       </SortableContext>
@@ -103,7 +135,9 @@ export default function TrackQueue({ tracks }: { tracks: Track[] }) {
   const roomId = useRoomStore((state) => state.roomId);
   const activeRoomId = useActiveRoomId();
   const items = tracks.map((item) => item.uniqueId);
+  const [dragging, setDragging] = useState(false);
   const handleDragEnd = (event: DragEndEvent) => {
+    setDragging(false);
     const { active, over } = event;
     if (active.id !== over?.id) {
       const oldIndex = tracks.findIndex((track) => track.uniqueId === active.id);
@@ -125,9 +159,14 @@ export default function TrackQueue({ tracks }: { tracks: Track[] }) {
     }
   };
   return (
-    <SortableList onDragEnd={handleDragEnd} items={items}>
+    <SortableList
+      onDragEnd={handleDragEnd}
+      onDragStart={() => setDragging(true)}
+      onDragCanecel={() => setDragging(false)}
+      items={items}
+    >
       {tracks.map((track) => (
-        <SortableItem key={track.uniqueId} id={track.uniqueId}>
+        <SortableItem key={track.uniqueId} id={track.uniqueId} dragging={dragging}>
           <SongCard className="mt-1" track={track} onDelete={() => rmSongFromQueue(track)} />
         </SortableItem>
       ))}

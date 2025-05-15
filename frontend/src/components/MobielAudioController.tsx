@@ -1,10 +1,13 @@
 import { faStepBackward, faCirclePause, faCirclePlay, faForwardStep } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { IconButton } from '@mui/material';
+import { IconButton, useTheme } from '@mui/material';
 import AppSlider from './Slider';
 import { usePlayer } from 'src/store/player';
 import { VolumeMuteOutlined, VolumeUpOutlined } from '@mui/icons-material';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
+import Mic from 'src/assets/mic.svg';
+import MicMuted from 'src/assets/mic-muted.svg';
+import SvgIcon from './SvgIcon';
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds)) return '0:00';
@@ -13,12 +16,13 @@ function formatTime(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 export default function MobileAudioController() {
-  const { volume, progress, seeking, setSeeking, duration, playing } = usePlayer();
-  const { play, pause, next, previous, seek, setVolume } = usePlayer();
+  const { vocalOn, volume, progress, seeking, setSeeking, duration, playing } = usePlayer();
+  const { play, pause, next, previous, seek, setVolume, toggleVocal } = usePlayer();
 
   const [localProgress, setLocalProgress] = useState(progress);
 
   const realProgress = seeking ? localProgress : progress;
+  const theme = useTheme();
 
   const handlePlayPause = () => {
     if (playing) {
@@ -46,7 +50,21 @@ export default function MobileAudioController() {
   };
   return (
     <div className="w-full h-full flex flex-col justify-center">
-      <div className="flex flex-col w-full">
+      <div className="flex justify-start">
+        <IconButton
+          className="active:opacity-70 hover:opacity-90 p-0"
+          disableRipple
+          onClick={() => toggleVocal()}
+        >
+          <SvgIcon
+            src={vocalOn ? Mic : MicMuted}
+            className="w-8 h-8"
+            stroke={vocalOn ? (theme.palette.mode == 'dark' ? '#ffeaed' : '#959595') : '#fa6171'}
+            strokeWidth={1.5}
+          />
+        </IconButton>
+      </div>
+      <div className="flex flex-col w-full mt-4">
         <AppSlider
           className="w-full"
           min={0}

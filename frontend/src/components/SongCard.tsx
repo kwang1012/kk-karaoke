@@ -1,24 +1,13 @@
-import {
-  Avatar,
-  CircularProgress,
-  CircularProgressProps,
-  IconButton,
-  ListItemIcon,
-  ListItemText,
-  MenuItem,
-  Tooltip,
-  useMediaQuery,
-} from '@mui/material';
+import { Avatar, CircularProgress, CircularProgressProps, Tooltip, useMediaQuery } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import React, { memo, ReactElement, useEffect, useMemo, useState } from 'react';
+import { ReactElement, useEffect, useMemo, useState } from 'react';
 import placeholderImage from 'src/assets/placeholder.png';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGears, faMusic } from '@fortawesome/free-solid-svg-icons';
 import { useTrackStore } from 'src/store';
-import { useWebSocketStore } from 'src/store/ws';
-import { CheckCircle, DeleteOutline, MoreHoriz, PlayArrow, QueueMusic } from '@mui/icons-material';
-import AppMenu from './Menu';
+import { CheckCircle, PlayArrow } from '@mui/icons-material';
 import { Track } from 'src/models/spotify';
+import ActionMenu from './playlist/ActionMenu';
 
 const CircularProgressWithLabel = ({
   children,
@@ -73,7 +62,7 @@ const HoverLayout = styled('div')(({ theme }) => ({
     '.checked-icon *': {
       color: theme.palette.success.main,
     },
-    backgroundColor: '#ffffff1a',
+    backgroundColor: theme.palette.mode == 'dark' ? '#ffffff1a' : '#0000001a',
     '& .actions': {
       opacity: 1,
     },
@@ -96,91 +85,6 @@ const HoverLayout = styled('div')(({ theme }) => ({
     },
   },
 }));
-
-const ActionMenu = memo(
-  ({
-    track,
-    onAdd,
-    onDelete,
-    onOpen,
-    onClose,
-    className,
-  }: React.HTMLAttributes<HTMLDivElement> & {
-    track: Track;
-    onAdd?: (track: Track) => void;
-    onDelete?: (track: Track) => void;
-    onOpen: () => void;
-    onClose: () => void;
-  }) => {
-    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-    const open = Boolean(anchorEl);
-    const id = open ? 'simple-popover' : undefined;
-    const handleClick = (event: React.MouseEvent<HTMLElement>) => {
-      event.stopPropagation();
-      setAnchorEl(event.currentTarget);
-      onOpen();
-    };
-    const handleClose = () => {
-      setAnchorEl(null);
-      onClose();
-    };
-    const functions = [
-      {
-        fn: onAdd,
-        icon: <QueueMusic />,
-        text: 'Add to queue',
-      },
-      {
-        fn: onDelete,
-        icon: <DeleteOutline />,
-        text: 'Remove from queue',
-      },
-    ];
-    return (
-      <>
-        <IconButton
-          className={`row-actions interactive-section ${className}`}
-          disableTouchRipple
-          sx={{ minWidth: 40 }}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleClick(e);
-          }}
-          aria-describedby={id}
-        >
-          <MoreHoriz style={{ color: '#b3b3b3' }} />
-        </IconButton>
-        <AppMenu id={id} open={open} anchorEl={anchorEl} onClose={handleClose}>
-          {functions.map(
-            (func, index) =>
-              func.fn && (
-                <MenuItem
-                  key={index}
-                  className="interactive-section"
-                  onClick={() => {
-                    if (!track || !func.fn) return;
-                    func.fn(track);
-                    handleClose();
-                  }}
-                >
-                  <ListItemIcon
-                    sx={{
-                      '& svg': {
-                        fill: '#b3b3b3',
-                      },
-                    }}
-                  >
-                    {func.icon}
-                  </ListItemIcon>
-                  <ListItemText className="text-[#b3b3b3]">{func.text}</ListItemText>
-                </MenuItem>
-              )
-          )}
-        </AppMenu>
-      </>
-    );
-  }
-);
 
 type SongCardProps = {
   className?: string;

@@ -5,7 +5,7 @@ import { api } from 'src/utils/api';
 import placeholder from 'src/assets/placeholder.png';
 import { useWebSocketStore } from 'src/store/ws';
 import { useQuery } from '@tanstack/react-query';
-import { getAvgRGB } from 'src/utils';
+import { DEFAULT_BG_COLOR, getAvgRGB } from 'src/utils';
 import { usePlayerStore } from 'src/store/player';
 import { Track, Collection, Album } from 'src/models/spotify';
 import PlaylistTable from 'src/components/playlist/Table';
@@ -44,7 +44,7 @@ export default function PlaylistView() {
   });
   const collection = data?.collection || initCollection;
   const tracks = data?.tracks || [];
-  const [color, setColor] = useState<string>('#535353');
+  const [color, setColor] = useState<string>(DEFAULT_BG_COLOR);
   const collectionImage = collection.images?.[0]?.url || placeholder;
   useEffect(() => {
     if (collectionImage) {

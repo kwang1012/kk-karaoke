@@ -64,7 +64,7 @@ export default function Layout() {
   const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
   const mainRef = useRef<HTMLDivElement>(null);
   const queueRef = useRef<HTMLDivElement>(null);
-  const isFullScreen = useSettingStore(state => state.isFullScreen);
+  const isFullScreen = useSettingStore((state) => state.isFullScreen);
   return (
     <Grid>
       {/* Header */}

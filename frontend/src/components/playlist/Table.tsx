@@ -1,4 +1,4 @@
-import { Table, TableHead, TableRow, TableCell, TableBody, useMediaQuery } from '@mui/material';
+import { Table, TableHead, TableRow, TableCell, TableBody, useMediaQuery, useTheme } from '@mui/material';
 import { forwardRef, useContext, useEffect, useRef, useState } from 'react';
 import { Track } from 'src/models/spotify';
 import PlaylistRow, { getColWidth, HoverTableRow } from './Row';
@@ -66,12 +66,13 @@ const VirtuosoTableComponents: TableComponents<Track> = {
 function fixedHeaderContent() {
   const { headers, isSticky } = useContext(PlaylistContext);
   const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
+  const theme = useTheme();
   return (
     <TableRow
       sx={{
         '& th': {
           borderColor: '#b3b3b3',
-          bgcolor: isSticky ? '#1a1a1a' : 'transparent',
+          bgcolor: isSticky ? (theme.palette.mode === 'dark' ? '#1a1a1a' : 'white') : 'transparent',
           top: mobile ? 48 : 64,
         },
       }}

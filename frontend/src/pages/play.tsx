@@ -5,9 +5,10 @@ import placeholder from 'src/assets/placeholder.png';
 import AppScrollbar from 'src/components/Scrollbar';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, useMediaQuery } from '@mui/material';
-import { getAvgRGB, getUniqueId } from 'src/utils';
+import { DEFAULT_BG_COLOR, getAvgRGB, getUniqueId } from 'src/utils';
 import TrackQueue from 'src/components/TrackQueue';
 import { useNavigate } from 'react-router-dom';
+import MobilePlayer from 'src/components/MobilePlayer';
 
 const Layout = styled('div')(({ theme }) => ({
   display: 'grid',
@@ -31,32 +32,15 @@ const Overlay = styled('div')(({ theme }) => ({
   zIndex: 1,
 }));
 export default function PlayView() {
-  const { currentSong, queue, queueIdx } = useQueue();
-  const getRandomTracks = usePlayerStore((state) => state.getRandomTracks);
-  const [scrollTop, setScrollTop] = useState(0);
-  const ref = useRef<HTMLDivElement>(null);
-  const sticky = useMemo(() => {
-    if (!ref.current) return false;
-    return scrollTop !== 0;
-  }, [scrollTop]);
-  useEffect(() => {
-    window.scrollTo(0, 1);
-  }, []);
-  const [color, setColor] = useState<string>('#535353');
+  const { currentSong } = useQueue();
+  const [color, setColor] = useState<string>(DEFAULT_BG_COLOR);
   const image = currentSong?.album?.images?.[0]?.url;
   const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
   const navigate = useNavigate();
 
-  const tracks = useMemo(() => {
-    return queue.slice(queueIdx + 1).map((track, index) => ({
-      index,
-      ...track,
-      uniqueId: getUniqueId(track),
-    }));
-  }, [queue, queueIdx]);
   useEffect(() => {
     if (!image) {
-      setColor('#535353');
+      setColor(DEFAULT_BG_COLOR);
       return;
     }
     getAvgRGB(image)
@@ -68,10 +52,6 @@ export default function PlayView() {
       });
   }, [image]);
 
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const target = e.target as HTMLDivElement;
-    setScrollTop(target.scrollTop);
-  };
   useEffect(() => {
     if (!mobile) navigate('/', { replace: true });
   }, [mobile]);
@@ -95,40 +75,7 @@ export default function PlayView() {
         backgroundImage: `linear-gradient(to bottom, ${color} 84px, ${color}40, #121212)`,
       }}
     >
-      <AppScrollbar onScroll={handleScroll} className="w-full h-full pb-5">
-        <div className="w-full">{/* PUT HISTORY */}</div>
-        {sticky && (
-          <Overlay
-            className="shadow-md"
-            style={{
-              background: color,
-            }}
-          />
-        )}
-        <div ref={ref} className="sticky top-0 flex items-center w-full z-50 px-6">
-          <div className="w-16 h-16 rounded-md bg-[#c3c3c3] overflow-hidden">
-            <img src={currentSong?.album?.images?.[0]?.url || placeholder} className="w-full h-full" />
-          </div>
-          <span className="text-xl ml-2">{currentSong?.name || 'Not Playing'}</span>
-        </div>
-        <div className="w-full px-2 pt-5">
-          {tracks.length ? (
-            <TrackQueue tracks={tracks} />
-          ) : (
-            <>
-              <div className="text-gray-400 mt-2 w-full pl-2">There's no music in the queue.</div>
-              <div className="mt-5 px-2 flex justify-center text-primary">
-                <Button variant="contained" className="bg-primary" onClick={getRandomTracks}>
-                  Random songs?
-                </Button>
-              </div>
-            </>
-          )}
-        </div>
-      </AppScrollbar>
-      <div className="px-6">
-        <MobileAudioController />
-      </div>
+      <MobilePlayer />
     </Layout>
   );
 }

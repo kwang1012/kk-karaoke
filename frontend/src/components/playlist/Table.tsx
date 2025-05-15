@@ -72,7 +72,7 @@ function fixedHeaderContent() {
         '& th': {
           borderColor: '#b3b3b3',
           bgcolor: isSticky ? '#1a1a1a' : 'transparent',
-          top: mobile ? 56 : 64,
+          top: mobile ? 48 : 64,
         },
       }}
     >
@@ -96,6 +96,10 @@ export default function PlaylistTable({ tracks }: { tracks: Track[] }) {
   const [scroller, setScroller] = useState<any>(null);
   const [initialize, osInstance] = useOverlayScrollbars({
     options: {
+      overflow: {
+        x: 'hidden',
+        y: 'scroll',
+      },
       scrollbars: {
         autoHide: 'leave',
         autoHideDelay: 500,
@@ -118,7 +122,7 @@ export default function PlaylistTable({ tracks }: { tracks: Track[] }) {
     return () => osInstance()?.destroy();
   }, [scroller, initialize, osInstance]);
   return (
-    <div data-overlayscrollbars-initialize="" className="h-full" ref={rootRef}>
+    <div data-overlayscrollbars-initialize="" className="w-full h-full" ref={rootRef}>
       <TableVirtuoso
         scrollerRef={setScroller}
         data={tracks}

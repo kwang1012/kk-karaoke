@@ -7,9 +7,10 @@ import {
   ListItemText,
   MenuItem,
   Tooltip,
+  useMediaQuery,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import React, { memo, ReactElement, useMemo, useState } from 'react';
+import React, { memo, ReactElement, useEffect, useMemo, useState } from 'react';
 import placeholderImage from 'src/assets/placeholder.png';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGears, faMusic } from '@fortawesome/free-solid-svg-icons';
@@ -86,6 +87,12 @@ const HoverLayout = styled('div')(({ theme }) => ({
   [theme.breakpoints.down('md')]: {
     '& .actions': {
       opacity: 1,
+    },
+    '*': {
+      color: theme.palette.mode == 'dark' ? 'white' : 'black',
+    },
+    '&:hover, &.active': {
+      backgroundColor: 'transparent',
     },
   },
 }));
@@ -196,11 +203,28 @@ export default function SongCard({
 }: SongCardProps) {
   const songStatus = useTrackStore((state) => state.songStatus);
   const songProgress = useTrackStore((state) => state.songProgress);
-  const status = track ? songStatus[track.id] : 'ready';
-  const progress = track ? songProgress[track.id] : 100;
-  const isReady = !status || status === 'ready';
   const hasActions = useMemo(() => !!onAdd || !!onDelete, [onAdd, onDelete]);
+  const [status, setStatus] = useState(track?.status || 'ready');
+  const [progress, setProgress] = useState(track?.progress || 0);
+  const isReady = !status || status === 'ready';
   const disabled = useMemo(() => !isReady || disable, [isReady, disable]);
+
+  // Update only when songStatus[track.id] changes
+  useEffect(() => {
+    if (!track?.id) return;
+    const newStatus = songStatus[track.id];
+    if (newStatus && newStatus !== status) {
+      setStatus(newStatus);
+    }
+  }, [track?.id, songStatus[track?.id || '']]);
+  //  ? songProgress[track.id] : 100;
+  useEffect(() => {
+    if (!track?.id) return;
+    const newProgress = songProgress[track.id];
+    if (newProgress && newProgress !== progress) {
+      setProgress(newProgress);
+    }
+  }, [track?.id, songProgress[track?.id || '']]);
   const parsedTrack = useMemo(() => {
     if (!track)
       return {
@@ -224,6 +248,7 @@ export default function SongCard({
   }, [status]);
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
   return (
     <HoverLayout
       className={[
@@ -253,7 +278,7 @@ export default function SongCard({
             <span key={index}>
               {index > 0 && ', '}
               <a
-                href={disabled ? undefined : artist.uri}
+                // href={disabled ? undefined : artist.uri}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={['size-fit', disabled ? 'cursor-default' : 'hover:underline cursor-pointer'].join(' ')}
@@ -275,7 +300,7 @@ export default function SongCard({
           {track?.orderedBy && (
             <Tooltip title={track.orderedBy.name} placement="top">
               <Avatar
-                className="w-10 h-10 bg-[#bdb9a6] dark:bg-[#3a3a3a] border-none absolute avatar"
+                className={['w-10 h-10 border-none', mobile ? 'relative' : 'absolute avatar'].join(' ')}
                 alt={track.orderedBy.name}
                 src={track.orderedBy.avatar}
               />

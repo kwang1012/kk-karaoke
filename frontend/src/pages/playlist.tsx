@@ -81,10 +81,10 @@ export default function PlaylistView() {
   const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
   const headers = useMemo(() => {
     return collectionType === 'album' || mobile ? ALBUM_HEADERS : PLAYLIST_HEADERS;
-  }, [collectionType]);
+  }, [collectionType, mobile]);
 
   return (
-    <div className="h-full relative pb-4">
+    <div className="w-full h-full relative pb-4">
       <AppBar
         position="absolute"
         style={{
@@ -94,7 +94,7 @@ export default function PlaylistView() {
         elevation={0}
       >
         {halfway && (
-          <Toolbar>
+          <Toolbar variant={mobile ? 'dense' : 'regular'}>
             <>
               <img src={collectionImage} className="w-8 h-8 rounded-md" />
               <div className="text-xl ml-4 line-clamp-1">{collection.name}</div>

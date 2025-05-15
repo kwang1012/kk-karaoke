@@ -1,6 +1,6 @@
 import { PlayArrow, CheckCircle, DownloadForOfflineOutlined, Downloading } from '@mui/icons-material';
-import { styled, TableRow, Tooltip, IconButton, TableCell } from '@mui/material';
-import { memo, useContext, useMemo, useState } from 'react';
+import { styled, TableRow, Tooltip, IconButton, TableCell, useMediaQuery } from '@mui/material';
+import { memo, useContext, useEffect, useMemo, useState } from 'react';
 import Skeleton from 'react-loading-skeleton';
 import { Track } from 'src/models/spotify';
 import { useTrackStore } from 'src/store';
@@ -50,6 +50,18 @@ export const HoverTableRow = styled(TableRow)(({ theme }) => ({
     '& .row-actions': {
       opacity: 1,
     },
+    '*': {
+      color: theme.palette.mode == 'dark' ? 'white' : 'black',
+    },
+    '& .checked-icon *': {
+      color: theme.palette.success.main,
+    },
+    '&:hover, &.active': {
+      backgroundColor: 'transparent',
+      '& .row-id': {
+        display: 'flex',
+      },
+    },
   },
 }));
 
@@ -66,8 +78,10 @@ export const getColWidth = (key: string) => {
 };
 
 const PlaylistRow = memo(({ track, index }: { track: Track; index: number }) => {
+  const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
   const songStatus = useTrackStore((state) => state.songStatus);
-  const status = track ? songStatus[track.id] : 'ready';
+  // const status = track ? songStatus[track.id] : 'ready';
+  const [status, setStatus] = useState(track?.status);
   const unknown = status === undefined; // for processing
   const downloaded = status === 'ready'; // for processing
   const readyTracks = useTrackStore((state) => state.readyTracks);
@@ -84,13 +98,24 @@ const PlaylistRow = memo(({ track, index }: { track: Track; index: number }) => 
   };
   const image = parsedTrack.album?.images?.[0]?.url || placeholder;
   const { collectionType, onAdd, onDownload, isLoading, headers } = useContext(PlaylistContext);
+
+  useEffect(() => {
+    if (!track?.id) return;
+    const newStatus = songStatus[track.id];
+    if (newStatus && newStatus !== status) {
+      setStatus(newStatus);
+    }
+  }, [track?.id, songStatus[track?.id || '']]);
+
   const trackRow = {
     row_id: (
       <div className="flex items-center justify-center">
         <span className="row-id">{index + 1}</span>
-        <div className="cursor-pointer" onClick={() => track && onAdd(parsedTrack)}>
-          <PlayArrow className="row-play" fontSize="small" />
-        </div>
+        {!mobile && (
+          <div className="cursor-pointer" onClick={() => track && onAdd(parsedTrack)}>
+            <PlayArrow className="row-play" fontSize="small" />
+          </div>
+        )}
       </div>
     ),
     name: !isLoading ? (

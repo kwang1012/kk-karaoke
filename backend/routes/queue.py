@@ -58,6 +58,9 @@ async def add_to_queue_endpoint(
     Add a track to the room's queue.
     """
     try:
+
+        is_track_ready = is_ready(track)
+        track.status = "ready" if is_track_ready else "submitted"
         # Add the track to the user-specific queue, if track exists.
         redis_interface.add_track_to_queue(
             room_id, track)  # Use the new method
@@ -67,7 +70,7 @@ async def add_to_queue_endpoint(
                                        "action": "added", "track": track.model_dump()}}
                                    )
 
-        if is_ready(track):
+        if is_track_ready:
             return JSONResponse(content={"is_ready": True, "task": None}, status_code=200)
 
         loop = asyncio.get_event_loop()
@@ -76,6 +79,26 @@ async def add_to_queue_endpoint(
             """
             Callback to handle messages from the Redis pub/sub related to track processing.
             """
+            # "type": "notify",
+            # "data": {
+            #     "action": "progress",
+            #     "track": track.model_dump(),
+            #     "status": "separating",
+            #     "value": progress,
+            #     "total": total
+            # },
+            message_type = message_data["type"]
+            if message_type == "notify":
+                # Check if the message is for the current track
+                if message_data["data"]["track"]["id"] == track.id:
+                    track.status = message_data["data"]["status"]
+                    if "total" in message_data["data"]:
+                        track.progress = message_data["data"]["value"] / message_data["data"]["total"]
+                    else:
+                        track.progress = 0
+                    print(
+                        f"Track {track.id} status updated to {track.status} with progress {track.progress}")
+                    redis_interface.update_track_status(room_id, track)
             asyncio.run_coroutine_threadsafe(ws_manager.broadcast(
                 message_data), loop)
 

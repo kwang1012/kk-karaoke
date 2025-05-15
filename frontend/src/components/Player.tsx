@@ -162,6 +162,7 @@ export const Player = () => {
               playing,
               queueIdx,
               volume,
+              vocalOn,
             },
           });
         }
@@ -173,7 +174,7 @@ export const Player = () => {
     }, 200);
 
     return () => clearInterval(interval);
-  }, [playing, duration, seeking]);
+  }, [playing, duration, seeking, vocalOn, volume, queueIdx]);
 
   // detect current track change
   useEffect(() => {
@@ -218,8 +219,10 @@ export const Player = () => {
         setDuration(player.getDuration());
         if (jamState) {
           const { currentTime, playing, vocalOn, queueIdx: currentIdx } = jamState;
-          syncedPlayer.seek(currentTime);
-          if (currentIdx === queueIdx) setProgress(currentTime);
+          if (!currentIdx || currentIdx === queueIdx) {
+            syncedPlayer.seek(currentTime);
+            setProgress(currentTime);
+          }
           setVocalOn(vocalOn);
           // it is fine for non-owner to play because it does not actually play any audio
           if (!isOwner && playing) {

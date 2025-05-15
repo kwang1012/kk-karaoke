@@ -29,6 +29,8 @@ const Grid = styled('div')(({ theme }) => ({
   gap: 8,
   padding: '0 8px',
   [theme.breakpoints.down('md')]: {
+    padding: 0,
+    gap: 0,
     gridTemplateAreas: `
       "main"
       "footer"
@@ -45,13 +47,16 @@ const Main = styled('div')(({ theme }) => ({
   overflow: 'hidden',
   borderRadius: 8,
   backgroundColor: theme.palette.background.paper,
+  [theme.breakpoints.down('md')]: {
+    borderRadius: 0,
+  },
 }));
 
 const Footer = styled('div')(({ theme }) => ({
   gridArea: 'footer',
   height: 80,
   [theme.breakpoints.down('md')]: {
-    height: 60,
+    height: 56,
   },
 }));
 

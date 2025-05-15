@@ -73,6 +73,7 @@ body::-webkit-scrollbar-thumb {
 * {
   box-sizing: border-box;
   transition: background-color 0.2s;
+  user-select: none;
 }
 
 .scrollbar {
@@ -114,6 +115,9 @@ body::-webkit-scrollbar-thumb {
   --os-handle-bg: #ffffff70;
   --os-handle-bg-hover: #ffffffa0;
   --os-handle-bg-active: #ffffffe0;
+}
+.os-scrollbar-horizontal {
+  display: none;
 }
 
 [data-testid='virtuoso-scroller']::-webkit-scrollbar {

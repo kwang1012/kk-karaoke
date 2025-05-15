@@ -98,6 +98,8 @@ class RedisJamInterface:
         state.volume = jam_state.get("volume", state.volume)
         state.vocal_on = jam_state.get("vocalOn", state.vocal_on)
         state.is_on = jam_state.get("is_on", state.is_on)
+        state.queue_idx = jam_state.get(
+            "queueIdx", state.queue_idx)
 
         # Only write to Redis every 1s (adjustable)
         if now - self.last_redis_update.get(jam_id, 0) >= 1.0:

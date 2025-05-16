@@ -16,12 +16,14 @@ export default function LyricsView() {
   const { seek } = usePlayer();
   const lyricsDelay = useTrackStore((state) => state.lyricsDelays[currentSong?.id || ''] || 0);
   const syncedLyrics = useMemo(() => {
-    return lyrics.map((line) => {
-      return {
-        ...line,
-        time: line.time + lyricsDelay,
-      };
-    });
+    return (
+      lyrics?.map((line) => {
+        return {
+          ...line,
+          time: line.time + lyricsDelay,
+        };
+      }) || []
+    );
   }, [lyrics, lyricsDelay]);
 
   useEffect(() => {
@@ -142,10 +144,10 @@ export default function LyricsView() {
             <>
               {syncedLyrics.length > 0 ? (
                 syncedLyrics.map((line, i) => (
-                  <div key={i} className={['m-8', isFullscreen ? 'text-center' : ''].join(' ')}>
+                  <div key={i} className={['my-8 mx-16', isFullscreen ? 'text-center' : ''].join(' ')}>
                     <span
                       className={[
-                        'text-3xl cursor-pointer font-bold hover:underline hover:opacity-100 transition-all duration-200',
+                        'text-[2.5vw] cursor-pointer font-bold hover:underline hover:opacity-100 transition-all duration-200',
                         i <= currentLine ? 'text-white' : '',
                         isFullscreen ? 'leading-loose text-center text-[3vw]' : '',
                         isFullscreen && (i === currentLine ? 'text-[5vw] opacity-100' : 'opacity-70'),

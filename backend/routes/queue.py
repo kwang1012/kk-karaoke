@@ -96,8 +96,6 @@ async def add_to_queue_endpoint(
                         track.progress = message_data["data"]["value"] / message_data["data"]["total"]
                     else:
                         track.progress = 0
-                    print(
-                        f"Track {track.id} status updated to {track.status} with progress {track.progress}")
                     redis_interface.update_track_status(room_id, track)
             asyncio.run_coroutine_threadsafe(ws_manager.broadcast(
                 message_data), loop)

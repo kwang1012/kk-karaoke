@@ -1,10 +1,11 @@
 import { createContext } from 'react';
 import { Collection, Track } from 'src/models/spotify';
+import { DEFAULT_BG_COLOR } from 'src/utils';
 
 export const PlaylistContext = createContext({
   collection: {} as Collection,
   collectionImage: '',
-  color: '#535353',
+  color: DEFAULT_BG_COLOR,
   collectionType: '',
   onAdd: (track: Track) => {},
   onDownload: (track: Track) => {},

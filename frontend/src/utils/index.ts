@@ -4,6 +4,7 @@ import { colord } from 'colord';
 
 export const DEFAULT_COLOR = '#d3d3d3';
 export const DEFAULT_BG_COLOR = '#3a3a3a';
+export const DEFULT_LIGHT_COLOR = '#f5bacc';
 export function getAvgRGB(src: string, light = false): Promise<any> {
   return new Promise((resolve) => {
     const img = new Image();
@@ -12,8 +13,19 @@ export function getAvgRGB(src: string, light = false): Promise<any> {
     img.onload = () => {
       const vibrant = new Vibrant(img);
       vibrant.getPalette().then((palette) => {
-        const color = palette.Vibrant?.hex || DEFAULT_BG_COLOR;
-        resolve(color);
+        let baseColor = palette.Vibrant?.hex;
+        if (!baseColor) {
+          resolve(light ? DEFULT_LIGHT_COLOR : DEFAULT_COLOR);
+          return;
+        }
+        const base = colord(baseColor);
+        if (light) {
+          const luminance = base.brightness();
+          if (luminance < 0.8) {
+            baseColor = base.lighten(0.8 - luminance).toHex();
+          }
+        }
+        resolve(baseColor);
       });
     };
   });
@@ -27,7 +39,7 @@ export function getLyricsRGB(src: string, light = false): Promise<any> {
     img.onload = () => {
       const vibrant = new Vibrant(img);
       vibrant.getPalette().then((palette) => {
-        const baseColor = palette.DarkVibrant?.hex;
+        const baseColor = light ? palette.LightVibrant?.hex : palette.DarkVibrant?.hex;
         if (!baseColor) {
           resolve({ lyrics: DEFAULT_COLOR, background: DEFAULT_BG_COLOR });
           return;
@@ -39,14 +51,23 @@ export function getLyricsRGB(src: string, light = false): Promise<any> {
         const luminance = base.brightness();
         // console.log('Luminance:', luminance);
 
-        // 3. Dynamically adjust based on luminance
         let bgColor: string = base.toHex();
-        let textColor: string = base.lighten(0.5).toHex();
+        let textColor: string;
+        if (!light) {
+          // 3. Dynamically adjust based on luminance
+          textColor = base.lighten(0.5).toHex();
 
-        // Middle brightness → moderate adjustment
-        if (luminance < 0.2) {
-          bgColor = base.lighten(0.1).toHex();
-          textColor = base.lighten(0.6).toHex();
+          // Middle brightness → moderate adjustment
+          if (luminance < 0.2) {
+            bgColor = base.lighten(0.1).toHex();
+            textColor = base.lighten(0.6).toHex();
+          }
+        } else {
+          textColor = base.darken(0.5).toHex();
+          if (luminance > 0.8) {
+            bgColor = base.darken(0.1).toHex();
+            textColor = base.darken(0.6).toHex();
+          }
         }
         resolve({
           lyrics: textColor,

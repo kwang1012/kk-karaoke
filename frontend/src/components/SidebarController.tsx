@@ -6,7 +6,6 @@ import SvgIcon from './SvgIcon';
 import Mic from 'src/assets/mic.svg';
 import MicMuted from 'src/assets/mic-muted.svg';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useSettingStore } from 'src/store/setting';
 import { InterpreterModeOutlined, Settings } from '@mui/icons-material';
 import { useNotifyStore } from 'src/store/notify';
 import { styled } from '@mui/material/styles';

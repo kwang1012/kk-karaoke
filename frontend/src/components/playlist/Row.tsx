@@ -23,12 +23,12 @@ export const HoverTableRow = styled(TableRow)(({ theme }) => ({
   },
   '&:hover, &.active': {
     '*': {
-      color: 'white',
+      color: theme.palette.mode == 'dark' ? 'white' : 'black',
     },
     '& .checked-icon *': {
       color: theme.palette.success.main,
     },
-    backgroundColor: '#ffffff1a',
+    backgroundColor: theme.palette.mode === 'dark' ? '#ffffff1a' : '#0000001a',
     '.row-actions': {
       opacity: 1,
     },
@@ -124,7 +124,7 @@ const PlaylistRow = memo(({ track, index }: { track: Track; index: number }) => 
           <img src={image} className="w-10 h-10 object-cover rounded-md inline-block mr-2" alt={parsedTrack.name} />
         )}
         <div>
-          <span className="line-clamp-1">{parsedTrack.name}</span>
+          <span className="line-clamp-1 text-black dark:text-white">{parsedTrack.name}</span>
           {collectionType === 'album' && (
             <span className="text-gray-400">
               {parsedTrack.artists.map((artist, index) => (

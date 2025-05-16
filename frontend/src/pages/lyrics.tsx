@@ -7,6 +7,29 @@ import { IconButton, useTheme } from '@mui/material';
 import { FullscreenExitOutlined, FullscreenOutlined } from '@mui/icons-material';
 import { useSettingStore } from 'src/store/setting';
 import MobilePlayer from 'src/components/MobilePlayer';
+import { styled } from '@mui/material/styles';
+
+const FloatingControl = styled('div')(({ theme }) => ({
+  display: 'grid',
+  gridTemplateRows: '1fr auto',
+  gridTemplateColumns: '1fr',
+  position: 'fixed',
+  left: 0,
+  top: '50%',
+  zIndex: 12,
+  padding: '20px 8px',
+  height: '50%',
+  overflow: 'hidden',
+  backdropFilter: 'blur(10px)',
+  borderRadius: '0.5rem',
+  width: '300px',
+  transform: 'translateY(-50%) translateX(-95%)',
+  backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  '&.active': {
+    transform: 'translateY(-50%) translateX(-5%)',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+  },
+}));
 
 export default function LyricsView() {
   // local states
@@ -105,20 +128,18 @@ export default function LyricsView() {
   return (
     <>
       {isFullscreen && (
-        <div
-          className="fixed left-0 top-1/2 z-12 py-5 px-2 backdrop-blur-md rounded-lg w-[300px] translate-y-[-50%]"
-          style={{
-            transitionProperty: 'background-color, transform',
-            transitionDuration: '200ms',
-            transitionTimingFunction: 'ease-in-out',
-            transform: active ? 'translateX(-5%)' : 'translateX(-95%)',
-            backgroundColor: active ? 'rgba(0, 0, 0, 0.7)' : 'rgba(0, 0, 0, 0.5)',
-          }}
+        <FloatingControl
+          className={active ? 'active' : ''}
           onMouseEnter={() => setActive(true)}
           onMouseLeave={() => setActive(false)}
+          style={{
+            transitionProperty: 'background-color, transform',
+            transitionDuration: '.2s',
+            transitionTimingFunction: 'ease-in-out',
+          }}
         >
-          <MobilePlayer />
-        </div>
+          <MobilePlayer color="rgba(0, 0, 0, 0.8)" />
+        </FloatingControl>
       )}
       <div className={isFullscreen ? 'fixed left-0 w-screen h-screen z-11' : 'w-full h-full'}>
         <div className="relative w-full h-full" ref={containerRef}>

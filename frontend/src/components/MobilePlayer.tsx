@@ -23,7 +23,7 @@ export default function MobilePlayer({ color }: { color?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const sticky = useMemo(() => {
     if (!ref.current) return false;
-    return scrollTop !== 0;
+    return scrollTop > 0;
   }, [scrollTop]);
   useEffect(() => {
     window.scrollTo(0, 1);

@@ -11,3 +11,5 @@
 **/*.lrc
 !**/test.mp3
 !**/test.lrc
+
+backend/storage

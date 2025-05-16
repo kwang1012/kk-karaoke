@@ -4,7 +4,7 @@ import { usePlayer } from 'src/store/player';
 import { useTrackStore } from 'src/store';
 import { DEFAULT_BG_COLOR, DEFAULT_COLOR, getLyricsRGB } from 'src/utils';
 import { IconButton, useTheme } from '@mui/material';
-import { FullscreenExitOutlined, FullscreenOutlined } from '@mui/icons-material';
+import { ArrowDropDown, ArrowDropUp, FullscreenExitOutlined, FullscreenOutlined } from '@mui/icons-material';
 import { useSettingStore } from 'src/store/setting';
 import MobilePlayer from 'src/components/MobilePlayer';
 import { styled } from '@mui/material/styles';
@@ -15,20 +15,32 @@ const FloatingControl = styled('div')(({ theme }) => ({
   gridTemplateColumns: '1fr',
   position: 'fixed',
   left: 0,
-  top: '50%',
+  top: '95%',
   zIndex: 12,
   padding: '20px 8px',
   height: '50%',
   overflow: 'hidden',
   backdropFilter: 'blur(10px)',
   borderRadius: '0.5rem',
-  width: '300px',
-  transform: 'translateY(-50%) translateX(-95%)',
-  backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  aspectRatio: '3/4',
+  transform: 'translateX(-90%)',
+  backgroundColor: 'rgba(0, 0, 0, 0.5)',
   '&.active': {
-    transform: 'translateY(-50%) translateX(-5%)',
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    transform: 'translateX(-5%) translateY(-90%)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
   },
+}));
+
+const LyricsControl = styled('div')(({ theme }) => ({
+  position: 'fixed',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  right: 12,
+  top: '20%',
+  zIndex: 12,
+  transform: 'translateY(-50%)',
 }));
 
 export default function LyricsView() {
@@ -38,6 +50,7 @@ export default function LyricsView() {
   const { progress, currentLine, setCurrentLine, currentSong, lyrics, seeking, loading } = usePlayer();
   const { seek } = usePlayer();
   const lyricsDelay = useTrackStore((state) => state.lyricsDelays[currentSong?.id || ''] || 0);
+  const setLyricsDelay = useTrackStore((state) => state.setLyricsDelay);
   const syncedLyrics = useMemo(() => {
     return (
       lyrics?.map((line) => {
@@ -128,18 +141,43 @@ export default function LyricsView() {
   return (
     <>
       {isFullscreen && (
-        <FloatingControl
-          className={active ? 'active' : ''}
-          onMouseEnter={() => setActive(true)}
-          onMouseLeave={() => setActive(false)}
-          style={{
-            transitionProperty: 'background-color, transform',
-            transitionDuration: '.2s',
-            transitionTimingFunction: 'ease-in-out',
-          }}
-        >
-          <MobilePlayer color="rgba(0, 0, 0, 0.8)" />
-        </FloatingControl>
+        <>
+          <FloatingControl
+            className={active ? 'active' : ''}
+            onMouseEnter={() => setActive(true)}
+            onMouseLeave={() => setActive(false)}
+            style={{
+              transitionProperty: 'background-color, transform',
+              transitionDuration: '.2s',
+              transitionTimingFunction: 'ease-in-out',
+            }}
+          >
+            <MobilePlayer color="rgba(0, 0, 0, 0.8)" />
+          </FloatingControl>
+          <LyricsControl>
+            <h1 className="text-2xl font-bold text-center">
+              Lyrics <br />
+              Timing
+            </h1>
+            <IconButton
+              onClick={() => {
+                if (!currentSong) return;
+                setLyricsDelay(currentSong.id, lyricsDelay + 0.1);
+              }}
+            >
+              <ArrowDropUp sx={{ fontSize: 40 }} />
+            </IconButton>
+            <div className="text-[1.5vw]">{-Math.round(lyricsDelay * 10) / 10}</div>
+            <IconButton
+              onClick={() => {
+                if (!currentSong) return;
+                setLyricsDelay(currentSong.id, lyricsDelay - 0.1);
+              }}
+            >
+              <ArrowDropDown sx={{ fontSize: 40 }} />
+            </IconButton>
+          </LyricsControl>
+        </>
       )}
       <div className={isFullscreen ? 'fixed left-0 w-screen h-screen z-11' : 'w-full h-full'}>
         <div className="relative w-full h-full" ref={containerRef}>

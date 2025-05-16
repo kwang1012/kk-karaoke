@@ -1,5 +1,5 @@
 import { Button } from '@mui/material';
-import MobileAudioController from './MobielAudioController';
+import MobileAudioController from './MobileAudioController';
 import AppScrollbar from './Scrollbar';
 import TrackQueue from './TrackQueue';
 import { useState, useRef, useMemo, useEffect } from 'react';

@@ -1,4 +1,4 @@
-import MobileAudioController from 'src/components/MobielAudioController';
+import MobileAudioController from 'src/components/MobileAudioController';
 import { styled } from '@mui/material/styles';
 import { usePlayerStore, useQueue } from 'src/store/player';
 import placeholder from 'src/assets/placeholder.png';

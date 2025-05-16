@@ -4,7 +4,7 @@ import { ReactElement, useEffect, useMemo, useState } from 'react';
 import placeholderImage from 'src/assets/placeholder.png';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGears, faMusic } from '@fortawesome/free-solid-svg-icons';
-import { useTrackStore } from 'src/store';
+import { useReadyTrackIds, useTrackStore } from 'src/store';
 import { CheckCircle, PlayArrow } from '@mui/icons-material';
 import { Track } from 'src/models/spotify';
 import ActionMenu from './playlist/ActionMenu';
@@ -139,10 +139,10 @@ export default function SongCard({
       };
     return track;
   }, [track]);
-  const readyTracks = useTrackStore((state) => state.readyTracks);
+  const readyTrackIds = useReadyTrackIds();
   const ready = useMemo(() => {
-    return readyTracks.has(parsedTrack.id);
-  }, [readyTracks, parsedTrack]);
+    return readyTrackIds.has(parsedTrack.id);
+  }, [readyTrackIds, parsedTrack]);
 
   const progressIcon = useMemo(() => {
     if (status === 'downloading_lyrics' || status === 'downloading_audio')

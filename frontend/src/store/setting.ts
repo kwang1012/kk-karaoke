@@ -5,6 +5,10 @@ export interface SettingState {
   // settings
   refreshKey: number; // Key to refresh the settings
   refresh: () => void; // Function to refresh the settings
+  useWordLevelSync: boolean; // Whether to use word-level sync
+  setUseWordLevelSync: (useWordLevelSync: boolean) => void; // Set word-level sync
+  showTranslatinon: boolean; // Whether to show translation
+  setShowTranslatinon: (showTranslatinon: boolean) => void; // Set show translation
   theme: 'light' | 'dark'; // Current theme mode
   modified: boolean; // Whether the theme has been modified
   toggleTheme: () => void; // Set theme to dark
@@ -24,6 +28,14 @@ export const useSettingStore = create<SettingState>()(
       },
       refreshKey: 0, // Key to refresh the settings
       refresh: () => set((state) => ({ refreshKey: state.refreshKey + 1 })), // Function to refresh the settings
+      useWordLevelSync: false, // Whether to use word-level sync
+      setUseWordLevelSync: (useWordLevelSync: boolean) => {
+        set(() => ({ useWordLevelSync }));
+      },
+      showTranslatinon: false, // Whether to show translation
+      setShowTranslatinon: (showTranslatinon: boolean) => {
+        set(() => ({ showTranslatinon }));
+      },
       theme: 'dark', // Default theme mode
       modified: false, // Whether the theme has been modified
       toggleTheme: () =>
@@ -65,6 +77,8 @@ export const useSettingStore = create<SettingState>()(
       storage: createJSONStorage(() => localStorage), // (optional) by default, 'localStorage' is used
       partialize: (state) => ({
         theme: state.theme,
+        useWordLevelSync: state.useWordLevelSync,
+        showTranslatinon: state.showTranslatinon,
         refreshKey: state.refreshKey,
         modified: state.modified,
       }),

@@ -11,6 +11,10 @@ export default function SettingView() {
   const setEnabledPitchShift = usePlayerStore((state) => state.setEnabledPitchShift);
   const theme = useSettingStore((state) => state.theme);
   const toggleTheme = useSettingStore((state) => state.toggleTheme);
+  const useWordLevelSync = useSettingStore((state) => state.useWordLevelSync);
+  const setUseWordLevelSync = useSettingStore((state) => state.setUseWordLevelSync);
+  const showTranslatinon = useSettingStore((state) => state.showTranslatinon);
+  const setShowTranslatinon = useSettingStore((state) => state.setShowTranslatinon);
   const [editNickname, setEditNickname] = useState(false);
   const [editAvatar, setEditAvatar] = useState(false);
   // const refresh = useSettingStore((state) => state.refresh);
@@ -44,6 +48,20 @@ export default function SettingView() {
           <option value="htdemucs">High</option>
           <option value="htdemucs_6s">Extreme High (Slow)</option>
         </AppSelect>
+      </div>
+      <h1 className="text-lg mt-8 font-bold">Lyrics</h1>
+      <div className="flex justify-between items-center mt-2">
+        <span className="text-sm text-gray-700 dark:text-gray-400" style={{ maxWidth: '70%' }}>
+          Word-level Synced - This will show the lyrics in a word-level synced way. Note that this feature is still in
+          experimental stage.
+        </span>
+        <AppSwitch checked={useWordLevelSync} onChange={(_, checked) => setUseWordLevelSync(checked)} />
+      </div>
+      <div className="flex justify-between items-center mt-2">
+        <span className="text-sm text-gray-700 dark:text-gray-400" style={{ maxWidth: '70%' }}>
+          Show translation - For Korean/Japanese songs, this will show the english pinyin translation of the lyrics.
+        </span>
+        <AppSwitch checked={showTranslatinon} onChange={(_, checked) => setShowTranslatinon(checked)} />
       </div>
       <h1 className="text-lg mt-8 font-bold">Theme</h1>
       <div className="flex justify-between items-center mt-2">

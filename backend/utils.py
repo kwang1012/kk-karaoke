@@ -53,6 +53,21 @@ def get_vocal_path(filename: str) -> str | None:
     else:
         return None
 
+def get_raw_audio_path(filename: str) -> str | None:
+    """
+    Returns the full path to the song file in the storage directory.
+
+    Args:
+        filename (str): The name of the song file.
+
+    Returns:
+        str: The full path to the song file.
+    """
+    path = Path(RAW_AUDIO_DIR, f"{filename}.mp3")
+    if path.exists():
+        return str(path)
+    else:
+        return None
 
 def get_lyrics_path(filename: str) -> str | None:
     """

@@ -1,11 +1,12 @@
+import { Track } from 'src/models/spotify';
 import { api } from 'src/utils/api';
 import { create } from 'zustand';
 
 export type SongStatus = 'submitted' | 'downloading_lyrics' | 'downloading_audio' | 'separating' | 'ready';
 export interface TrackStore {
-  readyTracks: Set<string>; // List of tracks that are ready to be played
-  addReadyTrack: (songId: string) => void; // Add a track to the list of ready tracks
-  setReadyTracks: (songIds: string[]) => void; // Set the list of ready tracks
+  readyTracks: Set<Track>; // List of tracks that are ready to be played
+  addReadyTrack: (track: Track) => void; // Add a track to the list of ready tracks
+  setReadyTracks: (tracks: Track[]) => void; // Set the list of ready tracks
   lyricsDelays: Record<string, number>; // Delay of each track in the queue. used for adding track to queue
   setLyricsDelay: (songId: string, delay: number) => void; // Set the delay of a track in the queue
   songStatus: Record<string, SongStatus>; // Status of each track in the queue. used for adding track to queue
@@ -19,15 +20,16 @@ export interface TrackStore {
 export const useTrackStore = create<TrackStore>((set, get) => ({
   // lyrics delay
   readyTracks: new Set(), // List of tracks that are ready to be played
-  addReadyTrack: (songId: string) => {
+  readyTrackIds: new Set(), // List of track ids that are ready to be played
+  addReadyTrack: (track: Track) => {
     const { readyTracks } = get();
-    readyTracks.add(songId);
+    readyTracks.add(track);
     set({ readyTracks });
   },
-  setReadyTracks: (songIds: string[]) => {
+  setReadyTracks: (tracks: Track[]) => {
     const { readyTracks } = get();
-    songIds.forEach((songId) => {
-      readyTracks.add(songId);
+    tracks.forEach((track) => {
+      readyTracks.add(track);
     });
     set({ readyTracks });
   },
@@ -80,3 +82,8 @@ export const useTrackStore = create<TrackStore>((set, get) => ({
       });
   },
 }));
+
+export const useReadyTrackIds = () => {
+  const readyTracks = useTrackStore((state) => state.readyTracks);
+  return new Set(Array.from(readyTracks.values()).map((track) => track.id));
+};

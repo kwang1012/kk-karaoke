@@ -65,6 +65,7 @@ class RedisQueueInterface:
                 key = f"{self.room_prefix}{room_id}:queue"
                 data: list[Any] = self.redis.lrange(
                     key, 0, -1)  # type: ignore
+            print(len(data))
             tracks = [Track(**json.loads(track_data)) for track_data in data]
             return tracks
         except redis.RedisError as e:

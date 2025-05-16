@@ -3,18 +3,11 @@ from models.track import LyricsDelay
 from utils import get_lyrics_path
 from redis import RedisError
 import re
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from interfaces.queue import RedisQueueInterface
 from managers.db import get_db
 
 router = APIRouter()
-
-# TODO: make it stored in db
-delay_mapping = {
-    "7eb3ee16-e6dc-4f2e-ad2c-d1ba75408f13": 1.5,
-    "2gug6MRv4xQFYi9LA3PJCS": 1,
-    "0qdPpfbrgdBs6ie9bTtQ1d": -0.5,
-}
 
 
 @router.post("/delay")
@@ -73,3 +66,25 @@ def get_lyrics(track_id: str,
         return JSONResponse(content={"lyrics": lyrics})
     except FileNotFoundError:
         return JSONResponse(status_code=404, content={"error": "Lyrics not found"})
+
+
+@router.get("/{track_id}/plain",)
+def get_plain_lyrics(track_id: str):
+    file_path = get_lyrics_path(track_id)
+    if not file_path:
+        return JSONResponse(status_code=404, content={"error": "Lyrics not found"})
+    with open(file_path, "r", encoding="utf-8") as f:
+        plain_text = f.read()
+    return PlainTextResponse(plain_text)
+
+
+@router.post("/{track_id}/update")
+def update_lyrics(track_id: str, data: dict):
+    file_path = get_lyrics_path(track_id)
+    if not file_path:
+        return JSONResponse(status_code=404, content={"error": "Lyrics not found"})
+    if "content" not in data:
+        return JSONResponse(status_code=400, content={"error": "Content not provided"})
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(data["content"])
+    return JSONResponse(content={"message": "Lyrics updated successfully"})

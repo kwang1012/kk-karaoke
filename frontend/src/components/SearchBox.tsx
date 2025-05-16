@@ -5,6 +5,7 @@ import { IconName, IconPrefix } from '@fortawesome/free-solid-svg-icons';
 import { faCircleXmark } from '@fortawesome/free-regular-svg-icons';
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useDebounce } from 'src/hooks/debounce';
 
 const SerachInput = styled(InputBase)(({ theme }) => ({
   'label + &': {
@@ -14,12 +15,12 @@ const SerachInput = styled(InputBase)(({ theme }) => ({
   border: '2px solid transparent',
   borderRadius: 48,
   height: 48,
-  color: theme.palette.mode == 'dark' ?  '#cfcfcf': 'black',
+  color: theme.palette.mode == 'dark' ? '#cfcfcf' : 'black',
   '&:hover': {
-    backgroundColor: theme.palette.mode == 'dark' ? '#3a3a3a': '#d3d3d3',
-    borderColor: theme.palette.mode == 'dark' ? '#4a4a4a': '#c3c3c3',
+    backgroundColor: theme.palette.mode == 'dark' ? '#3a3a3a' : '#d3d3d3',
+    borderColor: theme.palette.mode == 'dark' ? '#4a4a4a' : '#c3c3c3',
     '& .search': {
-      color:  'white',
+      color: 'white',
     },
   },
   '& .search': {
@@ -59,17 +60,6 @@ const SerachInput = styled(InputBase)(({ theme }) => ({
     },
   },
 }));
-
-function useDebounce<T>(value: T, delay: number): T {
-  const [debounced, setDebounced] = useState(value);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(timer);
-  }, [value, delay]);
-
-  return debounced;
-}
 
 export default function SearchBox({ className = '', value, onChange }) {
   const [input, setInput] = useState(value);

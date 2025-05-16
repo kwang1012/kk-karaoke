@@ -22,6 +22,7 @@ import { useActiveRoomId, useIsLoggedIn, useRoomStore } from './store/room';
 import 'src/styles/globals.css';
 import Player from './components/Player';
 import { api } from './utils/api';
+import LyricsEditView from './pages/lyrics-edit';
 
 // lazily loaded components
 const JoinView = lazy(() => import('./pages/join'));
@@ -73,6 +74,7 @@ const AppRouters = () => {
             <Route path="settings" element={<SettingView />} />
           </Route>
         </Route>
+        <Route path="/lyrics/edit/:trackId?" element={<LyricsEditView />} />
         <Route path="join" element={<JoinView />} />
       </Routes>
     </Router>

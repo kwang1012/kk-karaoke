@@ -63,7 +63,7 @@ def get_lyrics(track_id: str,
         return JSONResponse(status_code=404, content={"error": "Lyrics not found"})
     try:
         romanized_exists = redis_interface.check_romanized_lyrics(track_id)
-        romanized_exists = False
+        # romanized_exists = False
         if romanized_exists:
             romanized_lines: list[Union[str, None]] = redis_interface.get_romanized_lyrics(track_id) or [
             ]

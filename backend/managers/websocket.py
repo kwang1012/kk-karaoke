@@ -61,11 +61,18 @@ class WebSocketManager:
     async def multicast(self, roomId, data, *, socket=None):
         with self._send_lock:
             data = convert_keys(data)
+            disconnected_clients = []
             connections = self.rooms.get(roomId, [])
             for (_, connection) in connections:
+                if connection.client_state == WebSocketState.DISCONNECTED:
+                    disconnected_clients.append(connection)
+                    continue
                 if connection == socket:
                     continue
-                await connection.send_json(data)
+                try:
+                    await connection.send_json(data)
+                except Exception:
+                    disconnected_clients.append(connection)
 
     async def broadcast(self, data):
         with self._send_lock:
@@ -75,7 +82,10 @@ class WebSocketManager:
                 if client.client_state == WebSocketState.DISCONNECTED:
                     disconnected_clients.append(client)
                     continue
-                await client.send_json(data)
+                try:
+                    await client.send_json(data)
+                except Exception as e:
+                    disconnected_clients.append(client)
             for client in disconnected_clients:
                 self.connected_clients.remove(client)
 

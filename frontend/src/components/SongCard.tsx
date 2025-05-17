@@ -41,7 +41,6 @@ const HoverLayout = styled('div')(({ theme }) => ({
   overflow: 'hidden',
   height: 52,
   borderRadius: theme.shape.borderRadius,
-  margin: theme.spacing(0, 0, 2),
   cursor: 'default',
   '& .actions': {
     opacity: 0,
@@ -82,6 +81,9 @@ const HoverLayout = styled('div')(({ theme }) => ({
     },
     '&:hover, &.active': {
       backgroundColor: 'transparent',
+    },
+    '.checked-icon *': {
+      color: theme.palette.success.main,
     },
   },
 }));
@@ -165,7 +167,7 @@ export default function SongCard({
       {...props}
     >
       <div className="relative w-10 h-10 bg-[#b3b3b3] rounded-md mr-4 overflow-hidden shrink-0">
-        {onAdd && !disable && (
+        {onAdd && !disable && !mobile && (
           <div
             className="actions absolute flex items-center justify-center w-full h-full bg-[#3b3b3b70] cursor-pointer"
             onClick={() => track && onAdd(parsedTrack)}

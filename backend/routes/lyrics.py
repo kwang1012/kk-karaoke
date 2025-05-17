@@ -93,12 +93,7 @@ def get_lyrics(track_id: str,
                     is_ja = contains_japanese(text)
                     romanized = None
                     if is_ko:
-                        romanized = ""
-                        for t in text:
-                            if contains_korean(t):
-                                romanized += transliter.translit(t) + " "
-                            else:
-                                romanized += t
+                        romanized = transliter.translit(text)
                         romanized_lines.append(romanized)
                     elif is_ja:
                         romanized = katsu.romaji(text)

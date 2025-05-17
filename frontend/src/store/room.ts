@@ -16,6 +16,7 @@ export interface RoomState {
   isOn: boolean; // Whether the user is online
   playing: boolean; // Whether the user is playing
   volume: number; // The volume of the room
+  leaveRoom: () => void; // Leave the room
   setJoinedRoom: (roomId?: string) => void; // Set the ID of the room
   setRoomId: (roomId: string) => void; // Set the ID of the room
   addParticipant: (person: User) => void; // Add a participant to the room
@@ -60,6 +61,11 @@ export const useRoomStore = create<RoomState>()(
       removeParticipant: (person: User) => {
         set((state) => ({
           participants: state.participants.filter((p) => p.id !== person.id),
+        }));
+      },
+      leaveRoom: () => {
+        set(() => ({
+          joinedRoom: undefined,
         }));
       },
       //

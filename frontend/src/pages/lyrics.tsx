@@ -220,7 +220,7 @@ export default function LyricsView() {
                       {line.romanized && showTranslatinon && (
                         <>
                           <br />
-                          <span className="text-[0.8em] leading-tight">({line.romanized})</span>
+                          <span className="text-[0.8em]">({line.romanized})</span>
                         </>
                       )}
                     </span>

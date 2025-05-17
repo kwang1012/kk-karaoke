@@ -127,6 +127,9 @@ body::-webkit-scrollbar-thumb {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+*[data-draggable] {
+  touch-action: none;
+}
 
 input[type='number']::-webkit-inner-spin-button,
 input[type='number']::-webkit-outer-spin-button {

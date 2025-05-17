@@ -68,7 +68,7 @@ export default function Layout() {
   return (
     <Grid>
       {/* Header */}
-      {!mobile && !isFullScreen && <Nav />}
+      <Nav className={!mobile && !isFullScreen ? 'flex' : 'hidden'} />
       {/* Control Sidebar */}
       <SidebarController />
       {/* Main Content */}

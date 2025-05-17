@@ -1,5 +1,5 @@
 import { styled } from '@mui/material/styles';
-import { useRef, useState, useMemo } from 'react';
+import { useRef, useMemo } from 'react';
 const TextArea = styled('textarea')(({ theme }) => ({
   width: '100%',
   height: '100%',
@@ -7,6 +7,7 @@ const TextArea = styled('textarea')(({ theme }) => ({
   resize: 'none',
   fontSize: 20,
   lineHeight: 2,
+  padding: 0,
 }));
 const LrcWrapper = styled('div')(({ theme }) => ({
   position: 'relative',
@@ -17,6 +18,7 @@ const LrcWrapper = styled('div')(({ theme }) => ({
   padding: 16,
   border: '1px solid #4f4f4f',
   overflow: 'hidden',
+  background: '#242424',
 }));
 const LrcHighlight = styled('div')(({ theme }) => ({
   position: 'absolute',
@@ -31,10 +33,8 @@ const LrcHighlight = styled('div')(({ theme }) => ({
 const Highlight = styled('div')(({ theme }) => ({
   fontSize: 20,
   lineHeight: 2,
-  '& span': {
-    color: '#fff',
-  },
-  '& span.underline-red': {
+  color: 'transparent',
+  '&.invalid': {
     textDecoration: 'underline',
     textDecorationColor: '#fa6171',
     textDecorationThickness: '2px',
@@ -72,7 +72,9 @@ export default function LyricsEditor({
       lines.map((line, i) => {
         const isValid = validateLRCLine(line);
         return (
-          <Highlight key={i}>{isValid ? line : <span className="underline-red">{line.split(' ')[0]}</span>}</Highlight>
+          <Highlight className={!isValid ? 'invalid' : ''} key={i}>
+            {isValid ? line : line.split(' ')[0]}
+          </Highlight>
         );
       }),
     [lines]
@@ -82,6 +84,7 @@ export default function LyricsEditor({
     <LrcWrapper>
       <LrcHighlight ref={highlightRef} className="no-scrollbar">
         {highlighted}
+        <div className="h-[100px]"></div>
       </LrcHighlight>
       <TextArea
         disabled={!editing}

@@ -1,7 +1,7 @@
 import asyncio
 import json
 import threading
-from typing import Callable, Optional, List, Any
+from typing import Callable, Optional, List, Any, Union
 import redis
 from managers.db import DatabaseManager
 from models.track import Track
@@ -13,6 +13,7 @@ class RedisQueueInterface:
         self.redis = redis_client
         self.track_data_prefix = "track_data:"
         self.delay_key_prefix = "track_delay:"
+        self.romanized_key_prefix = "romanized:"
         self.room_prefix = "room:"  # Added room prefix  # ADDED
 
     # --- Queue Operations ---
@@ -71,7 +72,7 @@ class RedisQueueInterface:
         except redis.RedisError as e:
             print(f"Error getting track queue for room {room_id}: {e}")
             return []
-    
+
     def update_track_status(self, room_id: str, track: Track) -> None:
         """
         Updates the status of a track in the queue.
@@ -91,7 +92,8 @@ class RedisQueueInterface:
                     if stored_track.id == track.id and stored_track.time_added == track.time_added:
                         stored_track.status = track.status
                         stored_track.progress = track.progress
-                        self.redis.lset(user_queue_key, i, json.dumps(stored_track.model_dump()))
+                        self.redis.lset(user_queue_key, i, json.dumps(
+                            stored_track.model_dump()))
                         break
         except redis.RedisError as e:
             print(f"Error updating track status for room {room_id}: {e}")
@@ -231,8 +233,46 @@ class RedisQueueInterface:
         thread.daemon = True  # Allow the main thread to exit even if this is running
         thread.start()
         return thread
-    # --- Delay Mapping Operations ---
 
+    def check_romanized_lyrics(self, track_id: str) -> bool:
+        """
+        Checks if romanized lyrics exist for a given track ID.
+
+        Args:
+            track_id: The ID of the track.
+
+        Returns:
+            True if romanized lyrics exist, False otherwise.
+        """
+        try:
+            key = f"{self.romanized_key_prefix}{track_id}"
+            return self.redis.exists(key)  # type: ignore
+        except redis.RedisError as e:
+            print(f"Error checking romanized lyrics: {e}")
+            return False
+
+    def get_romanized_lyrics(self, track_id: str) -> Optional[list[Union[str, None]]]:
+        try:
+            key = f"{self.romanized_key_prefix}{track_id}"
+            romanized_lyrics: Any = self.redis.get(key)  # type: ignore
+            if romanized_lyrics:
+                return json.loads(romanized_lyrics)
+            else:
+                return None
+        except redis.RedisError as e:
+            print(f"Error getting romanized lyrics: {e}")
+            return None
+
+    def store_romanized_lyrics(
+            self, track_id: str, romanized_lyrics: list[Union[str, None]]) -> None:
+        try:
+            key = f"{self.romanized_key_prefix}{track_id}"
+            self.redis.set(key, json.dumps(romanized_lyrics))
+        except redis.RedisError as e:
+            print(f"Error storing romanized lyrics: {e}")
+            raise
+
+    # --- Delay Mapping Operations ---
     def store_track_delay(self, track_id: str, delay: float) -> None:
         try:
             key = f"{self.delay_key_prefix}{track_id}"

@@ -71,6 +71,7 @@ export default function LyricsView() {
   const image = currentSong?.album?.images?.[0]?.url;
   const theme = useTheme();
   const isFullscreen = useSettingStore((state) => state.isFullScreen);
+  const showTranslatinon = useSettingStore((state) => state.showTranslatinon);
 
   useEffect(() => {
     if (!image) {
@@ -208,13 +209,20 @@ export default function LyricsView() {
                       className={[
                         'text-[2.5vw] cursor-pointer font-bold hover:underline hover:opacity-100 transition-all duration-200',
                         i <= currentLine ? 'text-white' : '',
-                        isFullscreen ? 'leading-loose text-center text-[3vw]' : '',
+                        isFullscreen ? 'text-center text-[3vw]' : '',
                         isFullscreen && (i === currentLine ? 'text-[5vw] opacity-100' : 'opacity-70'),
                       ].join(' ')}
                       ref={(el) => (lineRefs.current[i] = el)}
                       onClick={handleLineClick.bind(null, i)}
                     >
-                      {line.text}
+                      {line.text === '' ? '♪' : line.text}
+
+                      {line.romanized && showTranslatinon && (
+                        <>
+                          <br />
+                          <span className="text-[0.8em] leading-tight">({line.romanized})</span>
+                        </>
+                      )}
                     </span>
                   </div>
                 ))

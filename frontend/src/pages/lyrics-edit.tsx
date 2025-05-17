@@ -1,4 +1,4 @@
-import { Edit } from '@mui/icons-material';
+import { Edit, Home, Search } from '@mui/icons-material';
 import {
   Alert,
   Button,
@@ -20,6 +20,7 @@ import AppScrollbar from 'src/components/Scrollbar';
 import { Track } from 'src/models/spotify';
 import { useTrackStore } from 'src/store';
 import { api } from 'src/utils/api';
+import * as OpenCC from 'opencc-js';
 const Layout = styled('div')(({ theme }) => ({
   display: 'grid',
   gridTemplateColumns: 'auto 1fr',
@@ -31,9 +32,9 @@ const Layout = styled('div')(({ theme }) => ({
 
 const Sidebar = styled('div')(({ theme }) => ({
   display: 'grid',
-  gridTemplateRows: 'auto 1fr',
+  gridTemplateRows: 'auto auto 1fr',
   gap: 8,
-  background: theme.palette.mode === 'dark' ? '#1e1e1e' : '#f5f5f5',
+  background: theme.palette.mode === 'dark' ? '#121212' : '#f5f5f5',
   borderRadius: 8,
   width: 300,
   height: '100%',
@@ -46,7 +47,7 @@ const Main = styled('div')(({ theme }) => ({
   width: '100%',
   height: '100%',
   gap: 20,
-  background: '#353535',
+  background: '#121212',
   borderRadius: 8,
   padding: '20px 40px',
   overflow: 'hidden',
@@ -58,6 +59,7 @@ const Toolbar = styled('div')(({ theme }) => ({
   borderRadius: 8,
   border: '1px solid #4f4f4f',
   padding: 8,
+  background: '#242424',
 }));
 
 const LYRICS_REGEX = /^\[\d{2}:\d{2}(?:\.\d{2,3})] ?(.+)?$/;
@@ -78,7 +80,7 @@ function isValidLRC(input: string) {
 
   return validLines > 0;
 }
-
+const converter = OpenCC.Converter({ from: 'cn', to: 'tw' });
 export default function LyricsEditView() {
   const { trackId } = useParams();
   const navigate = useNavigate();
@@ -86,17 +88,20 @@ export default function LyricsEditView() {
   const [content, setContent] = useState('');
   const [originalContent, setOriginalContent] = useState('');
   const [delay, setDelay] = useState(0);
-  const [modified, setModified] = useState(false);
+  const modified = content !== originalContent;
+  const itemRefs = useRef<Record<string, HTMLLIElement | null>>({});
+  const [search, setSearch] = useState('');
 
   const uniqueTracks = useMemo(
     () =>
       Array.from(readyTracks).reduce((acc, track) => {
-        if (!acc.some((t) => t.id === track.id)) {
+        if (!acc.some((t) => t.id === track.id) && track.name.toLowerCase().includes(search.toLowerCase())) {
+          // Only add unique tracks
           acc.push(track);
         }
         return acc;
       }, [] as Track[]),
-    [readyTracks]
+    [readyTracks, search]
   );
   useEffect(() => {
     if (!trackId && uniqueTracks.length > 0) {
@@ -105,6 +110,13 @@ export default function LyricsEditView() {
   }, [trackId, uniqueTracks[0]]);
   useEffect(() => {
     if (!trackId) return;
+    const el = itemRefs.current[trackId];
+    if (el) {
+      el.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start', // scroll to center of container
+      });
+    }
     api
       .get(`/lyrics/${trackId}/plain`)
       .then(({ data }) => {
@@ -138,9 +150,10 @@ export default function LyricsEditView() {
       api
         .post(`/lyrics/${trackId}/update`, { content })
         .then(() => {
-          setModified(false);
           setMessage('Saved successfully');
           setOpen(true);
+          setEditing(false);
+          setOriginalContent(content);
         })
         .catch((err) => {
           console.error(err);
@@ -151,7 +164,6 @@ export default function LyricsEditView() {
   };
   const onCancel = () => {
     setContent(originalContent);
-    setModified(false);
     setEditing(false);
   };
 
@@ -164,15 +176,52 @@ export default function LyricsEditView() {
   return (
     <Layout>
       <Sidebar>
-        <div>
-          <h1 className="font-bold text-2xl p-4">Lyrics</h1>
-          <Divider className="w-full h-[1px] bg-[#4f4f4f]" />
+        <div className="p-4">
+          <h1 className="font-bold text-2xl">
+            <IconButton onClick={() => navigate('/')} className="text-white bg-transparent">
+              <Home />
+            </IconButton>
+            Lyrics
+          </h1>
+          <TextField
+            fullWidth
+            className="mt-4"
+            sx={{
+              '& .MuiInputBase-root': {
+                height: 40,
+                padding: '0 8px',
+              },
+            }}
+            slotProps={{
+              input: {
+                placeholder: 'Search',
+                startAdornment: <Search />,
+              },
+            }}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
+        <Divider className="w-full h-[1px] bg-[#4f4f4f]" />
         <AppScrollbar className="h-full">
           <List>
             {uniqueTracks.map((track) => (
-              <ListItem key={track.id} disablePadding>
-                <ListItemButton selected={trackId === track.id} onClick={() => navigate(`/lyrics/edit/${track.id}`)}>
+              <ListItem ref={(el) => (itemRefs.current[track.id] = el)} key={track.id} disablePadding>
+                <ListItemButton
+                  sx={{
+                    '&.Mui-selected': {
+                      backgroundColor: '#6f6f6f',
+                      '&:hover': {
+                        backgroundColor: '#6f6f6f',
+                      },
+                    },
+                    '&:hover': {
+                      backgroundColor: '#4f4f4f',
+                    },
+                  }}
+                  selected={trackId === track.id}
+                  onClick={() => navigate(`/lyrics/edit/${track.id}`)}
+                >
                   <ListItemText
                     primary={track.name}
                     secondary={track.artists.map((artist) => artist.name).join(', ')}
@@ -218,26 +267,52 @@ export default function LyricsEditView() {
           {editing && (
             <Toolbar className="mt-2">
               <TextField
-                id="outlined-number"
                 type="number"
-                className="w-16 mx-1"
+                className="mr-2"
                 value={delay}
+                label="Offset (s)"
                 onChange={(e) => setDelay(Number(e.target.value))}
+                sx={{
+                  width: 150,
+                  '& .MuiInputBase-root': {
+                    padding: 0,
+                    '& .MuiButtonBase-root': {
+                      backgroundColor: '#ffffff30',
+                      color: '#cacaca',
+                    },
+                    '&:hover .MuiButtonBase-root': {
+                      color: 'white',
+                    },
+                  },
+                }}
+                slotProps={{
+                  inputLabel: {
+                    shrink: true,
+                  },
+                  input: {
+                    endAdornment: (
+                      <Button disableElevation variant="text">
+                        Apply
+                      </Button>
+                    ),
+                  },
+                }}
               />
-              <Button disableElevation variant="text" className="bg-transparent">
-                Add delays
+              <Button
+                disableElevation
+                variant="outlined"
+                className="bg-transparent border-[#4f4f4f] text-[#cacaca] hover:bg-[#4f4f4f] hover:border-[#6f6f6f] hover:text-white"
+                sx={{
+                  padding: '5px 6px',
+                }}
+                onClick={() => setContent(converter(content))}
+              >
+                {'簡→繁'}
               </Button>
             </Toolbar>
           )}
         </Header>
-        <LyricsEditor
-          content={content}
-          editing={editing}
-          onChange={(e) => {
-            setContent(e.target.value);
-            setModified(e.target.value !== originalContent);
-          }}
-        />
+        <LyricsEditor content={content} editing={editing} onChange={(e) => setContent(e.target.value)} />
       </Main>
 
       <Snackbar

@@ -2,12 +2,12 @@ import argparse
 from logging import fatal
 import sys
 from pathlib import Path
-from typing import Any, List
+from typing import Any
 import os
 import typing
 import torch as th
 
-from services.downloader import NO_VOCALS_DIR, RAW_AUDIO_DIR, VOCALS_DIR
+from utils import NO_VOCALS_DIR, RAW_AUDIO_DIR, VOCALS_DIR
 from services.demucs.apply import apply_model, BagOfModels
 from services.demucs.audio import save_audio
 from services.demucs.pretrained import get_model_from_args

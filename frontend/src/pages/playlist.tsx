@@ -11,6 +11,7 @@ import { Track, Collection, Album } from 'src/models/spotify';
 import PlaylistTable from 'src/components/playlist/Table';
 import { ALBUM_HEADERS, PLAYLIST_HEADERS } from 'src/components/const/header';
 import { PlaylistProvider } from 'src/context/playlist';
+import { useDebouncedCallback } from 'src/hooks/debounce';
 
 type ReturnType = {
   collection: Collection;
@@ -58,13 +59,13 @@ export default function PlaylistView() {
     }
   }, [collectionImage]);
 
-  const onAdd = (track: Track) => {
+  const onAdd = useDebouncedCallback((track: Track) => {
     // Function to add a track to the queue
     if (collectionType === 'album') {
       track.album = collection as Album;
     }
     addSongToQueue(track);
-  };
+  }, 100);
   const onDownload = (track: Track) => {
     downloadSong(track);
   };

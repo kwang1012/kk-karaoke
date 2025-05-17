@@ -11,6 +11,7 @@ import { useMediaQuery } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import SearchBox from 'src/components/SearchBox';
 import { usePlayerStore } from 'src/store/player';
+import { useDebouncedCallback } from 'src/hooks/debounce';
 
 const getArtistsStr = (artists: any[]) => {
   return artists
@@ -42,9 +43,11 @@ export default function SearchView() {
         uniqueTracks.set(key, track);
       }
     });
-    return Array.from(uniqueTracks.values())
-      .sort((t1, t2) => t2.popularity - t1.popularity)
-      .slice(0, mobile ? 10 : 4);
+    return (
+      Array.from(uniqueTracks.values())
+        // .sort((t1, t2) => t2.popularity - t1.popularity)
+        .slice(0, mobile ? 10 : 4)
+    );
   }, [results]);
   const albums = useMemo(() => {
     return results.albums?.items.sort((a1: any, a2: any) => a2.total_tracks - a1.total_tracks).slice(0, 4) || [];
@@ -100,6 +103,7 @@ export default function SearchView() {
   const setSearching = useAppStore((state) => state.setSearching);
   const setSearchValue = useAppStore((state) => state.setSearchValue);
   const addSongToQueue = usePlayerStore((state) => state.addSongToQueue);
+  const onAdd = useDebouncedCallback(addSongToQueue, 100);
   const handleSearchChange = (value: string) => {
     setSearchValue(value);
     if (value === '') {
@@ -131,7 +135,7 @@ export default function SearchView() {
                 <h1 className="text-2xl mt-2">Songs</h1>
                 <div className="mt-2">
                   {tracks.map((track: any, i: number) => (
-                    <SongCard key={i} track={track} dense className="mt-1" onAdd={addSongToQueue} />
+                    <SongCard key={i} track={track} dense className="mt-1" onAdd={onAdd} />
                   ))}
                 </div>
               </div>

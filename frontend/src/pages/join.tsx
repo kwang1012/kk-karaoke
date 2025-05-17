@@ -7,7 +7,7 @@ import { styled } from '@mui/material/styles';
 import { api } from 'src/utils/api';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useRoomStore } from 'src/store/room';
-import { generateNickname } from 'src/utils';
+import { generateAvatars, generateNickname } from 'src/utils';
 import logo from 'src/assets/logo.png';
 import { v4 as uuid } from 'uuid';
 import { Refresh } from '@mui/icons-material';
@@ -20,17 +20,6 @@ const Layout = styled('div')(({ theme }) => ({
   alignItems: 'center',
   justifyContent: 'center',
 }));
-function generateAvatars() {
-  const avatars: string[] = [];
-  for (let i = 0; i < 10; i++) {
-    const avatar = createAvatar(adventurer, {
-      seed: Math.random().toString(36).substring(2, 15), // Random seed for each avatar
-      // ... other options
-    });
-    avatars.push(avatar.toDataUri());
-  }
-  return avatars;
-}
 
 export default function JoinView() {
   const navigate = useNavigate();

@@ -1,14 +1,14 @@
 import React, { useEffect } from 'react';
 import { faHome } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { IconButton, AvatarGroup, Avatar, Tooltip } from '@mui/material';
+import { IconButton, AvatarGroup, Avatar, Tooltip, Button } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import SearchBox from './SearchBox';
 import { useAppStore } from 'src/store';
 import Logo from 'src/assets/logo.png';
 import { ArrowBackIos, ArrowForwardIos } from '@mui/icons-material';
 import { useHistoryBoundaries } from 'src/hooks/history';
-import { useRoomStore } from 'src/store/room';
+import { useJam, useRoomStore } from 'src/store/room';
 import { styled } from '@mui/material/styles';
 import { useRemoteMessageQueue } from 'src/hooks/queue';
 
@@ -47,6 +47,8 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
   const participants = useRoomStore((state) => state.participants);
   const addParticipant = useRoomStore((state) => state.addParticipant);
   const removeParticipant = useRoomStore((state) => state.removeParticipant);
+  const { isInJam } = useJam();
+  const leaveRoom = useRoomStore((state) => state.leaveRoom);
 
   useRemoteMessageQueue('jam', {
     onAddItem: (message) => {
@@ -132,6 +134,7 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
             </Tooltip>
           ))}
         </AvatarGroup>
+        {isInJam && <Button onClick={leaveRoom}>Leave the room</Button>}
       </div>
     </Header>
   );

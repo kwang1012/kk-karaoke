@@ -43,6 +43,7 @@ export type Queue = {
 export type Lyrics = {
   time: number;
   text: string;
+  romanized?: string;
 };
 
 export type Collection = {

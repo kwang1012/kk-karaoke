@@ -6,9 +6,9 @@ from typing import Any, Union
 
 from celery import Celery
 import redis
+from utils import NO_VOCALS_DIR, LYRICS_DIR, VOCALS_DIR, RAW_AUDIO_DIR
 from models.track import Artist, Track
 from managers.websocket import WebSocketManager
-from services.downloader import LYRICS_DIR, NO_VOCALS_DIR, RAW_AUDIO_DIR, VOCALS_DIR
 from services.downloader import download_lyrics, download_audio
 from services.voice_remover import separate_vocals
 

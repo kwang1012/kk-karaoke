@@ -7,6 +7,8 @@ import { useQuery } from '@tanstack/react-query';
 import AppScrollbar from 'src/components/Scrollbar';
 import Skeleton from 'react-loading-skeleton';
 import { Categories, Collection } from 'src/models/spotify';
+import { Button, useMediaQuery } from '@mui/material';
+import { useJam, useRoomStore } from 'src/store/room';
 
 function PlaylistCard({
   playlist,
@@ -80,6 +82,9 @@ export function MainView() {
   });
 
   const navigate = useNavigate();
+  const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
+  const leaveRoom = useRoomStore((state) => state.leaveRoom);
+  const { isInJam } = useJam();
 
   const handleOnClickPlaylist = (playlist: Collection) => {
     navigate(`/playlist/${playlist.id}`, {
@@ -94,8 +99,16 @@ export function MainView() {
     }));
   }, [categories]);
   return (
-    <AppScrollbar className='h-full'>
-      <div className="pt-6 w-full overflow-hidden">
+    <AppScrollbar className="h-full">
+      {mobile && isInJam && (
+        <div className="fixed w-full z-100 flex items-center justify-between bg-primary h-12 px-4">
+          <span className="text-sm text-white">You are in a jam session</span>
+          <Button variant="text" className="text-sm text-white bg-transparent" onClick={leaveRoom}>
+            Leave
+          </Button>
+        </div>
+      )}
+      <div className={['w-full overflow-hidden', mobile && isInJam ? 'pt-16' : 'pt-6'].join(' ')}>
         {sections.map((section) => (
           <div key={section.keyword} className="mb-8">
             <h1 className="mx-4 md:mx-8 mb-1 text-lg font-bold">{section.name}</h1>

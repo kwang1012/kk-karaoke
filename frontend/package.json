@@ -26,6 +26,7 @@
     "colord": "^2.9.3",
     "dayjs": "^1.11.13",
     "node-vibrant": "^4.0.3",
+    "opencc-js": "^1.0.5",
     "overlayscrollbars": "^2.8.1",
     "overlayscrollbars-react": "^0.5.6",
     "react": "^19.1.0",

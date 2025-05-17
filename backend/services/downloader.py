@@ -4,7 +4,8 @@ import syncedlyrics
 import asyncio
 from uuid import uuid4 as uuid
 
-from utils import RAW_AUDIO_DIR, LYRICS_DIR, VOCALS_DIR, NO_VOCALS_DIR
+
+from utils import RAW_AUDIO_DIR, LYRICS_DIR
 
 
 def _search_youtube(query: str, limit: int = 5) -> list:

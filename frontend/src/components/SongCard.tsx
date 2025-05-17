@@ -4,7 +4,7 @@ import { ReactElement, useEffect, useMemo, useState } from 'react';
 import placeholderImage from 'src/assets/placeholder.png';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGears, faMusic } from '@fortawesome/free-solid-svg-icons';
-import { useTrackStore } from 'src/store';
+import { useReadyTrackIds, useTrackStore } from 'src/store';
 import { CheckCircle, PlayArrow } from '@mui/icons-material';
 import { Track } from 'src/models/spotify';
 import ActionMenu from './playlist/ActionMenu';
@@ -41,7 +41,6 @@ const HoverLayout = styled('div')(({ theme }) => ({
   overflow: 'hidden',
   height: 52,
   borderRadius: theme.shape.borderRadius,
-  margin: theme.spacing(0, 0, 2),
   cursor: 'default',
   '& .actions': {
     opacity: 0,
@@ -82,6 +81,9 @@ const HoverLayout = styled('div')(({ theme }) => ({
     },
     '&:hover, &.active': {
       backgroundColor: 'transparent',
+    },
+    '.checked-icon *': {
+      color: theme.palette.success.main,
     },
   },
 }));
@@ -139,10 +141,10 @@ export default function SongCard({
       };
     return track;
   }, [track]);
-  const readyTracks = useTrackStore((state) => state.readyTracks);
+  const readyTrackIds = useReadyTrackIds();
   const ready = useMemo(() => {
-    return readyTracks.has(parsedTrack.id);
-  }, [readyTracks, parsedTrack]);
+    return readyTrackIds.has(parsedTrack.id);
+  }, [readyTrackIds, parsedTrack]);
 
   const progressIcon = useMemo(() => {
     if (status === 'downloading_lyrics' || status === 'downloading_audio')
@@ -165,7 +167,7 @@ export default function SongCard({
       {...props}
     >
       <div className="relative w-10 h-10 bg-[#b3b3b3] rounded-md mr-4 overflow-hidden shrink-0">
-        {onAdd && !disable && (
+        {onAdd && !disable && !mobile && (
           <div
             className="actions absolute flex items-center justify-center w-full h-full bg-[#3b3b3b70] cursor-pointer"
             onClick={() => track && onAdd(parsedTrack)}

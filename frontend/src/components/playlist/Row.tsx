@@ -3,7 +3,7 @@ import { styled, TableRow, Tooltip, IconButton, TableCell, useMediaQuery } from 
 import { memo, useContext, useEffect, useMemo, useState } from 'react';
 import Skeleton from 'react-loading-skeleton';
 import { Track } from 'src/models/spotify';
-import { useTrackStore } from 'src/store';
+import { useReadyTrackIds, useTrackStore } from 'src/store';
 import placeholder from 'src/assets/placeholder.png';
 import ActionMenu from './ActionMenu';
 import { PlaylistContext } from 'src/context/playlist';
@@ -84,14 +84,14 @@ const PlaylistRow = memo(({ track, index }: { track: Track; index: number }) => 
   const [status, setStatus] = useState(track?.status);
   const unknown = status === undefined; // for processing
   const downloaded = status === 'ready'; // for processing
-  const readyTracks = useTrackStore((state) => state.readyTracks);
+  const readyTrackIds = useReadyTrackIds();
   const parsedTrack = track ?? {
     id: '',
     name: 'Not playing',
     artists: [],
     timeAdded: Date.now(),
   };
-  const ready = readyTracks.has(parsedTrack.id);
+  const ready = readyTrackIds.has(parsedTrack.id);
   const setMenuOpenStatus = usePlaylistStore((state) => state.setMenuOpenStatus);
   const setMenuOpen = (open: boolean) => {
     setMenuOpenStatus(index, open);

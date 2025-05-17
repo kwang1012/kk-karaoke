@@ -1,6 +1,8 @@
 import { Vibrant } from 'node-vibrant/browser';
 import { Track } from 'src/models/spotify';
 import { colord } from 'colord';
+import { adventurer } from '@dicebear/collection';
+import { createAvatar } from '@dicebear/core';
 
 export const DEFAULT_COLOR = '#d3d3d3';
 export const DEFAULT_BG_COLOR = '#3a3a3a';
@@ -119,4 +121,16 @@ export function generateNickname() {
   const number = Math.floor(100 + Math.random() * 900); // 3-digit random number
 
   return `${adj}${noun}${number}`; // e.g. "HappyOtter738"
+}
+
+export function generateAvatars(count: number = 10): string[] {
+  const avatars: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const avatar = createAvatar(adventurer, {
+      seed: Math.random().toString(36).substring(2, 15), // Random seed for each avatar
+      // ... other options
+    });
+    avatars.push(avatar.toDataUri());
+  }
+  return avatars;
 }

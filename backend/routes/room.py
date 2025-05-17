@@ -78,6 +78,37 @@ async def join_room(room_id: str, user: User, redis_interface: RedisJamInterface
             status_code=500, detail=f"Failed to join room {room_id}: {e}")
 
 
+@router.post("/{room_id}/leave")
+async def leave_room(
+    room_id: str,
+    user: User,
+    redis_interface: RedisJamInterface = Depends(
+        lambda: RedisJamInterface(get_db())),
+):
+    """
+    Remove participants from a room
+    """
+    try:
+        # Check if the room exists
+        if not redis_interface.jam_exists(room_id):
+            raise HTTPException(
+                status_code=404, detail=f"Room {room_id} not found")
+
+        await ws_manager.multicast(room_id, {
+            "type": "jam",
+            "action": "left",
+            "data": {
+                "participant": user.model_dump()
+            }
+        })
+
+        return {"message": f"User {user.name} left room {room_id} successfully."}
+
+    except redis.RedisError as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to leave room {room_id}: {e}")
+
+
 @router.get("/{room_id}")
 async def get_room(
     room_id: str,

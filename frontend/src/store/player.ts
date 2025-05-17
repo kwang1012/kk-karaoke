@@ -14,6 +14,7 @@ import SyncedAudioPlayer from 'src/syncedPlayer';
 import { useActiveRoomId, useJam, useRoomStore } from './room';
 import { useWebSocketStore } from './ws';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { useDebouncedCallback } from 'src/hooks/debounce';
 
 type PlayerStore = {
   syncedPlayer: SyncedAudioPlayer | null;
@@ -206,6 +207,7 @@ export const usePlayer = () => {
     queue,
     queueIdx,
     setQueueIdx,
+    addSongToQueue,
   } = store;
   const currentSong = queue[queueIdx] || null;
 
@@ -415,6 +417,7 @@ export const usePlayer = () => {
     decreaseVolume,
     increaseSemitone,
     decreaseSemitone,
+    addSongToQueue: useDebouncedCallback(addSongToQueue, 100),
   };
 };
 

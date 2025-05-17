@@ -1,12 +1,8 @@
-import MobileAudioController from 'src/components/MobileAudioController';
 import { styled } from '@mui/material/styles';
-import { usePlayerStore, useQueue } from 'src/store/player';
-import placeholder from 'src/assets/placeholder.png';
-import AppScrollbar from 'src/components/Scrollbar';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Button, useMediaQuery } from '@mui/material';
-import { DEFAULT_BG_COLOR, getAvgRGB, getUniqueId } from 'src/utils';
-import TrackQueue from 'src/components/TrackQueue';
+import { useQueue } from 'src/store/player';
+import { useEffect, useState } from 'react';
+import { useMediaQuery } from '@mui/material';
+import { DEFAULT_BG_COLOR, getAvgRGB } from 'src/utils';
 import { useNavigate } from 'react-router-dom';
 import MobilePlayer from 'src/components/MobilePlayer';
 
@@ -23,14 +19,6 @@ const Layout = styled('div')(({ theme }) => ({
   overflow: 'hidden',
 }));
 
-const Overlay = styled('div')(({ theme }) => ({
-  position: 'fixed',
-  top: 0,
-  left: 0,
-  right: 0,
-  height: 84,
-  zIndex: 1,
-}));
 export default function PlayView() {
   const { currentSong } = useQueue();
   const [color, setColor] = useState<string>(DEFAULT_BG_COLOR);
@@ -75,7 +63,7 @@ export default function PlayView() {
         backgroundImage: `linear-gradient(to bottom, ${color} 84px, ${color}40, #121212)`,
       }}
     >
-      <MobilePlayer />
+      <MobilePlayer color={color} />
     </Layout>
   );
 }

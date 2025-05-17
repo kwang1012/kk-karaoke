@@ -83,7 +83,7 @@ async def get_tracks(
     ready_tracks = []
     for track in tracks:
         if is_ready(track):
-            ready_tracks.append(track.id)
+            ready_tracks.append(track.model_dump())
 
     return JSONResponse(content={"ready_tracks": ready_tracks}, status_code=200)
 

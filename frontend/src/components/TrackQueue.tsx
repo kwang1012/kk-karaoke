@@ -32,15 +32,19 @@ function SortableItem({
   };
 
   const isActive = active?.id === id;
+  const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
 
   return (
     <div
       ref={setNodeRef}
-      {...listeners}
+      {...(mobile ? {} : listeners)}
       {...attributes}
+      className="flex items-center my-2"
       style={{
         ...style,
-        touchAction: dragging ? 'none' : 'manipulation',
+        touchAction: !mobile && dragging ? 'none' : 'manipulation',
+        WebkitTouchCallout: 'none',
+        WebkitUserSelect: 'none',
         userSelect: 'none',
         ...(isActive && {
           scale: 0.98,
@@ -51,6 +55,14 @@ function SortableItem({
         }),
       }}
     >
+      {mobile && (
+        <DragIndicator
+          className={isActive ? 'cursor-grabbing' : 'cursor-grab'}
+          sx={{ color: '#cacaca' }}
+          {...listeners}
+          style={{ touchAction: 'none' }}
+        />
+      )}
       {children}
     </div>
   );
@@ -58,6 +70,8 @@ function SortableItem({
 import { useState, type PointerEvent } from 'react';
 import { api } from 'src/utils/api';
 import { useActiveRoomId, useRoomStore } from 'src/store/room';
+import { useMediaQuery } from '@mui/material';
+import { DragIndicator } from '@mui/icons-material';
 /**
  * An extended "PointerSensor" that prevent some
  * interactive html element(button, input, textarea, select, option...) from dragging
@@ -167,7 +181,7 @@ export default function TrackQueue({ tracks }: { tracks: Track[] }) {
     >
       {tracks.map((track) => (
         <SortableItem key={track.uniqueId} id={track.uniqueId} dragging={dragging}>
-          <SongCard className="mt-1" track={track} onDelete={() => rmSongFromQueue(track)} />
+          <SongCard className="flex-1" track={track} onDelete={() => rmSongFromQueue(track)} />
         </SortableItem>
       ))}
     </SortableList>

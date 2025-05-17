@@ -1,0 +1,64 @@
+import { Home, Search, QueueMusic } from '@mui/icons-material';
+import { BottomNavigation, BottomNavigationAction } from '@mui/material';
+import { useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { styled } from '@mui/material/styles';
+
+const DarkBottomNavigation = styled(BottomNavigation)(({ theme }) => ({
+  backgroundColor: 'black',
+  color: theme.palette.text.primary,
+  '& .MuiBottomNavigationAction-root': {
+    color: 'white',
+    '&.Mui-selected': {
+      color: theme.palette.primary.main,
+    },
+  },
+}));
+
+export default function AppNavigation() {
+  const location = useLocation();
+  const isHomePage = location.pathname === '/';
+  const isPlaylistPage = location.pathname.startsWith('/playlist');
+  const isSearchPage = location.pathname.startsWith('/search');
+  const isQueuePage = location.pathname.startsWith('/queue');
+  const navigate = useNavigate();
+
+  const selectedIndex = useMemo(() => {
+    if (isHomePage) return 0;
+    if (isPlaylistPage) return 0;
+    if (isSearchPage) return 1;
+    if (isQueuePage) return 2;
+  }, [location.pathname]);
+
+  const onChange = (event: React.SyntheticEvent, newValue: number) => {
+    switch (newValue) {
+      case 0:
+        location.pathname !== '/' && navigate('/');
+        break;
+      case 1:
+        location.pathname !== '/search' && navigate('/search');
+        break;
+      case 2:
+        location.pathname !== '/play' && navigate('/play');
+        break;
+      default:
+        break;
+    }
+  };
+
+  return (
+    <DarkBottomNavigation
+      showLabels
+      sx={{
+        width: '100%',
+        height: '100%',
+      }}
+      value={selectedIndex}
+      onChange={onChange}
+    >
+      <BottomNavigationAction label="Browse" icon={<Home fontSize="medium" />} />
+      <BottomNavigationAction label="Search" icon={<Search fontSize="medium" />} />
+      <BottomNavigationAction label="Play" icon={<QueueMusic fontSize="medium" />} />
+    </DarkBottomNavigation>
+  );
+}

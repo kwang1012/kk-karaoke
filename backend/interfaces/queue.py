@@ -32,18 +32,7 @@ class RedisQueueInterface:
     def add_track_to_next(self, room_id: str, track: Track) -> int:
         """
         Adds a new track or moves an existing track to be the next song after the current playing song,
-        if current_idx is available. Otherwise, falls back to appending the track.
-        Uses self.remove_track_from_queue for move operations.
 
-        Args:
-            room_id: The ID of the room.
-            track: The Track object. If track.id and track.time_added are set (and current_idx is valid),
-                   it attempts to move an existing track. Otherwise, it adds it as a new track after current_idx.
-                   If current_idx is not valid, it appends the track via add_track_to_queue.
-
-        Returns:
-            If current_idx is valid: 0-based index where track was placed, or -1 if a move failed.
-            If current_idx is not valid: The return value of add_track_to_queue (typically new queue length).
         """
         try:
             # Get current queue before adding to it
@@ -58,14 +47,11 @@ class RedisQueueInterface:
                 current_idx = json.loads(
                     redis_interface.redis.get(current_idx_key))  # type: ignore
 
-            print(current_idx)
-            
             # New track: assign timestamp and add to track set
             track.time_added = time.time_ns()
             track_json_for_set = json.dumps(track.model_dump())
             self.redis.sadd(self.track_data_prefix, track_json_for_set)
 
-            
             target_idx = current_idx + 1
 
             current_queue.insert(

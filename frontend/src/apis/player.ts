@@ -88,7 +88,9 @@ export const emptyQueue = async (roomId: string) => {
 };
 
 export const updateQueueIdx = async (roomId: string, idx: number) => {
-  return api.post(`queue/${roomId}/${idx}`).catch((error) => {
+  return api.post(`queue/${roomId}/update_queue_idx`, {
+    index: idx,
+  }).catch((error) => {
     console.log('Error updating queue index');
   });
 };

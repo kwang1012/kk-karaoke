@@ -192,10 +192,11 @@ async def clear_queue_endpoint(
 @router.post("/{room_id}/update_queue_idx")
 async def store_current_idx(room_id: str, data: dict[str, int], redis_interface: RedisQueueInterface = Depends(
         lambda: RedisQueueInterface(get_db()))):
+    current_idx = data["index"]
     # Use a Redis key that includes the room ID
     try:
         key = f"room:{room_id}:queue:current_idx"
-        redis_interface.redis.set(key, data["index"])
+        redis_interface.redis.set(key, current_idx)
         return JSONResponse(content={"message": f"Current index for room {room_id} 's queue is set to {current_idx}"}, status_code=200)
     except redis.RedisError as e:
         raise HTTPException(
@@ -219,18 +220,54 @@ async def add_to_next_endpoint(
         track: The Track object to add/move
     """
     try:
+
+        is_track_ready = is_ready(track)
+        track.status = "ready" if is_track_ready else "submitted"
+
         idx = redis_interface.add_track_to_next(room_id, track)
-        if idx >= 0:
-            await ws_manager.broadcast(
-                {"type": "queue", "data": {
-                    "action": "added_next",
-                    "track": track.model_dump(),
-                    "index": idx
-                }}
-            )
-            return JSONResponse(content={"message": "Track added to next position", "index": idx}, status_code=200)
-        else:
-            raise HTTPException(
-                status_code=400, detail="Failed to add/move track to next position")
+        await ws_manager.broadcast(
+            {"type": "queue", "data": {
+                "action": "inserted",
+                "track": track.model_dump(),
+                "index": idx
+            }}
+        )
+        if is_track_ready:
+            return JSONResponse(content={"is_ready": True, "task": None}, status_code=200)
+
+        loop = asyncio.get_event_loop()
+
+        def process_message_callback(message_data: dict):
+            """
+            Callback to handle messages from the Redis pub/sub related to track processing.
+            """
+            # "type": "notify",
+            # "data": {
+            #     "action": "progress",
+            #     "track": track.model_dump(),
+            #     "status": "separating",
+            #     "value": progress,
+            #     "total": total
+            # },
+            message_type = message_data["type"]
+            if message_type == "notify":
+                # Check if the message is for the current track
+                if message_data["data"]["track"]["id"] == track.id:
+                    track.status = message_data["data"]["status"]
+                    if "total" in message_data["data"]:
+                        track.progress = message_data["data"]["value"] / \
+                            message_data["data"]["total"]
+                    else:
+                        track.progress = 0
+                    redis_interface.update_track_status(room_id, track)
+            asyncio.run_coroutine_threadsafe(ws_manager.broadcast(
+                message_data), loop)
+
+        redis_interface.subscribe_to_channel(
+            track.id, process_message_callback)
+
+        task = send_process_request(track)
+        return JSONResponse(content={"is_ready": False, "task": task.id}, status_code=200)
+
     except redis.RedisError as e:
         raise HTTPException(status_code=500, detail=f"Redis error: {e}")

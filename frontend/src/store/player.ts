@@ -4,6 +4,7 @@ import {
   downloadTrack,
   emptyQueue,
   fetchRandomTracks,
+  insertToQueue,
   pushToQueue,
   removeFromQueue,
   updateQueueIdx,
@@ -51,12 +52,14 @@ type PlayerStore = {
   queueIdx: number;
   setQueueIdx: (queIdx: number) => void;
   addToQueue: (track: Track) => void;
+  insertToQueue: (track: Track) => void;
   rmFromQueue: (track: Track) => void;
   lastSongId: string | null;
   setLastSongId: (songId: string | null) => void;
   // apis
   getRandomTracks: () => Promise<void>;
   addSongToQueue: (track: Track) => Promise<void>;
+  insertSongToQueue: (track: Track) => Promise<void>;
   rmSongFromQueue: (track: Track) => Promise<void>;
   downloadSong: (track: Track) => Promise<void>;
   clearQueue: () => Promise<void>;
@@ -107,6 +110,18 @@ export const usePlayerStore = create<PlayerStore>()(
           queue: [...state.queue, track],
         }));
       },
+      insertToQueue: (track: Track) => {
+        set((state) => {
+          const updatedQueue = [
+            ...state.queue.slice(0, state.queueIdx + 1),
+            track,
+            ...state.queue.slice(state.queueIdx + 1),
+          ];
+          return {
+            queue: updatedQueue,
+          };
+        });
+      },
       rmFromQueue: (track: Track) => {
         set((state) => ({
           queue: state.queue.filter((s) => s.id !== track.id || s.timeAdded !== track.timeAdded),
@@ -129,6 +144,26 @@ export const usePlayerStore = create<PlayerStore>()(
         const joinedRoomId = useRoomStore.getState().joinedRoom;
         const activeRoomId = joinedRoomId || roomId || 'default';
         pushToQueue(activeRoomId, {
+          ...track,
+          ordered_by: {
+            id: roomId,
+            name,
+            avatar,
+          },
+        }).then((data) => {
+          if (data.isReady) {
+            useTrackStore.getState().setSongStatus(track.id, 'ready');
+          }
+        });
+      },
+      insertSongToQueue: async (track: Track) => {
+        useTrackStore.getState().setSongStatus(track.id, 'submitted');
+        const roomId = useRoomStore.getState().roomId;
+        const name = useRoomStore.getState().nickname;
+        const avatar = useRoomStore.getState().avatar;
+        const joinedRoomId = useRoomStore.getState().joinedRoom;
+        const activeRoomId = joinedRoomId || roomId || 'default';
+        insertToQueue(activeRoomId, {
           ...track,
           ordered_by: {
             id: roomId,
@@ -208,6 +243,7 @@ export const usePlayer = () => {
     queueIdx,
     setQueueIdx,
     addSongToQueue,
+    insertSongToQueue,
   } = store;
   const currentSong = queue[queueIdx] || null;
 
@@ -418,6 +454,7 @@ export const usePlayer = () => {
     increaseSemitone,
     decreaseSemitone,
     addSongToQueue: useDebouncedCallback(addSongToQueue, 100),
+    insertSongToQueue: useDebouncedCallback(insertSongToQueue, 100),
   };
 };
 

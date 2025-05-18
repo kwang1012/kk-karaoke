@@ -37,6 +37,7 @@ export default function PlaylistView() {
   const collectionType = location.pathname.split('/')[1];
   const connected = useWebSocketStore((state) => state.connected);
   const addSongToQueue = usePlayerStore((state) => state.addSongToQueue);
+  const insertSongToQueue = usePlayerStore((state) => state.insertSongToQueue);
   const downloadSong = usePlayerStore((state) => state.downloadSong);
 
   const { data, isLoading } = useQuery({
@@ -65,6 +66,14 @@ export default function PlaylistView() {
       track.album = collection as Album;
     }
     addSongToQueue(track);
+  }, 100);
+
+  const onInsert = useDebouncedCallback((track: Track) => {
+    // Function to insert a track into the queue
+    if (collectionType === 'album') {
+      track.album = collection as Album;
+    }
+    insertSongToQueue(track);
   }, 100);
   const onDownload = (track: Track) => {
     downloadSong(track);
@@ -111,6 +120,7 @@ export default function PlaylistView() {
           color,
           headers,
           onAdd,
+          onInsert,
           onDownload,
           connected,
           isLoading,

@@ -45,7 +45,7 @@ class RedisQueueInterface:
                     current_idx = 0
             else:
                 current_idx = json.loads(
-                    redis_interface.redis.get(current_idx_key))  # type: ignore
+                    self.redis.get(current_idx_key))  # type: ignore
 
             # New track: assign timestamp and add to track set
             track.time_added = time.time_ns()

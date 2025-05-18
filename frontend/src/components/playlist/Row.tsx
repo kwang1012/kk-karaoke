@@ -97,7 +97,7 @@ const PlaylistRow = memo(({ track, index }: { track: Track; index: number }) => 
     setMenuOpenStatus(index, open);
   };
   const image = parsedTrack.album?.images?.[0]?.url || placeholder;
-  const { collectionType, onAdd, onDownload, isLoading, headers } = useContext(PlaylistContext);
+  const { collectionType, onAdd, onInsert, onDownload, isLoading, headers } = useContext(PlaylistContext);
 
   useEffect(() => {
     if (!track?.id) return;
@@ -186,6 +186,7 @@ const PlaylistRow = memo(({ track, index }: { track: Track; index: number }) => 
         <ActionMenu
           track={parsedTrack}
           onAdd={onAdd}
+          onInsert={onInsert}
           onOpen={() => setMenuOpen(true)}
           onClose={() => setMenuOpen(false)}
         />

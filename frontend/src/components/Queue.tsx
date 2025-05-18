@@ -37,7 +37,7 @@ const Queue = forwardRef<HTMLDivElement>((props, ref) => {
   const setSongStatus = useTrackStore((state) => state.setSongStatus);
 
   const { currentSong, queue, queueIdx } = usePlayer();
-  const { addToQueue, getRandomTracks, rmFromQueue, clearQueue, setQueue } = usePlayer();
+  const { addToQueue, insertToQueue, getRandomTracks, rmFromQueue, clearQueue, setQueue } = usePlayer();
   const roomId = useRoomStore((state) => state.roomId);
   const tracks = useMemo(() => {
     return queue.slice(queueIdx + 1).map((track, index) => ({
@@ -78,6 +78,8 @@ const Queue = forwardRef<HTMLDivElement>((props, ref) => {
         const [element] = newItems.splice(oldIndex, 1);
         newItems.splice(newIndex, 0, element);
         setQueue(newItems);
+      } else if (item.data.action === 'inserted') {
+        insertToQueue(item.data.track);
       }
     },
   });

@@ -8,6 +8,7 @@ export const PlaylistContext = createContext({
   color: DEFAULT_BG_COLOR,
   collectionType: '',
   onAdd: (track: Track) => {},
+  onInsert: (track: Track) => {},
   onDownload: (track: Track) => {},
   connected: false,
   isLoading: false,

@@ -103,7 +103,9 @@ export default function SearchView() {
   const setSearching = useAppStore((state) => state.setSearching);
   const setSearchValue = useAppStore((state) => state.setSearchValue);
   const addSongToQueue = usePlayerStore((state) => state.addSongToQueue);
+  const insertSongToQueue = usePlayerStore((state) => state.insertSongToQueue);
   const onAdd = useDebouncedCallback(addSongToQueue, 100);
+  const onInsert = useDebouncedCallback(insertSongToQueue, 100);
   const handleSearchChange = (value: string) => {
     setSearchValue(value);
     if (value === '') {
@@ -135,7 +137,7 @@ export default function SearchView() {
                 <h1 className="text-2xl mt-2">Songs</h1>
                 <div className="mt-2">
                   {tracks.map((track: any, i: number) => (
-                    <SongCard key={i} track={track} dense className="mt-1" onAdd={onAdd} />
+                    <SongCard key={i} track={track} dense className="mt-1" onAdd={onAdd} onInsert={onInsert} />
                   ))}
                 </div>
               </div>

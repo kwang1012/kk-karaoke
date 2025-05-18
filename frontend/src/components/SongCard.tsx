@@ -95,6 +95,7 @@ type SongCardProps = {
   disable?: boolean;
   disableHover?: boolean;
   onAdd?: (track: Track) => void;
+  onInsert?: (track: Track) => void;
   onDelete?: (track: Track) => void;
 };
 export default function SongCard({
@@ -103,13 +104,14 @@ export default function SongCard({
   dense,
   disable,
   disableHover,
+  onInsert,
   onAdd,
   onDelete,
   ...props
 }: SongCardProps) {
   const songStatus = useTrackStore((state) => state.songStatus);
   const songProgress = useTrackStore((state) => state.songProgress);
-  const hasActions = useMemo(() => !!onAdd || !!onDelete, [onAdd, onDelete]);
+  const hasActions = useMemo(() => !!onAdd || !!onDelete || !!onInsert, [onAdd, onDelete, onInsert]);
   const [status, setStatus] = useState(track?.status || 'ready');
   const [progress, setProgress] = useState(track?.progress || 0);
   const isReady = !status || status === 'ready';
@@ -216,6 +218,7 @@ export default function SongCard({
             className="actions"
             track={parsedTrack}
             onAdd={onAdd}
+            onInsert={onInsert}
             onDelete={onDelete}
             onOpen={() => setMenuOpen(true)}
             onClose={() => setMenuOpen(false)}

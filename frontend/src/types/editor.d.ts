@@ -1,8 +1,9 @@
 // TypeScript users only add this code
-import { BaseEditor, Descendant } from 'slate';
+import { BaseEditor, Descendant, ElementInterface } from 'slate';
 import { ReactEditor } from 'slate-react';
 
-type CustomElement = { type: 'paragraph'; children: CustomText[] };
+type ElementType = 'lrc-line' | 'timestamp' | string;
+type CustomElement = { type: ElementType; children: (CustomElement | CustomText)[] };
 type CustomText = { text: string };
 
 declare module 'slate' {

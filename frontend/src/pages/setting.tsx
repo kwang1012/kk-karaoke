@@ -8,6 +8,7 @@ import { useSettingStore } from 'src/store/setting';
 import { styled } from '@mui/material/styles';
 import { useRoomStore } from 'src/store/room';
 import { generateAvatars } from 'src/utils';
+import AppScrollbar from 'src/components/Scrollbar';
 
 const EditButton = styled((props: ButtonProps) => <Button variant="outlined" {...props} />)(({ theme }) => ({
   minWidth: 0,
@@ -15,6 +16,7 @@ const EditButton = styled((props: ButtonProps) => <Button variant="outlined" {..
   color: '#636363',
   border: '1px solid #636363',
   backgroundColor: 'transparent',
+  flexShrink: 0,
   '&:hover': {
     color: '#a4a4a4',
     borderColor: '#a4a4a4',
@@ -72,7 +74,7 @@ export default function SettingView() {
     setAvatars(generatedAvatars);
   };
   return (
-    <div className="p-8">
+    <AppScrollbar className="p-8 h-full">
       <div className="text-4xl font-bold">Settings</div>
       <h1 className="text-lg mt-8 font-bold">Audio</h1>
       <div className="flex justify-between items-center mt-2">
@@ -188,6 +190,6 @@ export default function SettingView() {
           </EditButton>
         </div>
       </div>
-    </div>
+    </AppScrollbar>
   );
 }

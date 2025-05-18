@@ -1,4 +1,3 @@
-import asyncio
 import json
 import threading
 from typing import Callable, Optional, List, Any, Union
@@ -23,7 +22,8 @@ class RedisQueueInterface:
             user_queue_key = f"{self.room_prefix}{room_id}:queue"
             track_json = json.dumps(track.model_dump())
             idx = self.redis.rpush(user_queue_key, track_json)
-            self.redis.sadd(self.track_data_prefix, track_json)
+            trimmed_track = Track(id=track.id, name=track.name, artists=track.artists, album=track.album,)
+            self.redis.sadd(self.track_data_prefix, json.dumps(trimmed_track.model_dump()))
             return idx  # type: ignore
         except redis.RedisError as e:
             print(f"Error adding track to room queue {room_id}: {e}")

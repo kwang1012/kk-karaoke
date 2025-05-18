@@ -32,53 +32,41 @@ const Layout = styled('div')(({ theme }) => ({
 export default function SearchView() {
   const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
   const navigate = useNavigate();
-  const [results, setResults] = useState<any>({});
   const searchValue = useAppStore((state) => state.searchValue);
-  const tracks = useMemo(() => {
-    // remove duplicates by track name and artists and first 4 tracks
-    const uniqueTracks = new Map();
-    results.tracks?.items.forEach((track: any) => {
-      const key = `${track.name}-${getArtistsStr(track.artists)}`;
-      if (!uniqueTracks.has(key)) {
-        uniqueTracks.set(key, track);
-      }
-    });
-    return (
-      Array.from(uniqueTracks.values())
-        // .sort((t1, t2) => t2.popularity - t1.popularity)
-        .slice(0, mobile ? 10 : 4)
-    );
-  }, [results]);
-  const albums = useMemo(() => {
-    return results.albums?.items.sort((a1: any, a2: any) => a2.total_tracks - a1.total_tracks).slice(0, 4) || [];
-  }, [results]);
-  const playlists = useMemo(() => {
-    return results.playlists?.items.filter((playlist) => Boolean(playlist)).slice(0, 4) || [];
-  }, [results]);
-  //   const artists = useMemo(() => results.artists?.items.slice(0, 4) || [], [results]);
-  const [scrollTop, setScrollTop] = useState(0);
+  const setSearching = useAppStore((state) => state.setSearching);
+  const setSearchValue = useAppStore((state) => state.setSearchValue);
+  const addSongToQueue = usePlayerStore((state) => state.addSongToQueue);
+  const insertSongToQueue = usePlayerStore((state) => state.insertSongToQueue);
+  const onAdd = useDebouncedCallback(addSongToQueue, 100);
+  const onInsert = useDebouncedCallback(insertSongToQueue, 100);
 
-  useEffect(() => {
-    navigate(`/search/${encodeURIComponent(searchValue)}`, {
-      replace: true,
-      state: { searchValue },
-    });
-  }, [searchValue]);
+  const [results, setResults] = useState<any>({});
+  const [scrollTop, setScrollTop] = useState(0);
+  const tracks = results.tracks?.items?.filter((item: any) => !!item)?.slice(0, mobile ? 10 : 4) || [];
+  const albums = results.albums?.items?.filter((item: any) => !!item)?.slice(0, 4) || [];
+  const playlists = results.playlists?.items?.filter((item: any) => !!item)?.slice(0, 4) || [];
+  //   const artists = results.artists?.items.slice(0, 4) || [];
 
   useEffect(() => {
     document.title = `KKaraoke - Search`;
   }, []);
 
+  // use useEffect bc the searchValue might be updated by other components
   useEffect(() => {
-    if (!searchValue || searchValue.trim() === '') return;
-    api
-      .get('/search', { params: { q: searchValue } })
-      .then(({ data }) => {
-        setResults(data.results || {});
-      })
-      .catch((error) => {
-        console.error('Error fetching search results:', error);
-      });
+    if (searchValue && searchValue.trim() !== '') {
+      api
+        .get('/search', { params: { q: searchValue } })
+        .then(({ data }) => {
+          setResults(data.results || {});
+        })
+        .catch((error) => {
+          console.error('Error fetching search results:', error);
+        });
+    }
+    navigate(`/search/${encodeURIComponent(searchValue)}`, {
+      replace: true,
+      state: { searchValue },
+    });
   }, [searchValue]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -100,19 +88,9 @@ export default function SearchView() {
     });
   };
 
-  const setSearching = useAppStore((state) => state.setSearching);
-  const setSearchValue = useAppStore((state) => state.setSearchValue);
-  const addSongToQueue = usePlayerStore((state) => state.addSongToQueue);
-  const insertSongToQueue = usePlayerStore((state) => state.insertSongToQueue);
-  const onAdd = useDebouncedCallback(addSongToQueue, 100);
-  const onInsert = useDebouncedCallback(insertSongToQueue, 100);
   const handleSearchChange = (value: string) => {
     setSearchValue(value);
-    if (value === '') {
-      setSearching(false);
-    } else {
-      setSearching(true);
-    }
+    setSearching(value !== '');
   };
   return (
     <Layout>

@@ -23,6 +23,7 @@ import 'src/styles/globals.css';
 import Player from './components/Player';
 import { api } from './utils/api';
 import LyricsEditView from './pages/lyrics-edit';
+import MobileLyricsView from './pages/mobile-lyrics';
 
 // lazily loaded components
 const JoinView = lazy(() => import('./pages/join'));
@@ -60,6 +61,7 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
 
 const AppRouters = () => {
   const isLoggedIn = useIsLoggedIn();
+  const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
   return (
     <Router>
       <Routes>
@@ -69,7 +71,7 @@ const AppRouters = () => {
             <Route path="playlist/:id" element={<PlaylistView />} />
             <Route path="album/:id" element={<PlaylistView />} />
             <Route path="search/*" element={<SearchView />} />
-            <Route path="lyrics" element={<LyricsView />} />
+            <Route path="lyrics" element={mobile ? <MobileLyricsView /> : <LyricsView />} />
             <Route path="play" element={<PlayView />} />
             <Route path="settings" element={<SettingView />} />
           </Route>

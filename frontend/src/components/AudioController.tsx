@@ -129,32 +129,7 @@ export default function AudioController() {
           </div>
         </div>
         {/* Volume Controls */}
-        <div className="ml-auto w-[30%] flex items-center justify-end pr-2">
-          {currentSong &&
-            location.pathname === '/lyrics' &&
-            (editing ? (
-              <div className="flex items-center">
-                <span>Delay lyrics by</span>
-                <TextField
-                  id="outlined-number"
-                  type="number"
-                  size="small"
-                  className="w-20 mx-1"
-                  value={lyricsDelay}
-                  onChange={(e) => setLyricsDelay(currentSong.id, Number(e.target.value))}
-                />
-                <span className="mr-2">s</span>
-                <Button variant="contained" color="primary" onClick={onSaveDelay} className="text-sm mr-2">
-                  Save
-                </Button>
-              </div>
-            ) : (
-              <Button onClick={() => setEditing(true)}>
-                Lyrics <br />
-                out-of-sync?
-              </Button>
-            ))}
-        </div>
+        <div className="ml-auto w-[30%] flex items-center justify-end pr-2"></div>
       </div>
     </>
   );

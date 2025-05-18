@@ -58,7 +58,7 @@ export default function ResizeHandle({
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [leftRef, rightRef]);
+  }, [leftRef?.current, rightRef?.current]);
 
   useEffect(() => {
     const leftEl = leftRef?.current;

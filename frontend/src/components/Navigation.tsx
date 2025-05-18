@@ -1,4 +1,4 @@
-import { Home, Search, QueueMusic } from '@mui/icons-material';
+import { Home, Search, QueueMusic, Lyrics } from '@mui/icons-material';
 import { BottomNavigation, BottomNavigationAction } from '@mui/material';
 import { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -20,7 +20,8 @@ export default function AppNavigation() {
   const isHomePage = location.pathname === '/';
   const isPlaylistPage = location.pathname.startsWith('/playlist');
   const isSearchPage = location.pathname.startsWith('/search');
-  const isQueuePage = location.pathname.startsWith('/queue');
+  const isQueuePage = location.pathname.startsWith('/play');
+  const isLyricPage = location.pathname.startsWith('/lyrics');
   const navigate = useNavigate();
 
   const selectedIndex = useMemo(() => {
@@ -28,6 +29,7 @@ export default function AppNavigation() {
     if (isPlaylistPage) return 0;
     if (isSearchPage) return 1;
     if (isQueuePage) return 2;
+    if (isLyricPage) return 3;
   }, [location.pathname]);
 
   const onChange = (event: React.SyntheticEvent, newValue: number) => {
@@ -40,6 +42,9 @@ export default function AppNavigation() {
         break;
       case 2:
         location.pathname !== '/play' && navigate('/play');
+        break;
+      case 3:
+        location.pathname !== '/lyrics' && navigate('/lyrics');
         break;
       default:
         break;
@@ -58,7 +63,8 @@ export default function AppNavigation() {
     >
       <BottomNavigationAction label="Browse" icon={<Home fontSize="medium" />} />
       <BottomNavigationAction label="Search" icon={<Search fontSize="medium" />} />
-      <BottomNavigationAction label="Play" icon={<QueueMusic fontSize="medium" />} />
+      <BottomNavigationAction label="Queue" icon={<QueueMusic fontSize="medium" />} />
+      <BottomNavigationAction label="Lyrics" icon={<Lyrics fontSize="medium" />} />
     </DarkBottomNavigation>
   );
 }

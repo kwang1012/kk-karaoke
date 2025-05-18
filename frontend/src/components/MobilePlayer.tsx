@@ -20,25 +20,17 @@ export default function MobilePlayer({ color }: { color?: string }) {
   const { currentSong, queue, queueIdx } = useQueue();
   const getRandomTracks = usePlayerStore((state) => state.getRandomTracks);
   const [scrollTop, setScrollTop] = useState(0);
-  const ref = useRef<HTMLDivElement>(null);
-  const sticky = useMemo(() => {
-    if (!ref.current) return false;
-    return scrollTop > 0;
-  }, [scrollTop]);
-  useEffect(() => {
-    window.scrollTo(0, 1);
-  }, []);
-  useEffect(() => {
-    window.scrollTo(0, 1);
-  }, []);
+  const sticky = scrollTop > 0;
 
-  const tracks = useMemo(() => {
-    return queue.slice(queueIdx + 1).map((track, index) => ({
-      index,
-      ...track,
-      uniqueId: getUniqueId(track),
-    }));
-  }, [queue, queueIdx]);
+  const tracks = useMemo(
+    () =>
+      queue.slice(queueIdx + 1).map((track, index) => ({
+        index,
+        ...track,
+        uniqueId: getUniqueId(track),
+      })),
+    [queue, queueIdx]
+  );
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.target as HTMLDivElement;
@@ -56,7 +48,7 @@ export default function MobilePlayer({ color }: { color?: string }) {
             }}
           />
         )}
-        <div ref={ref} className="sticky top-0 flex items-center w-full z-50 px-6">
+        <div className="sticky top-0 flex items-center w-full z-50 px-6">
           <div className="w-16 h-16 rounded-md bg-[#c3c3c3] overflow-hidden">
             <img src={currentSong?.album?.images?.[0]?.url || placeholder} className="w-full h-full" />
           </div>

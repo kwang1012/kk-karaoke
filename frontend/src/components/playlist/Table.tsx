@@ -32,7 +32,7 @@ const VirtuosoTableComponents: TableComponents<Track> = {
       if (!headerRef.current) return;
       setIsSticky(scrollTop > headerRef.current.clientHeight - 74); // header top + 10
       setHalfway(scrollTop > headerRef.current.clientHeight - 104);
-    }, [scrollTop, headerRef]);
+    }, [scrollTop, headerRef.current]);
     return (
       <>
         <Header

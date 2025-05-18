@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { faHome } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { IconButton, AvatarGroup, Avatar, Tooltip, Button } from '@mui/material';
@@ -68,11 +68,7 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
 
   const handleSearchChange = (value: string) => {
     setSearchValue(value);
-    if (value === '') {
-      setSearching(false);
-    } else {
-      setSearching(true);
-    }
+    setSearching(value !== '');
   };
   return (
     <Header className={['w-full flex items-center', className].join(' ')}>

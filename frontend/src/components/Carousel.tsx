@@ -7,6 +7,10 @@ export default function Carousel({ children, className = '' }: { children: React
   const [showRight, setShowRight] = useState(false);
   const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
 
+  useEffect(() => {
+    handleScroll(); // initial check
+  }, []);
+
   const handleScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
@@ -14,10 +18,6 @@ export default function Carousel({ children, className = '' }: { children: React
     setShowLeft(el.scrollLeft > 0);
     setShowRight(el.scrollLeft + el.clientWidth < el.scrollWidth);
   };
-
-  useEffect(() => {
-    handleScroll(); // initial check
-  }, []);
 
   const theme = useTheme();
   return (

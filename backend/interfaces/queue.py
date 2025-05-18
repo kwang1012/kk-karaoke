@@ -29,6 +29,60 @@ class RedisQueueInterface:
             print(f"Error adding track to room queue {room_id}: {e}")
             raise
 
+    def add_track_to_next(self, room_id: str, track: Track) -> int:
+        """
+        Adds a new track or moves an existing track to be the next song after the current playing song,
+        if current_idx is available. Otherwise, falls back to appending the track.
+        Uses self.remove_track_from_queue for move operations.
+
+        Args:
+            room_id: The ID of the room.
+            track: The Track object. If track.id and track.time_added are set (and current_idx is valid),
+                   it attempts to move an existing track. Otherwise, it adds it as a new track after current_idx.
+                   If current_idx is not valid, it appends the track via add_track_to_queue.
+
+        Returns:
+            If current_idx is valid: 0-based index where track was placed, or -1 if a move failed.
+            If current_idx is not valid: The return value of add_track_to_queue (typically new queue length).
+        """
+        try:
+            # Get current queue before adding to it
+            current_queue = self.get_queue(room_id)
+            current_idx_key = f"room:{room_id}:queue:current_idx"
+            if not self.redis.exists(current_idx_key):
+                if not current_queue:
+                    current_idx = -1
+                else:
+                    current_idx = 0
+            else:
+                current_idx = json.loads(
+                    redis_interface.redis.get(current_idx_key))  # type: ignore
+
+            print(current_idx)
+            
+            # New track: assign timestamp and add to track set
+            track.time_added = time.time_ns()
+            track_json_for_set = json.dumps(track.model_dump())
+            self.redis.sadd(self.track_data_prefix, track_json_for_set)
+
+            
+            target_idx = current_idx + 1
+
+            current_queue.insert(
+                target_idx, track)
+            self.set_queue(room_id, current_queue)
+
+            return target_idx
+
+        except redis.RedisError as e:
+            print(
+                f"Redis error in add_track_to_next for room {room_id} with track ID {track.id if track else 'N/A'}: {e}")
+            raise
+        except Exception as e:
+            print(
+                f"Unexpected error in add_track_to_next for room {room_id} with track ID {track.id if track else 'N/A'}: {e}")
+            raise
+
     def remove_track_from_queue(self, room_id: str, track: Track) -> Optional[dict]:
         try:
             user_queue_key = f"{self.room_prefix}{room_id}:queue"
@@ -66,7 +120,6 @@ class RedisQueueInterface:
                 key = f"{self.room_prefix}{room_id}:queue"
                 data: list[Any] = self.redis.lrange(
                     key, 0, -1)  # type: ignore
-            print(len(data))
             tracks = [Track(**json.loads(track_data)) for track_data in data]
             return tracks
         except redis.RedisError as e:

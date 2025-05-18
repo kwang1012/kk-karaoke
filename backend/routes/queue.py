@@ -93,7 +93,8 @@ async def add_to_queue_endpoint(
                 if message_data["data"]["track"]["id"] == track.id:
                     track.status = message_data["data"]["status"]
                     if "total" in message_data["data"]:
-                        track.progress = message_data["data"]["value"] / message_data["data"]["total"]
+                        track.progress = message_data["data"]["value"] / \
+                            message_data["data"]["total"]
                     else:
                         track.progress = 0
                     redis_interface.update_track_status(room_id, track)
@@ -188,14 +189,48 @@ async def clear_queue_endpoint(
 # Use as a pointer to which track is now playing
 
 
-@router.post("/{room_id}/{current_idx}")
-async def store_current_idx(room_id: str, current_idx: int, redis_interface: RedisQueueInterface = Depends(
+@router.post("/{room_id}/update_queue_idx")
+async def store_current_idx(room_id: str, data: dict[str, int], redis_interface: RedisQueueInterface = Depends(
         lambda: RedisQueueInterface(get_db()))):
     # Use a Redis key that includes the room ID
     try:
         key = f"room:{room_id}:queue:current_idx"
-        redis_interface.redis.set(key, current_idx)
+        redis_interface.redis.set(key, data["index"])
         return JSONResponse(content={"message": f"Current index for room {room_id} 's queue is set to {current_idx}"}, status_code=200)
     except redis.RedisError as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to store current index: {e}")
+
+# Add a track to the next position in the queue - next playing track
+
+
+@router.post("/{room_id}/add_to_next")
+async def add_to_next_endpoint(
+    room_id: str,
+    track: Track,
+    redis_interface: RedisQueueInterface = Depends(
+        lambda: RedisQueueInterface(get_db())),
+):
+    """
+    Adds a track to be played next after the current playing track.
+
+    Args:
+        room_id: The ID of the room
+        track: The Track object to add/move
+    """
+    try:
+        idx = redis_interface.add_track_to_next(room_id, track)
+        if idx >= 0:
+            await ws_manager.broadcast(
+                {"type": "queue", "data": {
+                    "action": "added_next",
+                    "track": track.model_dump(),
+                    "index": idx
+                }}
+            )
+            return JSONResponse(content={"message": "Track added to next position", "index": idx}, status_code=200)
+        else:
+            raise HTTPException(
+                status_code=400, detail="Failed to add/move track to next position")
+    except redis.RedisError as e:
+        raise HTTPException(status_code=500, detail=f"Redis error: {e}")

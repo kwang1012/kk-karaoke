@@ -15,7 +15,7 @@ function formatTime(seconds: number): string {
   const secs = Math.floor(seconds % 60);
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
-export default function MobileAudioController() {
+export default function MobileAudioController({ progressOnly }: { progressOnly?: boolean }) {
   const { vocalOn, volume, progress, seeking, setSeeking, duration, playing } = usePlayer();
   const { play, pause, next, previous, seek, setVolume, toggleVocal } = usePlayer();
 
@@ -51,11 +51,7 @@ export default function MobileAudioController() {
   return (
     <div className="w-full h-full flex flex-col justify-center">
       <div className="flex justify-start pt-2">
-        <IconButton
-          className="active:opacity-70 hover:opacity-90 p-0"
-          disableRipple
-          onClick={() => toggleVocal()}
-        >
+        <IconButton className="active:opacity-70 hover:opacity-90 p-0" disableRipple onClick={() => toggleVocal()}>
           <SvgIcon
             src={vocalOn ? Mic : MicMuted}
             className="w-8 h-8"

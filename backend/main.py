@@ -117,8 +117,9 @@ async def download_track(track: Track, redis_interface: RedisQueueInterface = De
     if is_ready(track):
         return JSONResponse(content={"task": None}, status_code=200)
 
+    trimmed_track = Track(id=track.id, name=track.name, artists=track.artists, album=track.album,)
     redis_interface.redis.sadd(
-        redis_interface.track_data_prefix, json.dumps(track.model_dump()))
+        redis_interface.track_data_prefix, json.dumps(trimmed_track.model_dump()))
     loop = asyncio.get_event_loop()
 
     def process_message_callback(message_data: dict):

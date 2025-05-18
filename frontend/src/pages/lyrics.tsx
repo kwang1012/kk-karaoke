@@ -9,6 +9,7 @@ import { useSettingStore } from 'src/store/setting';
 import MobilePlayer from 'src/components/MobilePlayer';
 import { styled } from '@mui/material/styles';
 import { OverlayScrollbarsComponentRef } from 'overlayscrollbars-react';
+import NonLinearSlider from 'src/components/NonLinearSlider';
 
 const FloatingControl = styled('div')(({ theme }) => ({
   display: 'grid',
@@ -32,14 +33,13 @@ const FloatingControl = styled('div')(({ theme }) => ({
   },
 }));
 
-const LyricsControl = styled('div')(({ theme }) => ({
-  position: 'fixed',
+const DelayControl = styled('div')(({ theme }) => ({
+  position: 'absolute',
   display: 'flex',
   flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  right: 12,
-  top: '20%',
+  alignItems: 'start',
+  left: 20,
+  top: '50%',
   zIndex: 12,
   transform: 'translateY(-50%)',
 }));
@@ -52,16 +52,17 @@ export default function LyricsView() {
   const { seek } = usePlayer();
   const lyricsDelay = useTrackStore((state) => state.lyricsDelays[currentSong?.id || ''] || 0);
   const setLyricsDelay = useTrackStore((state) => state.setLyricsDelay);
+  const [ahead, setAhead] = useState(0);
   const syncedLyrics = useMemo(() => {
     return (
       lyrics?.map((line) => {
         return {
           ...line,
-          time: line.time + lyricsDelay,
+          time: line.time + lyricsDelay - ahead,
         };
       }) || []
     );
-  }, [lyrics, lyricsDelay]);
+  }, [lyrics, lyricsDelay, ahead]);
 
   const [color, setColor] = useState<string>(DEFAULT_COLOR);
   const [bgColor, setBgColor] = useState<string>(DEFAULT_BG_COLOR);
@@ -70,6 +71,8 @@ export default function LyricsView() {
   const isFullscreen = useSettingStore((state) => state.isFullScreen);
   const showTranslatinon = useSettingStore((state) => state.showTranslatinon);
   const scrollbarRef = useRef<OverlayScrollbarsComponentRef<'div'> | null>(null);
+  const [delaySeeking, setDelaySeeking] = useState(false);
+  const [active, setActive] = useState(false);
 
   // Set the document title to the current song name and artist
   useEffect(() => {
@@ -114,9 +117,9 @@ export default function LyricsView() {
 
     viewport.scrollTo({
       top: elTop - viewportHeight / 2 - elHeight / 2,
-      behavior: 'smooth',
+      behavior: delaySeeking ? 'instant' : 'smooth',
     });
-  }, [currentLine, lineRefs.current.length, isFullscreen]);
+  }, [currentLine, delaySeeking, lineRefs.current.length, isFullscreen]);
 
   // Update the current line based on the progress
   useEffect(() => {
@@ -126,7 +129,7 @@ export default function LyricsView() {
     if (index !== currentLine && !seeking) {
       setCurrentLine(index);
     }
-  }, [progress, seeking]);
+  }, [progress, seeking, syncedLyrics]);
 
   const handleLineClick = async (index: number) => {
     const seekTime = syncedLyrics[index].time;
@@ -151,52 +154,38 @@ export default function LyricsView() {
       }
     }
   };
-
-  const [active, setActive] = useState(false);
-
   return (
     <>
       {isFullscreen && (
-        <>
-          <FloatingControl
-            className={active ? 'active' : ''}
-            onMouseEnter={() => setActive(true)}
-            onMouseLeave={() => setActive(false)}
-            style={{
-              transitionProperty: 'background-color, transform',
-              transitionDuration: '.2s',
-              transitionTimingFunction: 'ease-in-out',
-            }}
-          >
-            <MobilePlayer color="rgba(0, 0, 0, 0.8)" />
-          </FloatingControl>
-          <LyricsControl>
-            <h1 className="text-2xl font-bold text-center">
-              Lyrics <br />
-              Timing
-            </h1>
-            <IconButton
-              onClick={() => {
-                if (!currentSong) return;
-                setLyricsDelay(currentSong.id, lyricsDelay + 0.1);
-              }}
-            >
-              <ArrowDropUp sx={{ fontSize: 40 }} />
-            </IconButton>
-            <div className="text-[1.5vw]">{-Math.round(lyricsDelay * 10) / 10}</div>
-            <IconButton
-              onClick={() => {
-                if (!currentSong) return;
-                setLyricsDelay(currentSong.id, lyricsDelay - 0.1);
-              }}
-            >
-              <ArrowDropDown sx={{ fontSize: 40 }} />
-            </IconButton>
-          </LyricsControl>
-        </>
+        <FloatingControl
+          className={active ? 'active' : ''}
+          onMouseEnter={() => setActive(true)}
+          onMouseLeave={() => setActive(false)}
+          style={{
+            transitionProperty: 'background-color, transform',
+            transitionDuration: '.2s',
+            transitionTimingFunction: 'ease-in-out',
+          }}
+        >
+          <MobilePlayer color="rgba(0, 0, 0, 0.8)" />
+        </FloatingControl>
       )}
       <div className={isFullscreen ? 'fixed left-0 w-screen h-screen z-11' : 'w-full h-full'}>
         <div className="relative w-full h-full" ref={containerRef}>
+          {/* Delay controller */}
+          <DelayControl>
+            <NonLinearSlider
+              onDragStart={() => setDelaySeeking(true)}
+              onDragEnd={() => setDelaySeeking(false)}
+              onChange={(ahead) => {
+                setAhead(ahead);
+                if (currentSong) {
+                  setLyricsDelay(currentSong.id, -ahead);
+                }
+              }}
+            />
+            <span>{ahead.toFixed(1)} s</span>
+          </DelayControl>
           {currentSong?.orderedBy && (
             <div className="absolute top-2 right-3 z-10 flex items-center cursor-pointer px-2 bg-black/30 rounded-md">
               <img src={currentSong.orderedBy.avatar} className="w-12 h-12" alt={currentSong.orderedBy.name} />
@@ -214,7 +203,7 @@ export default function LyricsView() {
           </div>
           <AppScrollbar
             ref={scrollbarRef}
-            className={['w-full h-full', isFullscreen ? 'py-[25%]' : ''].join(' ')}
+            className={['w-full h-full px-10', isFullscreen ? 'py-[25%]' : ''].join(' ')}
             style={{ color, backgroundColor: bgColor }}
           >
             <>

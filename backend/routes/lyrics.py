@@ -16,6 +16,7 @@ router = APIRouter()
 transliter = Transliter(academic)
 katsu = cutlet.Cutlet()
 
+
 def contains_korean(text: str) -> bool:
     return any(
         '\uAC00' <= ch <= '\uD7AF' or  # Hangul syllables
@@ -23,6 +24,8 @@ def contains_korean(text: str) -> bool:
         '\u3130' <= ch <= '\u318F'     # Compatibility Jamo
         for ch in text
     )
+
+
 def contains_japanese(text: str) -> bool:
     return any(
         ('\u3040' <= ch <= '\u309F') or  # Hiragana
@@ -30,6 +33,7 @@ def contains_japanese(text: str) -> bool:
         ('\u4E00' <= ch <= '\u9FFF')     # Kanji (CJK)
         for ch in text
     )
+
 
 @router.post("/delay")
 def update_delay(
@@ -108,7 +112,7 @@ def get_lyrics(track_id: str,
         if not romanized_exists and any(line is not None for line in romanized_lines):
             redis_interface.store_romanized_lyrics(track_id, romanized_lines)
 
-        return JSONResponse(content={"lyrics": lyrics})
+        return JSONResponse(content={"lyrics": lyrics, "content": "".join(raw_lines)}, status_code=200)
     except FileNotFoundError:
         return JSONResponse(status_code=404, content={"error": "Lyrics not found"})
 

@@ -93,7 +93,8 @@ async def add_to_queue_endpoint(
                 if message_data["data"]["track"]["id"] == track.id:
                     track.status = message_data["data"]["status"]
                     if "total" in message_data["data"]:
-                        track.progress = message_data["data"]["value"] / message_data["data"]["total"]
+                        track.progress = message_data["data"]["value"] / \
+                            message_data["data"]["total"]
                     else:
                         track.progress = 0
                     redis_interface.update_track_status(room_id, track)
@@ -188,9 +189,10 @@ async def clear_queue_endpoint(
 # Use as a pointer to which track is now playing
 
 
-@router.post("/{room_id}/{current_idx}")
-async def store_current_idx(room_id: str, current_idx: int, redis_interface: RedisQueueInterface = Depends(
+@router.post("/{room_id}/update_queue_idx")
+async def store_current_idx(room_id: str, data: dict[str, int], redis_interface: RedisQueueInterface = Depends(
         lambda: RedisQueueInterface(get_db()))):
+    current_idx = data["index"]
     # Use a Redis key that includes the room ID
     try:
         key = f"room:{room_id}:queue:current_idx"
@@ -199,3 +201,73 @@ async def store_current_idx(room_id: str, current_idx: int, redis_interface: Red
     except redis.RedisError as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to store current index: {e}")
+
+# Add a track to the next position in the queue - next playing track
+
+
+@router.post("/{room_id}/add_to_next")
+async def add_to_next_endpoint(
+    room_id: str,
+    track: Track,
+    redis_interface: RedisQueueInterface = Depends(
+        lambda: RedisQueueInterface(get_db())),
+):
+    """
+    Adds a track to be played next after the current playing track.
+
+    Args:
+        room_id: The ID of the room
+        track: The Track object to add/move
+    """
+    try:
+
+        is_track_ready = is_ready(track)
+        track.status = "ready" if is_track_ready else "submitted"
+
+        idx = redis_interface.add_track_to_next(room_id, track)
+        await ws_manager.broadcast(
+            {"type": "queue", "data": {
+                "action": "inserted",
+                "track": track.model_dump(),
+                "index": idx
+            }}
+        )
+        if is_track_ready:
+            return JSONResponse(content={"is_ready": True, "task": None}, status_code=200)
+
+        loop = asyncio.get_event_loop()
+
+        def process_message_callback(message_data: dict):
+            """
+            Callback to handle messages from the Redis pub/sub related to track processing.
+            """
+            # "type": "notify",
+            # "data": {
+            #     "action": "progress",
+            #     "track": track.model_dump(),
+            #     "status": "separating",
+            #     "value": progress,
+            #     "total": total
+            # },
+            message_type = message_data["type"]
+            if message_type == "notify":
+                # Check if the message is for the current track
+                if message_data["data"]["track"]["id"] == track.id:
+                    track.status = message_data["data"]["status"]
+                    if "total" in message_data["data"]:
+                        track.progress = message_data["data"]["value"] / \
+                            message_data["data"]["total"]
+                    else:
+                        track.progress = 0
+                    redis_interface.update_track_status(room_id, track)
+            asyncio.run_coroutine_threadsafe(ws_manager.broadcast(
+                message_data), loop)
+
+        redis_interface.subscribe_to_channel(
+            track.id, process_message_callback)
+
+        task = send_process_request(track)
+        return JSONResponse(content={"is_ready": False, "task": task.id}, status_code=200)
+
+    except redis.RedisError as e:
+        raise HTTPException(status_code=500, detail=f"Redis error: {e}")

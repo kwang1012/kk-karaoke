@@ -172,6 +172,24 @@ export default function TrackQueue({ tracks }: { tracks: Track[] }) {
         });
     }
   };
+  const onInsert = (track: Track, index: number) => {
+    const oldIndex = index;
+    const newIndex = 0;
+    const newItems = [...tracks];
+    const [element] = newItems.splice(oldIndex, 1);
+    newItems.splice(newIndex, 0, element);
+    reorderQueue(newItems);
+    // The offset 0 of the queue is at the offset queueIdx + 1 in the total queue.
+    api
+      .post(`queue/${activeRoomId}/reorder`, {
+        oldIndex: queueIdx + oldIndex + 1,
+        newIndex: queueIdx + newIndex + 1,
+        id: roomId,
+      })
+      .catch((err) => {
+        console.error(err);
+      });
+  };
   return (
     <SortableList
       onDragEnd={handleDragEnd}
@@ -179,9 +197,14 @@ export default function TrackQueue({ tracks }: { tracks: Track[] }) {
       onDragCancel={() => setDragging(false)}
       items={items}
     >
-      {tracks.map((track) => (
+      {tracks.map((track, index) => (
         <SortableItem key={track.uniqueId} id={track.uniqueId} dragging={dragging}>
-          <SongCard className="flex-1" track={track} onDelete={() => rmSongFromQueue(track)} />
+          <SongCard
+            className="flex-1"
+            track={track}
+            onInsert={() => onInsert(track, index)}
+            onDelete={() => rmSongFromQueue(track)}
+          />
         </SortableItem>
       ))}
     </SortableList>

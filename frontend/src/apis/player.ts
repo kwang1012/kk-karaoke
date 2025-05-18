@@ -53,6 +53,17 @@ export const pushToQueue = async (roomId: string, track: Track) => {
     });
 };
 
+export const insertToQueue = async (roomId: string, track: Track) => {
+  return api
+    .post(`queue/${roomId}/add_to_next`, track)
+    .then(({ data }) => {
+      return data;
+    })
+    .catch((error) => {
+      console.error('Error adding track to queue:', error);
+    });
+};
+
 export const removeFromQueue = async (roomId: string, track: Track) => {
   return api
     .post(`queue/${roomId}/remove`, {
@@ -88,7 +99,11 @@ export const emptyQueue = async (roomId: string) => {
 };
 
 export const updateQueueIdx = async (roomId: string, idx: number) => {
-  return api.post(`queue/${roomId}/${idx}`).catch((error) => {
-    console.log('Error updating queue index');
-  });
+  return api
+    .post(`queue/${roomId}/update_queue_idx`, {
+      index: idx,
+    })
+    .catch((error) => {
+      console.log('Error updating queue index');
+    });
 };

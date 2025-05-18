@@ -1,4 +1,4 @@
-import { MoreHoriz, QueueMusic, Delete, DeleteOutline } from '@mui/icons-material';
+import { MoreHoriz, QueueMusic, Delete, DeleteOutline, NextPlanOutlined } from '@mui/icons-material';
 import { IconButton, MenuItem, ListItemIcon, ListItemText, useTheme } from '@mui/material';
 import { memo, useState } from 'react';
 import { Track } from 'src/models/spotify';
@@ -8,6 +8,7 @@ const ActionMenu = memo(
   ({
     track,
     onAdd,
+    onInsert,
     onDelete,
     onOpen,
     onClose,
@@ -15,6 +16,7 @@ const ActionMenu = memo(
   }: React.HTMLAttributes<HTMLDivElement> & {
     track: Track;
     onAdd?: (track: Track) => void;
+    onInsert?: (track: Track) => void;
     onDelete?: (track: Track) => void;
     onOpen: () => void;
     onClose: () => void;
@@ -36,6 +38,11 @@ const ActionMenu = memo(
         fn: onAdd,
         icon: <QueueMusic />,
         text: 'Add to queue',
+      },
+      {
+        fn: onInsert,
+        icon: <NextPlanOutlined />,
+        text: 'Play next',
       },
       {
         fn: onDelete,

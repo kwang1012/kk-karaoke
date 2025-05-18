@@ -92,17 +92,28 @@ export default function LyricsEditView() {
   const itemRefs = useRef<Record<string, HTMLLIElement | null>>({});
   const [search, setSearch] = useState('');
 
-  const uniqueTracks = useMemo(
-    () =>
-      Array.from(readyTracks).reduce((acc, track) => {
-        if (!acc.some((t) => t.id === track.id) && track.name.toLowerCase().includes(search.toLowerCase())) {
-          // Only add unique tracks
-          acc.push(track);
-        }
-        return acc;
-      }, [] as Track[]),
-    [readyTracks, search]
-  );
+  const uniqueTracks = useMemo(() => {
+    const seen = new Set<string>();
+    return Array.from(readyTracks).filter((track) => {
+      const isUnique = !seen.has(track.id);
+      const matchesSearch = track.name.toLowerCase().includes(search.toLowerCase());
+      if (isUnique && matchesSearch) {
+        seen.add(track.id);
+        return true;
+      }
+      return false;
+    });
+  }, [readyTracks, search]);
+  const track = uniqueTracks.find((track) => track.id === trackId) ?? {
+    id: '',
+    name: 'No selected track',
+    artists: [],
+    timeAdded: Date.now(),
+  };
+  const [open, setOpen] = useState(false);
+  const [message, setMessage] = useState('');
+  const [editing, setEditing] = useState(false);
+
   useEffect(() => {
     if (!trackId && uniqueTracks.length > 0) {
       navigate(`/lyrics/edit/${uniqueTracks[0].id}`, { replace: true });
@@ -127,19 +138,6 @@ export default function LyricsEditView() {
         console.error(err);
       });
   }, [trackId]);
-  const track = useMemo(
-    () =>
-      uniqueTracks.find((track) => track.id === trackId) ?? {
-        id: '',
-        name: 'No selected track',
-        artists: [],
-        timeAdded: Date.now(),
-      },
-    [trackId, uniqueTracks]
-  );
-  const [open, setOpen] = useState(false);
-  const [message, setMessage] = useState('');
-  const [editing, setEditing] = useState(false);
 
   const onSave = () => {
     const isValid = isValidLRC(content);

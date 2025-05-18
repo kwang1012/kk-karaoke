@@ -14,8 +14,8 @@ const Layout = styled('div')(({ theme }) => ({
   justifyContent: 'center',
   width: '100%',
   height: '100%',
-  paddingTop: 10,
-  paddingBottom: 10,
+  paddingTop: 12,
+  paddingBottom: 12,
   overflow: 'hidden',
 }));
 
@@ -29,11 +29,13 @@ export default function PlayView() {
   useEffect(() => {
     if (!image) {
       setColor(DEFAULT_BG_COLOR);
+      setThemeColor(DEFAULT_BG_COLOR);
       return;
     }
     getAvgRGB(image)
       .then((data) => {
         setColor(data);
+        setThemeColor(data);
       })
       .catch((error) => {
         console.error('Error fetching average RGB:', error);
@@ -53,10 +55,6 @@ export default function PlayView() {
     }
     meta.setAttribute('content', color);
   }
-
-  useEffect(() => {
-    setThemeColor(color);
-  }, [color]);
   return (
     <Layout
       style={{

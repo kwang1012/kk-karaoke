@@ -8,6 +8,7 @@ import { ArrowDropDown, ArrowDropUp, FullscreenExitOutlined, FullscreenOutlined 
 import { useSettingStore } from 'src/store/setting';
 import MobilePlayer from 'src/components/MobilePlayer';
 import { styled } from '@mui/material/styles';
+import { OverlayScrollbarsComponentRef } from 'overlayscrollbars-react';
 
 const FloatingControl = styled('div')(({ theme }) => ({
   display: 'grid',
@@ -62,17 +63,26 @@ export default function LyricsView() {
     );
   }, [lyrics, lyricsDelay]);
 
-  useEffect(() => {
-    lineRefs.current = Array(lyrics.length).fill(null);
-  }, [lyrics]);
-
   const [color, setColor] = useState<string>(DEFAULT_COLOR);
   const [bgColor, setBgColor] = useState<string>(DEFAULT_BG_COLOR);
   const image = currentSong?.album?.images?.[0]?.url;
   const theme = useTheme();
   const isFullscreen = useSettingStore((state) => state.isFullScreen);
   const showTranslatinon = useSettingStore((state) => state.showTranslatinon);
+  const scrollbarRef = useRef<OverlayScrollbarsComponentRef<'div'> | null>(null);
 
+  // Set the document title to the current song name and artist
+  useEffect(() => {
+    if (!currentSong) return;
+    document.title = `${currentSong.name}．${currentSong.artists.map((artist) => artist.name).join('、')} - Lyrics`;
+  }, [currentSong]);
+
+  // Set the lineRefs to null when the lyrics change
+  useEffect(() => {
+    lineRefs.current = Array(lyrics.length).map(() => null);
+  }, [lyrics]);
+
+  // Set the color and background color based on the image
   useEffect(() => {
     if (!image) {
       setColor(DEFAULT_COLOR);
@@ -89,21 +99,26 @@ export default function LyricsView() {
       });
   }, [image, theme.palette.mode]);
 
+  // Scroll to the current line when the progress changes
   useEffect(() => {
     const el = lineRefs.current[currentLine];
-    if (el) {
-      el.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center', // scroll to center of container
-      });
-    }
-  }, [currentLine, lineRefs.current, document.fullscreenElement]);
+    const scrollbar = scrollbarRef.current;
+    if (!el || !scrollbar) return;
+    const osInstance = scrollbar.osInstance();
+    if (!osInstance) return;
+    const viewport = osInstance.elements().viewport;
 
-  useEffect(() => {
-    if (!currentSong) return;
-    document.title = `${currentSong.name}．${currentSong.artists.map((artist) => artist.name).join('、')} - Lyrics`;
-  }, [currentSong]);
+    const elTop = el.offsetTop;
+    const elHeight = el.offsetHeight;
+    const viewportHeight = viewport.offsetHeight;
 
+    viewport.scrollTo({
+      top: elTop - viewportHeight / 2 - elHeight / 2,
+      behavior: 'smooth',
+    });
+  }, [currentLine, lineRefs.current.length, isFullscreen]);
+
+  // Update the current line based on the progress
   useEffect(() => {
     const index = syncedLyrics.findIndex((line, i) => {
       return progress >= line.time && (i === syncedLyrics.length - 1 || progress < syncedLyrics[i + 1].time);
@@ -198,6 +213,7 @@ export default function LyricsView() {
             </IconButton>
           </div>
           <AppScrollbar
+            ref={scrollbarRef}
             className={['w-full h-full', isFullscreen ? 'py-[25%]' : ''].join(' ')}
             style={{ color, backgroundColor: bgColor }}
           >

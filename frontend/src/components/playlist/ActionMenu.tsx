@@ -35,14 +35,14 @@ const ActionMenu = memo(
     };
     const functions = [
       {
-        fn: onAdd,
-        icon: <QueueMusic />,
-        text: 'Add to queue',
-      },
-      {
         fn: onInsert,
         icon: <NextPlanOutlined />,
         text: 'Play next',
+      },
+      {
+        fn: onAdd,
+        icon: <QueueMusic />,
+        text: 'Add to queue',
       },
       {
         fn: onDelete,

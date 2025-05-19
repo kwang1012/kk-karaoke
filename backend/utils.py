@@ -12,11 +12,12 @@ LYRICS_DIR = os.path.join(STORAGE_DIR, "lyrics")
 os.makedirs(LYRICS_DIR, exist_ok=True)
 RAW_AUDIO_DIR = os.path.join(STORAGE_DIR, "raw")
 os.makedirs(RAW_AUDIO_DIR, exist_ok=True)
-NO_VOCALS_DIR = os.path.join(STORAGE_DIR, "no_vocals")
+NO_VOCALS_DIR = os.path.join(STORAGE_DIR, "instrumental")
 os.makedirs(NO_VOCALS_DIR, exist_ok=True)
-VOCALS_DIR = os.path.join(STORAGE_DIR, "vocals")
+VOCALS_DIR = os.path.join(STORAGE_DIR, "vocal")
 os.makedirs(VOCALS_DIR, exist_ok=True)
-DB_FILENAME = os.path.join(STORAGE_DIR, "db.json")
+MIDI_DIR = os.path.join(STORAGE_DIR, "midi")
+os.makedirs(MIDI_DIR, exist_ok=True)
 logger.info("Storage directories initialized. Path: %s.", STORAGE_DIR)
 
 
@@ -48,6 +49,22 @@ def get_vocal_path(filename: str) -> str | None:
         str: The full path to the song file.
     """
     path = Path(VOCALS_DIR, f"{filename}.mp3")
+    if path.exists():
+        return str(path)
+    else:
+        return None
+
+def get_midi_path(filename: str) -> str | None:
+    """
+    Returns the full path to the MIDI file in the storage directory.
+
+    Args:
+        filename (str): The name of the MIDI file.
+
+    Returns:
+        str: The full path to the MIDI file.
+    """
+    path = Path(MIDI_DIR, f"{filename}.mid")
     if path.exists():
         return str(path)
     else:

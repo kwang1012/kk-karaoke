@@ -4,12 +4,14 @@ import { usePlayer } from 'src/store/player';
 import { useTrackStore } from 'src/store';
 import { DEFAULT_BG_COLOR, DEFAULT_COLOR, getLyricsRGB } from 'src/utils';
 import { IconButton, useTheme } from '@mui/material';
-import { ArrowDropDown, ArrowDropUp, FullscreenExitOutlined, FullscreenOutlined } from '@mui/icons-material';
+import { FullscreenExitOutlined, FullscreenOutlined } from '@mui/icons-material';
 import { useSettingStore } from 'src/store/setting';
 import MobilePlayer from 'src/components/MobilePlayer';
 import { styled } from '@mui/material/styles';
 import { OverlayScrollbarsComponentRef } from 'overlayscrollbars-react';
 import NonLinearSlider from 'src/components/NonLinearSlider';
+import Midi from 'src/components/Midi';
+import { api } from 'src/utils/api';
 
 const FloatingControl = styled('div')(({ theme }) => ({
   display: 'grid',
@@ -73,6 +75,23 @@ export default function LyricsView() {
   const scrollbarRef = useRef<OverlayScrollbarsComponentRef<'div'> | null>(null);
   const [delaySeeking, setDelaySeeking] = useState(false);
   const [active, setActive] = useState(false);
+  const [midi, setMidi] = useState({
+    noteEvents: [],
+    minNote: 48,
+    maxNote: 84,
+  });
+
+  useEffect(() => {
+    if (!currentSong?.id) return;
+    api
+      .get(`tracks/midi/${currentSong?.id}`)
+      .then(({ data }) => {
+        setMidi(data);
+      })
+      .catch((error) => {
+        console.error('Error fetching MIDI data:', error);
+      });
+  }, [currentSong?.id]);
 
   // Set the document title to the current song name and artist
   useEffect(() => {
@@ -82,7 +101,7 @@ export default function LyricsView() {
 
   // Set the lineRefs to null when the lyrics change
   useEffect(() => {
-    lineRefs.current = Array(lyrics.length).map(() => null);
+    lineRefs.current = Array(lyrics?.length || 0).map(() => null);
   }, [lyrics]);
 
   // Set the color and background color based on the image
@@ -116,7 +135,7 @@ export default function LyricsView() {
     const viewportHeight = viewport.offsetHeight;
 
     viewport.scrollTo({
-      top: elTop - viewportHeight / 2 - elHeight / 2,
+      top: elTop - viewportHeight / 2 + elHeight / 2,
       behavior: delaySeeking ? 'instant' : 'smooth',
     });
   }, [currentLine, delaySeeking, lineRefs.current.length, isFullscreen]);
@@ -201,42 +220,41 @@ export default function LyricsView() {
               {isFullscreen ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
             </IconButton>
           </div>
+          {/* <Midi midi={midi} currentTime={progress} /> */}
           <AppScrollbar
             ref={scrollbarRef}
             className={['w-full h-full px-10', isFullscreen ? 'py-[25%]' : ''].join(' ')}
             style={{ color, backgroundColor: bgColor }}
           >
-            <>
-              {syncedLyrics.length > 0 ? (
-                syncedLyrics.map((line, i) => (
-                  <div key={i} className={['my-8 mx-16', isFullscreen ? 'text-center' : ''].join(' ')}>
-                    <span
-                      className={[
-                        'text-[2.5vw] cursor-pointer font-bold hover:underline hover:opacity-100 transition-all duration-200',
-                        i <= currentLine ? 'text-white' : '',
-                        isFullscreen ? 'text-center text-[3vw]' : '',
-                        isFullscreen && (i === currentLine ? 'text-[5vw] opacity-100' : 'opacity-70'),
-                      ].join(' ')}
-                      ref={(el) => (lineRefs.current[i] = el)}
-                      onClick={handleLineClick.bind(null, i)}
-                    >
-                      {line.text === '' ? '♪' : line.text}
+            {syncedLyrics.length > 0 ? (
+              syncedLyrics.map((line, i) => (
+                <div key={i} className={['my-8 mx-16', isFullscreen ? 'text-center' : ''].join(' ')}>
+                  <span
+                    className={[
+                      'text-[2.5vw] cursor-pointer font-bold hover:underline hover:opacity-100 transition-all duration-200',
+                      i <= currentLine ? 'text-white' : '',
+                      isFullscreen ? 'text-center text-[3vw]' : '',
+                      isFullscreen && (i === currentLine ? 'text-[5vw] opacity-100' : 'opacity-70'),
+                    ].join(' ')}
+                    ref={(el) => (lineRefs.current[i] = el)}
+                    onClick={handleLineClick.bind(null, i)}
+                  >
+                    {line.text === '' ? '♪' : line.text}
 
-                      {line.romanized && showTranslatinon && (
-                        <>
-                          <br />
-                          <span className="text-[0.8em]">({line.romanized})</span>
-                        </>
-                      )}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center mt-20 text-4xl font-bold" style={{ color }}>
-                  {!loading && <p>{currentSong ? 'No lyrics available for this track.' : 'Start playing a track!'}</p>}
+                    {line.romanized && showTranslatinon && (
+                      <>
+                        <br />
+                        <span className="text-[0.8em]">({line.romanized})</span>
+                      </>
+                    )}
+                  </span>
                 </div>
-              )}
-            </>
+              ))
+            ) : (
+              <div className="text-center mt-20 text-4xl font-bold" style={{ color }}>
+                {!loading && <p>{currentSong ? 'No lyrics available for this track.' : 'Start playing a track!'}</p>}
+              </div>
+            )}
           </AppScrollbar>
         </div>
       </div>

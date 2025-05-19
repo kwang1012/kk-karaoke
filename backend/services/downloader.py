@@ -97,11 +97,12 @@ def download_lyrics(sid: str, search_term: str) -> None:
     print(f"Downloaded lyrics to {save_path}")
 
 
-async def main():
-    query = "背叛 曹格"
-    sid = str(uuid().hex)
-    download_audio(sid, query)
+def main():
+    query = "我認 王不醒"
+    sid = "4zN2QoPlRCMYIKmc3FjrVQ"
+    # sid = str(uuid().hex)
+    # download_audio(sid, query)
     download_lyrics(sid, query)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

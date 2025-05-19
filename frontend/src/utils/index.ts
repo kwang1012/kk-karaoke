@@ -134,3 +134,14 @@ export function generateAvatars(count: number = 10): string[] {
   }
   return avatars;
 }
+
+function isIPv4(address: string) {
+  return /^(\d{1,3}\.){3}\d{1,3}$/.test(address) && address.split('.').every((part) => +part >= 0 && +part <= 255);
+}
+
+function isIPv6(address: string) {
+  return /^[a-fA-F0-9:]+$/.test(address) && address.includes(':');
+}
+export function isHostname(address: string) {
+  return !isIPv4(address) && !isIPv6(address);
+}

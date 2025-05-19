@@ -1,9 +1,10 @@
 import asyncio
 import json
 import random
-from fastapi import APIRouter, Depends, FastAPI, WebSocket
+from fastapi import Depends, FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from managers.storage import get_storage_manager
 from models.track import Track
 from services.process_request import is_ready, send_process_request
 from managers.db import get_db
@@ -142,3 +143,5 @@ ws_manager = WebSocketManager()
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await ws_manager.websocket_endpoint(websocket)
+
+storage_manager = get_storage_manager("s3")

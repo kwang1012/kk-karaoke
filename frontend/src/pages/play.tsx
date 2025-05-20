@@ -20,9 +20,9 @@ const Layout = styled('div')(({ theme }) => ({
 }));
 
 export default function PlayView() {
-  const { currentSong } = useQueue();
+  const { currentTrack } = useQueue();
   const [color, setColor] = useState<string>(DEFAULT_BG_COLOR);
-  const image = currentSong?.album?.images?.[0]?.url;
+  const image = currentTrack?.album?.images?.[0]?.url;
   const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
   const navigate = useNavigate();
 

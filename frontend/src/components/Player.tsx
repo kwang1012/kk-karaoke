@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { fetchQueue, fetchLyrics } from 'src/apis/player';
 import { useRemoteMessageQueue } from 'src/hooks/queue';
+import { Track } from 'src/models/spotify';
 import ShiftedAudioPlayer from 'src/shiftedPlayer';
 import { useTrackStore } from 'src/store';
 import { usePlayer } from 'src/store/player';
@@ -31,7 +32,9 @@ export const Player = () => {
     setQueue,
     queueIdx,
     setQueueIdx,
-    currentSong,
+    currentTrack,
+    prevTrack,
+    nextTrack,
     lastSongId,
     setLastSongId,
     playAudio,
@@ -179,7 +182,7 @@ export const Player = () => {
   // detect current track change
   useEffect(() => {
     // no next track
-    if (!currentSong) {
+    if (!currentTrack) {
       setLyrics([]);
       setCurrentLine(-1);
       setProgress(0);
@@ -191,28 +194,37 @@ export const Player = () => {
     }
 
     // prevent re-initialization on every render
-    if (currentSong.id === lastSongId) return;
+    if (currentTrack.id === lastSongId) return;
 
     // skip if the track is not ready and songStatus is not undefined
-    if (songStatus[currentSong.id] !== undefined && songStatus[currentSong.id] !== 'ready') {
-      console.log('Track is still processing, skipping initialization:', currentSong.name);
+    if (songStatus[currentTrack.id] !== undefined && songStatus[currentTrack.id] !== 'ready') {
+      console.log('Track is still processing, skipping initialization:', currentTrack.name);
       return;
     }
 
-    const player = syncedPlayer;
-    if (!player) return;
+    if (!syncedPlayer) return;
 
-    console.log('Play new track:', currentSong.name);
+    console.log('Play new track:', currentTrack.name);
 
     setLoading(true);
 
+    if (nextTrack) {
+      syncedPlayer.preload(nextTrack);
+    }
+    if (prevTrack) {
+      syncedPlayer.preload(prevTrack);
+    }
+
+    load(syncedPlayer, currentTrack);
+
+    setLastSongId(currentTrack.id);
+  }, [currentTrack?.id, songStatus[currentTrack?.id || '']]);
+
+  const load = (player: SyncedAudioPlayer, track: Track) => {
     Promise.all([
-      player.loadAudio(
-        `${api.getUri()}/tracks/vocal/${currentSong.id}`,
-        `${api.getUri()}/tracks/instrumental/${currentSong.id}`
-      ),
-      fetchLyrics(currentSong.id),
-      !lastSongId && fetchRoom(activeRoomId),
+      player.loadAudio(track),
+      fetchLyrics(track.id),
+      !lastSongId && fetchRoom(activeRoomId), // fetch jam state only when loading first track
     ])
       .then(([_, lyrics, jamState]) => {
         setLyrics(lyrics);
@@ -220,7 +232,7 @@ export const Player = () => {
         if (jamState) {
           const { currentTime, playing, vocalOn, queueIdx: currentIdx } = jamState;
           if (!currentIdx || currentIdx === queueIdx) {
-            syncedPlayer.seek(currentTime);
+            player.seek(currentTime);
             setProgress(currentTime);
           }
           setVocalOn(vocalOn);
@@ -239,9 +251,7 @@ export const Player = () => {
       .finally(() => {
         setLoading(false);
       });
-
-    setLastSongId(currentSong.id);
-  }, [currentSong?.id, songStatus[currentSong?.id || '']]);
+  };
 
   return <></>;
 };

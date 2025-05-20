@@ -20,9 +20,9 @@ export default function MobileLyrics({ color, bgColor }: { color?: string; bgCol
   const lineRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const containerRef = useRef<OverlayScrollbarsComponentRef<'div'> | null>(null);
 
-  const { progress, currentLine, setCurrentLine, currentSong, lyrics, seeking, loading } = usePlayer();
+  const { progress, currentLine, setCurrentLine, currentTrack, lyrics, seeking, loading } = usePlayer();
   const { seek } = usePlayer();
-  const lyricsDelay = useTrackStore((state) => state.lyricsDelays[currentSong?.id || ''] || 0);
+  const lyricsDelay = useTrackStore((state) => state.lyricsDelays[currentTrack?.id || ''] || 0);
   const syncedLyrics = useMemo(() => {
     return (
       lyrics?.map((line) => {
@@ -61,9 +61,9 @@ export default function MobileLyrics({ color, bgColor }: { color?: string; bgCol
   }, [currentLine, lineRefs.current]);
 
   useEffect(() => {
-    if (!currentSong) return;
-    document.title = `${currentSong.name}．${currentSong.artists.map((artist) => artist.name).join('、')} - Lyrics`;
-  }, [currentSong]);
+    if (!currentTrack) return;
+    document.title = `${currentTrack.name}．${currentTrack.artists.map((artist) => artist.name).join('、')} - Lyrics`;
+  }, [currentTrack]);
 
   useEffect(() => {
     const index = syncedLyrics.findIndex((line, i) => {
@@ -100,9 +100,9 @@ export default function MobileLyrics({ color, bgColor }: { color?: string; bgCol
       )}
       <div className="sticky top-0 flex items-center w-full z-50 px-6">
         <div className="w-16 h-16 rounded-md bg-[#c3c3c3] overflow-hidden">
-          <img src={currentSong?.album?.images?.[0]?.url || placeholder} className="w-full h-full" />
+          <img src={currentTrack?.album?.images?.[0]?.url || placeholder} className="w-full h-full" />
         </div>
-        <span className="text-xl ml-2 text-white">{currentSong?.name || 'Not Playing'}</span>
+        <span className="text-xl ml-2 text-white">{currentTrack?.name || 'Not Playing'}</span>
       </div>
       {syncedLyrics.length > 0 ? (
         syncedLyrics.map((line, i) => (
@@ -128,7 +128,7 @@ export default function MobileLyrics({ color, bgColor }: { color?: string; bgCol
         ))
       ) : (
         <div className="text-center mt-20 text-4xl font-bold" style={{ color }}>
-          {!loading && <p>{currentSong ? 'No lyrics available for this track.' : 'Start playing a track!'}</p>}
+          {!loading && <p>{currentTrack ? 'No lyrics available for this track.' : 'Start playing a track!'}</p>}
         </div>
       )}
     </AppScrollbar>

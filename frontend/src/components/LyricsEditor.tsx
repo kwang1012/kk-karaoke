@@ -257,7 +257,7 @@ export default function LyricsEditor({ track, progress }: { track: Track; progre
                   disabled={!modified}
                   variant="contained"
                   className="bg-primary"
-                  onClick={() => onSave}
+                  onClick={() => onSave(content)}
                 >
                   Save changes
                 </Button>

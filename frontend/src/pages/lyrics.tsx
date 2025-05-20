@@ -50,9 +50,9 @@ export default function LyricsView() {
   // local states
   const lineRefs = useRef<(HTMLSpanElement | null)[]>([]);
 
-  const { progress, currentLine, setCurrentLine, currentSong, lyrics, seeking, loading } = usePlayer();
+  const { progress, currentLine, setCurrentLine, currentTrack, lyrics, seeking, loading } = usePlayer();
   const { seek } = usePlayer();
-  const lyricsDelay = useTrackStore((state) => state.lyricsDelays[currentSong?.id || ''] || 0);
+  const lyricsDelay = useTrackStore((state) => state.lyricsDelays[currentTrack?.id || ''] || 0);
   const setLyricsDelay = useTrackStore((state) => state.setLyricsDelay);
   const [ahead, setAhead] = useState(0);
   const syncedLyrics = useMemo(() => {
@@ -68,7 +68,7 @@ export default function LyricsView() {
 
   const [color, setColor] = useState<string>(DEFAULT_COLOR);
   const [bgColor, setBgColor] = useState<string>(DEFAULT_BG_COLOR);
-  const image = currentSong?.album?.images?.[0]?.url;
+  const image = currentTrack?.album?.images?.[0]?.url;
   const theme = useTheme();
   const isFullscreen = useSettingStore((state) => state.isFullScreen);
   const showTranslatinon = useSettingStore((state) => state.showTranslatinon);
@@ -82,22 +82,22 @@ export default function LyricsView() {
   });
 
   useEffect(() => {
-    if (!currentSong?.id) return;
+    if (!currentTrack?.id) return;
     api
-      .get(`tracks/midi/${currentSong?.id}`)
+      .get(`tracks/midi/${currentTrack?.id}`)
       .then(({ data }) => {
         setMidi(data);
       })
       .catch((error) => {
         console.error('Error fetching MIDI data:', error);
       });
-  }, [currentSong?.id]);
+  }, [currentTrack?.id]);
 
   // Set the document title to the current song name and artist
   useEffect(() => {
-    if (!currentSong) return;
-    document.title = `${currentSong.name}．${currentSong.artists.map((artist) => artist.name).join('、')} - Lyrics`;
-  }, [currentSong]);
+    if (!currentTrack) return;
+    document.title = `${currentTrack.name}．${currentTrack.artists.map((artist) => artist.name).join('、')} - Lyrics`;
+  }, [currentTrack]);
 
   // Set the lineRefs to null when the lyrics change
   useEffect(() => {
@@ -198,17 +198,17 @@ export default function LyricsView() {
               onDragEnd={() => setDelaySeeking(false)}
               onChange={(ahead) => {
                 setAhead(ahead);
-                if (currentSong) {
-                  setLyricsDelay(currentSong.id, -ahead);
+                if (currentTrack) {
+                  setLyricsDelay(currentTrack.id, -ahead);
                 }
               }}
             />
             <span>{ahead.toFixed(1)} s</span>
           </DelayControl>
-          {currentSong?.orderedBy && (
+          {currentTrack?.orderedBy && (
             <div className="absolute top-2 right-3 z-10 flex items-center cursor-pointer px-2 bg-black/30 rounded-md">
-              <img src={currentSong.orderedBy.avatar} className="w-12 h-12" alt={currentSong.orderedBy.name} />
-              <span className="font-bold pr-2 text-white">{currentSong.orderedBy.name}</span>
+              <img src={currentTrack.orderedBy.avatar} className="w-12 h-12" alt={currentTrack.orderedBy.name} />
+              <span className="font-bold pr-2 text-white">{currentTrack.orderedBy.name}</span>
             </div>
           )}
           <div className="absolute bottom-2 right-3 z-10">
@@ -252,7 +252,7 @@ export default function LyricsView() {
               ))
             ) : (
               <div className="text-center mt-20 text-4xl font-bold" style={{ color }}>
-                {!loading && <p>{currentSong ? 'No lyrics available for this track.' : 'Start playing a track!'}</p>}
+                {!loading && <p>{currentTrack ? 'No lyrics available for this track.' : 'Start playing a track!'}</p>}
               </div>
             )}
           </AppScrollbar>

@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { useRoomStore } from './room';
-import { isHostname } from 'src/utils';
+import { getSchemesForAddress } from 'src/utils';
 
 export type Message = {
   type: string;
@@ -38,7 +37,7 @@ function getBackoffDelay(attempt: number) {
   return delay + jitter;
 }
 
-const protocol = isHostname(import.meta.env.VITE_API_ADDR) ? 'wss' : 'ws';
+const protocol = getSchemesForAddress(import.meta.env.VITE_API_ADDR).ws;
 
 export const useWebSocketStore = create<WebSocketState>()(
   subscribeWithSelector((set, get) => ({
@@ -80,7 +79,7 @@ export const useWebSocketStore = create<WebSocketState>()(
       if (get().connected) return;
       if (socket && socket.readyState !== WebSocket.CLOSED) return;
 
-      socket = new WebSocket(`${protocol}://${import.meta.env.VITE_API_ADDR}/api/ws`);
+      socket = new WebSocket(`${protocol}${import.meta.env.VITE_API_ADDR}/api/ws`);
 
       socket.onmessage = (event) => {
         const msg = JSON.parse(event.data) as Message;

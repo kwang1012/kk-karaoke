@@ -135,13 +135,28 @@ export function generateAvatars(count: number = 10): string[] {
   return avatars;
 }
 
-function isIPv4(address: string) {
-  return /^(\d{1,3}\.){3}\d{1,3}$/.test(address) && address.split('.').every((part) => +part >= 0 && +part <= 255);
-}
+export function getSchemesForAddress(address: string) {
+  let host = address;
+  if (host === 'localhost') {
+    return { http: 'http://', ws: 'ws://' };
+  }
+  if (address.startsWith('[')) {
+    host = address.slice(1, address.indexOf(']'));
+  } else if (address.includes(':')) {
+    host = address.split(':')[0];
+  }
 
-function isIPv6(address: string) {
-  return /^[a-fA-F0-9:]+$/.test(address) && address.includes(':');
-}
-export function isHostname(address: string) {
-  return !isIPv4(address) && !isIPv6(address);
+  const ipv4Regex = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
+  const ipv6Regex = /^[0-9a-fA-F:]+$/;
+
+  // Special case for localhost
+  if (host === 'localhost') {
+    return { http: 'http://', ws: 'ws://' };
+  }
+
+  if (ipv4Regex.test(host) || (host.includes(':') && ipv6Regex.test(host))) {
+    return { http: 'http://', ws: 'ws://' }; // IP → insecure
+  }
+
+  return { http: 'https://', ws: 'wss://' }; // Hostname → secure
 }

@@ -36,7 +36,7 @@ const Queue = forwardRef<HTMLDivElement>((props, ref) => {
   const [scrollTop, setScrollTop] = useState(0);
   const setSongStatus = useTrackStore((state) => state.setSongStatus);
 
-  const { currentSong, queue, queueIdx } = usePlayer();
+  const { currentTrack, queue, queueIdx } = usePlayer();
   const { addToQueue, insertToQueue, getRandomTracks, rmFromQueue, clearQueue, setQueue } = usePlayer();
   const roomId = useRoomStore((state) => state.roomId);
   const tracks = useMemo(() => {
@@ -96,7 +96,7 @@ const Queue = forwardRef<HTMLDivElement>((props, ref) => {
       <AppScrollbar className="h-full" ref={scrollbarRef} onScroll={handleScroll}>
         <div className="px-5 mt-5 font-bold text-lg tracking-tighter">Now playing</div>
         <div className="px-3">
-          <SongCard className="mt-1" disableHover track={currentSong} />
+          <SongCard className="mt-1" disableHover track={currentTrack} />
         </div>
 
         <div className="mx-4 mt-5">

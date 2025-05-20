@@ -39,11 +39,9 @@ export default function LyricsEditorPlayer({
     setProgress(0);
     setDuration(0);
     setPlaying(false);
-    player
-      .loadAudio(`${api.getUri()}/tracks/vocal/${track.id}`, `${api.getUri()}/tracks/instrumental/${track.id}`)
-      .then(() => {
-        setDuration(player.getDuration());
-      });
+    player.loadAudio(track).then(() => {
+      setDuration(player.getDuration());
+    });
   }, [track.id, syncedPlayer.current]);
 
   // update progress every 200ms

@@ -17,11 +17,11 @@ const Layout = styled('div')(({ theme }) => ({
 }));
 
 export default function MobileLyricsView() {
-  const { currentSong } = usePlayer();
+  const { currentTrack } = usePlayer();
   const [color, setColor] = useState<string>(DEFAULT_COLOR);
   const [bgColor, setBgColor] = useState<string>(DEFAULT_BG_COLOR);
   const theme = useTheme();
-  const image = currentSong?.album?.images?.[0]?.url;
+  const image = currentTrack?.album?.images?.[0]?.url;
 
   useEffect(() => {
     if (!image) {

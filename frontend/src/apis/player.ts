@@ -17,7 +17,7 @@ export const fetchQueue = async (roomId: string) => {
     });
 };
 
-// load track/lyrics when currentSong changes
+// load track/lyrics when currentTrack changes
 export const fetchLyrics = async (songId: string) => {
   return api
     .get(`lyrics/${songId}`)

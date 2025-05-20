@@ -26,7 +26,7 @@ class FormatReponseMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
 
-        if response.headers['content-type'] != 'application/json':
+        if response.headers.get('content-type') != 'application/json':
             return response
         stream_response = cast(StreamingResponse, response)
 

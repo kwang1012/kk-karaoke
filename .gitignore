@@ -13,3 +13,6 @@
 !**/test.lrc
 
 backend/storage
+
+build/
+dist/

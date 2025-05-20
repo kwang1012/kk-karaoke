@@ -15,11 +15,17 @@ import { useRemoteMessageQueue } from 'src/hooks/queue';
 const Header = styled('div')(({ theme }) => ({
   gridArea: 'header',
   height: 72,
+  touchAction: 'none',
+  WebkitAppRegion: 'drag',
+  '& *': {
+    WebkitAppRegion: 'no-drag',
+  },
   [theme.breakpoints.down('md')]: {
     display: 'none',
   },
 }));
 
+const isElectron = navigator.userAgent.toLowerCase().includes('electron');
 const ThemedIconButton = styled(IconButton)(({ theme }) => ({
   width: 48,
   height: 48,
@@ -73,11 +79,14 @@ export default function Nav({ className }: React.HTMLAttributes<HTMLDivElement>)
   return (
     <Header className={['w-full flex items-center', className].join(' ')}>
       <div className="flex justify-start flex-1 items-center">
-        {!import.meta.env.VITE_ELECTRON && (
-          <div className="w-20 flex justify-center cursor-pointer">
-            <img src={Logo} className="w-[52px] h-[52px]" />
-          </div>
-        )}
+        <div
+          className="w-20 flex justify-center cursor-pointer"
+          style={{
+            visibility: isElectron ? 'hidden' : 'visible',
+          }}
+        >
+          <img src={Logo} className="w-[52px] h-[52px]" />
+        </div>
         {!(isBottom && isTop) && (
           <div className="ml-2 flex items-center">
             <IconButton

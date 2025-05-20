@@ -4,7 +4,7 @@ import { darkTheme, lightTheme } from 'src/styles/theme';
 import { IconDefinition, IconName, IconPrefix, library } from '@fortawesome/fontawesome-svg-core';
 import { createTheme } from '@mui/material/styles';
 import { useSettingStore } from 'src/store/setting';
-import { Route, Routes, BrowserRouter as Router, Navigate } from 'react-router-dom';
+import { Route, Routes, HashRouter, BrowserRouter, Navigate } from 'react-router-dom';
 import Layout from './layouts/Layout';
 import LyricsView from './pages/lyrics';
 import BrowseView, { MainView } from './pages/browse';
@@ -59,6 +59,8 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
+const isElectron = navigator.userAgent.toLowerCase().includes('electron');
+const Router = isElectron ? HashRouter : BrowserRouter;
 const AppRouters = () => {
   const isLoggedIn = useIsLoggedIn();
   const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));

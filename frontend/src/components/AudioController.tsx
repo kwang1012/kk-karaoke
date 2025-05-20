@@ -6,7 +6,7 @@ import SongCard from './SongCard';
 import { usePlayer } from 'src/store/player';
 import { useState } from 'react';
 import { useTrackStore } from 'src/store';
-import { useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { api } from 'src/utils/api';
 
 function formatTime(seconds: number): string {
@@ -17,11 +17,10 @@ function formatTime(seconds: number): string {
 }
 
 export default function AudioController() {
-  const { currentSong, progress, seeking, setSeeking, duration, playing, seek } = usePlayer();
+  const { currentTrack, progress, seeking, setSeeking, duration, playing, seek } = usePlayer();
   const { play, pause, next, previous } = usePlayer();
-  const location = useLocation();
-  const lyricsDelay = useTrackStore((state) => state.lyricsDelays[currentSong?.id || ''] || 0);
-  const setLyricsDelay = useTrackStore((state) => state.setLyricsDelay);
+  const navigate = useNavigate();
+  const lyricsDelay = useTrackStore((state) => state.lyricsDelays[currentTrack?.id || ''] || 0);
 
   const [localProgress, setLocalProgress] = useState(progress);
 
@@ -51,14 +50,6 @@ export default function AudioController() {
   const handleSeekStart = () => {
     setSeeking(true);
   };
-  const onSaveDelay = () => {
-    api.post('lyrics/delay', {
-      id: currentSong?.id,
-      delay: lyricsDelay,
-    });
-    setEditing(false);
-  };
-  const [editing, setEditing] = useState(false);
   const theme = useTheme();
 
   return (
@@ -66,7 +57,7 @@ export default function AudioController() {
       <div className="flex h-full w-full">
         {/* Current Track */}
         <div className="w-[30%] pl-2 mr-auto flex items-center">
-          <SongCard disableHover className="w-full" track={currentSong} />
+          <SongCard disableHover className="w-full" track={currentTrack} />
         </div>
         {/* Audio Controls */}
         <div className="flex flex-col items-center justify-center text-lg mx-auto max-w-3xl w-2/5 shrink-0">
@@ -129,7 +120,18 @@ export default function AudioController() {
           </div>
         </div>
         {/* Volume Controls */}
-        <div className="ml-auto w-[30%] flex items-center justify-end pr-2"></div>
+        <div className="ml-auto w-[30%] flex items-center justify-end pr-2">
+          <Button
+            onClick={() =>
+              window.open(
+                `/lyrics/edit/${currentTrack.id}`,
+                '_blank' // <- This is what makes it open in a new window.
+              )
+            }
+          >
+            Open Lyrics Editor
+          </Button>
+        </div>
       </div>
     </>
   );

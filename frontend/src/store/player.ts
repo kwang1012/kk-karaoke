@@ -43,6 +43,11 @@ type PlayerStore = {
   // lyrics context
   lyrics: Lyrics[];
   setLyrics: (value: Lyrics[]) => void;
+  // todo: refactor this
+  prevLyrics: Lyrics[];
+  setPrevLyrics: (value: Lyrics[]) => void;
+  nextLyrics: Lyrics[];
+  setNextLyrics: (value: Lyrics[]) => void;
   currentLine: number;
   setCurrentLine: (value: number) => void;
   // queue context
@@ -91,6 +96,10 @@ export const usePlayerStore = create<PlayerStore>()(
       setSeeking: (seeking: boolean) => set({ seeking }),
       lyrics: [],
       setLyrics: (value: Lyrics[]) => set({ lyrics: value }),
+      prevLyrics: [],
+      setPrevLyrics: (value: Lyrics[]) => set({ prevLyrics: value }),
+      nextLyrics: [],
+      setNextLyrics: (value: Lyrics[]) => set({ nextLyrics: value }),
       currentLine: -1,
       setCurrentLine: (value: number) => set({ currentLine: value }),
       queue: [],
@@ -245,7 +254,9 @@ export const usePlayer = () => {
     addSongToQueue,
     insertSongToQueue,
   } = store;
-  const currentSong = queue[queueIdx] || null;
+  const currentTrack = queue[queueIdx] || null;
+  const prevTrack = queue[queueIdx - 1] || null;
+  const nextTrack = queue[queueIdx + 1] || null;
 
   const sendMessage = useWebSocketStore((state) => state.sendMessage);
   const activeRoomId = useActiveRoomId();
@@ -298,7 +309,7 @@ export const usePlayer = () => {
   // when is Callback is true, this function is called when receving the socket message
   const playAudio = (isCallback: boolean = false) => {
     if (loading) return;
-    if (!currentSong || !syncedPlayer) return;
+    if (!currentTrack || !syncedPlayer) return;
 
     if (isOwner) {
       syncedPlayer.setVolume(volume, vocalOn ? volume : 0);
@@ -436,7 +447,9 @@ export const usePlayer = () => {
   };
   return {
     ...store,
-    currentSong,
+    currentTrack,
+    prevTrack,
+    nextTrack,
     next,
     previous,
     play: playAudio,
@@ -461,10 +474,10 @@ export const usePlayer = () => {
 export const useQueue = () => {
   const queue = usePlayerStore((state) => state.queue);
   const queueIdx = usePlayerStore((state) => state.queueIdx);
-  const currentSong = queue[queueIdx] || null;
+  const currentTrack = queue[queueIdx] || null;
   return {
     queue,
     queueIdx,
-    currentSong,
+    currentTrack,
   };
 };

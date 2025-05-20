@@ -17,7 +17,7 @@ const Overlay = styled('div')(({ theme }) => ({
   zIndex: 1,
 }));
 export default function MobilePlayer({ color }: { color?: string }) {
-  const { currentSong, queue, queueIdx } = useQueue();
+  const { currentTrack, queue, queueIdx } = useQueue();
   const getRandomTracks = usePlayerStore((state) => state.getRandomTracks);
   const [scrollTop, setScrollTop] = useState(0);
   const sticky = scrollTop > 0;
@@ -50,9 +50,9 @@ export default function MobilePlayer({ color }: { color?: string }) {
         )}
         <div className="sticky top-0 flex items-center w-full z-50 px-6">
           <div className="w-16 h-16 rounded-md bg-[#c3c3c3] overflow-hidden">
-            <img src={currentSong?.album?.images?.[0]?.url || placeholder} className="w-full h-full" />
+            <img src={currentTrack?.album?.images?.[0]?.url || placeholder} className="w-full h-full" />
           </div>
-          <span className="text-xl ml-2 text-white">{currentSong?.name || 'Not Playing'}</span>
+          <span className="text-xl ml-2 text-white">{currentTrack?.name || 'Not Playing'}</span>
         </div>
         <div className="w-full px-6 pt-5 text-white">
           {tracks.length ? (

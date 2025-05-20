@@ -10,30 +10,14 @@ from managers.db import get_db
 import cutlet
 from hangul_romanize import Transliter
 from hangul_romanize.rule import academic
+from lingua import Language, LanguageDetectorBuilder
 
 router = APIRouter()
 
 transliter = Transliter(academic)
 katsu = cutlet.Cutlet()
-
-
-def contains_korean(text: str) -> bool:
-    return any(
-        '\uAC00' <= ch <= '\uD7AF' or  # Hangul syllables
-        '\u1100' <= ch <= '\u11FF' or  # Hangul Jamo
-        '\u3130' <= ch <= '\u318F'     # Compatibility Jamo
-        for ch in text
-    )
-
-
-def contains_japanese(text: str) -> bool:
-    return any(
-        ('\u3040' <= ch <= '\u309F') or  # Hiragana
-        ('\u30A0' <= ch <= '\u30FF') or  # Katakana
-        ('\u4E00' <= ch <= '\u9FFF')     # Kanji (CJK)
-        for ch in text
-    )
-
+detector = LanguageDetectorBuilder.from_languages(
+    *[Language.JAPANESE, Language.KOREAN, Language.ENGLISH, Language.CHINESE]).build()
 
 @router.post("/delay")
 def update_delay(
@@ -67,7 +51,7 @@ def get_lyrics(track_id: str,
         return JSONResponse(status_code=404, content={"error": "Lyrics not found"})
     try:
         romanized_exists = redis_interface.check_romanized_lyrics(track_id)
-        # romanized_exists = False
+        romanized_exists = False
         if romanized_exists:
             romanized_lines: list[Union[str, None]] = redis_interface.get_romanized_lyrics(track_id) or [
             ]
@@ -93,13 +77,12 @@ def get_lyrics(track_id: str,
                 if romanized_exists:
                     romanized = romanized_lines[i]
                 else:
-                    is_ko = contains_korean(text)
-                    is_ja = contains_japanese(text)
+                    lang = detector.detect_language_of(text)
                     romanized = None
-                    if is_ko:
+                    if lang == Language.KOREAN:
                         romanized = transliter.translit(text)
                         romanized_lines.append(romanized)
-                    elif is_ja:
+                    elif lang == Language.JAPANESE:
                         romanized = katsu.romaji(text)
                         romanized_lines.append(romanized)
                     else:

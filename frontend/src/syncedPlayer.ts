@@ -1,7 +1,18 @@
+import { Track } from './models/spotify';
+import { api } from './utils/api';
+
+type Buffer = {
+  vocal: AudioBuffer;
+  instrumental: AudioBuffer;
+};
+
 class SyncedAudioPlayer {
   protected context: AudioContext;
   protected vocalBuffer!: AudioBuffer;
   protected instrumentalBuffer!: AudioBuffer;
+
+  protected buffers: Record<string, Buffer> = {};
+  protected lastTimeUsed: Record<string, number> = {};
 
   // for normal audio playback
   private vocalSource?: AudioBufferSourceNode;
@@ -47,25 +58,49 @@ class SyncedAudioPlayer {
     this.isPlaying = false;
   }
 
-  async load(vocalUrl: string, instrumentalUrl: string) {
+  async load(track: Track) {
     if (this.isLoading) return;
     this.isLoading = true;
 
     this.stopAndCleanSources(); // ensure no overlap or memory leak
 
-    const [vocal, instrumental] = await Promise.all([this.loadBuffer(vocalUrl), this.loadBuffer(instrumentalUrl)]);
-    this.vocalBuffer = vocal;
-    this.instrumentalBuffer = instrumental;
-
+    if (this.buffers[track.id]) {
+      this.vocalBuffer = this.buffers[track.id].vocal;
+      this.instrumentalBuffer = this.buffers[track.id].instrumental;
+    } else {
+      const vocalUrl = `${api.getUri()}/tracks/vocal/${track.id}`;
+      const instrumentalUrl = `${api.getUri()}/tracks/instrumental/${track.id}`;
+      const [vocal, instrumental] = await Promise.all([this.loadBuffer(vocalUrl), this.loadBuffer(instrumentalUrl)]);
+      this.vocalBuffer = vocal;
+      this.instrumentalBuffer = instrumental;
+    }
+    this.lastTimeUsed[track.id] = Date.now();
     // Reset timing
     this.startOffset = 0;
     this.startTime = 0;
     this.isLoading = false;
   }
 
-  async loadAudio(vocalUrl: string, instrumentalUrl: string) {
+  async loadAudio(track: Track) {
     this.pause(); // ensure current playback stops cleanly
-    await this.load(vocalUrl, instrumentalUrl);
+    await this.load(track);
+  }
+
+  async preload(track: Track) {
+    if (this.buffers[track.id]) return; // already preloaded
+    const vocalUrl = `${api.getUri()}/tracks/vocal/${track.id}`;
+    const instrumentalUrl = `${api.getUri()}/tracks/instrumental/${track.id}`;
+    const [vocal, instrumental] = await Promise.all([this.loadBuffer(vocalUrl), this.loadBuffer(instrumentalUrl)]);
+    this.buffers[track.id] = { vocal, instrumental };
+    this.lastTimeUsed[track.id] = Date.now();
+    // Clean up old buffers if we have too many
+    if (Object.keys(this.buffers).length > 5) {
+      const oldestTrackId = Object.keys(this.lastTimeUsed).reduce((a, b) =>
+        this.lastTimeUsed[a] < this.lastTimeUsed[b] ? a : b
+      );
+      delete this.buffers[oldestTrackId];
+      delete this.lastTimeUsed[oldestTrackId];
+    }
   }
 
   protected async loadBuffer(url: string): Promise<AudioBuffer> {

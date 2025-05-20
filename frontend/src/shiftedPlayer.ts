@@ -1,5 +1,6 @@
 import SyncedAudioPlayer from './syncedPlayer';
 import { PitchShifter } from './soundtouch';
+import { Track } from './models/spotify';
 
 class ShiftedAudioPlayer extends SyncedAudioPlayer {
   private instrumentalShifter: PitchShifter | null = null;
@@ -19,8 +20,8 @@ class ShiftedAudioPlayer extends SyncedAudioPlayer {
     }
   }
 
-  async load(vocalUrl: string, instrumentalUrl: string) {
-    await super.load(vocalUrl, instrumentalUrl);
+  async load(track: Track) {
+    await super.load(track);
     this.instrumentalShifter = new PitchShifter(this.context, this.instrumentalBuffer, 16384);
     this.vocalShifter = new PitchShifter(this.context, this.vocalBuffer, 16384);
   }

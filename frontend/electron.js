@@ -4,15 +4,15 @@ const path = require('path');
 function createWindow() {
   const win = new BrowserWindow({
     useContentSize: true,
-    width: 1635,
-    height: 1080,
+    width: 1440,
+    height: 810,
     webPreferences: {
       // Disable Node integration for security in production
       nodeIntegration: false,
     },
     // remove the default titlebar
     titleBarStyle: 'hidden',
-    trafficLightPosition: { x: 20, y: 20 },
+    trafficLightPosition: { x: 20, y: 28 },
   });
 
   win.loadFile(path.join(__dirname, 'build', 'index.html'));

@@ -4,7 +4,8 @@ import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
 import { visualizer } from 'rollup-plugin-visualizer';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  base: mode === 'electron' ? './' : '/',
   plugins: [
     react(),
     tailwindcss(),
@@ -22,4 +23,4 @@ export default defineConfig({
   build: {
     outDir: path.resolve(__dirname, './build'),
   },
-});
+}));

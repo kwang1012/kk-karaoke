@@ -52,7 +52,8 @@
     "preview": "vite preview",
     "deploy": "gh-pages -d build",
     "test": "vite test",
-    "electron": "VITE_ELECTRON=1 yarn build && electron .",
+    "build:electron": "vite --mode=electron build",
+    "electron": "electron .",
     "package-mac": "electron-packager . KKaraoke --platform=darwin --arch=arm64 --out=dist --icon=icon.icns --overwrite",
     "package-windows": "electron-packager . KKaraoke --platform=darwin --arch=x64 --out=dist --icon=icon.icns --overwrite"
   },

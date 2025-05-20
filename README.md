@@ -6,6 +6,9 @@
     <a href="https://hub.docker.com/r/kwang1012/kkaraoke">
         <img src="https://img.shields.io/badge/-Docker%20Image-blue?logo=docker&labelColor=white" alt="Docker">
     </a>
+    <a href="https://buymeacoffee.com/bruce1198w">
+        <img src="https://img.shields.io/badge/Buy%20me%20a%20coffee--yellow.svg?logo=buy-me-a-coffee&logoColor=orange&style=social" alt="Buy me a coffee">
+    </a>
 </p>
 
 <p align="center">

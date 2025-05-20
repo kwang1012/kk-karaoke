@@ -76,7 +76,7 @@ import { DragIndicator } from '@mui/icons-material';
  * An extended "PointerSensor" that prevent some
  * interactive html element(button, input, textarea, select, option...) from dragging
  */
-export class SmartPointerSensor extends PointerSensor {
+class SmartPointerSensor extends PointerSensor {
   static activators = [
     {
       eventName: 'onPointerDown' as any,

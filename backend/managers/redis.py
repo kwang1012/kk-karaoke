@@ -25,7 +25,7 @@ class RedisManager:
     def _initialize_manager(self):
         """"""
         self.redis = redis.Redis(host=os.getenv("REDIS_HOST", "localhost"),
-                                 port=int(os.getenv("REDIS_PORT", 6379)), charset="utf-8", decode_responses=True)
+                                 port=int(os.getenv("REDIS_PORT", 6379)), decode_responses=True)
         self._interface = RedisQueueInterface(self.redis)
         self._bg_task = threading.Thread(target=self._background_task)
         self._bg_task.daemon = True

@@ -143,5 +143,3 @@ ws_manager = WebSocketManager()
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await ws_manager.websocket_endpoint(websocket)
-
-storage_manager = get_storage_manager("s3")

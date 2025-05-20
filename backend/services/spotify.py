@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 import httpx
 import os
 
-from managers.setup_redis import get_redis
+from managers.redis import get_redis
 
 load_dotenv()  # Load environment variables from .env file
 

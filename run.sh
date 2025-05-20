@@ -10,6 +10,7 @@ sleep 1 # wait briefly
 
 # Start FastAPI backend
 cd backend
+. .venv/bin/activate
 uvicorn main:app --host 0.0.0.0 --port 8000 &
 celery -A services.process_request.celery worker -l info --concurrency=1 --pool=solo &
 

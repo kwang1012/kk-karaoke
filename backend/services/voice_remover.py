@@ -7,7 +7,7 @@ import os
 import typing
 import torch as th
 
-from utils import NO_VOCALS_DIR, RAW_AUDIO_DIR, VOCALS_DIR
+from utils import INSTRUMENTAL_DIR, RAW_AUDIO_DIR, VOCALS_DIR
 from services.demucs.apply import apply_model, BagOfModels
 from services.demucs.audio import save_audio
 from services.demucs.pretrained import get_model_from_args
@@ -138,7 +138,7 @@ def separate_vocals(
         ext=ext,
     )
     vocal_stem.parent.mkdir(parents=True, exist_ok=True)
-    non_vocal_stem = Path(NO_VOCALS_DIR) / args.filename.format(
+    non_vocal_stem = Path(INSTRUMENTAL_DIR) / args.filename.format(
         sid=sid,
         ext=ext,
     )

@@ -10,7 +10,7 @@ router = APIRouter()
 def get_instrumental(filename: str):
     file_path = get_instrumental_path(filename)
     if file_path:
-        return FileResponse(file_path, media_type="audio/mpeg", filename=filename)
+        return FileResponse(file_path, media_type="audio/mpeg", filename=f"{filename}.mp3")
     return {"error": "File not found"}
 
 
@@ -18,7 +18,7 @@ def get_instrumental(filename: str):
 def get_vocal(filename: str):
     file_path = get_vocal_path(filename)
     if file_path:
-        return FileResponse(file_path, media_type="audio/mpeg", filename=filename)
+        return FileResponse(file_path, media_type="audio/mpeg", filename=f"{filename}.mp3")
     return {"error": "File not found"}
 
 

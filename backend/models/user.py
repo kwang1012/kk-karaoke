@@ -7,7 +7,7 @@ class User(BaseModel):
     avatar: str
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "id": "7eb3ee16-e6dc-4f2e-ad2c-d1ba75408f13",
                 "name": "John Doe",

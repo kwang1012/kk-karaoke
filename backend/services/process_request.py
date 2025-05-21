@@ -6,7 +6,7 @@ from typing import Any, Union
 
 from celery import Celery
 import redis
-from utils import NO_VOCALS_DIR, LYRICS_DIR, VOCALS_DIR, RAW_AUDIO_DIR
+from utils import INSTRUMENTAL_DIR, LYRICS_DIR, VOCALS_DIR, RAW_AUDIO_DIR
 from models.track import Artist, Track
 from managers.websocket import WebSocketManager
 from services.downloader import download_lyrics, download_audio
@@ -28,7 +28,7 @@ def is_ready(track: Track) -> bool:
     """
     lyrics_exist = Path(LYRICS_DIR, f"{track.id}.lrc").exists()
     vocals_exist = Path(VOCALS_DIR, f"{track.id}.mp3").exists()
-    non_vocals_exist = Path(NO_VOCALS_DIR, f"{track.id}.mp3").exists()
+    non_vocals_exist = Path(INSTRUMENTAL_DIR, f"{track.id}.mp3").exists()
 
     return lyrics_exist and vocals_exist and non_vocals_exist
 
@@ -48,7 +48,7 @@ def process_request(track: Union[dict[str, Any], Track]):
     search_term = f"{track.name} {' '.join(map(lambda artist: artist.name, track.artists))}"
     lyrics_exist = Path(LYRICS_DIR, f"{track.id}.lrc").exists()
     vocals_exist = Path(VOCALS_DIR, f"{track.id}.mp3").exists()
-    non_vocals_exist = Path(NO_VOCALS_DIR, f"{track.id}.mp3").exists()
+    non_vocals_exist = Path(INSTRUMENTAL_DIR, f"{track.id}.mp3").exists()
 
     if not lyrics_exist:
 

@@ -16,3 +16,4 @@ backend/storage
 
 build/
 dist/
+**/bin/

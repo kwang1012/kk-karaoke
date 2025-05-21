@@ -1,10 +1,12 @@
 import asyncio
+from contextlib import asynccontextmanager
 import json
 import random
+from typing import Any
 from fastapi import Depends, FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from managers.storage import get_storage_manager
+from managers.redis import get_redis
 from models.track import Track
 from services.process_request import is_ready, send_process_request
 from managers.db import get_db
@@ -20,7 +22,34 @@ from dotenv import load_dotenv
 
 load_dotenv()  # Load environment variables from .env file
 
-app = FastAPI(root_path="/api")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # clean up invalid tracks
+    r = get_redis()
+    for key in r.scan_iter("room:*:queue"):
+        queue_length: int = r.llen(key)  # type: ignore
+        for i in range(queue_length):
+            track_data: Any = r.lindex(
+                key, i)  # type: ignore
+            if track_data:
+                stored_track = Track(**json.loads(track_data))
+                if not is_ready(stored_track):
+                    r.lrem(key, 1, track_data)
+        new_queue_length: int = r.llen(key)  # type: ignore
+        if new_queue_length != queue_length:
+            room_id = key.split(":")[1]
+            current_idx_key = f"room:{room_id}:queue:current_idx"
+            if not r.exists(current_idx_key):
+                current_idx = 0
+            else:
+                current_idx = json.loads(r.get(current_idx_key)) # type: ignore
+            current_idx = current_idx + new_queue_length - queue_length
+            r.set(current_idx_key, current_idx)
+
+    yield
+
+app = FastAPI(root_path="/api", lifespan=lifespan)
 
 app.add_middleware(FormatReponseMiddleware)
 app.add_middleware(

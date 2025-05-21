@@ -1,7 +1,8 @@
+import os
 from typing import Union
 from fastapi import APIRouter, Depends, HTTPException
 from models.track import LyricsDelay
-from utils import get_lyrics_path
+from utils import LYRICS_DIR, get_lyrics_path
 from redis import RedisError
 import re
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -113,10 +114,10 @@ def get_plain_lyrics(track_id: str):
 @router.post("/{track_id}/update")
 def update_lyrics(track_id: str, data: dict):
     file_path = get_lyrics_path(track_id)
-    if not file_path:
-        return JSONResponse(status_code=404, content={"error": "Lyrics not found"})
     if "content" not in data:
         return JSONResponse(status_code=400, content={"error": "Content not provided"})
+    if not file_path:
+        file_path = os.path.join(LYRICS_DIR, f"{track_id}.lrc")
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(data["content"])
     return JSONResponse(content={"message": "Lyrics updated successfully"})

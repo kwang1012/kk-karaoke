@@ -26,11 +26,11 @@ def is_ready(track: Track) -> bool:
     Check if the track is ready for processing.
     A track is considered ready if it has lyrics, audio, and non-vocals available.
     """
-    lyrics_exist = Path(LYRICS_DIR, f"{track.id}.lrc").exists()
+    # lyrics_exist = Path(LYRICS_DIR, f"{track.id}.lrc").exists()
     vocals_exist = Path(VOCALS_DIR, f"{track.id}.mp3").exists()
     non_vocals_exist = Path(NO_VOCALS_DIR, f"{track.id}.mp3").exists()
 
-    return lyrics_exist and vocals_exist and non_vocals_exist
+    return vocals_exist and non_vocals_exist
 
 
 def send_process_request(track: Track) -> AsyncResult:

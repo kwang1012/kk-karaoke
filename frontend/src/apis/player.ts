@@ -6,6 +6,7 @@ export const fetchQueue = async (roomId: string) => {
   return api
     .get(`queue/${roomId}/tracks`)
     .then(({ data }) => {
+      console.log('Fetched queue:', data);
       return data;
     })
     .catch((error) => {

@@ -26,7 +26,7 @@ class LyricsDelay(BaseModel):
     delay: float = 0.0
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "id": "7eb3ee16-e6dc-4f2e-ad2c-d1ba75408f13",
                 "delay": 1.5,

@@ -15,6 +15,7 @@ class Track(BaseModel):
     name: str
     artists: list[Artist]
     album: Optional[dict[str, Any]] = None
+    duration_ms: Optional[int] = None
     time_added: Optional[int] = None
     ordered_by: Optional[User] = None
     status: Optional[str] = None

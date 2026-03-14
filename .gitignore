@@ -13,6 +13,7 @@
 !**/test.lrc
 
 backend/storage
+backend/synced_lyrics/
 
 build/
 dist/

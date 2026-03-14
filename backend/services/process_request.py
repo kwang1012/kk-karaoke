@@ -11,14 +11,14 @@ from models.track import Artist, Track
 from managers.websocket import WebSocketManager
 from services.downloader import download_lyrics, download_audio
 from services.voice_remover import separate_vocals
+from config import REDIS_HOST, REDIS_PORT
 
 ws_manager = WebSocketManager()
 
-redis_uri = f"redis://{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', 6379)}/1"
+redis_uri = f"redis://{REDIS_HOST}:{REDIS_PORT}/1"
 celery = Celery("worker", broker=redis_uri, backend=redis_uri)
 
-r = redis.Redis(host=os.getenv("REDIS_HOST", "localhost"),
-                port=int(os.getenv("REDIS_PORT", 6379)))
+r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT)
 
 
 def is_ready(track: Track) -> bool:
@@ -44,7 +44,7 @@ def send_process_request(track: Track) -> AsyncResult:
 def process_request(track: Union[dict[str, Any], Track]):
     if isinstance(track, dict):
         track = Track(**track)
-    print("Processing request for track:", track)
+    print("Processing request for track:", track.name)
     search_term = f"{track.name} {' '.join(map(lambda artist: artist.name, track.artists))}"
     lyrics_exist = Path(LYRICS_DIR, f"{track.id}.lrc").exists()
     vocals_exist = Path(VOCALS_DIR, f"{track.id}.mp3").exists()
@@ -60,7 +60,16 @@ def process_request(track: Union[dict[str, Any], Track]):
                 "status": "downloading_lyrics",
             },
         }))
-        download_lyrics(track.id, search_term)
+        album_name = track.album.get("name") if track.album else None
+        duration_s = round(track.duration_ms / 1000) if track.duration_ms else None
+        download_lyrics(
+            track.id,
+            search_term,
+            track_name=track.name,
+            artist_name=track.artists[0].name if track.artists else None,
+            album_name=album_name,
+            duration_s=duration_s,
+        )
 
     if not vocals_exist or not non_vocals_exist:
         r.publish(track.id, json.dumps({
@@ -71,7 +80,8 @@ def process_request(track: Union[dict[str, Any], Track]):
                 "status": "downloading_audio",
             },
         }))
-        download_audio(track.id, search_term)
+        target_duration_s = track.duration_ms / 1000 if track.duration_ms else None
+        download_audio(track.id, search_term, target_duration_s=target_duration_s)
 
         r.publish(track.id, json.dumps({
             "type": "notify",

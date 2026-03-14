@@ -37,7 +37,7 @@ function getBackoffDelay(attempt: number) {
   return delay + jitter;
 }
 
-const protocol = getSchemesForAddress(import.meta.env.VITE_API_ADDR).ws;
+const { ws: protocol, address } = getSchemesForAddress();
 
 export const useWebSocketStore = create<WebSocketState>()(
   subscribeWithSelector((set, get) => ({
@@ -79,7 +79,7 @@ export const useWebSocketStore = create<WebSocketState>()(
       if (get().connected) return;
       if (socket && socket.readyState !== WebSocket.CLOSED) return;
 
-      socket = new WebSocket(`${protocol}${import.meta.env.VITE_API_ADDR}/api/ws`);
+      socket = new WebSocket(`${protocol}${address}/api/ws`);
 
       socket.onmessage = (event) => {
         const msg = JSON.parse(event.data) as Message;

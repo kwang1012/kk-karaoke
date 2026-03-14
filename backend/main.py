@@ -2,11 +2,11 @@ import asyncio
 from contextlib import asynccontextmanager
 import json
 import random
-from typing import Any
-from fastapi import Depends, FastAPI, WebSocket
+from fastapi import Depends, FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from managers.redis import get_redis
+from redis import RedisError
+from managers.db import get_redis
 from models.track import Track
 from services.process_request import is_ready, send_process_request
 from managers.db import get_db
@@ -18,20 +18,20 @@ from routes.track import router as track_router
 from routes.lyrics import router as lyrics_router
 from routes.queue import router as queue_router
 from routes.room import router as room_router
+from redis_keys import RedisKeys
+from config import DEFAULT_PLAYLIST_ID
 from dotenv import load_dotenv
 
-load_dotenv()  # Load environment variables from .env file
+load_dotenv()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # clean up invalid tracks
     r = get_redis()
     for key in r.scan_iter("room:*:queue"):
         queue_length: int = r.llen(key)  # type: ignore
         for i in range(queue_length):
-            track_data: Any = r.lindex(
-                key, i)  # type: ignore
+            track_data = r.lindex(key, i)
             if track_data:
                 stored_track = Track(**json.loads(track_data))
                 if not is_ready(stored_track):
@@ -39,15 +39,13 @@ async def lifespan(app: FastAPI):
         new_queue_length: int = r.llen(key)  # type: ignore
         if new_queue_length != queue_length:
             room_id = key.split(":")[1]
-            current_idx_key = f"room:{room_id}:queue:current_idx"
-            if not r.exists(current_idx_key):
-                current_idx = 0
-            else:
-                current_idx = json.loads(r.get(current_idx_key)) # type: ignore
+            idx_key = RedisKeys.room_queue_idx(room_id)
+            raw = r.get(idx_key)
+            current_idx = json.loads(raw) if raw else 0
             current_idx = current_idx + new_queue_length - queue_length
-            r.set(current_idx_key, current_idx)
-
+            r.set(idx_key, current_idx)
     yield
+
 
 app = FastAPI(root_path="/api", lifespan=lifespan)
 
@@ -61,6 +59,14 @@ app.add_middleware(
 )
 
 
+@app.exception_handler(RedisError)
+async def redis_exception_handler(request: Request, exc: RedisError):
+    return JSONResponse(
+        status_code=503,
+        content={"detail": f"Redis service unavailable: {exc}"},
+    )
+
+
 app.include_router(track_router, prefix="/tracks", tags=["tracks"])
 app.include_router(lyrics_router, prefix="/lyrics", tags=["lyrics"])
 app.include_router(queue_router, prefix="/queue", tags=["queue"])
@@ -69,38 +75,24 @@ app.include_router(room_router, prefix="/room", tags=["room"])
 
 @app.get("/")
 async def root():
-    """
-    Root endpoint to check if the server is running.
-    Returns a simple JSON response.
-    """
     return JSONResponse(content={"message": "Server is running!"}, status_code=200)
 
 
 @app.get("/top-categories")
 async def get_top_categories(keyword: str):
-    """
-    Endpoint to fetch the top categories.
-    Returns a list of dictionaries containing category details.
-    """
-    return JSONResponse(content={"categories": getTopCategories(keyword)}, status_code=200)
+    return JSONResponse(
+        content={"categories": getTopCategories(keyword)}, status_code=200
+    )
 
 
 @app.get("/playlist/{playlist_id}/tracks")
 async def get_playlist_tracks(playlist_id: str):
-    """
-    Endpoint to fetch tracks from a specific playlist.
-    Returns a list of dictionaries containing track details.
-    """
     collection, tracks = getCollectionTracks("playlists", playlist_id)
     return JSONResponse(content={"collection": collection, "tracks": tracks})
 
 
 @app.get("/album/{album_id}/tracks")
 async def get_album_tracks(album_id: str):
-    """
-    Endpoint to fetch tracks from a specific playlist.
-    Returns a list of dictionaries containing track details.
-    """
     collection, tracks = getCollectionTracks("albums", album_id)
     return JSONResponse(content={"collection": collection, "tracks": tracks})
 
@@ -108,20 +100,17 @@ async def get_album_tracks(album_id: str):
 @app.get("/tracks")
 async def get_tracks(
     redis_interface: RedisQueueInterface = Depends(
-        lambda: RedisQueueInterface(get_db())),):
+        lambda: RedisQueueInterface(get_db())
+    ),
+):
     tracks = redis_interface.get_queue()
-    ready_tracks = []
-    for track in tracks:
-        if is_ready(track):
-            ready_tracks.append(track.model_dump())
-
+    ready_tracks = [track.model_dump() for track in tracks if is_ready(track)]
     return JSONResponse(content={"ready_tracks": ready_tracks}, status_code=200)
 
 
 @app.get("/random_tracks")
 async def get_random_tracks():
-    default_playlist_id = "3AEkt2VeAAHFc1TC5FLuIl"
-    _, tracks = getCollectionTracks("playlists", default_playlist_id)
+    _, tracks = getCollectionTracks("playlists", DEFAULT_PLAYLIST_ID)
     tracks = tracks or []
     random.shuffle(tracks)
     return JSONResponse(content={"tracks": tracks[:10]}, status_code=200)
@@ -129,44 +118,42 @@ async def get_random_tracks():
 
 @app.get("/search")
 def search(q: str):
-    """
-    Search for trakcs based on a keyword.
-    Returns a list of dictionaries containing song details.
-    """
     searchResults = searchSpotify(q)
     return JSONResponse(content=searchResults, status_code=200)
 
 
 @app.post("/download")
-async def download_track(track: Track, redis_interface: RedisQueueInterface = Depends(
-        lambda: RedisQueueInterface(get_db()))):
-    """
-    Download a track based on the provided track object.
-    Returns a JSON response indicating the status of the download.
-    """
+async def download_track(
+    track: Track,
+    redis_interface: RedisQueueInterface = Depends(
+        lambda: RedisQueueInterface(get_db())
+    ),
+):
     if is_ready(track):
         return JSONResponse(content={"task": None}, status_code=200)
 
-    trimmed_track = Track(id=track.id, name=track.name, artists=track.artists, album=track.album,)
+    trimmed_track = Track(
+        id=track.id, name=track.name,
+        artists=track.artists, album=track.album,
+    )
     redis_interface.redis.sadd(
-        redis_interface.track_data_prefix, json.dumps(trimmed_track.model_dump()))
+        RedisKeys.TRACK_DATA_SET,
+        json.dumps(trimmed_track.model_dump()),
+    )
     loop = asyncio.get_event_loop()
 
     def process_message_callback(message_data: dict):
-        """
-        Callback to handle messages from the Redis pub/sub related to track processing.
-        """
-        asyncio.run_coroutine_threadsafe(ws_manager.broadcast(
-            message_data), loop)
+        asyncio.run_coroutine_threadsafe(
+            ws_manager.broadcast(message_data), loop
+        )
 
-    redis_interface.subscribe_to_channel(
-        track.id, process_message_callback)
+    redis_interface.subscribe_to_channel(track.id, process_message_callback)
 
     task = send_process_request(track)
     return JSONResponse(content={"task": task.id}, status_code=200)
 
+
 ws_manager = WebSocketManager()
-# websocket endpoint for real-time updates
 
 
 @app.websocket("/ws")

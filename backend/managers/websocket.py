@@ -7,7 +7,7 @@ from typing import Dict, List
 from fastapi.websockets import WebSocketState
 
 from models.user import User
-from managers.redis import get_redis
+from managers.db import get_redis
 from interfaces.jam import RedisJamInterface
 from middlewares.format import convert_keys
 import services.jam as jam

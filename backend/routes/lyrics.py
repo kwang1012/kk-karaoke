@@ -1,9 +1,9 @@
 import os
 from typing import Union
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from models.track import LyricsDelay
+from models.requests import UpdateLyricsRequest
 from utils import LYRICS_DIR, get_lyrics_path
-from redis import RedisError
 import re
 from fastapi.responses import JSONResponse, PlainTextResponse
 from interfaces.queue import RedisQueueInterface
@@ -18,49 +18,42 @@ router = APIRouter()
 transliter = Transliter(academic)
 katsu = cutlet.Cutlet()
 detector = LanguageDetectorBuilder.from_languages(
-    *[Language.JAPANESE, Language.KOREAN, Language.ENGLISH, Language.CHINESE]).build()
+    *[Language.JAPANESE, Language.KOREAN, Language.ENGLISH, Language.CHINESE]
+).build()
+
 
 @router.post("/delay")
 def update_delay(
     lyrics_delay: LyricsDelay,
     redis_interface: RedisQueueInterface = Depends(
-        lambda: RedisQueueInterface(get_db())),
+        lambda: RedisQueueInterface(get_db())
+    ),
 ):
-    """
-    Updates the delay for a track in the database (Redis).
-
-    Args:
-        track_id: The ID of the track.
-        delay: The delay in seconds.
-
-    Returns:
-        A JSON response indicating the result of the operation.
-    """
-    try:
-        redis_interface.store_track_delay(lyrics_delay.id, lyrics_delay.delay)
-        return {"message": "Delay updated successfully"}
-    except RedisError as e:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to update delay: {e}")
+    redis_interface.store_track_delay(lyrics_delay.id, lyrics_delay.delay)
+    return {"message": "Delay updated successfully"}
 
 
 @router.get("/{track_id}")
-def get_lyrics(track_id: str,
-               redis_interface: RedisQueueInterface = Depends(lambda: RedisQueueInterface(get_db())),):
+def get_lyrics(
+    track_id: str,
+    redis_interface: RedisQueueInterface = Depends(
+        lambda: RedisQueueInterface(get_db())
+    ),
+):
     file_path = get_lyrics_path(track_id)
     if not file_path:
         return JSONResponse(status_code=404, content={"error": "Lyrics not found"})
     try:
         romanized_exists = redis_interface.check_romanized_lyrics(track_id)
-        romanized_exists = False
         if romanized_exists:
-            romanized_lines: list[Union[str, None]] = redis_interface.get_romanized_lyrics(track_id) or [
-            ]
+            romanized_lines: list[Union[str, None]] = (
+                redis_interface.get_romanized_lyrics(track_id) or []
+            )
         else:
             romanized_lines = []
         with open(file_path, "r", encoding="utf-8") as f:
             raw_lines = f.readlines()
-        # Parse the lyrics file
+
         pattern = re.compile(r"\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)")
         lyrics = []
         delay = redis_interface.get_track_delay(track_id)
@@ -82,26 +75,26 @@ def get_lyrics(track_id: str,
                     romanized = None
                     if lang == Language.KOREAN:
                         romanized = transliter.translit(text)
-                        romanized_lines.append(romanized)
                     elif lang == Language.JAPANESE:
                         romanized = katsu.romaji(text)
-                        romanized_lines.append(romanized)
-                    else:
-                        romanized_lines.append(None)
+                    romanized_lines.append(romanized)
                 lyrics.append({
                     "time": timestamp,
                     "text": text,
-                    "romanized": romanized
+                    "romanized": romanized,
                 })
         if not romanized_exists and any(line is not None for line in romanized_lines):
             redis_interface.store_romanized_lyrics(track_id, romanized_lines)
 
-        return JSONResponse(content={"lyrics": lyrics, "content": "".join(raw_lines)}, status_code=200)
+        return JSONResponse(
+            content={"lyrics": lyrics, "content": "".join(raw_lines)},
+            status_code=200,
+        )
     except FileNotFoundError:
         return JSONResponse(status_code=404, content={"error": "Lyrics not found"})
 
 
-@router.get("/{track_id}/plain",)
+@router.get("/{track_id}/plain")
 def get_plain_lyrics(track_id: str):
     file_path = get_lyrics_path(track_id)
     if not file_path:
@@ -112,12 +105,10 @@ def get_plain_lyrics(track_id: str):
 
 
 @router.post("/{track_id}/update")
-def update_lyrics(track_id: str, data: dict):
+def update_lyrics(track_id: str, data: UpdateLyricsRequest):
     file_path = get_lyrics_path(track_id)
-    if "content" not in data:
-        return JSONResponse(status_code=400, content={"error": "Content not provided"})
     if not file_path:
         file_path = os.path.join(LYRICS_DIR, f"{track_id}.lrc")
     with open(file_path, "w", encoding="utf-8") as f:
-        f.write(data["content"])
+        f.write(data.content)
     return JSONResponse(content={"message": "Lyrics updated successfully"})

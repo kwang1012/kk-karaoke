@@ -125,10 +125,14 @@ class WebSocketManager:
         """
         Handle messages related to joining a room.
         """
-        if room_id not in self.rooms:
-            self.rooms[room_id] = []
-        if socket not in self.rooms[room_id]:
-            self.rooms[room_id].append((user, socket))
+        # A socket is in at most one room: drop any earlier entry (the old check
+        # compared the socket to (user, socket) tuples, so it never matched and
+        # re-joining duplicated the client - and every message it received).
+        for rid in list(self.rooms):
+            self.rooms[rid] = [(u, ws) for (u, ws) in self.rooms[rid] if ws != socket]
+            if not self.rooms[rid]:
+                del self.rooms[rid]
+        self.rooms.setdefault(room_id, []).append((user, socket))
 
         await self.multicast(room_id, {
             "type": "jam",

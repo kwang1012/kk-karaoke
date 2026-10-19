@@ -1,6 +1,6 @@
 import { ReactElement, useEffect, useMemo, useState } from 'react';
 import placeholderImage from 'src/assets/placeholder.png';
-import { CircleAlert, Cog, Music, Play } from 'lucide-react';
+import { CircleAlert, Cog, Music, Plus } from 'lucide-react';
 import { useReadyTrackIds, useTrackStore } from 'src/store';
 import { Track } from 'src/models/spotify';
 import ActionMenu from './playlist/ActionMenu';
@@ -124,7 +124,7 @@ export default function SongCard({
               className="absolute inset-0 flex items-center justify-center bg-black/55 text-white opacity-0 transition-opacity group-hover/card:opacity-100"
               onClick={() => track && onAdd(parsedTrack)}
             >
-              <Play className="size-4 fill-current" />
+              <Plus className="size-5" strokeWidth={2.5} />
             </button>
           )}
         </div>

@@ -1,4 +1,4 @@
-import { CircleArrowDown, Loader, Play } from 'lucide-react';
+import { CircleArrowDown, Loader, Plus } from 'lucide-react';
 import { memo, useContext, useEffect, useState } from 'react';
 import { Skeleton } from 'src/components/ui/skeleton';
 import { Track } from 'src/models/spotify';
@@ -76,9 +76,15 @@ const PlaylistRow = memo(({ track, index }: { track: Track; index: number }) => 
       <div className="flex items-center justify-center">
         <span className="row-id">{index + 1}</span>
         {!mobile && (
-          <div className="cursor-pointer" onClick={() => track && onAdd(parsedTrack)}>
-            <Play className="row-play size-4 fill-current" />
-          </div>
+          <Tooltip title={t('song.addToQueue')} side="top">
+            <button
+              aria-label={t('song.addToQueue')}
+              className="row-play size-6 items-center justify-center rounded-full hover:bg-foreground/10"
+              onClick={() => track && onAdd(parsedTrack)}
+            >
+              <Plus className="size-4" strokeWidth={2.5} />
+            </button>
+          </Tooltip>
         )}
       </div>
     ),

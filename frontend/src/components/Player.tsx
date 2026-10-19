@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { fetchQueue, fetchLyrics } from 'src/apis/player';
 import { useRemoteMessageQueue } from 'src/hooks/queue';
 import { Track } from 'src/models/spotify';
@@ -7,7 +7,7 @@ import ShiftedAudioPlayer from 'src/shiftedPlayer';
 import { useTrackStore } from 'src/store';
 import { usePlayer } from 'src/store/player';
 import { useActiveRoomId, useJam, useRoomStore } from 'src/store/room';
-import { useWebSocketStore } from 'src/store/ws';
+import { lastControlSentAt, useWebSocketStore } from 'src/store/ws';
 import SyncedAudioPlayer from 'src/syncedPlayer';
 import { api } from 'src/utils/api';
 
@@ -57,6 +57,7 @@ export const Player = () => {
   const { isOwner } = useJam();
   const {
     data: { index, tracks },
+    refetch: refetchQueue,
   } = useQuery({
     queryKey: ['queue', activeRoomId],
     queryFn: () => fetchQueue(activeRoomId),
@@ -79,9 +80,18 @@ export const Player = () => {
       if (action == 'update' && rid === roomId) return; // ignore message if owner and action is update
       if (action == 'update') {
         const currentTime = data.currentTime;
-        if (!currentTime) return;
+        if (currentTime === undefined) return; // 0 is a valid time
         // we dont update the player ref because it won't be played on device
         setProgress(currentTime);
+        // Follow the owner's full state, not just the time, so guests that missed a control
+        // message (reconnect, late join) converge. Skip right after our own control action
+        // so the owner's not-yet-updated state doesn't flip the UI back.
+        if (Date.now() - lastControlSentAt > 1500) {
+          if (typeof data.playing === 'boolean' && data.playing !== playing) setPlaying(data.playing);
+          if (typeof data.queueIdx === 'number' && data.queueIdx !== queueIdx) setQueueIdx(data.queueIdx);
+          if (typeof data.volume === 'number' && data.volume !== volume) setVolume(data.volume, true);
+          if (typeof data.vocalOn === 'boolean' && data.vocalOn !== vocalOn) toggleVocal(true);
+        }
       }
       if (action == 'control') {
         console.log('Operation:', op, 'data:', data);
@@ -100,7 +110,7 @@ export const Player = () => {
             break;
           case 'seek':
             const seekTime = data.seekTime;
-            if (!seekTime) break;
+            if (seekTime === undefined) break; // seeking to 0 is valid
             seek(seekTime, true);
             break;
           case 'toggleVocal':
@@ -125,6 +135,21 @@ export const Player = () => {
       }
     },
   });
+  // Guests: re-sync from the server whenever the socket (re)connects, since control messages
+  // sent while offline were never delivered.
+  const connected = useWebSocketStore((state) => state.connected);
+  useEffect(() => {
+    if (!connected || isOwner || activeRoomId === 'default') return;
+    refetchQueue();
+    fetchRoom(activeRoomId).then((room) => {
+      if (!room) return;
+      if (typeof room.playing === 'boolean') setPlaying(room.playing);
+      if (typeof room.currentTime === 'number') setProgress(room.currentTime);
+      if (typeof room.volume === 'number') setVolume(room.volume, true);
+      if (typeof room.vocalOn === 'boolean' && room.vocalOn !== vocalOn) toggleVocal(true);
+    });
+  }, [connected, activeRoomId, isOwner]);
+
   useEffect(() => {
     let playerCls: typeof SyncedAudioPlayer;
     if (enabledPitchShift) playerCls = ShiftedAudioPlayer;

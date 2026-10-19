@@ -378,28 +378,16 @@ export const usePlayer = () => {
     if (isOwner && syncedPlayer) {
       syncedPlayer.setVolume(newVolume, vocalOn ? newVolume : 0);
     }
-    setAudioVolume(newVolume);
-    if (isCallback) return;
-    sendMessage({
-      type: 'jam',
-      action: 'control',
-      op: 'increaseVolume',
-      roomId: activeRoomId,
-    });
+    // setAudioVolume already broadcasts the absolute value. Also sending a relative
+    // increase made every receiver apply the change twice.
+    setAudioVolume(newVolume, isCallback);
   };
   const decreaseVolume = (isCallback: boolean = false) => {
     const newVolume = Math.max(0, volume - 0.1);
     if (isOwner && syncedPlayer) {
       syncedPlayer.setVolume(newVolume, vocalOn ? newVolume : 0);
     }
-    setAudioVolume(newVolume);
-    if (isCallback) return;
-    sendMessage({
-      type: 'jam',
-      action: 'control',
-      op: 'decreaseVolume',
-      roomId: activeRoomId,
-    });
+    setAudioVolume(newVolume, isCallback);
   };
   const seek = (time: number, isCallback: boolean = false) => {
     if (isOwner && syncedPlayer) {

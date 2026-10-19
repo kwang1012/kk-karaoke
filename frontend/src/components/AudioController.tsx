@@ -1,5 +1,6 @@
-import { ListMusic, Mic, MicOff, Minus, Pause, PencilLine, Play, Plus, SkipBack, SkipForward, Volume1, Volume2, VolumeX } from 'lucide-react';
+import { ListMusic, Mic, Mic2, MicOff, Minus, Pause, PencilLine, Play, Plus, SkipBack, SkipForward, Volume1, Volume2, VolumeX } from 'lucide-react';
 import { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import AppSlider from './Slider';
 import SongCard from './SongCard';
 import { IconButton } from 'src/components/ui/button';
@@ -24,6 +25,9 @@ export default function AudioController() {
   const showSnackbar = useNotifyStore((state) => state.showSnackbar);
   const queueOpen = useSettingStore((state) => state.queueOpen);
   const toggleQueue = useSettingStore((state) => state.toggleQueue);
+
+  const navigate = useNavigate();
+  const onStage = useLocation().pathname.startsWith('/lyrics');
 
   const [localProgress, setLocalProgress] = useState(progress);
   const realProgress = seeking ? localProgress : progress;
@@ -129,6 +133,16 @@ export default function AudioController() {
             aria-labelledby="volume-slider"
           />
         </div>
+        <Tooltip title={onStage ? 'Leave lyrics view' : 'Lyrics view'} side="top">
+          <IconButton
+            aria-label="Lyrics view"
+            aria-pressed={onStage}
+            className={cn(onStage && 'text-primary')}
+            onClick={() => navigate(onStage ? '/' : '/lyrics')}
+          >
+            <Mic2 className="size-5" />
+          </IconButton>
+        </Tooltip>
         {currentTrack?.id && (
           <Tooltip title="Edit lyrics" side="top">
             <IconButton aria-label="Edit lyrics" onClick={() => window.open(`/lyrics/edit/${currentTrack.id}`, '_blank')}>

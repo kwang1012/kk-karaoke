@@ -1,6 +1,5 @@
 import { Outlet } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
-import Rail from 'src/components/Rail';
 import TopBar from 'src/components/TopBar';
 import Queue from 'src/components/Queue';
 import AudioController from 'src/components/AudioController';
@@ -37,7 +36,6 @@ export default function Layout() {
   return (
     <div className="flex h-full w-full flex-col gap-3 p-3">
       <div className="flex min-h-0 flex-1 gap-3">
-        <Rail />
         <div className="flex min-w-0 flex-1 flex-col gap-3">
           {!isFullScreen && <TopBar />}
           <main className="min-h-0 flex-1 overflow-hidden rounded-2xl border bg-card">

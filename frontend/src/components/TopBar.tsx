@@ -1,5 +1,6 @@
-import { ChevronLeft, ChevronRight, Moon, Sun } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { ChevronLeft, ChevronRight, Moon, Settings, Sun } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import Logo from './Logo';
 import SearchBox from './SearchBox';
 import { Button, IconButton } from 'src/components/ui/button';
 import { Avatar, AvatarFallback, AvatarGroup, AvatarImage } from 'src/components/ui/avatar';
@@ -9,6 +10,8 @@ import { useHistoryBoundaries } from 'src/hooks/history';
 import { useJam, useRoomStore } from 'src/store/room';
 import { useSettingStore } from 'src/store/setting';
 import { useRemoteMessageQueue } from 'src/hooks/queue';
+
+const isElectron = navigator.userAgent.toLowerCase().includes('electron');
 
 export default function TopBar() {
   const navigate = useNavigate();
@@ -24,6 +27,7 @@ export default function TopBar() {
   const leaveRoom = useRoomStore((state) => state.leaveRoom);
   const theme = useSettingStore((state) => state.theme);
   const toggleTheme = useSettingStore((state) => state.toggleTheme);
+  const setSettingsOpen = useSettingStore((state) => state.setSettingsOpen);
 
   useRemoteMessageQueue('jam', {
     onAddItem: (message) => {
@@ -40,7 +44,13 @@ export default function TopBar() {
   };
   return (
     <header className="flex h-12 shrink-0 touch-none items-center gap-3 [-webkit-app-region:drag] max-md:hidden [&_button]:[-webkit-app-region:no-drag] [&_input]:[-webkit-app-region:no-drag]">
-      <div className="flex w-24 items-center">
+      <div className="flex items-center gap-1">
+        {/* the logo doubles as the home button; hidden in electron to leave room for the window controls */}
+        <Tooltip title="Home" side="bottom">
+          <Link to="/" aria-label="Home" className={isElectron ? 'invisible' : 'mr-2 shrink-0'}>
+            <Logo className="size-9" />
+          </Link>
+        </Tooltip>
         <IconButton aria-label="Back" disabled={isBottom} onClick={() => navigate(-1)}>
           <ChevronLeft className="size-5" />
         </IconButton>
@@ -53,7 +63,7 @@ export default function TopBar() {
         <SearchBox value={searchValue} onChange={handleSearchChange} />
       </div>
 
-      <div className="flex w-auto min-w-24 items-center justify-end gap-2">
+      <div className="flex items-center justify-end gap-1">
         {participants.length > 0 && (
           <AvatarGroup className="mr-1">
             {participants.slice(0, 4).map((participant) => (
@@ -76,6 +86,11 @@ export default function TopBar() {
             Leave room
           </Button>
         )}
+        <Tooltip title="Settings" side="bottom">
+          <IconButton aria-label="Settings" onClick={() => setSettingsOpen(true)}>
+            <Settings className="size-5" />
+          </IconButton>
+        </Tooltip>
         <Tooltip title={theme === 'dark' ? 'Light mode' : 'Dark mode'} side="bottom">
           <IconButton aria-label="Toggle theme" onClick={() => toggleTheme()}>
             {theme === 'dark' ? <Sun className="size-5" /> : <Moon className="size-5" />}

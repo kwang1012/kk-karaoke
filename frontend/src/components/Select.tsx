@@ -1,21 +1,31 @@
-import * as React from 'react';
-import { ChevronDown } from 'lucide-react';
-import { cn } from 'src/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from 'src/components/ui/select';
 
-/** Native select styled for the app (replaces MUI NativeSelect). */
-export default function AppSelect({ className, children, ...props }: React.ComponentProps<'select'>) {
+/** Styled dropdown for a short list of `{ value, label }` options. */
+export default function AppSelect({
+  value,
+  onValueChange,
+  options,
+  disabled,
+  className,
+}: {
+  value: string;
+  onValueChange?: (value: string) => void;
+  options: readonly { value: string; label: string }[];
+  disabled?: boolean;
+  className?: string;
+}) {
   return (
-    <div className="relative inline-flex items-center">
-      <select
-        className={cn(
-          'h-9 appearance-none rounded-lg border bg-secondary pr-8 pl-3 text-sm text-foreground outline-none disabled:opacity-60',
-          className
-        )}
-        {...props}
-      >
-        {children}
-      </select>
-      <ChevronDown className="pointer-events-none absolute right-2 size-4 text-muted-foreground" />
-    </div>
+    <Select value={value} onValueChange={onValueChange} disabled={disabled}>
+      <SelectTrigger className={className}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

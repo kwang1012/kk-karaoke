@@ -92,7 +92,7 @@ export default function AudioController() {
           <button
             onClick={() => toggleVocal()}
             className={cn(
-              'flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors',
+              'flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium whitespace-nowrap transition-colors',
               vocalOn ? 'border-transparent bg-accent text-foreground' : 'border-primary/40 bg-primary/15 text-primary'
             )}
           >

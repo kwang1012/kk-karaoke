@@ -85,13 +85,12 @@ export default function SettingsDialog() {
 
         <Section title={t('settings.general')}>
           <Row title={t('settings.language')} description={t('settings.languageHint')}>
-            <AppSelect value={language} onChange={(e) => setLanguage(e.target.value as Language)} className="w-[200px]">
-              {LANGUAGES.map((l) => (
-                <option key={l.code} value={l.code}>
-                  {l.label}
-                </option>
-              ))}
-            </AppSelect>
+            <AppSelect
+              value={language}
+              onValueChange={(value) => setLanguage(value as Language)}
+              options={LANGUAGES.map((l) => ({ value: l.code, label: l.label }))}
+              className="w-[200px]"
+            />
           </Row>
         </Section>
 
@@ -103,11 +102,16 @@ export default function SettingsDialog() {
             <AppSwitch checked={enabledPitchShift} onCheckedChange={onChangePitchShift} />
           </Row>
           <Row title={t('settings.quality')} description={t('settings.qualityHint')}>
-            <AppSelect disabled className="w-[200px]">
-              <option value="vocal_remover">{t('settings.quality.low')}</option>
-              <option value="htdemucs">{t('settings.quality.high')}</option>
-              <option value="htdemucs_6s">{t('settings.quality.extreme')}</option>
-            </AppSelect>
+            <AppSelect
+              disabled
+              value="vocal_remover"
+              options={[
+                { value: 'vocal_remover', label: t('settings.quality.low') },
+                { value: 'htdemucs', label: t('settings.quality.high') },
+                { value: 'htdemucs_6s', label: t('settings.quality.extreme') },
+              ]}
+              className="w-[200px]"
+            />
           </Row>
         </Section>
 

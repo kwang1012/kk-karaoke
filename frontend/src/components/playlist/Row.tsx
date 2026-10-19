@@ -1,69 +1,30 @@
-import { PlayArrow, CheckCircle, DownloadForOfflineOutlined, Downloading } from '@mui/icons-material';
-import { styled, TableRow, Tooltip, IconButton, TableCell, useMediaQuery } from '@mui/material';
-import { memo, useContext, useEffect, useMemo, useState } from 'react';
-import Skeleton from 'react-loading-skeleton';
+import { CircleArrowDown, CircleCheck, Loader, Play } from 'lucide-react';
+import { memo, useContext, useEffect, useState } from 'react';
+import { Skeleton } from 'src/components/ui/skeleton';
 import { Track } from 'src/models/spotify';
 import { useReadyTrackIds, useTrackStore } from 'src/store';
 import placeholder from 'src/assets/placeholder.png';
 import ActionMenu from './ActionMenu';
 import { PlaylistContext } from 'src/context/playlist';
 import { usePlaylistStore } from 'src/store/playlist';
+import { Tooltip } from 'src/components/ui/tooltip';
+import { IconButton } from 'src/components/ui/button';
+import { TableCell, TableRow } from 'src/components/ui/table';
+import { useBreakpointDown } from 'src/hooks/media';
+import { cn } from 'src/lib/utils';
 
-export const HoverTableRow = styled(TableRow)(({ theme }) => ({
-  cursor: 'default',
-  width: '100%',
-  '& .row-actions': {
-    opacity: 0,
-  },
-  '& .row-id': {
-    display: ' block',
-  },
-  '& .row-play': {
-    display: 'none',
-  },
-  '&:hover, &.active': {
-    '*': {
-      color: theme.palette.mode == 'dark' ? 'white' : 'black',
-    },
-    '& .checked-icon *': {
-      color: theme.palette.success.main,
-    },
-    backgroundColor: theme.palette.mode === 'dark' ? '#ffffff1a' : '#0000001a',
-    '.row-actions': {
-      opacity: 1,
-    },
-    '& .row-id': {
-      display: 'none',
-    },
-    '& .row-play': {
-      display: 'flex',
-    },
-  },
-  '&.active': {
-    backgroundColor: '#ffffff3a',
-  },
-  '& td': {
-    border: 0,
-    padding: 8,
-  },
-  [theme.breakpoints.down('md')]: {
-    '& .row-actions': {
-      opacity: 1,
-    },
-    '*': {
-      color: theme.palette.mode == 'dark' ? 'white' : 'black',
-    },
-    '& .checked-icon *': {
-      color: theme.palette.success.main,
-    },
-    '&:hover, &.active': {
-      backgroundColor: 'transparent',
-      '& .row-id': {
-        display: 'flex',
-      },
-    },
-  },
-}));
+export const HoverTableRow = ({ className, ...props }: React.ComponentProps<'tr'>) => (
+  <TableRow
+    className={cn(
+      'group/row w-full cursor-default border-0 transition-colors hover:bg-accent [&_td]:border-0 [&_td]:p-2 [&_td:first-child]:rounded-l-xl [&_td:last-child]:rounded-r-xl',
+      '[&_.row-actions]:opacity-0 hover:[&_.row-actions]:opacity-100 [&_.row-id]:block [&_.row-play]:hidden hover:[&_.row-id]:hidden hover:[&_.row-play]:flex',
+      'max-md:[&_.row-actions]:opacity-100 max-md:hover:bg-transparent max-md:hover:[&_.row-id]:flex',
+      className?.includes('active') && 'bg-accent [&_.row-actions]:opacity-100 [&_.row-id]:hidden [&_.row-play]:flex',
+      className
+    )}
+    {...props}
+  />
+);
 
 export const getColWidth = (key: string) => {
   switch (key) {
@@ -78,7 +39,7 @@ export const getColWidth = (key: string) => {
 };
 
 const PlaylistRow = memo(({ track, index }: { track: Track; index: number }) => {
-  const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
+  const mobile = useBreakpointDown('md');
   const songStatus = useTrackStore((state) => state.songStatus);
   // const status = track ? songStatus[track.id] : 'ready';
   const [status, setStatus] = useState(track?.status);
@@ -113,7 +74,7 @@ const PlaylistRow = memo(({ track, index }: { track: Track; index: number }) => 
         <span className="row-id">{index + 1}</span>
         {!mobile && (
           <div className="cursor-pointer" onClick={() => track && onAdd(parsedTrack)}>
-            <PlayArrow className="row-play" fontSize="small" />
+            <Play className="row-play size-4 fill-current" />
           </div>
         )}
       </div>
@@ -121,12 +82,12 @@ const PlaylistRow = memo(({ track, index }: { track: Track; index: number }) => 
     name: !isLoading ? (
       <div className="flex items-center">
         {collectionType === 'playlist' && (
-          <img src={image} className="w-10 h-10 object-cover rounded-md inline-block mr-2" alt={parsedTrack.name} />
+          <img src={image} className="mr-3 inline-block size-10 rounded-lg object-cover" alt={parsedTrack.name} />
         )}
         <div>
-          <span className="line-clamp-1 text-black dark:text-white">{parsedTrack.name}</span>
+          <span className="line-clamp-1 font-medium">{parsedTrack.name}</span>
           {collectionType === 'album' && (
-            <span className="text-gray-400">
+            <span className="text-muted-foreground">
               {parsedTrack.artists.map((artist, index) => (
                 <span key={index}>
                   {index > 0 && ', '}
@@ -145,7 +106,7 @@ const PlaylistRow = memo(({ track, index }: { track: Track; index: number }) => 
         </div>
       </div>
     ) : (
-      <Skeleton baseColor="transparent" highlightColor="#ffffff1a" width="100%" height={32} />
+      <Skeleton className="h-8 w-full" />
     ),
     artists: !isLoading ? (
       <span className="line-clamp-1">
@@ -159,28 +120,28 @@ const PlaylistRow = memo(({ track, index }: { track: Track; index: number }) => 
         ))}
       </span>
     ) : (
-      <Skeleton baseColor="transparent" highlightColor="#ffffff1a" width="100%" height={32} />
+      <Skeleton className="h-8 w-full" />
     ),
     album: !isLoading ? (
       <span className="line-clamp-1">{parsedTrack.album?.name || '-'}</span>
     ) : (
-      <Skeleton baseColor="transparent" highlightColor="#ffffff1a" width="100%" height={32} />
+      <Skeleton className="h-8 w-full" />
     ),
     action: !isLoading && (
       <div className="flex items-center justify-end">
         {ready || downloaded ? (
           <Tooltip placement="top" title="Ready">
-            <CheckCircle fontSize="small" color="success" className="mr-2 checked-icon" />
+            <CircleCheck className="checked-icon mr-2 size-4 text-success" />
           </Tooltip>
         ) : unknown ? (
           <Tooltip placement="top" title="Download and process">
-            <IconButton disableRipple className="p-0 mr-2 row-actions" onClick={() => onDownload(parsedTrack)}>
-              <DownloadForOfflineOutlined fontSize="small" />
+            <IconButton className="row-actions mr-2 p-0" onClick={() => onDownload(parsedTrack)}>
+              <CircleArrowDown className="size-4" />
             </IconButton>
           </Tooltip>
         ) : (
           <Tooltip placement="top" title="Downloading">
-            <Downloading fontSize="small" className="mr-2" />
+            <Loader className="mr-2 size-4 animate-spin" />
           </Tooltip>
         )}
         <ActionMenu
@@ -198,15 +159,15 @@ const PlaylistRow = memo(({ track, index }: { track: Track; index: number }) => 
       {headers.map((header) => (
         <TableCell
           key={header.key}
-          width={getColWidth(header.key)}
-          align={header.key == 'row_id' ? 'center' : 'left'}
-          sx={{
-            color: header.key == 'name' ? 'white' : '#b3b3b3',
-            paddingY: 0,
-            paddingX: header.key == 'action' ? 1 : 2,
-          }}
+          style={{ width: getColWidth(header.key) }}
+          className={cn(
+            'py-0',
+            header.key == 'row_id' ? 'text-center' : 'text-left',
+            header.key == 'name' ? 'text-foreground' : 'text-muted-foreground',
+            header.key == 'action' ? 'px-2' : 'px-4'
+          )}
         >
-          {trackRow[header.key]}
+          {trackRow[header.key as keyof typeof trackRow]}
         </TableCell>
       ))}
     </>

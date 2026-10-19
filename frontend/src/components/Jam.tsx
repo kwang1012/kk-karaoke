@@ -1,27 +1,25 @@
-import { Close, ConnectWithoutContactOutlined, ContentCopyOutlined } from '@mui/icons-material';
-import { AppTheme, Button, ButtonProps, Card, CardContent, Divider, styled, useTheme } from '@mui/material';
+import { Copy, UsersRound, X } from 'lucide-react';
 import { useState } from 'react';
 import QRCode from 'react-qr-code';
+import { Button } from 'src/components/ui/button';
+import { Card, CardContent } from 'src/components/ui/card';
+import { Separator } from 'src/components/ui/separator';
+import { cn } from 'src/lib/utils';
 import { useRoomStore } from 'src/store/room';
 import { copyToClipboard } from 'src/utils';
 import { api } from 'src/utils/api';
 
-const StartButton = styled(({ className, ...props }: ButtonProps) => (
-  <Button
-    disableRipple
-    className={`bg-primary duration-200 transition-transform text-white rounded-full normal-case text-sm font-bold ${className}`}
-    {...props}
-  >
-    <ConnectWithoutContactOutlined fontSize="small" className="mr-2" />
-    Start a room
-  </Button>
-))(({ theme }) => ({
-  boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
-  '&:hover': {
-    transform: 'scale(1.02)',
-    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
-  },
-}));
+const pillButton =
+  'rounded-full text-sm font-bold shadow-[0_2px_10px_rgba(0,0,0,0.1)] transition-transform duration-200 hover:scale-[1.02] hover:shadow-[0_4px_20px_rgba(0,0,0,0.2)]';
+
+function StartButton({ className, ...props }: React.ComponentProps<typeof Button>) {
+  return (
+    <Button className={cn(pillButton, 'text-white', className)} {...props}>
+      <UsersRound className="size-4" />
+      Start a room
+    </Button>
+  );
+}
 
 export default function Jam() {
   const [showQRCode, setShowQRCode] = useState(false);
@@ -43,14 +41,13 @@ export default function Jam() {
         console.error('Error creating room:', error);
       });
   };
-  const theme = useTheme<AppTheme>();
   return (
     <>
       {minimized ? (
         <StartButton onClick={handleStartRoom} />
       ) : (
-        <Card sx={{ backgroundColor: theme.palette.background.secondary }}>
-          <CardContent className="text-sm text-[black] dark:text-[#d3d3d3]">
+        <Card className="border-primary/20 bg-primary/10">
+          <CardContent className="text-sm text-foreground/80">
             <div className="flex items-start">
               <div className="flex-1">
                 {showQRCode
@@ -58,37 +55,22 @@ export default function Jam() {
                   : 'Invite your friends to join your room. Sing together, or just hang out.'}
               </div>
               <Button
-                disableRipple
-                className="bg-transparent p-0"
-                sx={{
-                  minWidth: 0,
-                  '&:hover': {
-                    transform: 'scale(1.02)',
-                    color: '#d3d3d3',
-                  },
-                }}
+                variant="ghost"
+                className="size-6 min-w-0 shrink-0 p-0 text-muted-foreground"
                 onClick={() => {
                   setMinimized(true);
                 }}
               >
-                <Close className="text-[#d3d3d3]" />
+                <X className="size-4" />
               </Button>
             </div>
 
             {showQRCode ? (
               <div className="flex flex-col items-center justify-center">
-                <Divider className="w-full h-[1px] bg-[#4f4f4f] my-4" />
+                <Separator className="my-4 w-full" />
 
                 <Button
-                  disableRipple
-                  className="bg-white duration-200 transition-transform text-black rounded-full normal-case text-sm font-bold"
-                  sx={{
-                    boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
-                    '&:hover': {
-                      transform: 'scale(1.02)',
-                      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
-                    },
-                  }}
+                  className={cn(pillButton, 'bg-foreground text-background hover:bg-foreground/90')}
                   onClick={() => {
                     try {
                       navigator.clipboard.writeText(joinURL);
@@ -97,10 +79,10 @@ export default function Jam() {
                     }
                   }}
                 >
-                  <ContentCopyOutlined className="mr-2" fontSize="small" />
+                  <Copy className="size-4" />
                   Copy Link
                 </Button>
-                <div className="bg-white p-3 rounded-lg w-40 h-40 mx-5 mt-4">
+                <div className="mx-5 mt-4 size-40 rounded-xl bg-white p-3">
                   <QRCode value={joinURL} className="w-full h-full" />
                 </div>
               </div>

@@ -1,6 +1,5 @@
-import { faCirclePause, faCirclePlay } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { IconButton } from '@mui/material';
+import { CirclePause, CirclePlay } from 'lucide-react';
+import { IconButton } from 'src/components/ui/button';
 import { useEffect, useRef, useState } from 'react';
 import AppSlider from '../Slider';
 import SyncedAudioPlayer from 'src/syncedPlayer';
@@ -123,11 +122,11 @@ export default function LyricsEditorPlayer({
   return (
     <div className="w-full flex items-end mt-4">
       <div className="flex items-center justify-stat">
-        <IconButton style={{ fontSize: 28, padding: 0 }} onClick={handlePlayPause} tabIndex={-1}>
+        <IconButton className="p-0 hover:bg-transparent" onClick={handlePlayPause} tabIndex={-1}>
           {playing ? (
-            <FontAwesomeIcon icon={faCirclePause} size="xl" color="white" />
+            <CirclePause className="size-10 text-primary" />
           ) : (
-            <FontAwesomeIcon icon={faCirclePlay} size="xl" color="white" />
+            <CirclePlay className="size-10 text-primary" />
           )}
         </IconButton>
       </div>
@@ -142,7 +141,7 @@ export default function LyricsEditorPlayer({
           onMouseDown={handleSeekStart}
           aria-labelledby="karaoke-slider"
         />
-        <div className="flex items-center justify-between w-full text-sm text-white">
+        <div className="flex items-center justify-between w-full text-sm text-muted-foreground">
           <span>{formatTime(progress)}</span>
           <span>{formatTime(duration)}</span>
         </div>

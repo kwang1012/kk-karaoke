@@ -1,52 +1,14 @@
-import { Close, Home, LyricsOutlined, Search } from '@mui/icons-material';
-import {
-  Divider,
-  IconButton,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  TextField,
-} from '@mui/material';
-import { styled } from '@mui/material/styles';
+import { Home, MicVocal, Search, X } from 'lucide-react';
+import { IconButton } from 'src/components/ui/button';
+import { Input } from 'src/components/ui/input';
+import { Separator } from 'src/components/ui/separator';
+import { cn } from 'src/lib/utils';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import LyricsEditor from 'src/components/LyricsEditor';
 import AppScrollbar from 'src/components/Scrollbar';
 import { useTrackStore } from 'src/store';
 import LyricsEditorPlayer from 'src/components/LyricsEditor/Player';
-const Layout = styled('div')(({ theme }) => ({
-  display: 'grid',
-  gridTemplateColumns: 'auto 1fr',
-  width: '100%',
-  height: '100%',
-  gap: 8,
-  padding: 8,
-}));
-
-const Sidebar = styled('div')(({ theme }) => ({
-  display: 'grid',
-  gridTemplateRows: 'auto auto 1fr',
-  gap: 8,
-  background: theme.palette.mode === 'dark' ? '#121212' : '#f5f5f5',
-  borderRadius: 8,
-  width: 300,
-  height: '100%',
-  overflow: 'hidden',
-}));
-
-const Main = styled('div')(({ theme }) => ({
-  display: 'grid',
-  gridTemplateRows: '1fr auto',
-  width: '100%',
-  height: '100%',
-  background: '#121212',
-  borderRadius: 8,
-  padding: '20px 40px',
-  overflow: 'hidden',
-}));
-
 export default function LyricsEditView() {
   const { trackId } = useParams();
   const navigate = useNavigate();
@@ -80,82 +42,62 @@ export default function LyricsEditView() {
   }, [trackId, uniqueTracks[0]]);
   const [progress, setProgress] = useState(0);
   return (
-    <Layout>
-      <Sidebar>
+    <div className="grid h-full w-full grid-cols-[auto_1fr] gap-3 bg-background p-3">
+      <div className="grid h-full w-[300px] grid-rows-[auto_auto_1fr] gap-2 overflow-hidden rounded-2xl border bg-card">
         <div className="p-4">
           <h1 className="font-bold text-2xl">
-            <IconButton onClick={() => navigate('/')} className="text-white bg-transparent">
-              <Home />
+            <IconButton onClick={() => navigate('/')}>
+              <Home className="size-6" />
             </IconButton>
             Lyrics
           </h1>
-          <TextField
-            fullWidth
-            className="mt-4"
-            sx={{
-              '& .MuiInputBase-root': {
-                height: 40,
-                padding: '0 8px',
-              },
-            }}
-            slotProps={{
-              input: {
-                placeholder: 'Search',
-                startAdornment: <Search />,
-                endAdornment: (
-                  <IconButton
-                    onClick={() => setSearch('')}
-                    className="text-white bg-transparent"
-                    sx={{
-                      visibility: search ? 'visible' : 'hidden',
-                    }}
-                  >
-                    <Close />
-                  </IconButton>
-                ),
-              },
-            }}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          <div className="relative mt-4">
+            <Search className="absolute top-1/2 left-2 size-5 -translate-y-1/2" />
+            <Input
+              className="h-10 px-9"
+              placeholder="Search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <IconButton
+              onClick={() => setSearch('')}
+              className={cn('absolute top-1/2 right-0 -translate-y-1/2', !search && 'invisible')}
+            >
+              <X className="size-5" />
+            </IconButton>
+          </div>
         </div>
-        <Divider className="w-full h-[1px] bg-[#4f4f4f]" />
+        <Separator />
         <AppScrollbar className="h-full">
-          <List>
+          <ul>
             {uniqueTracks.map((track) => (
-              <ListItem dense divider ref={(el) => (itemRefs.current[track.id] = el)} key={track.id} disablePadding>
-                <ListItemButton
-                  sx={{
-                    '&.Mui-selected': {
-                      backgroundColor: '#6f6f6f',
-                      '&:hover': {
-                        backgroundColor: '#6f6f6f',
-                      },
-                    },
-                    '&:hover': {
-                      backgroundColor: '#4f4f4f',
-                    },
-                  }}
-                  selected={trackId === track.id}
+              <li ref={(el) => {
+                  itemRefs.current[track.id] = el;
+                }} key={track.id} className="border-b border-border">
+                <button
+                  className={cn(
+                    'flex w-full items-center gap-4 px-4 py-2 text-left transition-colors hover:bg-accent',
+                    trackId === track.id && 'bg-primary/15 text-primary hover:bg-primary/20'
+                  )}
                   onClick={() => {
                     // onCancel();
                     navigate(`/lyrics/edit/${track.id}`);
                   }}
                 >
-                  <ListItemIcon>
-                    <LyricsOutlined />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={track.name}
-                    secondary={track.artists.map((artist) => artist.name).join(', ')}
-                  />
-                </ListItemButton>
-              </ListItem>
+                  <MicVocal className="size-6 shrink-0" />
+                  <span className="min-w-0">
+                    <span className="block truncate">{track.name}</span>
+                    <span className="block truncate text-sm text-muted-foreground">
+                      {track.artists.map((artist) => artist.name).join(', ')}
+                    </span>
+                  </span>
+                </button>
+              </li>
             ))}
-          </List>
+          </ul>
         </AppScrollbar>
-      </Sidebar>
-      <Main>
+      </div>
+      <div className="grid h-full w-full grid-rows-[1fr_auto] overflow-hidden rounded-2xl border bg-card px-10 py-5">
         <LyricsEditor track={track} progress={progress} />
         <LyricsEditorPlayer
           track={track}
@@ -163,7 +105,7 @@ export default function LyricsEditView() {
             setProgress(progress);
           }}
         />
-      </Main>
-    </Layout>
+      </div>
+    </div>
   );
 }

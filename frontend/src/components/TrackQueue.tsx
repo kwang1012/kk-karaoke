@@ -32,14 +32,14 @@ function SortableItem({
   };
 
   const isActive = active?.id === id;
-  const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
+  const mobile = useBreakpointDown('md');
 
   return (
     <div
       ref={setNodeRef}
       {...(mobile ? {} : listeners)}
       {...attributes}
-      className="flex items-center my-2"
+      className="my-0.5 flex items-center"
       style={{
         ...style,
         touchAction: !mobile && dragging ? 'none' : 'manipulation',
@@ -49,16 +49,15 @@ function SortableItem({
         ...(isActive && {
           scale: 0.98,
           zIndex: 50,
-          borderRadius: 8,
-          backgroundColor: '#12121270',
-          boxShadow: '0 0 0 4px rgba(204, 51, 99, 0.8)',
+          borderRadius: 12,
+          backgroundColor: 'var(--popover)',
+          boxShadow: '0 0 0 2px var(--primary), var(--shadow-app)',
         }),
       }}
     >
       {mobile && (
-        <DragIndicator
-          className={isActive ? 'cursor-grabbing' : 'cursor-grab'}
-          sx={{ color: '#cacaca' }}
+        <GripVertical
+          className={isActive ? 'size-6 cursor-grabbing text-muted-foreground' : 'size-6 cursor-grab text-muted-foreground'}
           {...listeners}
           style={{ touchAction: 'none' }}
         />
@@ -70,8 +69,8 @@ function SortableItem({
 import { useState, type PointerEvent } from 'react';
 import { api } from 'src/utils/api';
 import { useActiveRoomId, useRoomStore } from 'src/store/room';
-import { useMediaQuery } from '@mui/material';
-import { DragIndicator } from '@mui/icons-material';
+import { useBreakpointDown } from 'src/hooks/media';
+import { GripVertical } from 'lucide-react';
 /**
  * An extended "PointerSensor" that prevent some
  * interactive html element(button, input, textarea, select, option...) from dragging
@@ -95,7 +94,7 @@ function isInteractiveElement(element: any | null) {
   const interactiveParent = element.closest('.interactive-section');
   if (interactiveParent) return true;
   const interactiveElements = ['button', 'input', 'textarea', 'select', 'option'];
-  if (element?.classList?.contains('MuiBackdrop-root')) return true;
+  if (element.closest('[data-radix-popper-content-wrapper]')) return true; // menus/tooltips rendered in portals
   if (element?.tagName && interactiveElements.includes(element.tagName.toLowerCase())) {
     return true;
   }

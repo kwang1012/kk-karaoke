@@ -1,24 +1,14 @@
 import AppScrollbar from './Scrollbar';
 import { useState, useRef, useMemo, useEffect } from 'react';
 import { usePlayer } from 'src/store/player';
-import { styled } from '@mui/material/styles';
 import placeholder from 'src/assets/placeholder.png';
 import { useTrackStore } from 'src/store';
 import { useSettingStore } from 'src/store/setting';
-import { OverlayScrollbarsComponentRef } from 'overlayscrollbars-react';
 
-const Overlay = styled('div')(({ theme }) => ({
-  position: 'fixed',
-  top: 0,
-  left: 0,
-  right: 0,
-  height: 84,
-  zIndex: 1,
-}));
 export default function MobileLyrics({ color, bgColor }: { color?: string; bgColor?: string }) {
   // local states
   const lineRefs = useRef<(HTMLSpanElement | null)[]>([]);
-  const containerRef = useRef<OverlayScrollbarsComponentRef<'div'> | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const { progress, currentLine, setCurrentLine, currentTrack, lyrics, seeking, loading } = usePlayer();
   const { seek } = usePlayer();
@@ -46,9 +36,7 @@ export default function MobileLyrics({ color, bgColor }: { color?: string; bgCol
     const el = lineRefs.current[currentLine];
     const container = containerRef.current;
     if (!el || !container) return;
-    const osInstance = container.osInstance();
-    if (!osInstance) return;
-    const viewport = osInstance.elements().viewport;
+    const viewport = container;
 
     const elTop = el.offsetTop;
     const elHeight = el.offsetHeight;
@@ -91,8 +79,8 @@ export default function MobileLyrics({ color, bgColor }: { color?: string; bgCol
       style={{ color, backgroundColor: bgColor }}
     >
       {sticky && (
-        <Overlay
-          className="shadow-md"
+        <div
+          className="fixed inset-x-0 top-0 z-[1] h-[84px] shadow-md"
           style={{
             background: bgColor,
           }}
@@ -112,7 +100,9 @@ export default function MobileLyrics({ color, bgColor }: { color?: string; bgCol
                 'text-2xl cursor-pointer font-bold transition-all duration-200',
                 i <= currentLine ? 'text-white' : '',
               ].join(' ')}
-              ref={(el) => (lineRefs.current[i] = el)}
+              ref={(el) => {
+                lineRefs.current[i] = el;
+              }}
               onClick={handleLineClick.bind(null, i)}
             >
               {line.text === '' ? '♪' : line.text}

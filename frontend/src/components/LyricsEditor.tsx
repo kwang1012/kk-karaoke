@@ -1,113 +1,18 @@
-import { TextField, Button, IconButton, Alert, Snackbar, SnackbarCloseReason } from '@mui/material';
-import { styled } from '@mui/material/styles';
+import { Pencil } from 'lucide-react';
+import { Button, IconButton } from 'src/components/ui/button';
+import { Input } from 'src/components/ui/input';
+import { cn } from 'src/lib/utils';
 import { useRef, useMemo, useEffect, useState } from 'react';
 import { Lyrics, Track } from 'src/models/spotify';
 import * as OpenCC from 'opencc-js';
 import { api } from 'src/utils/api';
-import { Edit } from '@mui/icons-material';
 const converter = OpenCC.Converter({ from: 'cn', to: 'tw' });
-
-const EditorWrapper = styled('div')(({ theme }) => ({
-  width: '100%',
-  height: '100%',
-  border: '1px solid #4f4f4f',
-  overflow: 'hidden',
-  borderRadius: 8,
-}));
-
-const TextArea = styled('textarea')(({ theme }) => ({
-  width: '100%',
-  height: '100%',
-  outline: 'none',
-  resize: 'none',
-  fontSize: 18,
-  lineHeight: 2,
-  padding: 0,
-}));
-const LrcWrapper = styled('div')(({ theme }) => ({
-  position: 'relative',
-  width: '100%',
-  height: '100%',
-  color: '#f0f6fc',
-  padding: 16,
-  paddingLeft: 56,
-  overflow: 'hidden',
-  background: '#141414',
-}));
-const LrcHighlight = styled('div')(({ theme }) => ({
-  position: 'absolute',
-  top: 16,
-  left: 56,
-  bottom: 16,
-  right: 16,
-  pointerEvents: 'none',
-  overflow: 'hidden',
-  zIndex: 1,
-}));
-const Highlight = styled('div')(({ theme }) => ({
-  fontSize: 18,
-  lineHeight: 2,
-  color: 'transparent',
-  '&.invalid': {
-    textDecoration: 'underline',
-    textDecorationColor: '#fa6171',
-    textDecorationThickness: '2px',
-    textUnderlineOffset: '4px',
-  },
-  '&.highlight': {
-    background: 'linear-gradient(90deg, #fa6171 0%, #fa6171 100%)',
-    backgroundSize: '100% 200%',
-    backgroundPosition: '0% 0%',
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
-    animation: 'highlight 1s ease-in-out infinite',
-    zIndex: 2,
-  },
-}));
-const LrcLineNumbers = styled('div')(({ theme }) => ({
-  position: 'absolute',
-  top: 16,
-  left: 16,
-  bottom: 16,
-  width: 40,
-  pointerEvents: 'none',
-  overflow: 'hidden',
-  zIndex: 1,
-  fontSize: 14,
-  lineHeight: 2,
-  color: '#7f7f7f',
-}));
-const LrcNumber = styled('div')(({ theme }) => ({
-  width: '100%',
-  height: 36,
-  paddingRight: 20,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'end',
-  fontWeight: 600,
-}));
-
-const Toolbar = styled('div')(({ theme }) => ({
-  width: '100%',
-  borderBottom: '1px solid #4f4f4f',
-  padding: 8,
-  background: '#242424',
-}));
 
 const LYRICS_REGEX = /^\[\d{2}:\d{2}(?:\.\d{2,3})] ?(.+)?$/;
 
 function validateLRCLine(line: string) {
   return line.trim() === '' || LYRICS_REGEX.test(line);
 }
-
-const Layout = styled('div')(({ theme }) => ({
-  display: 'grid',
-  gridTemplateRows: 'auto 1fr',
-  width: '100%',
-  height: '100%',
-  gap: 20,
-  padding: 8,
-}));
 
 function isValidLRC(input: string) {
   const lines = input.trim().split(/\r?\n/);
@@ -159,9 +64,17 @@ export default function LyricsEditor({ track, progress }: { track: Track; progre
         const isValid = validateLRCLine(line);
 
         return (
-          <Highlight className={[!isValid ? 'invalid' : '', i === currentLine ? 'highlight' : ''].join(' ')} key={i}>
+          <div
+            className={cn(
+              'text-lg/loose text-transparent',
+              !isValid && 'underline decoration-primary decoration-2 underline-offset-4',
+              i === currentLine &&
+                'z-[2] animate-[highlight_1s_ease-in-out_infinite] bg-[linear-gradient(90deg,var(--primary),var(--primary))] bg-[length:100%_200%] bg-[position:0%_0%] bg-clip-text [-webkit-text-fill-color:transparent]'
+            )}
+            key={i}
+          >
             {isValid ? line : line.split(' ')[0]}
-          </Highlight>
+          </div>
         );
       }),
     [lines]
@@ -202,33 +115,26 @@ export default function LyricsEditor({ track, progress }: { track: Track; progre
     }
   }, [progress, lyrics]);
 
-  const [open, setOpen] = useState(false);
-  const [message, setMessage] = useState('');
-
-  const handleClose = (event: React.SyntheticEvent | Event, reason?: SnackbarCloseReason) => {
-    if (reason === 'clickaway') {
-      return;
-    }
-    setOpen(false);
+  const [status, setStatus] = useState('');
+  const showStatus = (message: string) => {
+    setStatus(message);
+    setTimeout(() => setStatus(''), 2000);
   };
   const onSave = (content: string) => {
     const isValid = isValidLRC(content);
     if (!isValid) {
-      setMessage('Invalid LRC format');
-      setOpen(true);
+      showStatus('Invalid LRC format');
     } else {
       api
         .post(`/lyrics/${track.id}/update`, { content })
         .then(() => {
-          setMessage('Saved successfully');
-          setOpen(true);
+          showStatus('Saved successfully');
           setEditing(false);
           setOriginalContent(content);
         })
         .catch((err) => {
           console.error(err);
-          setMessage('Failed to save');
-          setOpen(true);
+          showStatus('Failed to save');
         });
     }
   };
@@ -239,93 +145,60 @@ export default function LyricsEditor({ track, progress }: { track: Track; progre
 
   return (
     <>
-      <Layout>
+      <div className="grid h-full w-full grid-rows-[auto_1fr] gap-5 p-2">
         <div className="flex items-center justify-between">
           <h1 className="font-bold text-2xl">
             ♪ {track.name}
-            <span className="text-sm text-gray-400 ml-2">{track.artists.map((artist) => artist.name).join(', ')}</span>
+            <span className="ml-2 text-sm text-muted-foreground">{track.artists.map((artist) => artist.name).join(', ')}</span>
           </h1>
           <div className="flex items-center">
+            {status && <span className="mr-3 text-sm text-muted-foreground" role="status">{status}</span>}
             {editing ? (
               <>
                 <Button
-                  variant="outlined"
-                  className="text-[#cacaca] bg-transparent border-[#cacaca] mr-2"
+                  variant="outline"
+                  className="mr-2 bg-transparent"
                   onClick={onCancel}
                 >
                   Cancel changes
                 </Button>
-                <Button
-                  disableElevation
-                  disabled={!modified}
-                  variant="contained"
-                  className="bg-primary"
-                  onClick={() => onSave(content)}
-                >
+                <Button disabled={!modified} onClick={() => onSave(content)}>
                   Save changes
                 </Button>
               </>
             ) : (
-              <IconButton onClick={() => setEditing(true)} className="text-white bg-transparent">
-                <Edit />
+              <IconButton onClick={() => setEditing(true)}>
+                <Pencil className="size-5" />
               </IconButton>
             )}
           </div>
         </div>
-        <EditorWrapper className={editing ? 'editing' : ''}>
+        <div className="h-full w-full overflow-hidden rounded-xl border">
           {/* Toolbar */}
           {editing && (
-            <Toolbar>
-              <TextField
-                type="number"
-                className="mr-2"
-                value={delay}
-                label="Offset (s)"
-                onChange={(e) => setDelay(Number(e.target.value))}
-                sx={{
-                  width: 150,
-                  '& .MuiInputBase-root': {
-                    padding: 0,
-                    '& .MuiButtonBase-root': {
-                      backgroundColor: '#ffffff30',
-                      color: '#cacaca',
-                    },
-                    '&:hover .MuiButtonBase-root': {
-                      color: 'white',
-                    },
-                  },
-                }}
-                slotProps={{
-                  inputLabel: {
-                    shrink: true,
-                  },
-                  input: {
-                    endAdornment: (
-                      <Button disableElevation variant="text">
-                        Apply
-                      </Button>
-                    ),
-                  },
-                }}
-              />
+            <div className="w-full border-b bg-muted p-2">
+              <div className="relative mr-2 inline-flex w-[150px] items-center align-middle">
+                <label className="absolute -top-2 left-2 bg-muted px-1 text-xs text-muted-foreground">Offset (s)</label>
+                <Input
+                  type="number"
+                  value={delay}
+                  onChange={(e) => setDelay(Number(e.target.value))}
+                  className="pr-16"
+                />
+                <Button variant="ghost" size="sm" className="absolute right-0 bg-accent text-muted-foreground hover:text-foreground">
+                  Apply
+                </Button>
+              </div>
               <Button
-                disableElevation
-                variant="outlined"
-                className="bg-transparent border-[#4f4f4f] text-[#cacaca] hover:bg-[#4f4f4f] hover:border-[#6f6f6f] hover:text-white"
-                sx={{
-                  padding: '5px 6px',
-                }}
+                variant="outline"
+                className="bg-transparent px-2 text-muted-foreground"
                 onClick={() => setContent(converter(content))}
               >
                 {'簡→繁'}
               </Button>
               <Button
-                disableElevation
-                variant="outlined"
-                className="ml-2 bg-transparent border-[#4f4f4f] text-[#cacaca] hover:bg-[#4f4f4f] hover:border-[#6f6f6f] hover:text-white"
-                sx={{
-                  padding: '5px 6px',
-                }}
+                variant="outline"
+                className="ml-2 bg-transparent px-2 text-muted-foreground"
                 onClick={() => {
                   const ta = textareaRef.current;
                   if (!ta) return;
@@ -347,41 +220,33 @@ export default function LyricsEditor({ track, progress }: { track: Track; progre
               >
                 Current time
               </Button>
-            </Toolbar>
+            </div>
           )}
-          <LrcWrapper>
-            <LrcHighlight ref={highlightRef} className="no-scrollbar">
+          <div className="relative h-full w-full overflow-hidden bg-background p-4 pl-14 text-foreground">
+            <div ref={highlightRef} className="no-scrollbar pointer-events-none absolute inset-y-4 right-4 left-14 z-[1] overflow-hidden">
               {highlighted}
               <div className="h-[100px]"></div>
-            </LrcHighlight>
-            <LrcLineNumbers ref={lineNumbersRef} className="no-scrollbar">
+            </div>
+            <div ref={lineNumbersRef} className="no-scrollbar pointer-events-none absolute inset-y-4 left-4 z-[1] w-10 overflow-hidden text-sm/loose text-muted-foreground">
               {lineNumbers.map((lineNumber) => (
-                <LrcNumber key={lineNumber}>{lineNumber}</LrcNumber>
+                <div key={lineNumber} className="flex h-9 w-full items-center justify-end pr-5 font-semibold">{lineNumber}</div>
               ))}
-            </LrcLineNumbers>
-            <TextArea
+            </div>
+            <textarea
               disabled={!editing}
               ref={textareaRef}
               onScroll={syncScroll}
-              className="scrollbar z-10"
+              className="z-10 h-full w-full resize-none bg-transparent p-0 text-lg/loose outline-none"
               spellCheck={false}
               value={content}
               onChange={(e) => {
                 setContent(e.target.value);
               }}
             />
-          </LrcWrapper>
-        </EditorWrapper>
-      </Layout>
+          </div>
+        </div>
+      </div>
 
-      <Snackbar
-        open={open}
-        autoHideDuration={1000}
-        onClose={handleClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        <Alert severity="info">{message}</Alert>
-      </Snackbar>
     </>
   );
 }

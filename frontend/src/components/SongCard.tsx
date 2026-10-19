@@ -1,92 +1,35 @@
-import { Avatar, CircularProgress, CircularProgressProps, Tooltip, useMediaQuery } from '@mui/material';
-import { styled } from '@mui/material/styles';
 import { ReactElement, useEffect, useMemo, useState } from 'react';
 import placeholderImage from 'src/assets/placeholder.png';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faGears, faMusic } from '@fortawesome/free-solid-svg-icons';
+import { CircleCheck, CircleAlert, Cog, Music, Play } from 'lucide-react';
 import { useReadyTrackIds, useTrackStore } from 'src/store';
-import { CheckCircle, ErrorOutline, PlayArrow } from '@mui/icons-material';
 import { Track } from 'src/models/spotify';
 import ActionMenu from './playlist/ActionMenu';
+import { Avatar, AvatarImage } from 'src/components/ui/avatar';
+import { CircularProgress } from 'src/components/ui/progress';
+import { Tooltip } from 'src/components/ui/tooltip';
+import { useBreakpointDown } from 'src/hooks/media';
+import { cn } from 'src/lib/utils';
 
 const CircularProgressWithLabel = ({
   children,
   value,
-  ...props
-}: { children?: ReactElement } & CircularProgressProps) => {
+  size,
+  indeterminate,
+}: {
+  children?: ReactElement;
+  value: number;
+  size: number;
+  indeterminate?: boolean;
+}) => {
   return (
     <div className="relative inline-flex">
-      {/* Background track */}
-      {/* <CircularProgress
-        {...props}
-        className="absolute z-0"
-        variant="determinate"
-        value={100}
-        sx={{
-          color: '#535353', // light gray background
-        }}
-      /> */}
-      <CircularProgress {...props} value={value} className="z-1" sx={{ color: 'white' }} />
+      <CircularProgress size={size} value={indeterminate ? undefined : value} />
       <div className="top-0 left-0 bottom-0 right-0 absolute flex items-center justify-center">
         {children ? children : <span className="text-xs">{value}%</span>}
       </div>
     </div>
   );
 };
-
-const HoverLayout = styled('div')(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  position: 'relative',
-  overflow: 'hidden',
-  height: 52,
-  borderRadius: theme.shape.borderRadius,
-  cursor: 'default',
-  '& .actions': {
-    opacity: 0,
-  },
-  '&.disabled': {
-    backgroundColor: 'transparent !important',
-    '*': {
-      color: '#b3b3b3 !important',
-    },
-  },
-  '&.disable-hover': {
-    backgroundColor: 'transparent !important',
-  },
-  '&:hover, &.active': {
-    '*': {
-      color: theme.palette.mode == 'dark' ? 'white' : 'black',
-    },
-    '.checked-icon *': {
-      color: theme.palette.success.main,
-    },
-    backgroundColor: theme.palette.mode == 'dark' ? '#ffffff1a' : '#0000001a',
-    '& .actions': {
-      opacity: 1,
-    },
-    '& .avatar': {
-      display: 'none',
-    },
-  },
-  '&.active': {
-    backgroundColor: '#ffffff3a',
-  },
-  [theme.breakpoints.down('md')]: {
-    '& .actions': {
-      opacity: 1,
-    },
-    '*': {
-      color: theme.palette.mode == 'dark' ? 'white' : 'black',
-    },
-    '&:hover, &.active': {
-      backgroundColor: 'transparent',
-    },
-    '.checked-icon *': {
-      color: theme.palette.success.main,
-    },
-  },
-}));
 
 type SongCardProps = {
   className?: string;
@@ -150,72 +93,60 @@ export default function SongCard({
 
   const progressIcon = useMemo(() => {
     if (status === 'downloading_lyrics' || status === 'downloading_audio')
-      return <FontAwesomeIcon width={20} widths={20} color="white" icon={faMusic} />;
-    if (status === 'separating') return <FontAwesomeIcon width={20} height={20} color="white" icon={faGears} />;
+      return <Music className="size-3.5" />;
+    if (status === 'separating') return <Cog className="size-3.5" />;
     return <></>;
   }, [status]);
 
   const [menuOpen, setMenuOpen] = useState(false);
-  const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
+  const mobile = useBreakpointDown('md');
   return (
-    <HoverLayout
-      className={[
-        className,
-        dense ? 'py-0 px-1' : 'px-2',
-        menuOpen ? 'active' : '',
-        !isReady || disable ? 'disabled' : '',
-        disableHover ? 'disable-hover' : '',
-      ].join(' ')}
+    <div
+      className={cn(
+        'group/card relative flex h-14 cursor-default items-center gap-3 rounded-xl px-2 transition-colors',
+        dense && 'h-12 px-1',
+        !disabled && !disableHover && 'hover:bg-accent',
+        menuOpen && !disableHover && 'bg-accent',
+        disabled && 'opacity-50',
+        className
+      )}
       {...props}
     >
-      <div className="relative w-10 h-10 bg-[#b3b3b3] rounded-md mr-4 overflow-hidden shrink-0">
+      <div className="relative size-10 shrink-0 overflow-hidden rounded-lg bg-muted">
+        <img src={parsedTrack.album?.images?.[0]?.url || placeholderImage} className="size-full object-cover" />
         {onAdd && !disable && !mobile && (
-          <div
-            className="actions absolute flex items-center justify-center w-full h-full bg-[#3b3b3b70] cursor-pointer"
+          <button
+            aria-label="Add to queue"
+            className="absolute inset-0 flex items-center justify-center bg-black/55 text-white opacity-0 transition-opacity group-hover/card:opacity-100"
             onClick={() => track && onAdd(parsedTrack)}
           >
-            <PlayArrow />
-          </div>
+            <Play className="size-4 fill-current" />
+          </button>
         )}
-        <img src={parsedTrack.album?.images[0].url || placeholderImage} className="w-full h-full" />
       </div>
-      <div className="flex flex-col justify-between py-1 flex-1">
-        <span className="line-clamp-1">{parsedTrack.name}</span>
-        <span className="text-sm text-gray-400 line-clamp-1">
-          {parsedTrack.artists.map((artist, index) => (
-            <span key={index}>
-              {index > 0 && ', '}
-              <a
-                // href={disabled ? undefined : artist.uri}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={['size-fit', disabled ? 'cursor-default' : 'hover:underline cursor-pointer'].join(' ')}
-              >
-                {artist.name}
-              </a>
-            </span>
-          ))}
+      <div className="flex min-w-0 flex-1 flex-col justify-center">
+        <span className="truncate text-sm font-medium">{parsedTrack.name}</span>
+        <span className="truncate text-xs text-muted-foreground">
+          {parsedTrack.artists.map((artist) => artist.name).join(', ')}
         </span>
       </div>
       {/* Only show ready icon if onAdd is not undefined */}
       {ready && onAdd && (
         <Tooltip placement="top" title="Ready">
-          <CheckCircle fontSize="small" color="success" className="mr-2 checked-icon" />
+          <CircleCheck className="size-4 shrink-0 text-success" />
         </Tooltip>
       )}
       {hasActions && !disabled && (
-        <div className="flex items-center shrink-0 relative">
+        <div className="relative flex shrink-0 items-center">
           {track?.orderedBy && (
             <Tooltip title={track.orderedBy.name} placement="top">
-              <Avatar
-                className={['w-10 h-10 border-none', mobile ? 'relative' : 'absolute avatar'].join(' ')}
-                alt={track.orderedBy.name}
-                src={track.orderedBy.avatar}
-              />
+              <Avatar className="mr-1 size-7">
+                <AvatarImage alt={track.orderedBy.name} src={track.orderedBy.avatar} />
+              </Avatar>
             </Tooltip>
           )}
           <ActionMenu
-            className="actions"
+            className={cn(!mobile && !menuOpen && 'opacity-0 group-hover/card:opacity-100 focus-visible:opacity-100')}
             track={parsedTrack}
             onAdd={onAdd}
             onInsert={onInsert}
@@ -227,20 +158,16 @@ export default function SongCard({
       )}
       {status === 'error' && !disable && (
         <Tooltip placement="top" title="Processing failed. Remove it and try again.">
-          <ErrorOutline fontSize="small" color="error" className="mr-2" />
+          <CircleAlert className="size-4 shrink-0 text-destructive" />
         </Tooltip>
       )}
       {!isReady && status !== 'error' && !disable && (
         <div className="shrink-0">
-          <CircularProgressWithLabel
-            size={36}
-            variant={status === 'separating' ? 'determinate' : 'indeterminate'}
-            value={progress}
-          >
+          <CircularProgressWithLabel size={32} indeterminate={status !== 'separating'} value={progress}>
             {progressIcon}
           </CircularProgressWithLabel>
         </div>
       )}
-    </HoverLayout>
+    </div>
   );
 }

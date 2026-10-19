@@ -1,21 +1,12 @@
-import { Button } from '@mui/material';
+import { Button } from 'src/components/ui/button';
 import MobileAudioController from './MobileAudioController';
 import AppScrollbar from './Scrollbar';
 import TrackQueue from './TrackQueue';
 import { useState, useRef, useMemo, useEffect } from 'react';
 import { useQueue, usePlayerStore } from 'src/store/player';
 import { getUniqueId } from 'src/utils';
-import { styled } from '@mui/material/styles';
 import placeholder from 'src/assets/placeholder.png';
 
-const Overlay = styled('div')(({ theme }) => ({
-  position: 'fixed',
-  top: 0,
-  left: 0,
-  right: 0,
-  height: 84,
-  zIndex: 1,
-}));
 export default function MobilePlayer({ color }: { color?: string }) {
   const { currentTrack, queue, queueIdx } = useQueue();
   const getRandomTracks = usePlayerStore((state) => state.getRandomTracks);
@@ -41,8 +32,8 @@ export default function MobilePlayer({ color }: { color?: string }) {
       <AppScrollbar onScroll={handleScroll} className="w-full h-full pb-5">
         <div className="w-full">{/* PUT HISTORY */}</div>
         {sticky && (
-          <Overlay
-            className="shadow-md"
+          <div
+            className="fixed inset-x-0 top-0 z-[1] h-[84px] shadow-md"
             style={{
               background: color,
             }}
@@ -61,7 +52,7 @@ export default function MobilePlayer({ color }: { color?: string }) {
             <>
               <div className="text-gray-400 mt-2 w-full pl-2">There's no music in the queue.</div>
               <div className="mt-5 px-2 flex justify-center text-primary">
-                <Button variant="contained" className="bg-primary" onClick={getRandomTracks}>
+                <Button onClick={getRandomTracks}>
                   Random songs?
                 </Button>
               </div>

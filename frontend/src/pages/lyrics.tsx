@@ -3,49 +3,15 @@ import AppScrollbar from 'src/components/Scrollbar';
 import { usePlayer } from 'src/store/player';
 import { useTrackStore } from 'src/store';
 import { DEFAULT_BG_COLOR, DEFAULT_COLOR, getLyricsRGB } from 'src/utils';
-import { IconButton, useTheme } from '@mui/material';
-import { FullscreenExitOutlined, FullscreenOutlined } from '@mui/icons-material';
+import { Maximize, Minimize } from 'lucide-react';
+import { IconButton } from 'src/components/ui/button';
+import { useThemeMode } from 'src/hooks/theme';
+import { cn } from 'src/lib/utils';
 import { useSettingStore } from 'src/store/setting';
 import MobilePlayer from 'src/components/MobilePlayer';
-import { styled } from '@mui/material/styles';
-import { OverlayScrollbarsComponentRef } from 'overlayscrollbars-react';
 import NonLinearSlider from 'src/components/NonLinearSlider';
-import Midi from 'src/components/Midi';
 import { api } from 'src/utils/api';
 import { useDebouncedCallback } from 'src/hooks/debounce';
-
-const FloatingControl = styled('div')(({ theme }) => ({
-  display: 'grid',
-  gridTemplateRows: '1fr auto',
-  gridTemplateColumns: '1fr',
-  position: 'fixed',
-  left: 0,
-  top: '95%',
-  zIndex: 12,
-  padding: '20px 8px',
-  height: '50%',
-  overflow: 'hidden',
-  backdropFilter: 'blur(10px)',
-  borderRadius: '0.5rem',
-  aspectRatio: '3/4',
-  transform: 'translateX(-90%)',
-  backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  '&.active': {
-    transform: 'translateX(-5%) translateY(-90%)',
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-  },
-}));
-
-const DelayControl = styled('div')(({ theme }) => ({
-  position: 'absolute',
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'start',
-  left: 20,
-  top: '50%',
-  zIndex: 12,
-  transform: 'translateY(-50%)',
-}));
 
 export default function LyricsView() {
   // local states
@@ -76,29 +42,12 @@ export default function LyricsView() {
   const [color, setColor] = useState<string>(DEFAULT_COLOR);
   const [bgColor, setBgColor] = useState<string>(DEFAULT_BG_COLOR);
   const image = currentTrack?.album?.images?.[0]?.url;
-  const theme = useTheme();
+  const mode = useThemeMode();
   const isFullscreen = useSettingStore((state) => state.isFullScreen);
   const showTranslatinon = useSettingStore((state) => state.showTranslatinon);
-  const scrollbarRef = useRef<OverlayScrollbarsComponentRef<'div'> | null>(null);
+  const scrollbarRef = useRef<HTMLDivElement>(null);
   const [delaySeeking, setDelaySeeking] = useState(false);
   const [active, setActive] = useState(false);
-  const [midi, setMidi] = useState({
-    noteEvents: [],
-    minNote: 48,
-    maxNote: 84,
-  });
-
-  useEffect(() => {
-    if (!currentTrack?.id) return;
-    api
-      .get(`tracks/midi/${currentTrack?.id}`)
-      .then(({ data }) => {
-        setMidi(data);
-      })
-      .catch((error) => {
-        console.error('Error fetching MIDI data:', error);
-      });
-  }, [currentTrack?.id]);
 
   // Set the document title to the current song name and artist
   useEffect(() => {
@@ -118,7 +67,7 @@ export default function LyricsView() {
       setBgColor(DEFAULT_BG_COLOR);
       return;
     }
-    getLyricsRGB(image, theme.palette.mode === 'light')
+    getLyricsRGB(image, mode === 'light')
       .then(({ lyrics, background }) => {
         setColor(lyrics);
         setBgColor(background);
@@ -126,16 +75,14 @@ export default function LyricsView() {
       .catch((error) => {
         console.error('Error fetching average RGB:', error);
       });
-  }, [image, theme.palette.mode]);
+  }, [image, mode]);
 
   // Scroll to the current line when the progress changes
   useEffect(() => {
     const el = lineRefs.current[currentLine];
     const scrollbar = scrollbarRef.current;
     if (!el || !scrollbar) return;
-    const osInstance = scrollbar.osInstance();
-    if (!osInstance) return;
-    const viewport = osInstance.elements().viewport;
+    const viewport = scrollbar;
 
     const elTop = el.offsetTop;
     const elHeight = el.offsetHeight;
@@ -183,8 +130,11 @@ export default function LyricsView() {
   return (
     <>
       {isFullscreen && (
-        <FloatingControl
-          className={active ? 'active' : ''}
+        <div
+          className={cn(
+            'fixed top-[95%] left-0 z-12 grid aspect-[3/4] h-1/2 grid-cols-1 grid-rows-[1fr_auto] overflow-hidden rounded-lg bg-black/50 px-2 py-5 backdrop-blur-[10px] [transform:translateX(-90%)]',
+            active && 'bg-black/70 [transform:translateX(-5%)_translateY(-90%)]'
+          )}
           onMouseEnter={() => setActive(true)}
           onMouseLeave={() => setActive(false)}
           style={{
@@ -194,12 +144,12 @@ export default function LyricsView() {
           }}
         >
           <MobilePlayer color="rgba(0, 0, 0, 0.8)" />
-        </FloatingControl>
+        </div>
       )}
       <div className={isFullscreen ? 'fixed left-0 w-screen h-screen z-11' : 'w-full h-full'}>
         <div className="relative w-full h-full" ref={containerRef}>
           {/* Delay controller */}
-          <DelayControl>
+          <div className="absolute top-1/2 left-5 z-12 flex -translate-y-1/2 flex-col items-start">
             <NonLinearSlider
               onDragStart={() => setDelaySeeking(true)}
               onDragEnd={() => setDelaySeeking(false)}
@@ -210,24 +160,22 @@ export default function LyricsView() {
                 }
               }}
             />
-            <span>{ahead.toFixed(1)} s</span>
-          </DelayControl>
+            <span className="mt-2 rounded-full bg-black/30 px-2 py-0.5 text-xs text-white tabular-nums backdrop-blur">{ahead.toFixed(1)} s</span>
+          </div>
           {currentTrack?.orderedBy && (
-            <div className="absolute top-2 right-3 z-10 flex items-center cursor-pointer px-2 bg-black/30 rounded-md">
-              <img src={currentTrack.orderedBy.avatar} className="w-12 h-12" alt={currentTrack.orderedBy.name} />
-              <span className="font-bold pr-2 text-white">{currentTrack.orderedBy.name}</span>
+            <div className="absolute top-4 right-4 z-10 flex items-center gap-2 rounded-full bg-black/30 py-1 pr-4 pl-1 backdrop-blur">
+              <img src={currentTrack.orderedBy.avatar} className="size-9 rounded-full" alt={currentTrack.orderedBy.name} />
+              <span className="text-sm font-semibold text-white">{currentTrack.orderedBy.name}</span>
             </div>
           )}
-          <div className="absolute bottom-2 right-3 z-10">
+          <div className="absolute right-4 bottom-4 z-10">
             <IconButton
-              disableRipple
-              className="opacity-70 hover:opacity-90 active:opacity-100 active:scale-110"
+              className="bg-black/30 text-white backdrop-blur hover:bg-black/50"
               onClick={toggleFullscreen}
             >
-              {isFullscreen ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
+              {isFullscreen ? <Minimize className="size-6" /> : <Maximize className="size-6" />}
             </IconButton>
           </div>
-          {/* <Midi midi={midi} currentTime={progress} /> */}
           <AppScrollbar
             ref={scrollbarRef}
             className={['w-full h-full px-10', isFullscreen ? 'py-[25%]' : ''].join(' ')}
@@ -235,15 +183,18 @@ export default function LyricsView() {
           >
             {syncedLyrics.length > 0 ? (
               syncedLyrics.map((line, i) => (
-                <div key={i} className={['my-8 mx-16', isFullscreen ? 'text-center' : ''].join(' ')}>
+                <div key={i} className={['my-6 mx-16', isFullscreen ? 'text-center' : ''].join(' ')}>
                   <span
                     className={[
-                      'text-[2.5vw] cursor-pointer font-bold hover:underline hover:opacity-100 transition-all duration-200',
-                      i <= currentLine ? 'text-white' : '',
+                      'origin-left cursor-pointer text-[2.5vw] leading-snug font-bold transition-all duration-300 hover:opacity-100',
+                      i <= currentLine ? 'text-white' : 'opacity-70',
+                      i === currentLine && !isFullscreen && 'scale-[1.04]',
                       isFullscreen ? 'text-center text-[3vw]' : '',
                       isFullscreen && (i === currentLine ? 'text-[5vw] opacity-100' : 'opacity-70'),
                     ].join(' ')}
-                    ref={(el) => (lineRefs.current[i] = el)}
+                    ref={(el) => {
+                      lineRefs.current[i] = el;
+                    }}
                     onClick={handleLineClick.bind(null, i)}
                   >
                     {line.text === '' ? '♪' : line.text}
@@ -258,7 +209,7 @@ export default function LyricsView() {
                 </div>
               ))
             ) : (
-              <div className="text-center mt-20 text-4xl font-bold" style={{ color }}>
+              <div className="mt-24 text-center text-3xl font-bold" style={{ color }}>
                 {!loading && <p>{currentTrack ? 'No lyrics available for this track.' : 'Start playing a track!'}</p>}
               </div>
             )}

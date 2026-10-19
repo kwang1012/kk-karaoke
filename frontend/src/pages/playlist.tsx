@@ -1,4 +1,4 @@
-import { AppBar, Toolbar, useMediaQuery } from '@mui/material';
+import { useBreakpointDown } from 'src/hooks/media';
 import { useState, useMemo, useEffect } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { api } from 'src/utils/api';
@@ -88,30 +88,24 @@ export default function PlaylistView() {
   const [isSticky, setIsSticky] = useState(false);
   const [scrollTop, setScrollTop] = useState(0);
   const [halfway, setHalfway] = useState(false);
-  const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
+  const mobile = useBreakpointDown('md');
   const headers = useMemo(() => {
     return collectionType === 'album' || mobile ? ALBUM_HEADERS : PLAYLIST_HEADERS;
   }, [collectionType, mobile]);
 
   return (
     <div className="w-full h-full relative pb-4">
-      <AppBar
-        position="absolute"
-        style={{
-          transition: 'background-color 0.2s ease-in-out',
-          backgroundColor: halfway ? color : 'transparent',
-        }}
-        elevation={0}
+      <header
+        className="absolute inset-x-0 top-0 z-10 text-white transition-colors duration-200"
+        style={{ backgroundColor: halfway ? color : 'transparent' }}
       >
         {halfway && (
-          <Toolbar variant={mobile ? 'dense' : 'regular'}>
-            <>
-              <img src={collectionImage} className="w-8 h-8 rounded-md" />
-              <div className="text-xl ml-4 line-clamp-1">{collection.name}</div>
-            </>
-          </Toolbar>
+          <div className="flex h-12 items-center px-4 md:h-16 md:px-6">
+            <img src={collectionImage} className="w-8 h-8 rounded-md" />
+            <div className="text-xl ml-4 line-clamp-1">{collection.name}</div>
+          </div>
         )}
-      </AppBar>
+      </header>
       <PlaylistProvider
         value={{
           collectionType,

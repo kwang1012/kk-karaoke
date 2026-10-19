@@ -4,11 +4,10 @@ import Carousel, { CarouselItem } from '../components/Carousel';
 import SongCard from '../components/SongCard';
 import placeholder from 'src/assets/placeholder.png';
 import AppScrollbar from '../components/Scrollbar';
-import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from 'src/store';
-import { useMediaQuery } from '@mui/material';
-import { styled } from '@mui/material/styles';
+import { useBreakpointDown } from 'src/hooks/media';
+import { cn } from 'src/lib/utils';
 import SearchBox from 'src/components/SearchBox';
 import { usePlayerStore } from 'src/store/player';
 import { useDebouncedCallback } from 'src/hooks/debounce';
@@ -22,15 +21,8 @@ const getArtistsStr = (artists: any[]) => {
     .join(',');
 };
 
-const Layout = styled('div')(({ theme }) => ({
-  display: 'grid',
-  gridTemplateRows: 'auto 1fr',
-  width: '100%',
-  height: '100%',
-}));
-
 export default function SearchView() {
-  const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
+  const mobile = useBreakpointDown('md');
   const navigate = useNavigate();
   const searchValue = useAppStore((state) => state.searchValue);
   const setSearching = useAppStore((state) => state.setSearching);
@@ -93,17 +85,23 @@ export default function SearchView() {
     setSearching(value !== '');
   };
   return (
-    <Layout>
+    <div className="grid h-full w-full grid-rows-[auto_1fr]">
       {mobile ? (
         <div className="p-2">
-          <h1 className="px-4 py-2 text-4xl">Search</h1>
+          <h1 className="px-4 py-2 text-3xl font-bold tracking-tight">Search</h1>
           <div className="mx-2">
             <SearchBox value={searchValue} onChange={handleSearchChange} />
           </div>
         </div>
       ) : (
-        <div className={['px-8 h-[68px] flex items-center font-bold', scrollTop > 0 ? 'shadow-xl' : ''].join(' ')}>
-          Search Results for: <strong className="ml-1 underline">{searchValue}</strong>
+        <div className={cn('flex h-16 items-center px-8 text-xl font-semibold tracking-tight transition-shadow', scrollTop > 0 && 'shadow-md')}>
+          {searchValue ? (
+            <>
+              Results for <span className="ml-2 text-primary">“{searchValue}”</span>
+            </>
+          ) : (
+            'Search'
+          )}
         </div>
       )}
 
@@ -112,7 +110,7 @@ export default function SearchView() {
           <div className="pb-8">
             {tracks.length > 0 && (
               <div className="px-4 md:px-8">
-                <h1 className="text-2xl mt-2">Songs</h1>
+                <h2 className="mt-2 text-lg font-semibold tracking-tight">Songs</h2>
                 <div className="mt-2">
                   {tracks.map((track: any, i: number) => (
                     <SongCard key={i} track={track} dense className="mt-1" onAdd={onAdd} onInsert={onInsert} />
@@ -122,7 +120,7 @@ export default function SearchView() {
             )}
             {albums.length > 0 && (
               <>
-                <h1 className="text-2xl mt-8 px-4 md:px-8">Albums</h1>
+                <h2 className="mt-8 mb-2 px-4 text-lg font-semibold tracking-tight md:px-8">Albums</h2>
                 <Carousel>
                   {albums.map((album: any) => (
                     <CarouselItem
@@ -132,10 +130,10 @@ export default function SearchView() {
                       dense={mobile}
                       onClick={() => handleClickAlbum(album)}
                     >
-                      <img src={album.images?.[0]?.url || placeholder} className="w-full rounded-md" />
-                      <span className="text-md mt-2 line-clamp-2">{album.name}</span>
-                      <span className="text-sm text-gray-400 line-clamp-1">
-                        {dayjs(album.release_date, 'YYYY-MM-DD').format('YYYY')}．
+                      <img src={album.images?.[0]?.url || placeholder} className="aspect-square w-full rounded-lg object-cover shadow-md" />
+                      <span className="mt-2 line-clamp-2 text-sm font-medium">{album.name}</span>
+                      <span className="line-clamp-1 text-xs text-muted-foreground">
+                        {String(album.release_date ?? '').slice(0, 4)}．
                         {album.artists.map((a: any) => a.name).join(', ')}
                       </span>
                     </CarouselItem>
@@ -145,7 +143,7 @@ export default function SearchView() {
             )}
             {playlists.length > 0 && (
               <>
-                <h1 className="text-2xl mt-8 px-4 md:px-8">Playlists</h1>
+                <h2 className="mt-8 mb-2 px-4 text-lg font-semibold tracking-tight md:px-8">Playlists</h2>
                 <Carousel>
                   {playlists.map((playlist: any) => (
                     <CarouselItem
@@ -154,9 +152,9 @@ export default function SearchView() {
                       dense={mobile}
                       onClick={() => handleClickPlaylist(playlist)}
                     >
-                      <img src={playlist.images?.[0]?.url || placeholder} className="w-full rounded-md" />
-                      <span className="text-md mt-2 line-clamp-2">{playlist.name}</span>
-                      <span className="text-sm text-gray-400 line-clamp-1">
+                      <img src={playlist.images?.[0]?.url || placeholder} className="aspect-square w-full rounded-lg object-cover shadow-md" />
+                      <span className="mt-2 line-clamp-2 text-sm font-medium">{playlist.name}</span>
+                      <span className="line-clamp-1 text-xs text-muted-foreground">
                         By {playlist.owner?.display_name || 'Unknown'}
                       </span>
                     </CarouselItem>
@@ -171,8 +169,8 @@ export default function SearchView() {
                     {artists.map((artist: any) => (
                       <CarouselItem key={artist.id} className="flex-1">
                         <img src={artist.images?.[0]?.url || placeholder} className="w-full rounded-full" />
-                        <span className="text-md mt-2 line-clamp-2">{artist.name}</span>
-                        <span className="text-sm text-gray-400 line-clamp-1">{capitalizeFirstLetter(artist.type)}</span>
+                        <span className="mt-2 line-clamp-2 text-sm font-medium">{artist.name}</span>
+                        <span className="line-clamp-1 text-xs text-muted-foreground">{capitalizeFirstLetter(artist.type)}</span>
                       </CarouselItem>
                     ))}
                   </Carousel>
@@ -183,6 +181,6 @@ export default function SearchView() {
           <p>No results found.</p>
         )}
       </AppScrollbar>
-    </Layout>
+    </div>
   );
 }

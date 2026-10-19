@@ -1,65 +1,42 @@
-import React from 'react';
-import { Slider } from '@mui/material';
-import { styled } from '@mui/material/styles';
-const iOSBoxShadow = '0 3px 1px rgba(0,0,0,0.1),0 4px 8px rgba(0,0,0,0.13),0 0 0 1px rgba(0,0,0,0.02)';
+import * as React from 'react';
+import { Slider } from 'src/components/ui/slider';
+import { cn } from 'src/lib/utils';
 
-const AppSlider = styled(Slider)(({ theme }) => ({
-  color: '#007bff',
-  height: 4,
-  padding: '4px 0',
-  '&:hover .MuiSlider-thumb': {
-    opacity: 1,
-  },
-  '& .MuiSlider-thumb': {
-    opacity: 0,
-    height: 12,
-    width: 12,
-    backgroundColor: '#fff',
-    boxShadow: '0 0 2px 0px rgba(0, 0, 0, 0.1)',
-    '&:focus, &:hover, &.Mui-active': {
-      boxShadow: '0px 0px 3px 1px rgba(0, 0, 0, 0.1)',
-      // Reset on touch devices, it doesn't add specificity
-      '@media (hover: none)': {
-        boxShadow: iOSBoxShadow,
-      },
-    },
-    '&:before': {
-      boxShadow: '0px 0px 1px 0px rgba(0,0,0,0.2), 0px 0px 0px 0px rgba(0,0,0,0.14), 0px 0px 1px 0px rgba(0,0,0,0.12)',
-    },
-  },
-  '& .MuiSlider-valueLabel': {
-    fontSize: 12,
-    fontWeight: 'normal',
-    top: -6,
-    backgroundColor: 'unset',
-    color: theme.palette.text.primary,
-    '&::before': {
-      display: 'none',
-    },
-    '& *': {
-      background: 'transparent',
-      color: '#000',
-      ...theme.applyStyles('dark', {
-        color: '#fff',
-      }),
-    },
-  },
-  '&:hover .MuiSlider-track': {
-    backgroundColor: theme.palette.primary.main,
-  },
-  '& .MuiSlider-track': {
-    border: 'none',
-    height: 4,
-    backgroundColor: theme.palette.mode === 'dark' ? 'white' : '#9d9986',
-  },
-  '& .MuiSlider-rail': {
-    opacity: 0.5,
-    boxShadow: 'inset 0px 0px 4px -2px #000',
-    backgroundColor: '#d0d0d0',
-  },
-  ...theme.applyStyles('dark', {
-    color: '#0a84ff',
-  }),
-}));
+type AppSliderProps = {
+  min?: number;
+  max?: number;
+  step?: number;
+  value: number;
+  className?: string;
+  onChange?: (event: Event, value: number | number[]) => void;
+  onChangeCommitted?: (event: Event, value: number | number[]) => void;
+  onMouseDown?: React.MouseEventHandler;
+  'aria-labelledby'?: string;
+};
 
-export default AppSlider;
+/** Single-value slider with the app styling: thin track, thumb only visible on hover. */
+export default function AppSlider({
+  value,
+  onChange,
+  onChangeCommitted,
+  onMouseDown,
+  className,
+  'aria-labelledby': labelledBy,
+  ...props
+}: AppSliderProps) {
+  return (
+    <Slider
+      {...props}
+      value={[value]}
+      aria-labelledby={labelledBy}
+      onPointerDown={onMouseDown as unknown as React.PointerEventHandler}
+      onValueChange={([v]) => onChange?.(new Event('change'), v)}
+      onValueCommit={([v]) => onChangeCommitted?.(new Event('change'), v)}
+      className={cn(
+        'group h-4 [&_[data-slot=thumb]]:opacity-0 hover:[&_[data-slot=thumb]]:opacity-100',
+        'hover:[&_[data-slot=range]]:bg-primary',
+        className
+      )}
+    />
+  );
+}

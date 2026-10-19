@@ -1,70 +1,42 @@
-import { Home, Search, QueueMusic, Lyrics } from '@mui/icons-material';
-import { BottomNavigation, BottomNavigationAction } from '@mui/material';
+import { Home, ListMusic, MicVocal, Search } from 'lucide-react';
 import { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { styled } from '@mui/material/styles';
+import { cn } from 'src/lib/utils';
 
-const DarkBottomNavigation = styled(BottomNavigation)(({ theme }) => ({
-  backgroundColor: 'black',
-  color: theme.palette.text.primary,
-  '& .MuiBottomNavigationAction-root': {
-    color: 'white',
-    '&.Mui-selected': {
-      color: theme.palette.primary.main,
-    },
-  },
-}));
+const items = [
+  { label: 'Browse', path: '/', icon: Home },
+  { label: 'Search', path: '/search', icon: Search },
+  { label: 'Queue', path: '/play', icon: ListMusic },
+  { label: 'Lyrics', path: '/lyrics', icon: MicVocal },
+];
 
 export default function AppNavigation() {
   const location = useLocation();
-  const isHomePage = location.pathname === '/';
-  const isPlaylistPage = location.pathname.startsWith('/playlist');
-  const isSearchPage = location.pathname.startsWith('/search');
-  const isQueuePage = location.pathname.startsWith('/play');
-  const isLyricPage = location.pathname.startsWith('/lyrics');
   const navigate = useNavigate();
 
   const selectedIndex = useMemo(() => {
-    if (isHomePage) return 0;
-    if (isPlaylistPage) return 0;
-    if (isSearchPage) return 1;
-    if (isQueuePage) return 2;
-    if (isLyricPage) return 3;
+    const { pathname } = location;
+    if (pathname === '/' || pathname.startsWith('/playlist')) return 0;
+    if (pathname.startsWith('/search')) return 1;
+    if (pathname.startsWith('/play')) return 2;
+    if (pathname.startsWith('/lyrics')) return 3;
   }, [location.pathname]);
 
-  const onChange = (event: React.SyntheticEvent, newValue: number) => {
-    switch (newValue) {
-      case 0:
-        location.pathname !== '/' && navigate('/');
-        break;
-      case 1:
-        location.pathname !== '/search' && navigate('/search');
-        break;
-      case 2:
-        location.pathname !== '/play' && navigate('/play');
-        break;
-      case 3:
-        location.pathname !== '/lyrics' && navigate('/lyrics');
-        break;
-      default:
-        break;
-    }
-  };
-
   return (
-    <DarkBottomNavigation
-      showLabels
-      sx={{
-        width: '100%',
-        height: '100%',
-      }}
-      value={selectedIndex}
-      onChange={onChange}
-    >
-      <BottomNavigationAction label="Browse" icon={<Home fontSize="medium" />} />
-      <BottomNavigationAction label="Search" icon={<Search fontSize="medium" />} />
-      <BottomNavigationAction label="Queue" icon={<QueueMusic fontSize="medium" />} />
-      <BottomNavigationAction label="Lyrics" icon={<Lyrics fontSize="medium" />} />
-    </DarkBottomNavigation>
+    <nav className="flex h-full w-full justify-center border-t bg-card/90 backdrop-blur-xl">
+      {items.map(({ label, path, icon: Icon }, index) => (
+        <button
+          key={label}
+          className={cn(
+            'flex min-w-20 max-w-32 flex-1 flex-col items-center justify-center gap-0.5 px-3 text-muted-foreground transition-colors',
+            selectedIndex === index && 'text-primary'
+          )}
+          onClick={() => location.pathname !== path && navigate(path)}
+        >
+          <Icon className="size-6" />
+          <span className="text-[11px] font-medium">{label}</span>
+        </button>
+      ))}
+    </nav>
   );
 }

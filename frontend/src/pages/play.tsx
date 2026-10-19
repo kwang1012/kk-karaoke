@@ -1,29 +1,15 @@
-import { styled } from '@mui/material/styles';
 import { useQueue } from 'src/store/player';
 import { useEffect, useState } from 'react';
-import { useMediaQuery } from '@mui/material';
+import { useBreakpointDown } from 'src/hooks/media';
 import { DEFAULT_BG_COLOR, getAvgRGB } from 'src/utils';
 import { useNavigate } from 'react-router-dom';
 import MobilePlayer from 'src/components/MobilePlayer';
-
-const Layout = styled('div')(({ theme }) => ({
-  display: 'grid',
-  gridTemplateRows: '1fr auto',
-  gridTemplateColumns: '1fr',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: '100%',
-  height: '100%',
-  paddingTop: 12,
-  paddingBottom: 12,
-  overflow: 'hidden',
-}));
 
 export default function PlayView() {
   const { currentTrack } = useQueue();
   const [color, setColor] = useState<string>(DEFAULT_BG_COLOR);
   const image = currentTrack?.album?.images?.[0]?.url;
-  const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
+  const mobile = useBreakpointDown('md');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -56,12 +42,13 @@ export default function PlayView() {
     meta.setAttribute('content', color);
   }
   return (
-    <Layout
+    <div
+      className="grid h-full w-full grid-cols-1 grid-rows-[1fr_auto] items-center justify-center overflow-hidden py-3"
       style={{
         backgroundImage: `linear-gradient(to bottom, ${color} 84px, ${color}40, #121212)`,
       }}
     >
       <MobilePlayer color={color} />
-    </Layout>
+    </div>
   );
 }

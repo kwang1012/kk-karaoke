@@ -1,42 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
 import { useSpring, animated, to } from '@react-spring/web';
-import { styled } from '@mui/material/styles';
-
-const Svg = styled('svg')(({ theme }) => ({
-  cursor: 'pointer',
-  '& rect': {
-    fill: '#dadbdc10',
-  },
-  '& g .track': {
-    fill: '#dadbdc',
-    opacity: 0.8,
-  },
-  '& g .circle': {
-    fill: '#eaebec',
-    opacity: 0.5,
-  },
-  '&:hover rect, &.active rect': {
-    fill: '#dadbdc70',
-  },
-  '&:hover g *, &.active g *': {
-    opacity: 1,
-  },
-}));
-
-const G = styled('g')(({ theme }) => ({
-  filter: 'url(#goo)',
-  // '& .track': {
-  //   fill: '#dadbdc',
-  //   opacity: 0.8,
-  // },
-  // '& .circle': {
-  //   fill: '#eaebec',
-  //   opacity: 0.5,
-  // },
-  // '&:hover *, &.active *': {
-  //   opacity: 1,
-  // },
-}));
+import { cn } from 'src/lib/utils';
 
 export default function NonLinearSlider({
   value,
@@ -122,7 +86,17 @@ export default function NonLinearSlider({
   }, [mouseY]);
 
   return (
-    <Svg ref={svgRef} width={width} height={height} className={isDragging ? 'active' : ''}>
+    <svg
+      ref={svgRef}
+      width={width}
+      height={height}
+      className={cn(
+        'group cursor-pointer',
+        '[&_rect]:fill-[#dadbdc10] [&_g_.track]:fill-[#dadbdc] [&_g_.track]:opacity-80 [&_g_.circle]:fill-[#eaebec] [&_g_.circle]:opacity-50',
+        'hover:[&_rect]:fill-[#dadbdc70] hover:[&_g_*]:opacity-100',
+        isDragging && '[&_rect]:fill-[#dadbdc70] [&_g_*]:opacity-100'
+      )}
+    >
       <defs>
         <filter id="goo">
           <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur" />
@@ -141,7 +115,7 @@ export default function NonLinearSlider({
         fill="#dadbdc10"
         style={{ transition: 'fill 0.2s ease-in-out' }}
       />
-      <G>
+      <g style={{ filter: 'url(#goo)' }}>
         <animated.path
           style={{ transition: !isDragging ? 'opacity 0.2s ease-in-out' : '' }}
           className="track"
@@ -171,7 +145,7 @@ export default function NonLinearSlider({
           r={radius}
           className="circle"
         />
-      </G>
-    </Svg>
+      </g>
+    </svg>
   );
 }

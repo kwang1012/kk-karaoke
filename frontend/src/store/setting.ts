@@ -15,6 +15,8 @@ export interface SettingState {
   dark: () => void; // Set theme to dark
   light: () => void; // Set theme to light
   onBrowserThemeChange: (isDarkMode: boolean) => void; // Handle browser theme change
+  queueOpen: boolean; // Whether the queue panel is shown on desktop
+  toggleQueue: () => void;
   isFullScreen: boolean; // Whether the app is in full screen mode
   setFullScreen: (isFullScreen: boolean) => void; // Set full screen mode
 }
@@ -22,6 +24,8 @@ export interface SettingState {
 export const useSettingStore = create<SettingState>()(
   persist(
     (set) => ({
+      queueOpen: true,
+      toggleQueue: () => set((state) => ({ queueOpen: !state.queueOpen })),
       isFullScreen: false, // Whether the app is in full screen mode
       setFullScreen: (isFullScreen: boolean) => {
         set(() => ({ isFullScreen }));
@@ -77,6 +81,7 @@ export const useSettingStore = create<SettingState>()(
       storage: createJSONStorage(() => localStorage), // (optional) by default, 'localStorage' is used
       partialize: (state) => ({
         theme: state.theme,
+        queueOpen: state.queueOpen,
         useWordLevelSync: state.useWordLevelSync,
         showTranslatinon: state.showTranslatinon,
         refreshKey: state.refreshKey,

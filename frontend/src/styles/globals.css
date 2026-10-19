@@ -1,11 +1,123 @@
-@import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap');
-/* @import '~material-design-icons/iconfont/material-icons.css'; */
-@import 'react-loading-skeleton/dist/skeleton.css';
-@import 'overlayscrollbars/overlayscrollbars.css';
-@layer theme, base, mui, components, utilities;
 @import 'tailwindcss';
+@import 'tw-animate-css';
 
 @custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --breakpoint-xl: 1200px;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans TC', sans-serif;
+  --shadow-app: 0 8px 30px rgb(0 0 0 / 0.12);
+  --shadow-float: 0 12px 40px -8px rgb(0 0 0 / 0.5), 0 0 0 1px rgb(255 255 255 / 0.06);
+}
+
+/* Light palette (default); body.dark overrides it, see store/setting.ts */
+:root {
+  --background: #f5f4f0;
+  --foreground: #16161a;
+  --card: #ffffff;
+  --card-foreground: #16161a;
+  --popover: #ffffff;
+  --popover-foreground: #16161a;
+  --primary: #d6246e;
+  --primary-foreground: #ffffff;
+  --secondary: #ebe9e2;
+  --secondary-foreground: #16161a;
+  --muted: #efede7;
+  --muted-foreground: #6b6b76;
+  --accent: #16161a0f;
+  --accent-foreground: #16161a;
+  --destructive: #e5484d;
+  --success: #12a150;
+  --border: #16161a14;
+  --input: #16161a26;
+  --ring: #d6246e;
+  --radius: 0.75rem;
+}
+
+.dark {
+  --background: #09090c;
+  --foreground: #f4f4f6;
+  --card: #131318;
+  --card-foreground: #f4f4f6;
+  --popover: #1a1a21;
+  --popover-foreground: #f4f4f6;
+  --primary: #ec4a85;
+  --primary-foreground: #ffffff;
+  --secondary: #1f1f27;
+  --secondary-foreground: #f4f4f6;
+  --muted: #1a1a21;
+  --muted-foreground: #9a9aa8;
+  --accent: #ffffff12;
+  --accent-foreground: #ffffff;
+  --success: #3ddc84;
+  --border: #ffffff12;
+  --input: #ffffff22;
+  --ring: #ec4a85;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 4px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+    letter-spacing: normal;
+    user-select: none;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--foreground) 22%, transparent) transparent;
+  }
+  input,
+  textarea {
+    user-select: text;
+  }
+  html,
+  body,
+  #root {
+    width: 100%;
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    overflow: hidden;
+    font-family: var(--font-sans);
+    background-color: var(--background);
+    color: var(--foreground);
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    -webkit-font-smoothing: antialiased;
+  }
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
 
 @layer utilities {
   .no-scrollbar::-webkit-scrollbar {
@@ -17,116 +129,7 @@
   }
 }
 
-@theme {
-  --color-primary: #cc3363;
-  --shadow-app: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-* {
-  /* font-family: ; */
-  letter-spacing: normal;
-}
-
-#root {
-  width: 100%;
-  height: 100%;
-}
-html,
-body {
-  width: 100%;
-  height: 100%;
-  padding: 0;
-  margin: 0;
-  font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen, Ubuntu, Cantarell, Fira Sans,
-    Droid Sans, Helvetica Neue, sans-serif˝;
-  scroll-behavior: smooth;
-}
-
-body {
-  overflow: overlay;
-  padding-top: env(safe-area-inset-top);
-  padding-right: env(safe-area-inset-right);
-  padding-bottom: env(safe-area-inset-bottom);
-  padding-left: env(safe-area-inset-left);
-  box-sizing: border-box;
-  height: 100%;
-}
-
-body::-webkit-scrollbar {
-  width: 10px;
-}
-/* Track */
-body::-webkit-scrollbar-track {
-  display: none;
-  background-color: transparent;
-  box-shadow: inset 0 0 10px 10px transparent;
-  border: solid 3px transparent;
-}
-/* Handle */
-body::-webkit-scrollbar-thumb {
-  /* background: #333;  */
-  border-radius: 10px;
-  box-shadow: inset 0 0 10px 10px #cc3363;
-  border: solid 3px transparent;
-}
-
-* {
-  box-sizing: border-box;
-  transition: background-color 0.2s;
-  user-select: none;
-}
-
-.scrollbar {
-  width: 100%;
-  height: 100%;
-  overflow: auto;
-
-  /* On WebKit-based browsers (Chrome, Safari) */
-  scrollbar-gutter: stable overlay; /* For modern browsers */
-}
-
-.scrollbar::-webkit-scrollbar {
-  width: 15px;
-  height: 15px;
-}
-/* Track */
-.scrollbar::-webkit-scrollbar-track {
-  display: none;
-  background-color: transparent;
-  box-shadow: inset 0 0 10px 10px transparent;
-  border: solid 3px transparent;
-}
-/* Handle */
-.scrollbar::-webkit-scrollbar-thumb {
-  border-radius: 10px;
-  box-shadow: inset 0 0 10px 10px #ffffff00;
-  border: solid 3px transparent;
-  transition: box-shadow 0.2s;
-}
-.scrollbar:hover::-webkit-scrollbar-thumb {
-  box-shadow: inset 0 0 10px 10px #ffffff70;
-}
-
-.os-scrollbar {
-  visibility: visible;
-  opacity: 1;
-  z-index: 1101;
-  --os-size: 12px;
-  --os-handle-bg: #ffffff70;
-  --os-handle-bg-hover: #ffffffa0;
-  --os-handle-bg-active: #ffffffe0;
-}
-.os-scrollbar-horizontal {
-  display: none;
-}
-
-[data-testid='virtuoso-scroller']::-webkit-scrollbar {
-  display: none;
-}
-[data-testid='virtuoso-scroller'] {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
+/* dnd-kit drag handles must not scroll the page */
 *[data-draggable] {
   touch-action: none;
 }
@@ -136,7 +139,6 @@ input[type='number']::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
-
 input[type='number'] {
   -moz-appearance: textfield;
 }

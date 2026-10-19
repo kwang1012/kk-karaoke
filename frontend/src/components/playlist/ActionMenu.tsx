@@ -1,8 +1,9 @@
-import { MoreHoriz, QueueMusic, Delete, DeleteOutline, NextPlanOutlined } from '@mui/icons-material';
-import { IconButton, MenuItem, ListItemIcon, ListItemText, useTheme } from '@mui/material';
-import { memo, useState } from 'react';
+import { ListEnd, ListMusic, ListX, MoreHorizontal } from 'lucide-react';
+import { memo } from 'react';
 import { Track } from 'src/models/spotify';
-import AppMenu from '../Menu';
+import { IconButton } from 'src/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from 'src/components/ui/dropdown-menu';
+import { cn } from 'src/lib/utils';
 
 const ActionMenu = memo(
   ({
@@ -21,75 +22,44 @@ const ActionMenu = memo(
     onOpen: () => void;
     onClose: () => void;
   }) => {
-    const theme = useTheme();
-    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-    const open = Boolean(anchorEl);
-    const id = open ? 'simple-popover' : undefined;
-    const handleClick = (event: React.MouseEvent<HTMLElement>) => {
-      setAnchorEl(event.currentTarget);
-      onOpen();
-    };
-    const handleClose = () => {
-      setAnchorEl(null);
-      onClose();
-    };
     const functions = [
-      {
-        fn: onInsert,
-        icon: <NextPlanOutlined />,
-        text: 'Play next',
-      },
-      {
-        fn: onAdd,
-        icon: <QueueMusic />,
-        text: 'Add to queue',
-      },
-      {
-        fn: onDelete,
-        icon: <DeleteOutline />,
-        text: 'Remove from queue',
-      },
+      { fn: onInsert, icon: <ListEnd />, text: 'Play next' },
+      { fn: onAdd, icon: <ListMusic />, text: 'Add to queue' },
+      { fn: onDelete, icon: <ListX />, text: 'Remove from queue' },
     ];
     return (
       <div>
-        <IconButton
-          className={`row-actions interactive-section ${className}`}
-          sx={{ minWidth: 40 }}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleClick(e);
+        <DropdownMenu
+          modal={false}
+          onOpenChange={(open) => {
+            if (open) onOpen();
+            else onClose();
           }}
-          aria-describedby={id}
         >
-          <MoreHoriz className="text-[#b3b3b3]" />
-        </IconButton>
-        <AppMenu id={id} open={open} anchorEl={anchorEl} onClose={handleClose}>
-          {functions.map(
-            (func, index) =>
-              func.fn && (
-                <MenuItem
-                  key={index}
-                  className="interactive-section"
-                  onClick={() => {
-                    if (!track || !func.fn) return;
-                    func.fn(track);
-                    handleClose();
-                  }}
-                >
-                  <ListItemIcon
-                    sx={{
-                      '& svg': {
-                        fill: theme.palette.mode === 'dark' ? '#b3b3b3' : '#121212',
-                      },
-                    }}
+          <DropdownMenuTrigger asChild>
+            <IconButton
+              className={cn('row-actions interactive-section size-8 p-0', className)}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <MoreHorizontal className="size-5 text-muted-foreground" />
+            </IconButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="interactive-section min-w-[180px]">
+            {functions.map(
+              (func, index) =>
+                func.fn && (
+                  <DropdownMenuItem
+                    key={index}
+                    className="interactive-section"
+                    onSelect={() => track && func.fn?.(track)}
                   >
                     {func.icon}
-                  </ListItemIcon>
-                  <ListItemText className="text-[#121212] dark:text-[#b3b3b3]">{func.text}</ListItemText>
-                </MenuItem>
-              )
-          )}
-        </AppMenu>
+                    {func.text}
+                  </DropdownMenuItem>
+                )
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     );
   }

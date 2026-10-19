@@ -5,9 +5,11 @@ import Carousel, { CarouselItem } from 'src/components/Carousel';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import AppScrollbar from 'src/components/Scrollbar';
-import Skeleton from 'react-loading-skeleton';
+import { Skeleton } from 'src/components/ui/skeleton';
 import { Categories, Collection } from 'src/models/spotify';
-import { Button, useMediaQuery } from '@mui/material';
+import { Button } from 'src/components/ui/button';
+import { useBreakpointDown } from 'src/hooks/media';
+import { cn } from 'src/lib/utils';
 import { useJam, useRoomStore } from 'src/store/room';
 
 function PlaylistCard({
@@ -30,11 +32,14 @@ function PlaylistCard({
     >
       {playlist ? (
         <>
-          <img src={playlist.images[0].url || placeholder} className="w-full rounded-md" />
-          <span className="text-sm text-gray-400 line-clamp-2">{playlist.name}</span>
+          <img
+            src={playlist.images[0].url || placeholder}
+            className="aspect-square w-full rounded-lg object-cover shadow-md"
+          />
+          <span className="mt-2 line-clamp-2 text-sm font-medium">{playlist.name}</span>
         </>
       ) : (
-        <Skeleton className="w-full h-full rounded-md" baseColor="#1f1f1f" highlightColor="#2a2a2a" />
+        <Skeleton className="aspect-square w-full rounded-lg" />
       )}
     </CarouselItem>
   );
@@ -82,7 +87,7 @@ export function MainView() {
   });
 
   const navigate = useNavigate();
-  const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
+  const mobile = useBreakpointDown('md');
   const leaveRoom = useRoomStore((state) => state.leaveRoom);
   const { isInJam } = useJam();
 
@@ -101,17 +106,21 @@ export function MainView() {
   return (
     <AppScrollbar className="h-full">
       {mobile && isInJam && (
-        <div className="fixed w-full z-100 flex items-center justify-between bg-primary h-12 px-4">
+        <div className="fixed z-50 flex h-12 w-full items-center justify-between bg-primary px-4">
           <span className="text-sm text-white">You are in a jam session</span>
-          <Button variant="text" className="text-sm text-white bg-transparent" onClick={leaveRoom}>
+          <Button variant="ghost" size="sm" className="text-white hover:bg-white/15" onClick={leaveRoom}>
             Leave
           </Button>
         </div>
       )}
-      <div className={['w-full overflow-hidden', mobile && isInJam ? 'pt-16' : 'pt-6'].join(' ')}>
+      <div className={cn('w-full overflow-hidden pb-6', mobile && isInJam ? 'pt-16' : 'pt-8')}>
+        <div className="mb-8 px-4 md:px-8">
+          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Sing something tonight</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Pick a playlist, queue a few songs, and take the mic.</p>
+        </div>
         {sections.map((section) => (
           <div key={section.keyword} className="mb-8">
-            <h1 className="mx-4 md:mx-8 mb-1 text-lg font-bold">{section.name}</h1>
+            <h2 className="mx-4 mb-2 text-lg font-semibold tracking-tight md:mx-8">{section.name}</h2>
             <Carousel>
               {isLoading
                 ? Array.from({ length: 5 }).map((_, index) => <PlaylistCard key={index} />)

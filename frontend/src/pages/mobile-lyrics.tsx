@@ -1,26 +1,15 @@
 import MobileLyrics from 'src/components/MobileLyrics';
-import { styled, useTheme } from '@mui/material/styles';
+import { useThemeMode } from 'src/hooks/theme';
 import MobileAudioController from 'src/components/MobileAudioController';
 import { useState, useEffect } from 'react';
 import { DEFAULT_COLOR, DEFAULT_BG_COLOR, getLyricsRGB } from 'src/utils';
 import { usePlayer } from 'src/store/player';
 
-const Layout = styled('div')(({ theme }) => ({
-  display: 'grid',
-  gridTemplateRows: '1fr auto',
-  gridTemplateColumns: '1fr',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: '100%',
-  height: '100%',
-  overflow: 'hidden',
-}));
-
 export default function MobileLyricsView() {
   const { currentTrack } = usePlayer();
   const [color, setColor] = useState<string>(DEFAULT_COLOR);
   const [bgColor, setBgColor] = useState<string>(DEFAULT_BG_COLOR);
-  const theme = useTheme();
+  const mode = useThemeMode();
   const image = currentTrack?.album?.images?.[0]?.url;
 
   useEffect(() => {
@@ -29,7 +18,7 @@ export default function MobileLyricsView() {
       setBgColor(DEFAULT_BG_COLOR);
       return;
     }
-    getLyricsRGB(image, theme.palette.mode === 'light')
+    getLyricsRGB(image, mode === 'light')
       .then(({ lyrics, background }) => {
         setColor(lyrics);
         setBgColor(background);
@@ -37,13 +26,13 @@ export default function MobileLyricsView() {
       .catch((error) => {
         console.error('Error fetching average RGB:', error);
       });
-  }, [image, theme.palette.mode]);
+  }, [image, mode]);
   return (
-    <Layout style={{ backgroundColor: bgColor }}>
+    <div className="grid h-full w-full grid-cols-1 grid-rows-[1fr_auto] items-center justify-center overflow-hidden" style={{ backgroundColor: bgColor }}>
       <MobileLyrics color={color} bgColor={bgColor} />
       <div className="px-6 pb-3">
         <MobileAudioController />
       </div>
-    </Layout>
+    </div>
   );
 }

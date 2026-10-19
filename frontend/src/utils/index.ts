@@ -1,8 +1,30 @@
 import { Vibrant } from 'node-vibrant/browser';
 import { Track } from 'src/models/spotify';
-import { colord } from 'colord';
 import { adventurer } from '@dicebear/collection';
 import { createAvatar } from '@dicebear/core';
+
+
+type Swatch = NonNullable<Awaited<ReturnType<Vibrant['getPalette']>>['Vibrant']>;
+
+const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
+
+/** Swatch -> '#rrggbb' after shifting its HSL lightness by `delta` (-1..1). */
+function shiftLightness(swatch: Swatch, delta = 0): string {
+  const [h, s, l0] = swatch.hsl;
+  const l = clamp01(l0 + delta);
+  const a = s * Math.min(l, 1 - l);
+  const channel = (n: number) => {
+    const k = (n + h * 12) % 12;
+    const c = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return Math.round(c * 255)
+      .toString(16)
+      .padStart(2, '0');
+  };
+  return `#${channel(0)}${channel(8)}${channel(4)}`;
+}
+
+/** Perceived brightness, 0 (black) to 1 (white). */
+const brightness = ({ rgb: [r, g, b] }: Swatch) => (r * 299 + g * 587 + b * 114) / 1000 / 255;
 
 export const DEFAULT_COLOR = '#d3d3d3';
 export const DEFAULT_BG_COLOR = '#3a3a3a';
@@ -15,19 +37,13 @@ export function getAvgRGB(src: string, light = false): Promise<any> {
     img.onload = () => {
       const vibrant = new Vibrant(img);
       vibrant.getPalette().then((palette) => {
-        let baseColor = palette.Vibrant?.hex;
-        if (!baseColor) {
+        const swatch = palette.Vibrant;
+        if (!swatch) {
           resolve(light ? DEFULT_LIGHT_COLOR : DEFAULT_COLOR);
           return;
         }
-        const base = colord(baseColor);
-        if (light) {
-          const luminance = base.brightness();
-          if (luminance < 0.8) {
-            baseColor = base.lighten(0.8 - luminance).toHex();
-          }
-        }
-        resolve(baseColor);
+        const luminance = brightness(swatch);
+        resolve(light && luminance < 0.8 ? shiftLightness(swatch, 0.8 - luminance) : swatch.hex);
       });
     };
   });
@@ -41,40 +57,29 @@ export function getLyricsRGB(src: string, light = false): Promise<any> {
     img.onload = () => {
       const vibrant = new Vibrant(img);
       vibrant.getPalette().then((palette) => {
-        const baseColor = light ? palette.LightVibrant?.hex : palette.DarkVibrant?.hex;
-        if (!baseColor) {
+        const base = light ? palette.LightVibrant : palette.DarkVibrant;
+        if (!base) {
           resolve({ lyrics: DEFAULT_COLOR, background: DEFAULT_BG_COLOR });
           return;
         }
-        // 1. Get the base color
-        const base = colord(baseColor);
+        const luminance = brightness(base);
 
-        // 2. Measure brightness (range: 0 = black, 1 = white)
-        const luminance = base.brightness();
-        // console.log('Luminance:', luminance);
-
-        let bgColor: string = base.toHex();
+        let bgColor = base.hex;
         let textColor: string;
         if (!light) {
-          // 3. Dynamically adjust based on luminance
-          textColor = base.lighten(0.5).toHex();
-
-          // Middle brightness → moderate adjustment
+          textColor = shiftLightness(base, 0.5);
           if (luminance < 0.2) {
-            bgColor = base.lighten(0.1).toHex();
-            textColor = base.lighten(0.6).toHex();
+            bgColor = shiftLightness(base, 0.1);
+            textColor = shiftLightness(base, 0.6);
           }
         } else {
-          textColor = base.darken(0.5).toHex();
+          textColor = shiftLightness(base, -0.5);
           if (luminance > 0.8) {
-            bgColor = base.darken(0.1).toHex();
-            textColor = base.darken(0.6).toHex();
+            bgColor = shiftLightness(base, -0.1);
+            textColor = shiftLightness(base, -0.6);
           }
         }
-        resolve({
-          lyrics: textColor,
-          background: bgColor,
-        });
+        resolve({ lyrics: textColor, background: bgColor });
       });
     };
   });

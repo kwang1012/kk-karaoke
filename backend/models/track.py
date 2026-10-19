@@ -28,7 +28,7 @@ class Track(BaseModel):
 
 
 class LyricsDelay(BaseModel):
-    id: str
+    id: TrackId
     delay: float = 0.0
 
     class Config:

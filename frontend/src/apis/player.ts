@@ -1,4 +1,5 @@
 import { Track } from 'src/models/spotify';
+import { useTrackStore } from 'src/store';
 import { api } from 'src/utils/api';
 
 // apis
@@ -23,6 +24,8 @@ export const fetchLyrics = async (songId: string) => {
   return api
     .get(`lyrics/${songId}`)
     .then(({ data }) => {
+      // The server stores one delay per track, shared by everyone.
+      useTrackStore.getState().setLyricsDelay(songId, data.delay ?? 0);
       return data.lyrics;
     })
     .catch((error) => {

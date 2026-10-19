@@ -8,12 +8,14 @@ import re
 from fastapi.responses import JSONResponse, PlainTextResponse
 from interfaces.queue import RedisQueueInterface
 from managers.db import get_db
+from managers.websocket import WebSocketManager
 import cutlet
 from hangul_romanize import Transliter
 from hangul_romanize.rule import academic
 from lingua import Language, LanguageDetectorBuilder
 
 router = APIRouter()
+ws_manager = WebSocketManager()
 
 transliter = Transliter(academic)
 katsu = cutlet.Cutlet()
@@ -23,13 +25,18 @@ detector = LanguageDetectorBuilder.from_languages(
 
 
 @router.post("/delay")
-def update_delay(
+async def update_delay(
     lyrics_delay: LyricsDelay,
     redis_interface: RedisQueueInterface = Depends(
         lambda: RedisQueueInterface(get_db())
     ),
 ):
     redis_interface.store_track_delay(lyrics_delay.id, lyrics_delay.delay)
+    # Everyone sees the same lyric timing: tell connected clients about the new delay.
+    await ws_manager.broadcast({
+        "type": "lyrics",
+        "data": {"action": "delay", "track_id": lyrics_delay.id, "delay": lyrics_delay.delay},
+    })
     return {"message": "Delay updated successfully"}
 
 
@@ -68,8 +75,6 @@ def get_lyrics(
                 ms = float("0." + match.group(3))
 
                 timestamp = round(minutes * 60 + seconds + ms, 2)
-                if delay is not None:
-                    timestamp += delay
                 text = match.group(4).strip()
                 if romanized_exists:
                     romanized = (
@@ -94,7 +99,9 @@ def get_lyrics(
             redis_interface.store_romanized_lyrics(track_id, romanized_lines)
 
         return JSONResponse(
-            content={"lyrics": lyrics, "content": "".join(raw_lines)},
+            # The delay is returned, not baked into the times: clients apply it themselves
+            # (so adjusting it live doesn't need a refetch and can't be applied twice).
+            content={"lyrics": lyrics, "content": "".join(raw_lines), "delay": delay or 0},
             status_code=200,
         )
     except FileNotFoundError:

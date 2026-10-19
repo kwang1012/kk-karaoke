@@ -150,6 +150,15 @@ export const Player = () => {
     });
   }, [connected, activeRoomId, isOwner]);
 
+  // Lyrics timing adjusted by anyone is shared with everyone
+  useRemoteMessageQueue('lyrics', {
+    onAddItem: (message) => {
+      if (message.data?.action === 'delay') {
+        useTrackStore.getState().setLyricsDelay(message.data.trackId, message.data.delay);
+      }
+    },
+  });
+
   useEffect(() => {
     let playerCls: typeof SyncedAudioPlayer;
     if (enabledPitchShift) playerCls = ShiftedAudioPlayer;

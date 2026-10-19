@@ -160,9 +160,9 @@ class RedisQueueInterface:
                         try:
                             data = json.loads(message["data"])
                             callback_func(data)
-                            # Stop listening once the track is ready
+                            # Stop listening once the track is ready or failed
                             status = data.get("data", {}).get("status")
-                            if status == "ready":
+                            if status in ("ready", "error"):
                                 break
                         except json.JSONDecodeError:
                             print(

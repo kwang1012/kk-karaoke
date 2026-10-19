@@ -62,13 +62,16 @@ def download_audio(sid: str, search_term: str, target_duration_s: float | None =
     if not os.path.exists(RAW_AUDIO_DIR):
         os.makedirs(RAW_AUDIO_DIR)
 
-    results = _search_youtube(search_term + " official audio", limit=5)
+    results = []
+    for query in (search_term + " official audio", search_term):
+        try:
+            results = _search_youtube(query, limit=5)
+        except ValueError:
+            results = []
+        if results:
+            break
     if not results:
-        # Fallback to raw query
-        results = _search_youtube(search_term, limit=5)
-    if not results:
-        print("No results found.")
-        return None
+        raise RuntimeError(f"No YouTube results found for '{search_term}'")
 
     # Pick best match by duration if we have a target
     if target_duration_s and any(r.get("duration") for r in results):
@@ -95,7 +98,10 @@ def download_audio(sid: str, search_term: str, target_duration_s: float | None =
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([url])
 
-    print(f"Downloaded audio to {audio_path}")
+    mp3_path = os.path.join(RAW_AUDIO_DIR, sid + ".mp3")
+    if not os.path.exists(mp3_path):
+        raise RuntimeError(f"Audio download for '{search_term}' produced no file")
+    print(f"Downloaded audio to {mp3_path}")
 
 
 def _has_simplified_chinese(text: str) -> bool:

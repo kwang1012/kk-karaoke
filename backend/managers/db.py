@@ -12,20 +12,42 @@ REDIS_CONTAINER_NAME = "karaoke-redis"
 REDIS_STORAGE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "storage")
 
 
+_last_autostart_attempt = float("-inf")
+
+
+def _is_local(host: str) -> bool:
+    return host in ("localhost", "127.0.0.1", "::1", "0.0.0.0")
+
+
+def _wait_for_redis(host: str, port: int, timeout_s: float = 15.0) -> bool:
+    """Poll until Redis answers PING (a freshly started server refuses/resets at first)."""
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        try:
+            if redis.Redis(host=host, port=port, socket_connect_timeout=1).ping():
+                return True
+        except redis.RedisError:
+            pass
+        time.sleep(0.3)
+    return False
+
+
 def _ensure_redis_via_docker(host: str, port: int) -> bool:
     """Start a Redis Docker container if one isn't already running."""
     if not shutil.which("docker"):
-        print("Docker is not installed — cannot auto-start Redis.")
+        print("Docker is not installed — cannot start Redis with Docker.")
         return False
 
-    # Check if our container already exists
-    result = subprocess.run(
-        ["docker", "inspect", "-f", "{{.State.Running}}", REDIS_CONTAINER_NAME],
-        capture_output=True, text=True,
-    )
-    if result.returncode == 0 and result.stdout.strip() == "true":
+    def container_running() -> bool:
+        result = subprocess.run(
+            ["docker", "inspect", "-f", "{{.State.Running}}", REDIS_CONTAINER_NAME],
+            capture_output=True, text=True,
+        )
+        return result.returncode == 0 and result.stdout.strip() == "true"
+
+    if container_running():
         print(f"Redis container '{REDIS_CONTAINER_NAME}' is already running.")
-        return True
+        return _wait_for_redis(host, port)
 
     # Try to start a stopped container first
     start = subprocess.run(
@@ -34,7 +56,7 @@ def _ensure_redis_via_docker(host: str, port: int) -> bool:
     )
     if start.returncode == 0:
         print(f"Started existing Redis container '{REDIS_CONTAINER_NAME}'.")
-        return True
+        return _wait_for_redis(host, port)
 
     # Create a new container
     os.makedirs(REDIS_STORAGE_DIR, exist_ok=True)
@@ -52,10 +74,48 @@ def _ensure_redis_via_docker(host: str, port: int) -> bool:
     )
     if run.returncode == 0:
         print(f"Redis container '{REDIS_CONTAINER_NAME}' started successfully.")
-        return True
+        return _wait_for_redis(host, port)
+
+    # The API and the worker start together and both land here; if the other process
+    # created the container first, just wait for it.
+    if container_running():
+        return _wait_for_redis(host, port)
 
     print(f"Failed to start Redis container: {run.stderr.strip()}")
     return False
+
+
+def _ensure_redis_locally(host: str, port: int) -> bool:
+    """Fallback when Docker is unavailable: launch a local redis-server binary."""
+    binary = shutil.which("redis-server")
+    if not binary:
+        return False
+    os.makedirs(REDIS_STORAGE_DIR, exist_ok=True)
+    print(f"Starting local redis-server on port {port}...")
+    subprocess.Popen(
+        [binary, "--port", str(port), "--dir", REDIS_STORAGE_DIR, "--appendonly", "yes"],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        start_new_session=True,  # keep running if this process exits
+    )
+    return _wait_for_redis(host, port)
+
+
+def _autostart_redis(host: str, port: int) -> bool:
+    """Create a Redis instance if none is reachable (Docker first, then a local binary).
+
+    On by default; set REDIS_AUTOSTART=0 to disable. Never done for a remote REDIS_HOST,
+    where starting something on this machine couldn't help.
+    """
+    global _last_autostart_attempt
+    if os.getenv("REDIS_AUTOSTART", "1").lower() in ("0", "false", "no"):
+        return False
+    if not _is_local(host):
+        return False
+    # get_session() retries while Redis is down; don't launch docker on every request.
+    if time.monotonic() - _last_autostart_attempt < 30:
+        return False
+    _last_autostart_attempt = time.monotonic()
+    return _ensure_redis_via_docker(host, port) or _ensure_redis_locally(host, port)
 
 
 class DatabaseManager:
@@ -94,14 +154,8 @@ class DatabaseManager:
             DatabaseManager._redis_pool = pool
         except redis.ConnectionError:
             DatabaseManager._redis_pool = None
-            # Starting containers as a side effect of connecting is surprising (and
-            # runs on every retry), so it is opt-in.
-            if os.getenv("REDIS_AUTOSTART", "").lower() not in ("1", "true", "yes"):
-                print(f"Redis not available at {host}:{port}. Start it, or set "
-                      "REDIS_AUTOSTART=1 to let the app start one via Docker.")
-                return
-            print("Redis not available — attempting to start via Docker...")
-            if _ensure_redis_via_docker(host, port):
+            print(f"Redis not available at {host}:{port}.")
+            if _autostart_redis(host, port):
                 try:
                     pool = redis.ConnectionPool(
                         host=host, port=port, db=db,
@@ -110,10 +164,12 @@ class DatabaseManager:
                     )
                     redis.Redis(connection_pool=pool).ping()
                     DatabaseManager._redis_pool = pool
-                    print("Connected to Docker Redis successfully.")
+                    print("Connected to the Redis instance that was just started.")
                 except redis.ConnectionError as e:
-                    print(f"Still cannot connect to Redis after Docker start: {e}")
-                    DatabaseManager._redis_pool = None
+                    print(f"Still cannot connect to Redis after starting it: {e}")
+            else:
+                print("Start Redis yourself, or check REDIS_HOST/REDIS_PORT "
+                      "(REDIS_AUTOSTART=0 disables automatic startup).")
         except Exception as e:
             print(f"Unexpected error during Redis initialization: {e}")
             DatabaseManager._redis_pool = None

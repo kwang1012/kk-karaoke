@@ -68,11 +68,12 @@ use the local setup below on a Mac for GPU acceleration.
 
 1. [uv](https://docs.astral.sh/uv/) installed.
 2. ffmpeg in your system PATH.
-3. A running redis in your system
+3. Redis: the backend starts one for you if none is running (via Docker, or a local
+   `redis-server`), as long as `REDIS_HOST` is local
 
-Optional backend settings (see `backend/.env.example`): `REDIS_AUTOSTART=1` lets the
-backend start a Redis Docker container if none is running, and `CORS_ORIGINS` restricts
-which origins may call the API.
+Optional backend settings (see `backend/.env.example`): `REDIS_AUTOSTART=0` stops the
+backend from starting Redis itself, and `CORS_ORIGINS` restricts which origins may call
+the API.
 
 #### Backend (FastAPI)
 

@@ -72,8 +72,19 @@ For an NVIDIA GPU (needs the NVIDIA Container Toolkit on the host), add the GPU 
 docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
 ```
 
-Docker on a Mac can't use Apple's GPU (MPS), so processing runs on the CPU there; use Option C
-if you want MPS.
+**Processing speed.** Removing the vocals from a 4-minute song takes roughly 5 minutes on a
+10-core CPU in Docker (about 1.1 to 1.3 s of compute per second of audio), and roughly 2 minutes
+with an Apple GPU (MPS) or less with an NVIDIA GPU. Docker on a Mac can't use the Apple GPU, so to
+get it keep everything else in Docker and run only the worker on your Mac:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.local-worker.yml up -d --build
+cd backend && uv sync && uv run celery -A services.process_request.celery worker -l info --concurrency=1 --pool=solo
+```
+
+(This publishes Redis on `localhost:6379`; stop anything else already using that port, such as a
+Redis container the backend started for local development.) Give Docker enough memory too; the
+default 8 GB is tight while separating a song.
 
 #### Option B: Single container
 

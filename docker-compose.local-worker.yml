@@ -1,0 +1,14 @@
+# Run the Celery worker on the host (Apple GPU via MPS, or any local GPU) instead of in Docker.
+# Docker on a Mac can't use the GPU, so the containerised worker is CPU-only.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.local-worker.yml up -d --build
+#   cd backend && uv sync && uv run celery -A services.process_request.celery worker -l info --concurrency=1 --pool=solo
+#
+# This starts redis, api and web in Docker and publishes Redis on localhost:6379 for the host
+# worker. The host worker shares ./backend/storage with the API, so run it from backend/.
+services:
+  redis:
+    ports:
+      - "127.0.0.1:6379:6379"
+  worker:
+    profiles: ["docker-worker"] # not started unless this profile is enabled

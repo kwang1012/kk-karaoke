@@ -1,6 +1,7 @@
 import { CirclePause, CirclePlay, Mic, MicOff, SkipBack, SkipForward, Volume1, Volume2 } from 'lucide-react';
 import { IconButton } from 'src/components/ui/button';
 import { useThemeMode } from 'src/hooks/theme';
+import { CircularProgress } from 'src/components/ui/progress';
 import AppSlider from './Slider';
 import { usePlayer } from 'src/store/player';
 import { useState } from 'react';
@@ -12,7 +13,7 @@ function formatTime(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 export default function MobileAudioController({ progressOnly }: { progressOnly?: boolean }) {
-  const { vocalOn, volume, progress, seeking, setSeeking, duration, playing } = usePlayer();
+  const { vocalOn, volume, progress, seeking, setSeeking, duration, playing, loading, loadProgress } = usePlayer();
   const { play, pause, next, previous, seek, setVolume, toggleVocal } = usePlayer();
 
   const [localProgress, setLocalProgress] = useState(progress);
@@ -71,8 +72,10 @@ export default function MobileAudioController({ progressOnly }: { progressOnly?:
         <IconButton size="small" onClick={() => previous()}>
           <SkipBack className="size-6 fill-white text-white" />
         </IconButton>
-        <IconButton onClick={handlePlayPause} className="mx-10 p-0 hover:bg-transparent">
-          {playing ? <CirclePause className="size-12 text-white" strokeWidth={1.5} /> : <CirclePlay className="size-12 text-white" strokeWidth={1.5} />}
+        <IconButton onClick={handlePlayPause} disabled={loading} className="mx-10 p-0 hover:bg-transparent">
+          {loading ? (
+            <CircularProgress size={48} value={loadProgress === null ? undefined : loadProgress * 100} className="text-white" />
+          ) : playing ? <CirclePause className="size-12 text-white" strokeWidth={1.5} /> : <CirclePlay className="size-12 text-white" strokeWidth={1.5} />}
         </IconButton>
         <IconButton size="small" onClick={() => next()}>
           <SkipForward className="size-6 fill-white text-white" />

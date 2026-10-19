@@ -1,4 +1,5 @@
 import AppScrollbar from './Scrollbar';
+import LyricsSkeleton from './LyricsSkeleton';
 import { useState, useRef, useMemo, useEffect } from 'react';
 import { usePlayer } from 'src/store/player';
 import placeholder from 'src/assets/placeholder.png';
@@ -120,7 +121,7 @@ export default function MobileLyrics({ color, bgColor }: { color?: string; bgCol
         ))
       ) : (
         <div className="text-center mt-20 text-4xl font-bold" style={{ color }}>
-          {!loading && <p>{currentTrack ? t('lyrics.none') : t('lyrics.start')}</p>}
+          {loading ? <LyricsSkeleton className="px-2 py-0" /> : <p>{currentTrack ? t('lyrics.none') : t('lyrics.start')}</p>}
         </div>
       )}
     </AppScrollbar>

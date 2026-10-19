@@ -23,6 +23,12 @@ type PlayerStore = {
   // track context
   loading: boolean;
   setLoading: (loading: boolean) => void;
+  loadProgress: number | null; // 0..1 download progress of the current track, null when unknown
+  setLoadProgress: (progress: number | null) => void;
+  loadError: boolean; // the current track's audio could not be loaded
+  setLoadError: (error: boolean) => void;
+  loadAttempt: number; // bumped to retry loading the current track
+  retryLoad: () => void;
   playing: boolean;
   setPlaying: (playing: boolean) => void;
   semitone: number;
@@ -77,6 +83,12 @@ export const usePlayerStore = create<PlayerStore>()(
       setSyncedPlayer: (player: SyncedAudioPlayer) => set({ syncedPlayer: player }),
       loading: false,
       setLoading: (loading: boolean) => set({ loading }),
+      loadProgress: null,
+      setLoadProgress: (loadProgress: number | null) => set({ loadProgress }),
+      loadError: false,
+      setLoadError: (loadError: boolean) => set({ loadError }),
+      loadAttempt: 0,
+      retryLoad: () => set((state) => ({ loadAttempt: state.loadAttempt + 1, loadError: false, lastSongId: null })),
       playing: false,
       setPlaying: (playing: boolean) => set({ playing }),
       enabledPitchShift: false,

@@ -11,6 +11,7 @@ import { useSettingStore } from 'src/store/setting';
 import AudioController from 'src/components/AudioController';
 import { useIdle } from 'src/hooks/idle';
 import LyricsOffset from 'src/components/LyricsOffset';
+import LyricsSkeleton from 'src/components/LyricsSkeleton';
 import { useLyricsOffset } from 'src/hooks/lyricsOffset';
 import { useT } from 'src/i18n';
 
@@ -207,7 +208,7 @@ export default function LyricsView() {
               ))
             ) : (
               <div className="mt-24 text-center text-3xl font-bold" style={{ color }}>
-                {!loading && <p>{currentTrack ? t('lyrics.none') : t('lyrics.start')}</p>}
+                {loading ? <LyricsSkeleton className="mx-auto max-w-3xl py-0" /> : <p>{currentTrack ? t('lyrics.none') : t('lyrics.start')}</p>}
               </div>
             )}
           </AppScrollbar>

@@ -17,6 +17,9 @@ export const Player = () => {
     syncedPlayer,
     setSyncedPlayer,
     setLoading,
+    setLoadProgress,
+    setLoadError,
+    loadAttempt,
     playing,
     setPlaying,
     enabledPitchShift,
@@ -248,22 +251,17 @@ export const Player = () => {
     console.log('Play new track:', currentTrack.name);
 
     setLoading(true);
-
-    if (nextTrack) {
-      syncedPlayer.preload(nextTrack);
-    }
-    if (prevTrack) {
-      syncedPlayer.preload(prevTrack);
-    }
+    setLoadError(false);
+    setLoadProgress(0);
 
     load(syncedPlayer, currentTrack);
 
     setLastSongId(currentTrack.id);
-  }, [currentTrack?.id, songStatus[currentTrack?.id || '']]);
+  }, [currentTrack?.id, songStatus[currentTrack?.id || ''], loadAttempt]);
 
   const load = (player: SyncedAudioPlayer, track: Track) => {
     Promise.all([
-      player.loadAudio(track),
+      player.loadAudio(track, setLoadProgress),
       fetchLyrics(track.id),
       !lastSongId && fetchRoom(activeRoomId), // fetch jam state only when loading first track
     ])
@@ -288,9 +286,14 @@ export const Player = () => {
       })
       .catch((error) => {
         console.error('Error loading audio:', error);
+        setLoadError(true);
       })
       .finally(() => {
         setLoading(false);
+        setLoadProgress(null);
+        // only now warm the neighbours, so they do not compete with the current track for bandwidth
+        if (nextTrack) player.preload(nextTrack);
+        if (prevTrack) player.preload(prevTrack);
       });
   };
 

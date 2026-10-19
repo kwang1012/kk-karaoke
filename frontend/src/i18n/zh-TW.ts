@@ -94,6 +94,10 @@ export const zhTW: Record<TranslationKey, string> = {
   'player.editLyrics': '編輯歌詞',
   'player.showQueue': '顯示待播',
   'player.hideQueue': '隱藏待播',
+  'player.loading': '載入中…',
+  'player.loadingPercent': '載入中… {percent}%',
+  'player.loadFailed': '無法載入這首歌。',
+  'common.retry': '重試',
   'player.currentKey': '目前 Key：{value}',
 
   'queue.title': '待播清單',

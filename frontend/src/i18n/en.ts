@@ -99,6 +99,10 @@ export const en = {
   'player.editLyrics': 'Edit lyrics',
   'player.showQueue': 'Show queue',
   'player.hideQueue': 'Hide queue',
+  'player.loading': 'Loading…',
+  'player.loadingPercent': 'Loading… {percent}%',
+  'player.loadFailed': "Couldn't load this song.",
+  'common.retry': 'Retry',
   'player.currentKey': 'Current Key: {value}',
 
   // queue + jam

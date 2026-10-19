@@ -9,6 +9,7 @@ import { usePlayer } from 'src/store/player';
 import { useNotifyStore } from 'src/store/notify';
 import { useSettingStore } from 'src/store/setting';
 import { cn } from 'src/lib/utils';
+import { CircularProgress } from 'src/components/ui/progress';
 import { useT } from 'src/i18n';
 
 function formatTime(seconds: number): string {
@@ -22,6 +23,7 @@ export default function AudioController() {
   const t = useT();
   const { currentTrack, progress, seeking, setSeeking, duration, playing, seek } = usePlayer();
   const { play, pause, next, previous } = usePlayer();
+  const { loading, loadProgress, loadError, retryLoad } = usePlayer();
   const { vocalOn, toggleVocal, volume, setVolume, enabledPitchShift, semitone } = usePlayer();
   const { increaseSemitone, decreaseSemitone } = usePlayer();
   const showSnackbar = useNotifyStore((state) => state.showSnackbar);
@@ -54,10 +56,21 @@ export default function AudioController() {
           <Tooltip title={playing ? t('player.pause') : t('player.play')} side="top">
             <button
               aria-label={playing ? t('player.pause') : t('player.play')}
+              disabled={loading}
               onClick={handlePlayPause}
-              className="flex size-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform hover:scale-105 active:scale-95"
+              className="relative flex size-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform hover:scale-105 active:scale-95 disabled:scale-100 disabled:opacity-90"
             >
-              {playing ? <Pause className="size-5 fill-current" /> : <Play className="size-5 translate-x-px fill-current" />}
+              {loading ? (
+                <CircularProgress
+                  size={24}
+                  value={loadProgress === null ? undefined : loadProgress * 100}
+                  className="text-primary-foreground"
+                />
+              ) : playing ? (
+                <Pause className="size-5 fill-current" />
+              ) : (
+                <Play className="size-5 translate-x-px fill-current" />
+              )}
             </button>
           </Tooltip>
           <Tooltip title={t('player.next')} side="top">
@@ -66,25 +79,55 @@ export default function AudioController() {
             </IconButton>
           </Tooltip>
         </div>
-        <div className="flex w-full items-center gap-3 text-xs text-muted-foreground tabular-nums">
-          <span className="w-10 text-right">{formatTime(progress)}</span>
-          <AppSlider
-            className="w-full"
-            min={0}
-            max={duration}
-            value={realProgress}
-            onChange={(_, value) => typeof value === 'number' && setLocalProgress(value)}
-            onChangeCommitted={(_, value) => {
-              if (typeof value === 'number') {
-                seek(value);
-                setSeeking(false);
-              }
-            }}
-            onMouseDown={() => setSeeking(true)}
-            aria-labelledby="karaoke-slider"
-          />
-          <span className="w-10">{formatTime(duration)}</span>
-        </div>
+        {loading || loadError ? (
+          <div className="flex h-4 w-full items-center gap-3 text-xs text-muted-foreground" role="status">
+            {loadError ? (
+              <>
+                <span className="text-destructive">{t('player.loadFailed')}</span>
+                <button className="font-medium text-foreground underline-offset-2 hover:underline" onClick={retryLoad}>
+                  {t('common.retry')}
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="relative h-1 flex-1 overflow-hidden rounded-full bg-foreground/15">
+                  <div
+                    className={cn(
+                      'h-full rounded-full bg-primary transition-[width] duration-300',
+                      loadProgress === null && 'w-1/3 animate-[loading-slide_1.2s_ease-in-out_infinite]'
+                    )}
+                    style={loadProgress === null ? undefined : { width: `${Math.max(4, loadProgress * 100)}%` }}
+                  />
+                </div>
+                <span className="w-28 shrink-0 tabular-nums">
+                  {loadProgress === null
+                    ? t('player.loading')
+                    : t('player.loadingPercent', { percent: Math.round(loadProgress * 100) })}
+                </span>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="flex w-full items-center gap-3 text-xs text-muted-foreground tabular-nums">
+            <span className="w-10 text-right">{formatTime(progress)}</span>
+            <AppSlider
+              className="w-full"
+              min={0}
+              max={duration}
+              value={realProgress}
+              onChange={(_, value) => typeof value === 'number' && setLocalProgress(value)}
+              onChangeCommitted={(_, value) => {
+                if (typeof value === 'number') {
+                  seek(value);
+                  setSeeking(false);
+                }
+              }}
+              onMouseDown={() => setSeeking(true)}
+              aria-labelledby="karaoke-slider"
+            />
+            <span className="w-10">{formatTime(duration)}</span>
+          </div>
+        )}
       </div>
 
       {/* Karaoke controls */}

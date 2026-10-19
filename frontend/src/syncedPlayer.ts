@@ -1,5 +1,5 @@
 import { Track } from './models/spotify';
-import { api } from './utils/api';
+import { audioUrl, fetchAudio, type Progress } from './audioCache';
 
 type Buffer = {
   vocal: AudioBuffer;
@@ -12,6 +12,7 @@ class SyncedAudioPlayer {
   protected instrumentalBuffer!: AudioBuffer;
 
   protected buffers: Record<string, Buffer> = {};
+  private pending: Record<string, Promise<Buffer>> = {};
   protected lastTimeUsed: Record<string, number> = {};
 
   // for normal audio playback
@@ -58,56 +59,84 @@ class SyncedAudioPlayer {
     this.isPlaying = false;
   }
 
-  async load(track: Track) {
+  /** Download (or read from the cache) both stems of a track and decode them. */
+  private fetchBuffers(track: Track, onProgress?: (fraction: number | null) => void): Promise<Buffer> {
+    const cached = this.buffers[track.id];
+    if (cached) return Promise.resolve(cached);
+    const running = this.pending[track.id];
+    if (running) return running;
+
+    const stems: [number, number][] = [[0, 0], [0, 0]];
+    const report = () => {
+      if (!onProgress) return;
+      const total = stems[0][1] + stems[1][1];
+      onProgress(total ? Math.min(1, (stems[0][0] + stems[1][0]) / total) : null);
+    };
+    const stem = (index: 0 | 1): Progress => (loaded, total) => {
+      stems[index] = [loaded, total];
+      report();
+    };
+
+    const promise = Promise.all([
+      this.decode(fetchAudio(audioUrl('vocal', track.id), stem(0))),
+      this.decode(fetchAudio(audioUrl('instrumental', track.id), stem(1))),
+    ])
+      .then(([vocal, instrumental]) => {
+        const buffer = { vocal, instrumental };
+        this.remember(track.id, buffer);
+        return buffer;
+      })
+      .finally(() => {
+        delete this.pending[track.id];
+      });
+    this.pending[track.id] = promise;
+    return promise;
+  }
+
+  /** Keep a few decoded tracks in memory (they are large), dropping the least recently used. */
+  private remember(trackId: string, buffer: Buffer) {
+    this.buffers[trackId] = buffer;
+    this.lastTimeUsed[trackId] = Date.now();
+    while (Object.keys(this.buffers).length > 4) {
+      const oldest = Object.keys(this.buffers).reduce((a, b) => (this.lastTimeUsed[a] < this.lastTimeUsed[b] ? a : b));
+      delete this.buffers[oldest];
+      delete this.lastTimeUsed[oldest];
+    }
+  }
+
+  protected async decode(data: Promise<ArrayBuffer>): Promise<AudioBuffer> {
+    return this.context.decodeAudioData(await data);
+  }
+
+  async load(track: Track, onProgress?: (fraction: number | null) => void) {
     if (this.isLoading) return;
     this.isLoading = true;
-
-    this.stopAndCleanSources(); // ensure no overlap or memory leak
-
-    if (this.buffers[track.id]) {
-      this.vocalBuffer = this.buffers[track.id].vocal;
-      this.instrumentalBuffer = this.buffers[track.id].instrumental;
-    } else {
-      const vocalUrl = `${api.getUri()}/tracks/vocal/${track.id}`;
-      const instrumentalUrl = `${api.getUri()}/tracks/instrumental/${track.id}`;
-      const [vocal, instrumental] = await Promise.all([this.loadBuffer(vocalUrl), this.loadBuffer(instrumentalUrl)]);
+    try {
+      this.stopAndCleanSources(); // ensure no overlap or memory leak
+      const { vocal, instrumental } = await this.fetchBuffers(track, onProgress);
       this.vocalBuffer = vocal;
       this.instrumentalBuffer = instrumental;
+      this.lastTimeUsed[track.id] = Date.now();
+      // Reset timing
+      this.startOffset = 0;
+      this.startTime = 0;
+    } finally {
+      this.isLoading = false;
     }
-    this.lastTimeUsed[track.id] = Date.now();
-    // Reset timing
-    this.startOffset = 0;
-    this.startTime = 0;
-    this.isLoading = false;
   }
 
-  async loadAudio(track: Track) {
+  async loadAudio(track: Track, onProgress?: (fraction: number | null) => void) {
     this.pause(); // ensure current playback stops cleanly
-    await this.load(track);
+    await this.load(track, onProgress);
   }
 
+  /** Warm the cache for an upcoming track. Never throws: playback will retry when it gets there. */
   async preload(track: Track) {
-    if (this.buffers[track.id]) return; // already preloaded
-    const vocalUrl = `${api.getUri()}/tracks/vocal/${track.id}`;
-    const instrumentalUrl = `${api.getUri()}/tracks/instrumental/${track.id}`;
-    const [vocal, instrumental] = await Promise.all([this.loadBuffer(vocalUrl), this.loadBuffer(instrumentalUrl)]);
-    this.buffers[track.id] = { vocal, instrumental };
-    this.lastTimeUsed[track.id] = Date.now();
-    // Clean up old buffers if we have too many
-    if (Object.keys(this.buffers).length > 5) {
-      const oldestTrackId = Object.keys(this.lastTimeUsed).reduce((a, b) =>
-        this.lastTimeUsed[a] < this.lastTimeUsed[b] ? a : b
-      );
-      delete this.buffers[oldestTrackId];
-      delete this.lastTimeUsed[oldestTrackId];
+    try {
+      await this.fetchBuffers(track);
+    } catch (error) {
+      console.warn('Preload failed for', track.name, error);
     }
-  }
-
-  protected async loadBuffer(url: string): Promise<AudioBuffer> {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Failed to load audio (${res.status}): ${url}`);
-    const arrayBuffer = await res.arrayBuffer();
-    return await this.context.decodeAudioData(arrayBuffer);
   }
 
   protected createSources(offset: number) {

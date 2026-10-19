@@ -20,8 +20,8 @@ class ShiftedAudioPlayer extends SyncedAudioPlayer {
     }
   }
 
-  async load(track: Track) {
-    await super.load(track);
+  async load(track: Track, onProgress?: (fraction: number | null) => void) {
+    await super.load(track, onProgress);
     this.instrumentalShifter = new PitchShifter(this.context, this.instrumentalBuffer, 16384);
     this.vocalShifter = new PitchShifter(this.context, this.vocalBuffer, 16384);
   }

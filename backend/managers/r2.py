@@ -101,6 +101,18 @@ def _download(prefix: str, directory: str, name: str) -> bool:
         tmp.unlink(missing_ok=True)
 
 
+def fetch_one(prefix: str, name: str) -> bool:
+    """Download one file from R2 into the local working copy if it is missing (on-demand fallback)."""
+    if not enabled():
+        return False
+    for kind, directory, ext in KINDS:
+        if kind == prefix:
+            if not name.endswith(ext):
+                name += ext
+            return Path(directory, name).exists() or _download(kind, directory, name)
+    return False
+
+
 def _remote_names(prefix: str) -> set[str]:
     names: set[str] = set()
     paginator = _s3().get_paginator("list_objects_v2")

@@ -2,10 +2,14 @@
 # Docker on a Mac can't use the GPU, so the containerised worker is CPU-only.
 #
 #   docker compose -f docker-compose.yml -f docker-compose.local-worker.yml up -d --build
-#   cd backend && uv sync && uv run celery -A services.process_request.celery worker -l info --concurrency=1 --pool=solo
+#   docker compose stop worker        # a Docker worker that was already running would take jobs
+#   cd backend && uv sync
+#   REDIS_AUTOSTART=0 uv run celery -A services.process_request.celery worker -l info --concurrency=1 --pool=solo
 #
 # This starts redis, api and web in Docker and publishes Redis on localhost:6379 for the host
-# worker. The host worker shares ./backend/storage with the API, so run it from backend/.
+# worker (so nothing else may use that port). The host worker shares ./backend/storage with the
+# API, so run it from backend/. REDIS_AUTOSTART=0 makes it fail instead of silently starting its
+# own Redis if the compose one isn't up.
 services:
   redis:
     ports:

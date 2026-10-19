@@ -78,13 +78,20 @@ with an Apple GPU (MPS) or less with an NVIDIA GPU. Docker on a Mac can't use th
 get it keep everything else in Docker and run only the worker on your Mac:
 
 ```bash
+# 1. redis, api and web in Docker; Redis is published on localhost:6379 for the host worker
 docker compose -f docker-compose.yml -f docker-compose.local-worker.yml up -d --build
-cd backend && uv sync && uv run celery -A services.process_request.celery worker -l info --concurrency=1 --pool=solo
+# 2. make sure the Docker worker is not also running (it would take jobs and be slow)
+docker compose stop worker
+# 3. the worker, on your Mac (REDIS_AUTOSTART=0: fail instead of starting a second Redis)
+cd backend && uv sync
+REDIS_AUTOSTART=0 uv run celery -A services.process_request.celery worker -l info --concurrency=1 --pool=solo
 ```
 
-(This publishes Redis on `localhost:6379`; stop anything else already using that port, such as a
-Redis container the backend started for local development.) Give Docker enough memory too; the
-default 8 GB is tight while separating a song.
+Start the worker only after step 1, and use it with the same `backend/` folder (the Docker API
+and the host worker share `backend/storage`). If step 1 fails with "port is already allocated",
+something else is using `localhost:6379` (for example a Redis container or `redis-server` started
+for local development): stop it first. Give Docker enough memory too; the default 8 GB is tight
+while separating a song.
 
 #### Option B: Single container
 

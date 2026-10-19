@@ -38,79 +38,95 @@
 
 ## Setup
 
-For both local and docker setups, please first create/update environment variable files (Follow `.env.example` under **BOTH** frontend and backend)
+### 1. Add your Spotify credentials
 
-### (Recommended) Docker
+KKaraoke searches Spotify for songs, so it needs API credentials. Create an app at
+https://developer.spotify.com/dashboard, then:
 
-You can easily start the app with Docker.
+```bash
+cp backend/.env.example backend/.env
+```
+
+and put your client id and secret in `backend/.env` (`SPOTIFY_CLIENT_ID`, `SPOTIFY_SECRET`).
+
+### 2. Run it
+
+Pick one.
+
+#### Option A: Docker Compose (recommended)
+
+Requires [Docker](https://docs.docker.com/get-docker/). Runs Redis, the API, the Celery worker
+and nginx as separate containers, each restarted on its own if it dies.
+
+```bash
+docker compose up --build
+```
+
+Then open **http://localhost:8080**. The first build takes a few minutes (it installs PyTorch),
+and the first song you play downloads the separation model, so expect a wait. Songs are stored
+in `backend/storage`; the model is kept in a Docker volume. Stop with `docker compose down`.
+
+For an NVIDIA GPU (needs the NVIDIA Container Toolkit on the host), add the GPU file:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+```
+
+Docker on a Mac can't use Apple's GPU (MPS), so processing runs on the CPU there; use Option C
+if you want MPS.
+
+#### Option B: Single container
+
+Everything (Redis, API, worker, nginx) in one image:
 
 ```bash
 docker build -t kkaraoke .
 docker run -it --rm -p 8080:8080 -v $(pwd)/backend/storage:/app/backend/storage --env-file ./backend/.env kkaraoke
-
-# For gpus (You will need this if you want to process LOTS OF SONGS!!!!)
-docker build -f Dockerfile.cuda -t kkaraoke:cuda .
-docker run -it --rm -p 8080:8080 -v $(pwd)/backend/storage:/app/backend/storage --env-file ./backend/.env --gpus all kkaraoke
+# NVIDIA GPU: add --gpus all
 ```
 
-Then open http://localhost:8080. The image serves the frontend and API from the same
-address, so it works from any host without extra build arguments. To pin the API to a
-different address, build with `--build-arg APP_ADDR=host:port`.
+Then open **http://localhost:8080**. The image serves the frontend and API from the same
+address, so it works from any host. To pin the API to a different address, build with
+`--build-arg APP_ADDR=host:port`. The container exits if any of its services dies; add
+`--restart unless-stopped` (and drop `--rm`) to have Docker bring it back.
 
-The container exits if any of its services (API, worker, nginx) dies; add
-`--restart unless-stopped` to the `docker run` command (and drop `--rm`) to have Docker
-bring it back. Processing runs on CPU inside Docker (Apple's MPS isn't available there);
-use the local setup below on a Mac for GPU acceleration.
+#### Option C: Local development
 
-#### Docker Compose (separate services)
+Prerequisites: [uv](https://docs.astral.sh/uv/), ffmpeg on your PATH, and Node 22 with
+Corepack (`corepack enable`; the frontend uses Yarn 4). Redis is started for you if none is
+running (via Docker, or a local `redis-server`), as long as `REDIS_HOST` is local. Set
+`REDIS_AUTOSTART=0` to disable that, and `CORS_ORIGINS` to restrict which origins may call the
+API (see `backend/.env.example`).
 
-Runs Redis, the API, the Celery worker and nginx as separate containers, each restarted on
-its own if it dies (needs `backend/.env`):
-
-```bash
-docker compose up --build
-# NVIDIA GPU for the worker (requires the NVIDIA Container Toolkit):
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
-```
-
-Then open http://localhost:8080. Songs are stored in `backend/storage`, and the downloaded
-separation model is kept in a named volume.
-
-### Local environment
-
-#### Prerequisites:
-
-1. [uv](https://docs.astral.sh/uv/) installed.
-2. ffmpeg in your system PATH.
-3. Redis: the backend starts one for you if none is running (via Docker, or a local
-   `redis-server`), as long as `REDIS_HOST` is local
-
-Optional backend settings (see `backend/.env.example`): `REDIS_AUTOSTART=0` stops the
-backend from starting Redis itself, and `CORS_ORIGINS` restricts which origins may call
-the API.
-
-#### Backend (FastAPI)
+In three terminals:
 
 ```bash
+# 1. API (http://localhost:8000)
 cd backend
 uv sync
-uv run uvicorn main:app --reload --port 8080
+uv run uvicorn main:app --reload --port 8000
 ```
 
-In a second terminal, start the Celery worker:
-
 ```bash
+# 2. Celery worker (downloads audio and removes the vocals)
 cd backend
 uv run celery -A services.process_request.celery worker -l info --concurrency=1 --pool=solo
 ```
 
-#### Frontend
-
 ```bash
+# 3. Frontend (open the URL it prints)
 cd frontend
+cp .env.example .env    # VITE_API_ADDR=localhost:8000
 yarn
 yarn start
 ```
+
+### Troubleshooting
+
+- **`container name ... is already in use`** after a failed `docker compose up`: run
+  `docker compose down`, and if the name is still taken restart Docker Desktop.
+- **Songs stay "processing"**: check the worker logs (`docker compose logs worker`); failed
+  downloads or separations now show an error icon on the song.
 
 ### (Optional) Preprocess tracks
 

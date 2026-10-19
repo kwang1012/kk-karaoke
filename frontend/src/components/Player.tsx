@@ -66,6 +66,11 @@ export const Player = () => {
       index: -1,
       tracks: [],
     },
+    // The app-wide staleTime (10 min) would treat the empty initialData above as fresh, so the
+    // real queue was never fetched and looked empty after every reload. Mark it as ancient.
+    initialDataUpdatedAt: 0,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   // hooks

@@ -8,7 +8,8 @@ import { IconButton } from 'src/components/ui/button';
 import { useThemeMode } from 'src/hooks/theme';
 import { cn } from 'src/lib/utils';
 import { useSettingStore } from 'src/store/setting';
-import MobilePlayer from 'src/components/MobilePlayer';
+import AudioController from 'src/components/AudioController';
+import { useIdle } from 'src/hooks/idle';
 import LyricsOffset from 'src/components/LyricsOffset';
 import { useLyricsOffset } from 'src/hooks/lyricsOffset';
 import { useT } from 'src/i18n';
@@ -39,9 +40,10 @@ export default function LyricsView() {
   const image = currentTrack?.album?.images?.[0]?.url;
   const mode = useThemeMode();
   const isFullscreen = useSettingStore((state) => state.isFullScreen);
+  // in fullscreen the controls fade away after a few seconds without input
+  const idle = useIdle(3000, isFullscreen);
   const showTranslatinon = useSettingStore((state) => state.showTranslatinon);
   const scrollbarRef = useRef<HTMLDivElement>(null);
-  const [active, setActive] = useState(false);
 
   // Set the document title to the current song name and artist
   useEffect(() => {
@@ -123,42 +125,54 @@ export default function LyricsView() {
   };
   return (
     <>
-      {isFullscreen && (
-        <div
-          className={cn(
-            'fixed top-[95%] left-0 z-12 grid aspect-[3/4] h-1/2 grid-cols-1 grid-rows-[1fr_auto] overflow-hidden rounded-lg bg-black/50 px-2 py-5 backdrop-blur-[10px] [transform:translateX(-90%)]',
-            active && 'bg-black/70 [transform:translateX(-5%)_translateY(-90%)]'
-          )}
-          onMouseEnter={() => setActive(true)}
-          onMouseLeave={() => setActive(false)}
-          style={{
-            transitionProperty: 'background-color, transform',
-            transitionDuration: '.2s',
-            transitionTimingFunction: 'ease-in-out',
-          }}
-        >
-          <MobilePlayer color="rgba(0, 0, 0, 0.8)" />
-        </div>
-      )}
-      <div className={isFullscreen ? 'fixed left-0 w-screen h-screen z-11' : 'w-full h-full'}>
+      <div className={cn(isFullscreen ? 'fixed inset-0 z-11' : 'h-full w-full', isFullscreen && idle && 'cursor-none')}>
         <div className="relative w-full h-full" ref={containerRef}>
-          <div className="absolute bottom-4 left-4 z-12">
-            <LyricsOffset value={ahead} onChange={setAhead} />
-          </div>
+          {!isFullscreen && (
+            <div className="absolute bottom-4 left-4 z-12">
+              <LyricsOffset value={ahead} onChange={setAhead} />
+            </div>
+          )}
           {currentTrack?.orderedBy && (
             <div className="absolute top-4 right-4 z-10 flex items-center gap-2 rounded-full bg-black/30 py-1 pr-4 pl-1 backdrop-blur">
               <img src={currentTrack.orderedBy.avatar} className="size-9 rounded-full" alt={currentTrack.orderedBy.name} />
               <span className="text-sm font-semibold text-white">{currentTrack.orderedBy.name}</span>
             </div>
           )}
-          <div className="absolute right-4 bottom-4 z-10">
-            <IconButton
-              className="bg-black/30 text-white backdrop-blur hover:bg-black/50"
-              onClick={toggleFullscreen}
+          {!isFullscreen && (
+            <div className="absolute right-4 bottom-4 z-10">
+              <IconButton
+                aria-label={t('lyrics.fullscreen')}
+                className="bg-black/30 text-white backdrop-blur hover:bg-black/50"
+                onClick={toggleFullscreen}
+              >
+                <Maximize className="size-6" />
+              </IconButton>
+            </div>
+          )}
+          {isFullscreen && (
+            <div
+              className={cn(
+                'absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-6 pt-24 pb-5 transition-opacity duration-300',
+                idle && 'pointer-events-none opacity-0'
+              )}
             >
-              {isFullscreen ? <Minimize className="size-6" /> : <Maximize className="size-6" />}
-            </IconButton>
-          </div>
+              <div className="mx-auto max-w-6xl">
+                <div className="mb-3 flex items-center justify-between">
+                  <LyricsOffset value={ahead} onChange={setAhead} />
+                  <IconButton
+                    aria-label={t('lyrics.exitFullscreen')}
+                    className="bg-black/40 text-white backdrop-blur hover:bg-black/60"
+                    onClick={toggleFullscreen}
+                  >
+                    <Minimize className="size-6" />
+                  </IconButton>
+                </div>
+                <div className="h-[84px]">
+                  <AudioController />
+                </div>
+              </div>
+            </div>
+          )}
           <AppScrollbar
             ref={scrollbarRef}
             className={['w-full h-full px-10', isFullscreen ? 'py-[25%]' : ''].join(' ')}

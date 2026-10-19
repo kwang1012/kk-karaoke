@@ -1,4 +1,4 @@
-import { ReactElement, useEffect, useMemo, useState } from 'react';
+import { ReactElement, useMemo, useState } from 'react';
 import placeholderImage from 'src/assets/placeholder.png';
 import { CircleAlert, Cog, Music, Plus } from 'lucide-react';
 import { useReadyTrackIds, useTrackStore } from 'src/store';
@@ -58,27 +58,15 @@ export default function SongCard({
   const songStatus = useTrackStore((state) => state.songStatus);
   const songProgress = useTrackStore((state) => state.songProgress);
   const hasActions = useMemo(() => !!onAdd || !!onDelete || !!onInsert, [onAdd, onDelete, onInsert]);
-  const [status, setStatus] = useState(track?.status || 'ready');
-  const [progress, setProgress] = useState(track?.progress || 0);
-  const isReady = !status || status === 'ready';
+  // Derived from the current track (not copied into state): cards get reused for a different
+  // song when a list changes, and state would keep showing the previous song's status.
+  const status = (track?.id && songStatus[track.id]) || track?.status || 'ready';
+  const progress = (track?.id && songProgress[track.id]) || track?.progress || 0;
+  const readyTrackIds = useReadyTrackIds();
+  // The server saying the files exist wins over a status that may be stale (a missed message).
+  const isReady = !status || status === 'ready' || (!!track?.id && readyTrackIds.has(track.id));
   const disabled = useMemo(() => !isReady || disable, [isReady, disable]);
 
-  // Update only when songStatus[track.id] changes
-  useEffect(() => {
-    if (!track?.id) return;
-    const newStatus = songStatus[track.id];
-    if (newStatus && newStatus !== status) {
-      setStatus(newStatus);
-    }
-  }, [track?.id, songStatus[track?.id || '']]);
-  //  ? songProgress[track.id] : 100;
-  useEffect(() => {
-    if (!track?.id) return;
-    const newProgress = songProgress[track.id];
-    if (newProgress && newProgress !== progress) {
-      setProgress(newProgress);
-    }
-  }, [track?.id, songProgress[track?.id || '']]);
   const parsedTrack = useMemo(() => {
     if (!track)
       return {
@@ -89,7 +77,6 @@ export default function SongCard({
       };
     return track;
   }, [track]);
-  const readyTrackIds = useReadyTrackIds();
   const ready = useMemo(() => {
     return readyTrackIds.has(parsedTrack.id);
   }, [readyTrackIds, parsedTrack]);

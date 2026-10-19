@@ -87,9 +87,21 @@ function App() {
   const sendMessage = useWebSocketStore((state) => state.sendMessage);
   const connected = useWebSocketStore((state) => state.connected);
 
+  // Status updates only arrive as live websocket messages, so a "ready" that lands while the
+  // socket is down (or the tab is asleep) is never replayed and a card stays on "separating".
+  // Re-check which tracks are ready whenever the socket (re)connects, and poll while any track
+  // is still processing.
+  const processing = useTrackStore((state) =>
+    Object.values(state.songStatus).some((s) => s !== 'ready' && s !== 'error')
+  );
   useEffect(() => {
     getReadyTracks();
-  }, []);
+  }, [connected]);
+  useEffect(() => {
+    if (!processing) return;
+    const timer = setInterval(getReadyTracks, 5000);
+    return () => clearInterval(timer);
+  }, [processing]);
 
   useEffect(() => {
     if (!connected) return;

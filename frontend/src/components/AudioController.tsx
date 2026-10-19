@@ -27,6 +27,7 @@ export default function AudioController() {
   const showSnackbar = useNotifyStore((state) => state.showSnackbar);
   const queueOpen = useSettingStore((state) => state.queueOpen);
   const toggleQueue = useSettingStore((state) => state.toggleQueue);
+  const isFullScreen = useSettingStore((state) => state.isFullScreen);
 
   const navigate = useNavigate();
   const onStage = useLocation().pathname.startsWith('/lyrics');
@@ -135,6 +136,7 @@ export default function AudioController() {
             aria-labelledby="volume-slider"
           />
         </div>
+        {!isFullScreen && (
         <Tooltip title={onStage ? t('player.leaveLyricsView') : t('player.lyricsView')} side="top">
           <IconButton
             aria-label={t('player.lyricsView')}
@@ -145,6 +147,7 @@ export default function AudioController() {
             <Mic2 className="size-5" />
           </IconButton>
         </Tooltip>
+        )}
         {currentTrack?.id && (
           <Tooltip title={t('player.editLyrics')} side="top">
             <IconButton aria-label={t('player.editLyrics')} onClick={() => window.open(`/lyrics/edit/${currentTrack.id}`, '_blank')}>
@@ -152,6 +155,7 @@ export default function AudioController() {
             </IconButton>
           </Tooltip>
         )}
+        {!isFullScreen && (
         <Tooltip title={queueOpen ? t('player.hideQueue') : t('player.showQueue')} side="top">
           <IconButton
             aria-label={queueOpen ? t('player.hideQueue') : t('player.showQueue')}
@@ -162,6 +166,7 @@ export default function AudioController() {
             <ListMusic className="size-5" />
           </IconButton>
         </Tooltip>
+        )}
       </div>
     </div>
   );

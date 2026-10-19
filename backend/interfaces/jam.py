@@ -32,7 +32,7 @@ class RedisJamInterface:
         return self.states[jam_id]
 
     def create_or_update_jam_state(
-        self, jam_id: str, jam_state: Optional[dict] = None
+        self, jam_id: str, jam_state: Optional[dict] = None, force: bool = False
     ):
         if not jam_state:
             return
@@ -48,7 +48,9 @@ class RedisJamInterface:
         state.is_on = jam_state.get("is_on", state.is_on)
         state.queue_idx = jam_state.get("queueIdx", state.queue_idx)
 
-        if now - self.last_redis_update.get(jam_id, 0) >= JAM_STATE_SYNC_INTERVAL:
+        # `force` is used for discrete changes (play/pause/...): throttling them could
+        # drop the final update, leaving Redis (and late joiners) with stale state.
+        if force or now - self.last_redis_update.get(jam_id, 0) >= JAM_STATE_SYNC_INTERVAL:
             key = RedisKeys.jam(jam_id)
             serialized = {
                 k: json.dumps(v) for k, v in state.model_dump().items()

@@ -37,7 +37,7 @@ def _load_model(args: argparse.Namespace, device: str) -> Any:
 
 
 async def async_separate_vocals(sid: str, model_name: str = "htdemucs",
-                                shifts: int = 1, overlap: float = 0.5,
+                                shifts: int = 1, overlap: float = 0.25,
                                 stem: str = "vocals", int24: bool = False,
                                 float32: bool = False, clip_mode: str = "rescale",
                                 mp3: bool = True, mp3_bitrate: int = 320,
@@ -52,7 +52,7 @@ def separate_vocals(
     sid: str,
     model_name: str = "htdemucs",
     shifts: int = 1,
-    overlap: float = 0.5,
+    overlap: float = 0.25,  # demucs' default; 0.5 was ~30% slower for little audible gain
     stem: str = "vocals",
     int24: bool = False,
     float32: bool = False,
@@ -92,9 +92,13 @@ def separate_vocals(
         th.set_num_threads(1)
         jobs = 1
     else:
-        # Number of jobs. This can increase memory usage but will be much faster when
-        # multiple cores are available.
-        jobs = os.cpu_count()
+        # CPU separation runs `jobs` segments in parallel, each using torch's intra-op threads.
+        # The old setting (jobs = cpu_count, torch threads = cpu_count) oversubscribed the CPU
+        # ~cores^2 threads and ran about 15x slower than this on 10 cores (measured: 1.1-1.4 s of
+        # compute per second of audio vs ~19). Keep jobs * threads close to the core count.
+        cores = os.cpu_count() or 1
+        jobs = 2 if cores >= 4 else 1
+        th.set_num_threads(max(1, cores - jobs))
 
     if th.cuda.is_available():
         device = "cuda"

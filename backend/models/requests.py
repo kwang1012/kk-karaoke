@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ReorderRequest(BaseModel):
@@ -12,4 +12,5 @@ class UpdateQueueIdxRequest(BaseModel):
 
 
 class UpdateLyricsRequest(BaseModel):
-    content: str
+    # An .lrc file is a few KB; cap it so the endpoint can't be used to fill the disk.
+    content: str = Field(max_length=200_000)

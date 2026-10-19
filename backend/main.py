@@ -19,7 +19,7 @@ from routes.lyrics import router as lyrics_router
 from routes.queue import router as queue_router
 from routes.room import router as room_router
 from redis_keys import RedisKeys
-from config import DEFAULT_PLAYLIST_ID
+from config import CORS_ORIGINS, DEFAULT_PLAYLIST_ID
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -52,8 +52,10 @@ app = FastAPI(root_path="/api", lifespan=lifespan)
 app.add_middleware(FormatReponseMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=CORS_ORIGINS,
+    # Browsers reject credentialed responses with a wildcard origin, so only
+    # enable credentials when explicit origins are configured.
+    allow_credentials="*" not in CORS_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from models.track import LyricsDelay
 from models.requests import UpdateLyricsRequest
 from managers import r2
+from services.lyrics_sources import read_meta
 from utils import LYRICS_DIR, get_lyrics_path
 import re
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -102,7 +103,13 @@ def get_lyrics(
         return JSONResponse(
             # The delay is returned, not baked into the times: clients apply it themselves
             # (so adjusting it live doesn't need a refetch and can't be applied twice).
-            content={"lyrics": lyrics, "content": "".join(raw_lines), "delay": delay or 0},
+            content={
+                "lyrics": lyrics,
+                "content": "".join(raw_lines),
+                "delay": delay or 0,
+                # How far to trust the timing; null for lyrics fetched before this was recorded.
+                "confidence": read_meta(track_id).get("confidence"),
+            },
             status_code=200,
         )
     except FileNotFoundError:

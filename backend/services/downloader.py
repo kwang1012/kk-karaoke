@@ -2,13 +2,11 @@ import yt_dlp
 import os
 import re
 import syncedlyrics
-import asyncio
 import httpx
 import opencc
-from uuid import uuid4 as uuid
 
 
-from utils import RAW_AUDIO_DIR, LYRICS_DIR
+from utils import RAW_AUDIO_DIR
 
 _s2t_converter = opencc.OpenCC('s2t')
 
@@ -57,13 +55,28 @@ def _best_match(results: list, target_duration_s: float) -> dict:
     return best or results[0]
 
 
-def download_audio(sid: str, search_term: str, target_duration_s: float | None = None) -> None:
+def download_audio(
+    sid: str,
+    search_term: str,
+    target_duration_s: float | None = None,
+    video_id: str | None = None,
+) -> None:
     """
-    Downloads a YouTube video and returns the sanitized title.
+    Downloads a YouTube video's audio. With `video_id` (the recording the lyrics were
+    resolved against) that exact video is fetched; otherwise it is searched for.
     """
     if not os.path.exists(RAW_AUDIO_DIR):
         os.makedirs(RAW_AUDIO_DIR)
 
+    if video_id:
+        url = f"https://www.youtube.com/watch?v={video_id}"
+        print(f"Downloading audio for resolved recording {video_id}")
+    else:
+        url = _search_best_url(search_term, target_duration_s)
+    _download(sid, search_term, url)
+
+
+def _search_best_url(search_term: str, target_duration_s: float | None) -> str:
     results = []
     for query in (search_term + " official audio", search_term):
         try:
@@ -82,8 +95,10 @@ def download_audio(sid: str, search_term: str, target_duration_s: float | None =
         chosen = results[0]
 
     print(f"Downloading audio: {chosen['title']} (duration: {chosen.get('duration', '?')}s)")
-    url = chosen["url"]
+    return chosen["url"]
 
+
+def _download(sid: str, search_term: str, url: str) -> None:
     audio_path = os.path.join(RAW_AUDIO_DIR, sid + ".%(ext)s")
     ydl_opts = {
         "format": "bestaudio/best",
@@ -160,57 +175,11 @@ def _fetch_lrclib(
     return None
 
 
-def download_lyrics(
-    sid: str,
-    search_term: str,
-    track_name: str | None = None,
-    artist_name: str | None = None,
-    album_name: str | None = None,
-    duration_s: int | None = None,
-) -> None:
-    """
-    Downloads lyrics for a given song name.
-    Tries Lrclib structured API first, then falls back to syncedlyrics search.
-    """
-    if not os.path.exists(LYRICS_DIR):
-        os.makedirs(LYRICS_DIR)
-
-    save_path = os.path.join(LYRICS_DIR, f"{sid}.lrc")
-
-    # Try structured Lrclib lookup first
-    synced = None
-    if track_name and artist_name:
-        print(f"Trying Lrclib structured lookup: '{track_name}' by '{artist_name}'")
-        synced = _fetch_lrclib(track_name, artist_name, album_name, duration_s)
-        if synced:
-            with open(save_path, "w", encoding="utf-8") as f:
-                f.write(synced)
-            print(f"Downloaded lyrics (Lrclib exact match) to {save_path}")
-
-    if not synced:
-        # Fallback to syncedlyrics free-text search
-        print(f"Falling back to syncedlyrics search for '{search_term}'")
-        syncedlyrics.search(search_term, synced_only=True, save_path=save_path, providers=[
-                            "NetEase", "Lrclib", "Megalobiz", "Genius"])
-        print(f"Downloaded lyrics to {save_path}")
-
-    # Convert simplified Chinese to traditional if needed
-    if os.path.exists(save_path):
-        with open(save_path, "r", encoding="utf-8") as f:
-            lrc_content = f.read()
-        if _has_simplified_chinese(lrc_content):
-            print("Converting simplified Chinese lyrics to traditional")
-            converted = _convert_lrc_to_traditional(lrc_content)
-            with open(save_path, "w", encoding="utf-8") as f:
-                f.write(converted)
-
-
-def main():
-    query = "我認 王不醒"
-    sid = "4zN2QoPlRCMYIKmc3FjrVQ"
-    # sid = str(uuid().hex)
-    # download_audio(sid, query)
-    download_lyrics(sid, query)
-
-if __name__ == "__main__":
-    main()
+def search_synced_lyrics(search_term: str) -> str | None:
+    """Free-text lyrics search across providers. Last resort: nothing ties it to the audio."""
+    try:
+        return syncedlyrics.search(search_term, synced_only=True, providers=[
+            "NetEase", "Lrclib", "Megalobiz", "Genius"])
+    except Exception as e:
+        print(f"syncedlyrics search failed for '{search_term}': {e!r}")
+        return None

@@ -124,6 +124,7 @@ export const zhTW: Record<TranslationKey, string> = {
   'lyrics.later': '歌詞延後顯示',
   'lyrics.earlier': '歌詞提早顯示',
   'lyrics.resetSync': '重設同步',
+  'lyrics.approximate': '時間軸可能不準：這份歌詞可能是其他版本。可在此微調。',
   'lyrics.fullscreen': '全螢幕',
   'lyrics.exitFullscreen': '離開全螢幕',
 

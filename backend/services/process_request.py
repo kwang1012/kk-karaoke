@@ -10,7 +10,8 @@ import redis
 from utils import NO_VOCALS_DIR, LYRICS_DIR, VOCALS_DIR, RAW_AUDIO_DIR
 from models.track import Artist, Track
 from managers.websocket import WebSocketManager
-from services.downloader import download_lyrics, download_audio
+from services.downloader import download_audio
+from services.lyrics_sources import find_lyrics, read_meta, resolve_recording, save_result
 from services.voice_remover import separate_vocals
 from config import REDIS_HOST, REDIS_PORT
 from managers import r2
@@ -89,27 +90,36 @@ def _process_track(track: Track):
     vocals_exist = Path(VOCALS_DIR, f"{track.id}.mp3").exists()
     non_vocals_exist = Path(NO_VOCALS_DIR, f"{track.id}.mp3").exists()
 
+    title = track.name
+    artist = track.artists[0].name if track.artists else ""
+    duration_s = track.duration_ms / 1000 if track.duration_ms else None
+
+    # One recording drives both the lyrics and the audio, so they describe the same take.
+    # Tracks fetched before this existed have no recorded video id; they keep their search.
+    video_id = read_meta(track.id).get("video_id") if lyrics_exist else None
+    if not video_id and (not lyrics_exist or not vocals_exist or not non_vocals_exist):
+        recording = resolve_recording(title, artist, duration_s)
+        video_id = recording.video_id if recording else None
+    else:
+        recording = None
+
     if not lyrics_exist:
         _publish_status(track, "downloading_lyrics")
         album_name = track.album.get("name") if track.album else None
-        duration_s = round(track.duration_ms / 1000) if track.duration_ms else None
         try:
-            download_lyrics(
-                track.id,
-                search_term,
-                track_name=track.name,
-                artist_name=track.artists[0].name if track.artists else None,
-                album_name=album_name,
-                duration_s=duration_s,
-            )
+            result = find_lyrics(title, artist, album_name, duration_s, recording)
+            if result:
+                save_result(track.id, result)
+                print(f"Lyrics for {track.id}: {result.source} ({result.confidence})")
+            else:
+                print(f"No timed lyrics found for {track.id}")
         except Exception as e:
             # Missing lyrics shouldn't stop the track from being playable.
             print(f"Lyrics download failed for {track.id}: {e!r}")
 
     if not vocals_exist or not non_vocals_exist:
         _publish_status(track, "downloading_audio")
-        target_duration_s = track.duration_ms / 1000 if track.duration_ms else None
-        download_audio(track.id, search_term, target_duration_s=target_duration_s)
+        download_audio(track.id, search_term, target_duration_s=duration_s, video_id=video_id)
 
         _publish_status(track, "separating")
 

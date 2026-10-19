@@ -132,6 +132,7 @@ export const en = {
   'lyrics.later': 'Show lyrics later',
   'lyrics.earlier': 'Show lyrics earlier',
   'lyrics.resetSync': 'Reset sync',
+  'lyrics.approximate': 'Timing may be off: these lyrics might be for a different version. Nudge them here.',
   'lyrics.fullscreen': 'Fullscreen',
   'lyrics.exitFullscreen': 'Exit fullscreen',
 

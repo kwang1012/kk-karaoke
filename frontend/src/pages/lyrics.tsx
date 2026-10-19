@@ -24,7 +24,7 @@ export default function LyricsView() {
   const { seek } = usePlayer();
   const lyricsDelay = useTrackStore((state) => state.lyricsDelays[currentTrack?.id || ''] || 0);
   // How many seconds earlier the lyrics are shown, derived from the shared per-track delay.
-  const { ahead, setAhead } = useLyricsOffset();
+  const { ahead, setAhead, approximate } = useLyricsOffset();
   const syncedLyrics = useMemo(() => {
     return (
       lyrics?.map((line) => {
@@ -130,7 +130,7 @@ export default function LyricsView() {
         <div className="relative w-full h-full" ref={containerRef}>
           {!isFullscreen && (
             <div className="absolute bottom-4 left-4 z-12">
-              <LyricsOffset value={ahead} onChange={setAhead} />
+              <LyricsOffset value={ahead} onChange={setAhead} approximate={approximate} />
             </div>
           )}
           {currentTrack?.orderedBy && (
@@ -159,7 +159,7 @@ export default function LyricsView() {
             >
               <div className="mx-auto max-w-6xl">
                 <div className="mb-3 flex items-center justify-between">
-                  <LyricsOffset value={ahead} onChange={setAhead} />
+                  <LyricsOffset value={ahead} onChange={setAhead} approximate={approximate} />
                   <IconButton
                     aria-label={t('lyrics.exitFullscreen')}
                     className="bg-black/40 text-white backdrop-blur hover:bg-black/60"

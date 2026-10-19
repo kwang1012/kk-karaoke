@@ -9,8 +9,6 @@ x-backend: &backend
     STORAGE_DIR: /app/storage
   volumes:
     - ./backend/storage:/app/storage
-    # demucs downloads its weights on first use; keep them across container rebuilds
-    - model-cache:/root/.cache
   restart: unless-stopped
   depends_on:
     redis:
@@ -40,6 +38,17 @@ services:
 
   worker:
     <<: *backend
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      STORAGE_DIR: /app/storage
+      # demucs downloads its weights on first use; keep them across container rebuilds.
+      # (Own path, not /root/.cache: that already has content in the image, and two
+      # containers initialising one volume from it race.)
+      TORCH_HOME: /models
+    volumes:
+      - ./backend/storage:/app/storage
+      - model-cache:/models
     # Single concurrent job: separation is memory- and GPU-hungry. Scale with
     # `docker compose up --scale worker=N` if you have the hardware.
     command: ["celery", "-A", "services.process_request.celery", "worker", "-l", "info", "--concurrency=1", "--pool=solo"]

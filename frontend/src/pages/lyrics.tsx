@@ -10,8 +10,7 @@ import { cn } from 'src/lib/utils';
 import { useSettingStore } from 'src/store/setting';
 import MobilePlayer from 'src/components/MobilePlayer';
 import LyricsOffset from 'src/components/LyricsOffset';
-import { api } from 'src/utils/api';
-import { useDebouncedCallback } from 'src/hooks/debounce';
+import { useLyricsOffset } from 'src/hooks/lyricsOffset';
 
 export default function LyricsView() {
   // local states
@@ -20,14 +19,8 @@ export default function LyricsView() {
   const { progress, currentLine, setCurrentLine, currentTrack, lyrics, seeking, loading } = usePlayer();
   const { seek } = usePlayer();
   const lyricsDelay = useTrackStore((state) => state.lyricsDelays[currentTrack?.id || ''] || 0);
-  const setLyricsDelay = useTrackStore((state) => state.setLyricsDelay);
-  // How many seconds earlier the lyrics are shown. Derived from the shared per-track delay
-  // (a separate local state was also subtracted before, shifting lyrics twice as far here
-  // as on mobile and showing a slider value that didn't match the real offset).
-  const ahead = -lyricsDelay;
-  const saveDelay = useDebouncedCallback((id: string, delay: number) => {
-    api.post('lyrics/delay', { id, delay }).catch((e) => console.error('Failed to save lyrics delay', e));
-  }, 400);
+  // How many seconds earlier the lyrics are shown, derived from the shared per-track delay.
+  const { ahead, setAhead } = useLyricsOffset();
   const syncedLyrics = useMemo(() => {
     return (
       lyrics?.map((line) => {
@@ -148,14 +141,7 @@ export default function LyricsView() {
       <div className={isFullscreen ? 'fixed left-0 w-screen h-screen z-11' : 'w-full h-full'}>
         <div className="relative w-full h-full" ref={containerRef}>
           <div className="absolute bottom-4 left-4 z-12">
-            <LyricsOffset
-              value={ahead}
-              onChange={(newAhead) => {
-                if (!currentTrack) return;
-                setLyricsDelay(currentTrack.id, -newAhead);
-                saveDelay(currentTrack.id, -newAhead);
-              }}
-            />
+            <LyricsOffset value={ahead} onChange={setAhead} />
           </div>
           {currentTrack?.orderedBy && (
             <div className="absolute top-4 right-4 z-10 flex items-center gap-2 rounded-full bg-black/30 py-1 pr-4 pl-1 backdrop-blur">

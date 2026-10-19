@@ -150,30 +150,41 @@ class RedisQueueInterface:
         message_json = json.dumps(message)
         return self.redis.publish(channel, message_json)  # type: ignore
 
-    def subscribe_to_channel(self, channel: str, callback: Callable) -> threading.Thread:
+    def subscribe_to_channel(
+        self, channel: str, callback: Callable, max_wait_s: float = 2 * 60 * 60
+    ) -> threading.Thread:
         def _subscriber_thread(redis_client, channel_name, callback_func):
             pubsub = redis_client.pubsub()
             pubsub.subscribe(channel_name)
+            # Give up if the worker never reports back (e.g. it died), so threads
+            # and connections don't pile up forever.
+            deadline = time.monotonic() + max_wait_s
             try:
-                for message in pubsub.listen():
-                    if message["type"] == "message":
-                        try:
-                            data = json.loads(message["data"])
-                            callback_func(data)
-                            # Stop listening once the track is ready or failed
-                            status = data.get("data", {}).get("status")
-                            if status in ("ready", "error"):
-                                break
-                        except json.JSONDecodeError:
-                            print(
-                                f"Error decoding JSON on channel "
-                                f"{channel_name}: {message['data']}"
-                            )
-                        except Exception as e:
-                            print(
-                                f"Error processing message on channel "
-                                f"{channel_name}: {e}"
-                            )
+                while time.monotonic() < deadline:
+                    message = pubsub.get_message(
+                        ignore_subscribe_messages=True, timeout=1.0
+                    )
+                    if message is None or message["type"] != "message":
+                        continue
+                    try:
+                        data = json.loads(message["data"])
+                        callback_func(data)
+                        # Stop listening once the track is ready or failed
+                        status = data.get("data", {}).get("status")
+                        if status in ("ready", "error"):
+                            break
+                    except json.JSONDecodeError:
+                        print(
+                            f"Error decoding JSON on channel "
+                            f"{channel_name}: {message['data']}"
+                        )
+                    except Exception as e:
+                        print(
+                            f"Error processing message on channel "
+                            f"{channel_name}: {e}"
+                        )
+                else:
+                    print(f"Gave up waiting on channel {channel_name}")
             finally:
                 pubsub.unsubscribe(channel_name)
                 pubsub.close()

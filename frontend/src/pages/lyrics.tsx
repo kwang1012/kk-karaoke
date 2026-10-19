@@ -12,6 +12,7 @@ import { OverlayScrollbarsComponentRef } from 'overlayscrollbars-react';
 import NonLinearSlider from 'src/components/NonLinearSlider';
 import Midi from 'src/components/Midi';
 import { api } from 'src/utils/api';
+import { useDebouncedCallback } from 'src/hooks/debounce';
 
 const FloatingControl = styled('div')(({ theme }) => ({
   display: 'grid',
@@ -54,17 +55,23 @@ export default function LyricsView() {
   const { seek } = usePlayer();
   const lyricsDelay = useTrackStore((state) => state.lyricsDelays[currentTrack?.id || ''] || 0);
   const setLyricsDelay = useTrackStore((state) => state.setLyricsDelay);
-  const [ahead, setAhead] = useState(0);
+  // How many seconds earlier the lyrics are shown. Derived from the shared per-track delay
+  // (a separate local state was also subtracted before, shifting lyrics twice as far here
+  // as on mobile and showing a slider value that didn't match the real offset).
+  const ahead = -lyricsDelay;
+  const saveDelay = useDebouncedCallback((id: string, delay: number) => {
+    api.post('lyrics/delay', { id, delay }).catch((e) => console.error('Failed to save lyrics delay', e));
+  }, 400);
   const syncedLyrics = useMemo(() => {
     return (
       lyrics?.map((line) => {
         return {
           ...line,
-          time: line.time + lyricsDelay - ahead,
+          time: line.time + lyricsDelay,
         };
       }) || []
     );
-  }, [lyrics, lyricsDelay, ahead]);
+  }, [lyrics, lyricsDelay]);
 
   const [color, setColor] = useState<string>(DEFAULT_COLOR);
   const [bgColor, setBgColor] = useState<string>(DEFAULT_BG_COLOR);
@@ -196,10 +203,10 @@ export default function LyricsView() {
             <NonLinearSlider
               onDragStart={() => setDelaySeeking(true)}
               onDragEnd={() => setDelaySeeking(false)}
-              onChange={(ahead) => {
-                setAhead(ahead);
+              onChange={(newAhead) => {
                 if (currentTrack) {
-                  setLyricsDelay(currentTrack.id, -ahead);
+                  setLyricsDelay(currentTrack.id, -newAhead);
+                  saveDelay(currentTrack.id, -newAhead);
                 }
               }}
             />

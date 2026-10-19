@@ -38,4 +38,6 @@ COPY run.sh /run.sh
 RUN chmod +x /run.sh
 
 EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD curl -fsS http://localhost:8080/api/ || exit 1
 CMD ["/run.sh"]

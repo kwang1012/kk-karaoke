@@ -1,0 +1,58 @@
+# Start everything with:  docker compose up --build   (then open http://localhost:8080)
+# Needs backend/.env (copy backend/.env.example and add your Spotify credentials).
+x-backend: &backend
+  build: ./backend
+  env_file: ./backend/.env
+  environment:
+    REDIS_HOST: redis
+    REDIS_PORT: "6379"
+    STORAGE_DIR: /app/storage
+  volumes:
+    - ./backend/storage:/app/storage
+    # demucs downloads its weights on first use; keep them across container rebuilds
+    - model-cache:/root/.cache
+  restart: unless-stopped
+  depends_on:
+    redis:
+      condition: service_healthy
+
+services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    <<: *backend
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+  worker:
+    <<: *backend
+    # Single concurrent job: separation is memory- and GPU-hungry. Scale with
+    # `docker compose up --scale worker=N` if you have the hardware.
+    command: ["celery", "-A", "services.process_request.celery", "worker", "-l", "info", "--concurrency=1", "--pool=solo"]
+
+  web:
+    build: ./frontend
+    ports:
+      - "8080:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  model-cache:

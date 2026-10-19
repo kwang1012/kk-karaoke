@@ -1,0 +1,11 @@
+# NVIDIA GPU for the worker (needs the NVIDIA Container Toolkit on the host):
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+services:
+  worker:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

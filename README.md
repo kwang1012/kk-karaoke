@@ -62,6 +62,20 @@ The container exits if any of its services (API, worker, nginx) dies; add
 bring it back. Processing runs on CPU inside Docker (Apple's MPS isn't available there);
 use the local setup below on a Mac for GPU acceleration.
 
+#### Docker Compose (separate services)
+
+Runs Redis, the API, the Celery worker and nginx as separate containers, each restarted on
+its own if it dies (needs `backend/.env`):
+
+```bash
+docker compose up --build
+# NVIDIA GPU for the worker (requires the NVIDIA Container Toolkit):
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+```
+
+Then open http://localhost:8080. Songs are stored in `backend/storage`, and the downloaded
+separation model is kept in a named volume.
+
 ### Local environment
 
 #### Prerequisites:

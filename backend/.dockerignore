@@ -1,0 +1,9 @@
+.venv
+venv
+__pycache__
+*.pyc
+storage
+synced_lyrics
+build
+dist
+.env

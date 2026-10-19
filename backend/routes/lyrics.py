@@ -57,7 +57,10 @@ def get_lyrics(
         pattern = re.compile(r"\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)")
         lyrics = []
         delay = redis_interface.get_track_delay(track_id)
-        for i, line in enumerate(raw_lines):
+        # romanized_lines is indexed by parsed lyric line (matches only), so a file
+        # with header/blank lines doesn't shift or overflow the index.
+        lyric_idx = 0
+        for line in raw_lines:
             match = pattern.match(line.strip())
             if match:
                 minutes = int(match.group(1))
@@ -69,7 +72,10 @@ def get_lyrics(
                     timestamp += delay
                 text = match.group(4).strip()
                 if romanized_exists:
-                    romanized = romanized_lines[i]
+                    romanized = (
+                        romanized_lines[lyric_idx]
+                        if lyric_idx < len(romanized_lines) else None
+                    )
                 else:
                     lang = detector.detect_language_of(text)
                     romanized = None
@@ -78,6 +84,7 @@ def get_lyrics(
                     elif lang == Language.JAPANESE:
                         romanized = katsu.romaji(text)
                     romanized_lines.append(romanized)
+                lyric_idx += 1
                 lyrics.append({
                     "time": timestamp,
                     "text": text,

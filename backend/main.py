@@ -29,13 +29,13 @@ load_dotenv()
 async def lifespan(app: FastAPI):
     r = get_redis()
     for key in r.scan_iter("room:*:queue"):
-        queue_length: int = r.llen(key)  # type: ignore
-        for i in range(queue_length):
-            track_data = r.lindex(key, i)
-            if track_data:
-                stored_track = Track(**json.loads(track_data))
-                if not is_ready(stored_track):
-                    r.lrem(key, 1, track_data)
+        # Snapshot first: removing while indexing shifts later entries and skips them.
+        entries = r.lrange(key, 0, -1)
+        queue_length = len(entries)
+        for track_data in entries:
+            stored_track = Track(**json.loads(track_data))
+            if not is_ready(stored_track):
+                r.lrem(key, 1, track_data)
         new_queue_length: int = r.llen(key)  # type: ignore
         if new_queue_length != queue_length:
             room_id = key.split(":")[1]

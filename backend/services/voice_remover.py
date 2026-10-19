@@ -18,6 +18,24 @@ class SeparationError(RuntimeError):
     """Raised when a track cannot be separated."""
 
 
+# Loading the model takes seconds and gigabytes of I/O; the worker is a long-lived
+# process, so load it once per (model, device) instead of once per track.
+_MODEL_CACHE: dict[tuple[str, str], Any] = {}
+
+
+def _load_model(args: argparse.Namespace, device: str) -> Any:
+    key = (args.name, device)
+    if key not in _MODEL_CACHE:
+        try:
+            model: Any = get_model_from_args(args)
+        except ModelLoadingError as error:
+            raise SeparationError(error.args[0]) from error
+        model.to(device)
+        model.eval()
+        _MODEL_CACHE[key] = model
+    return _MODEL_CACHE[key]
+
+
 async def async_separate_vocals(sid: str, model_name: str = "htdemucs",
                                 shifts: int = 1, overlap: float = 0.5,
                                 stem: str = "vocals", int24: bool = False,
@@ -64,7 +82,13 @@ def separate_vocals(
         verbose (bool): Verbose
     """
 
-    if os.environ.get("LIMIT_CPU", False):
+    # Fail fast, before paying for model loading.
+    track = Path(RAW_AUDIO_DIR, f"{sid}.mp3")
+    if not track.exists():
+        raise FileNotFoundError(f"Raw audio {track} does not exist")
+
+    # "0"/"false" must mean off (any non-empty string used to be truthy).
+    if os.environ.get("LIMIT_CPU", "").strip().lower() in ("1", "true", "yes", "on"):
         th.set_num_threads(1)
         jobs = 1
     else:
@@ -98,11 +122,7 @@ def separate_vocals(
     args.name = model_name
     args.repo = None
 
-    model: Any = None
-    try:
-        model: Any = get_model_from_args(args)
-    except ModelLoadingError as error:
-        raise SeparationError(error.args[0]) from error
+    model = _load_model(args, device)
 
     if args.segment is not None and args.segment < 8:
         raise SeparationError("Segment must greater than 8.")
@@ -121,9 +141,6 @@ def separate_vocals(
     else:
         if args.segment is not None:
             model.segment = args.segment
-
-    model.to(device)
-    model.eval()
 
     if args.stem is not None and args.stem not in model.sources:
         raise SeparationError(
@@ -149,9 +166,6 @@ def separate_vocals(
 
     print(
         f"Separated tracks will be stored in {vocal_stem} and {non_vocal_stem}")
-    track = Path(RAW_AUDIO_DIR, f"{sid}.mp3")
-    if not track.exists():
-        raise FileNotFoundError(f"Raw audio {track} does not exist")
     print(f"Separating track {track}")
     wav = load_track(track, model.audio_channels, model.samplerate)
 

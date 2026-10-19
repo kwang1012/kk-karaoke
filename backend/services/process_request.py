@@ -17,6 +17,11 @@ ws_manager = WebSocketManager()
 
 redis_uri = f"redis://{REDIS_HOST}:{REDIS_PORT}/1"
 celery = Celery("worker", broker=redis_uri, backend=redis_uri)
+celery.conf.update(
+    # Songs take minutes; don't let one worker reserve tasks it can't start yet.
+    worker_prefetch_multiplier=1,
+    broker_connection_retry_on_startup=True,
+)
 
 r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT)
 

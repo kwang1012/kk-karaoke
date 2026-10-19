@@ -206,4 +206,5 @@ def main(song_name: str):
 
 
 # Example usage
-main("IVE - After LIKE")
+if __name__ == "__main__":
+    main("IVE - After LIKE")

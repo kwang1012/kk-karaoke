@@ -57,18 +57,23 @@ docker run -it --rm -p 8080:8080 -v $(pwd)/backend/storage:/app/backend/storage 
 
 #### Prerequisites:
 
-1. ffmpeg in your system PATH.
-2. A running redis in your system
+1. [uv](https://docs.astral.sh/uv/) installed.
+2. ffmpeg in your system PATH.
+3. A running redis in your system
 
 #### Backend (FastAPI)
 
 ```bash
 cd backend
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-uvicorn main:app --reload
-celery -A services.process_request.celery worker -l info --concurrency=1 --pool=solo
+uv sync
+uv run uvicorn main:app --reload --port 8080
+```
+
+In a second terminal, start the Celery worker:
+
+```bash
+cd backend
+uv run celery -A services.process_request.celery worker -l info --concurrency=1 --pool=solo
 ```
 
 #### Frontend
@@ -85,7 +90,7 @@ If you want to preprocess the tracks so that the users can immediately enjoy the
 
 ```
 cd backend
-python -m scripts.process_default_queue.py
+uv run python -m scripts.process_default_queue
 ```
 
 ---

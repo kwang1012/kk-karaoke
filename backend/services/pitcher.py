@@ -3,6 +3,7 @@ import torch
 import torchaudio
 import torchcrepe
 import numpy as np
+from managers import r2
 from utils import MIDI_DIR, get_vocal_path, get_midi_path
 
 
@@ -86,6 +87,7 @@ def extract_midi(track_id: str):
     with open(midi_path, 'w') as f:
         json.dump(note_events, f)
     print(f"Saved to {midi_path}")
+    r2.upload_path("midi", midi_path)
 
 
 if __name__ == "__main__":

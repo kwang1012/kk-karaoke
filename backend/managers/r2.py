@@ -1,0 +1,138 @@
+"""Cloudflare R2 as the durable store for processed data.
+
+The local storage directory stays the working copy (files are served from it and the worker writes
+into it); R2 is the source of truth. Finished files are pushed to R2 as they are produced, and
+`sync()` reconciles the two at startup: whatever R2 has and the disk lacks is downloaded, whatever
+the disk has and R2 lacks is uploaded. Nothing here raises into callers: with R2 unconfigured every
+function is a no-op, and a failed transfer is logged and retried at the next sync.
+"""
+
+import os
+import time
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from threading import Lock
+
+import boto3
+from botocore.config import Config
+
+from config import (
+    R2_ACCESS_KEY_ID,
+    R2_BUCKET,
+    R2_ENDPOINT_URL,
+    R2_SECRET_ACCESS_KEY,
+    R2_SYNC_WORKERS,
+)
+from utils import LYRICS_DIR, MIDI_DIR, NO_VOCALS_DIR, VOCALS_DIR
+
+# (R2 key prefix, local directory, file extension). Raw downloads are scratch space, not kept.
+KINDS = (
+    ("lyrics", LYRICS_DIR, ".lrc"),
+    ("vocal", VOCALS_DIR, ".mp3"),
+    ("instrumental", NO_VOCALS_DIR, ".mp3"),
+    ("midi", MIDI_DIR, ".mid"),
+)
+
+# A file this fresh may still be being written by a worker, so the sync leaves it alone.
+_SETTLE_SECONDS = 30
+
+_client = None
+_client_lock = Lock()
+
+
+def enabled() -> bool:
+    return bool(R2_ENDPOINT_URL and R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY and R2_BUCKET)
+
+
+def _s3():
+    global _client
+    with _client_lock:
+        if _client is None:
+            _client = boto3.client(
+                "s3",
+                endpoint_url=R2_ENDPOINT_URL,
+                aws_access_key_id=R2_ACCESS_KEY_ID,
+                aws_secret_access_key=R2_SECRET_ACCESS_KEY,
+                region_name="auto",
+                config=Config(retries={"max_attempts": 5, "mode": "standard"}),
+            )
+        return _client
+
+
+def _key(prefix: str, name: str) -> str:
+    return f"{prefix}/{name}"
+
+
+def upload_path(prefix: str, path: str | os.PathLike) -> bool:
+    """Upload one local file to R2 under `prefix/`. Returns whether it was stored."""
+    if not enabled():
+        return False
+    path = Path(path)
+    try:
+        _s3().upload_file(str(path), R2_BUCKET, _key(prefix, path.name))
+        return True
+    except Exception as e:
+        print(f"R2 upload failed for {prefix}/{path.name}: {e!r}")
+        return False
+
+
+def upload_track(track_id: str) -> None:
+    """Push whatever processed files exist locally for a track (call after producing them)."""
+    if not enabled():
+        return
+    for prefix, directory, ext in KINDS:
+        path = Path(directory, f"{track_id}{ext}")
+        if path.exists():
+            upload_path(prefix, path)
+
+
+def _download(prefix: str, directory: str, name: str) -> bool:
+    dest = Path(directory, name)
+    # Unique temp name: the API and a worker sharing a directory may sync at the same time.
+    tmp = dest.with_name(f".{name}.{os.getpid()}.part")
+    try:
+        _s3().download_file(R2_BUCKET, _key(prefix, name), str(tmp))
+        os.replace(tmp, dest)
+        return True
+    except Exception as e:
+        print(f"R2 download failed for {prefix}/{name}: {e!r}")
+        return False
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
+def _remote_names(prefix: str) -> set[str]:
+    names: set[str] = set()
+    paginator = _s3().get_paginator("list_objects_v2")
+    for page in paginator.paginate(Bucket=R2_BUCKET, Prefix=f"{prefix}/"):
+        for obj in page.get("Contents", []):
+            name = obj["Key"][len(prefix) + 1:]
+            if name and "/" not in name:
+                names.add(name)
+    return names
+
+
+def sync() -> tuple[int, int]:
+    """Reconcile the local storage directory with the bucket. Returns (downloaded, uploaded)."""
+    if not enabled():
+        return 0, 0
+    downloads: list[tuple[str, str, str]] = []
+    uploads: list[tuple[str, Path]] = []
+    now = time.time()
+    for prefix, directory, ext in KINDS:
+        remote = {n for n in _remote_names(prefix) if n.endswith(ext)}
+        local = {
+            p.name for p in Path(directory).iterdir()
+            if p.is_file() and p.name.endswith(ext) and not p.name.startswith(".")
+        }
+        downloads += [(prefix, directory, n) for n in sorted(remote - local)]
+        for name in sorted(local - remote):
+            path = Path(directory, name)
+            if now - path.stat().st_mtime >= _SETTLE_SECONDS:
+                uploads.append((prefix, path))
+
+    with ThreadPoolExecutor(max_workers=R2_SYNC_WORKERS) as pool:
+        got = sum(pool.map(lambda a: _download(*a), downloads))
+        put = sum(pool.map(lambda a: upload_path(*a), uploads))
+    print(f"R2 sync: downloaded {got}/{len(downloads)}, uploaded {put}/{len(uploads)}")
+    return got, put

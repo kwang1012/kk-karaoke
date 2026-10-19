@@ -6,6 +6,7 @@ from fastapi import Depends, FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from redis import RedisError
+from managers import r2
 from managers.db import get_redis
 from models.track import Track
 from services.process_request import is_ready, send_process_request
@@ -27,6 +28,12 @@ load_dotenv()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Pull in whatever R2 has that this disk lacks *before* resuming, or tracks that are already
+    # processed would look unready and be processed again.
+    try:
+        await asyncio.get_running_loop().run_in_executor(None, r2.sync)
+    except Exception as e:  # R2 being down must not stop the API
+        print(f"R2 sync failed: {e!r}")
     # Queues persist across restarts. (This used to delete every track that wasn't processed
     # yet, so anything still downloading or separating vanished whenever the API restarted.)
     try:

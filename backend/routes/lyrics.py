@@ -3,6 +3,7 @@ from typing import Union
 from fastapi import APIRouter, Depends
 from models.track import LyricsDelay
 from models.requests import UpdateLyricsRequest
+from managers import r2
 from utils import LYRICS_DIR, get_lyrics_path
 import re
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -125,4 +126,5 @@ def update_lyrics(track_id: str, data: UpdateLyricsRequest):
         file_path = os.path.join(LYRICS_DIR, f"{track_id}.lrc")
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(data.content)
+    r2.upload_path("lyrics", file_path)
     return JSONResponse(content={"message": "Lyrics updated successfully"})

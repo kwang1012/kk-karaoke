@@ -116,6 +116,21 @@ running (via Docker, or a local `redis-server`), as long as `REDIS_HOST` is loca
 `REDIS_AUTOSTART=0` to disable that, and `CORS_ORIGINS` to restrict which origins may call the
 API (see `backend/.env.example`).
 
+### Cloudflare R2 storage
+
+Set `R2_ENDPOINT_URL`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` and `R2_BUCKET` in
+`backend/.env` (see `backend/.env.example`) to keep all processed data (lyrics, vocal and
+instrumental stems, pitch MIDI) in an R2 bucket. `backend/storage` stays the local working copy;
+R2 is the source of truth:
+
+- when the API or a worker starts, it syncs: files in R2 that are missing on disk are downloaded,
+  and files on disk that R2 lacks are uploaded (so an existing `storage/` migrates on first start);
+  the API finishes this before resuming queued tracks, so already-processed songs aren't redone;
+- new files are uploaded as soon as they are produced, and lyrics edits are written through.
+
+Without these variables nothing changes and everything stays on local disk. The sync never
+overwrites a file that exists on both sides, and R2 being unreachable only logs an error.
+
 In three terminals:
 
 ```bash

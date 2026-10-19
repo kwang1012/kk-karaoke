@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Union
 
 from celery import Celery
+from celery.signals import worker_ready
 import redis
 from utils import NO_VOCALS_DIR, LYRICS_DIR, VOCALS_DIR, RAW_AUDIO_DIR
 from models.track import Artist, Track
@@ -12,6 +13,7 @@ from managers.websocket import WebSocketManager
 from services.downloader import download_lyrics, download_audio
 from services.voice_remover import separate_vocals
 from config import REDIS_HOST, REDIS_PORT
+from managers import r2
 
 ws_manager = WebSocketManager()
 
@@ -24,6 +26,15 @@ celery.conf.update(
 )
 
 r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT)
+
+
+@worker_ready.connect
+def _sync_r2_on_worker_start(**_):
+    """Bring local storage in line with R2, so a fresh worker doesn't redo finished tracks."""
+    try:
+        r2.sync()
+    except Exception as e:
+        print(f"R2 sync failed: {e!r}")
 
 
 def is_ready(track: Track) -> bool:
@@ -113,6 +124,7 @@ def _process_track(track: Track):
         raise RuntimeError("Separation finished but output files are missing")
 
     Path(RAW_AUDIO_DIR, f"{track.id}.mp3").unlink(missing_ok=True)
+    r2.upload_track(track.id)
     _publish_status(track, "ready")
 
 

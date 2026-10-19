@@ -230,8 +230,10 @@ export const Player = () => {
     // prevent re-initialization on every render
     if (currentTrack.id === lastSongId) return;
 
-    // skip if the track is not ready and songStatus is not undefined
-    if (songStatus[currentTrack.id] !== undefined && songStatus[currentTrack.id] !== 'ready') {
+    // Skip if the track is still processing. songStatus is only known for this session, so after
+    // a reload fall back to the status the server stored with the queue item.
+    const trackStatus = songStatus[currentTrack.id] ?? currentTrack.status;
+    if (trackStatus !== undefined && trackStatus !== null && trackStatus !== 'ready') {
       console.log('Track is still processing, skipping initialization:', currentTrack.name);
       return;
     }

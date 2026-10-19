@@ -4,7 +4,7 @@ import { Button, IconButton } from 'src/components/ui/button';
 import { Input } from 'src/components/ui/input';
 import { Tooltip } from 'src/components/ui/tooltip';
 import { cn } from 'src/lib/utils';
-import Carousel, { CarouselItem } from 'src/components/Carousel';
+import AvatarPicker from 'src/components/AvatarPicker';
 import { useEffect, useState } from 'react';
 import { api } from 'src/utils/api';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -129,22 +129,15 @@ export default function JoinView() {
               </IconButton>
             </Tooltip>
           </div>
-          <Carousel className="-mx-4 mt-2">
-            {avatars.map((avatar, index) => (
-              <CarouselItem
-                active={avatar == selectedAvatar}
-                key={index}
-                dense
-                className="mr-1"
-                onClick={() => {
-                  setSelectedAvatar(avatar);
-                  setAvatarError(false);
-                }}
-              >
-                <img src={avatar} alt={`Avatar ${index + 1}`} className="size-12" />
-              </CarouselItem>
-            ))}
-          </Carousel>
+          <AvatarPicker
+            className="mt-3 grid grid-cols-5 gap-3"
+            avatars={avatars}
+            value={selectedAvatar}
+            onChange={(avatar) => {
+              setSelectedAvatar(avatar);
+              setAvatarError(false);
+            }}
+          />
           {avatarError && <p className="mt-1 text-xs text-destructive">{t('join.avatarRequired')}</p>}
         </div>
 

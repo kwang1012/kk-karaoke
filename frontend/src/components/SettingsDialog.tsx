@@ -4,6 +4,7 @@ import { Button, IconButton } from 'src/components/ui/button';
 import { Input } from 'src/components/ui/input';
 import { Tooltip } from 'src/components/ui/tooltip';
 import AppSelect from 'src/components/Select';
+import AvatarPicker from 'src/components/AvatarPicker';
 import AppSwitch from 'src/components/Switch';
 import AppScrollbar from 'src/components/Scrollbar';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from 'src/components/ui/dialog';
@@ -11,7 +12,6 @@ import { usePlayerStore } from 'src/store/player';
 import { useSettingStore } from 'src/store/setting';
 import { useRoomStore } from 'src/store/room';
 import { generateAvatars } from 'src/utils';
-import { cn } from 'src/lib/utils';
 import { LANGUAGES, useLanguageStore, useT, type Language } from 'src/i18n';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -165,17 +165,13 @@ export default function SettingsDialog() {
                     <RefreshCw className="size-4" />
                   </IconButton>
                 </Tooltip>
-                {avatars.map((a, index) => (
-                  <img
-                    src={a}
-                    key={index}
-                    className={cn(
-                      'mr-2 size-9 cursor-pointer rounded-full transition-colors hover:bg-accent',
-                      localAvatar === a && 'bg-primary/20 ring-2 ring-primary'
-                    )}
-                    onClick={() => setLocalAvatar(a)}
-                  />
-                ))}
+                <AvatarPicker
+                  className="flex items-center gap-2"
+                  itemClassName="size-9"
+                  avatars={avatars}
+                  value={localAvatar}
+                  onChange={setLocalAvatar}
+                />
               </>
             ) : (
               localAvatar && <img src={localAvatar} className="mr-3 size-9 rounded-full" alt="avatar" />

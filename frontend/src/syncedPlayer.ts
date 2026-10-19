@@ -105,6 +105,7 @@ class SyncedAudioPlayer {
 
   protected async loadBuffer(url: string): Promise<AudioBuffer> {
     const res = await fetch(url);
+    if (!res.ok) throw new Error(`Failed to load audio (${res.status}): ${url}`);
     const arrayBuffer = await res.arrayBuffer();
     return await this.context.decodeAudioData(arrayBuffer);
   }

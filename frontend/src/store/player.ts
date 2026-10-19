@@ -139,11 +139,15 @@ export const usePlayerStore = create<PlayerStore>()(
       lastSongId: null,
       setLastSongId: (songId: string | null) => set({ lastSongId: songId }),
       getRandomTracks: async () => {
-        fetchRandomTracks().then((tracks) => {
-          set((prev) => ({
-            queue: [...prev.queue, ...tracks],
-          }));
-        });
+        const tracks: Track[] | undefined = await fetchRandomTracks();
+        // Add through the server (one at a time, to keep the order) so the queue survives a
+        // reload, is shared with the room, and the worker starts processing each song. The
+        // server's 'added' message puts each one into the local queue. Appending to the local
+        // queue only, as this used to do, left songs that were never processed and vanished
+        // on reload.
+        for (const track of tracks || []) {
+          await get().addSongToQueue(track);
+        }
       },
       addSongToQueue: async (track: Track) => {
         useTrackStore.getState().setSongStatus(track.id, 'submitted');
@@ -152,7 +156,7 @@ export const usePlayerStore = create<PlayerStore>()(
         const avatar = useRoomStore.getState().avatar;
         const joinedRoomId = useRoomStore.getState().joinedRoom;
         const activeRoomId = joinedRoomId || roomId || 'default';
-        pushToQueue(activeRoomId, {
+        return pushToQueue(activeRoomId, {
           ...track,
           ordered_by: {
             id: roomId,

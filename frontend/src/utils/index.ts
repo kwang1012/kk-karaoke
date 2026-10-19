@@ -140,6 +140,11 @@ export function getSchemesForAddress(address: string = import.meta.env.VITE_API_
   ws: string;
   address: string;
 } {
+  // No address configured (e.g. the Docker image): talk to whatever host served the page.
+  if (!address) {
+    const secure = window.location.protocol === 'https:';
+    return { http: secure ? 'https://' : 'http://', ws: secure ? 'wss://' : 'ws://', address: window.location.host };
+  }
   let host = address;
   if (host === 'localhost') {
     return { http: 'http://', ws: 'ws://', address };

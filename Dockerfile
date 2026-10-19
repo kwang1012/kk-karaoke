@@ -1,7 +1,8 @@
 # --- Stage 1: Build React frontend ---
 FROM node:22-alpine AS frontend
 
-ARG APP_ADDR=localhost:8080
+# Leave empty to call the API on the same host/port that serves the page.
+ARG APP_ADDR=
 WORKDIR /app/frontend
 COPY frontend/ ./
 RUN yarn install && VITE_API_ADDR=${APP_ADDR} yarn build

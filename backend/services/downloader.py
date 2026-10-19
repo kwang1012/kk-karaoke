@@ -20,6 +20,8 @@ def _search_youtube(query: str, limit: int = 5) -> list:
         "quiet": True,
         "skip_download": True,
         "extract_flat": True,
+        "socket_timeout": 30,
+        "retries": 3,
     }) as ydl:
         info = ydl.extract_info(ytsearch, download=False)
 
@@ -94,6 +96,10 @@ def download_audio(sid: str, search_term: str, target_duration_s: float | None =
         ],
         "outtmpl": audio_path,
         "quiet": True,
+        # Don't hang forever on a stalled connection; retry transient failures.
+        "socket_timeout": 30,
+        "retries": 5,
+        "fragment_retries": 5,
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([url])

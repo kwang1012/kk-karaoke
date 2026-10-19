@@ -6,6 +6,7 @@ import { Tooltip } from 'src/components/ui/tooltip';
 import AppSelect from 'src/components/Select';
 import AppSwitch from 'src/components/Switch';
 import AppScrollbar from 'src/components/Scrollbar';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from 'src/components/ui/dialog';
 import { usePlayerStore } from 'src/store/player';
 import { useSettingStore } from 'src/store/setting';
 import { useRoomStore } from 'src/store/room';
@@ -14,9 +15,9 @@ import { cn } from 'src/lib/utils';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="mt-8">
+    <section className="mt-6">
       <h2 className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">{title}</h2>
-      <div className="divide-y rounded-2xl border bg-background/40">{children}</div>
+      <div className="divide-y rounded-2xl border bg-card/50">{children}</div>
     </section>
   );
 }
@@ -33,7 +34,9 @@ function Row({ title, description, children }: { title: string; description?: st
   );
 }
 
-export default function SettingView() {
+export default function SettingsDialog() {
+  const open = useSettingStore((state) => state.settingsOpen);
+  const setOpen = useSettingStore((state) => state.setSettingsOpen);
   const [avatars, setAvatars] = useState<string[]>([]);
   const enabledPitchShift = usePlayerStore((state) => state.enabledPitchShift);
   const setEnabledPitchShift = usePlayerStore((state) => state.setEnabledPitchShift);
@@ -68,9 +71,13 @@ export default function SettingView() {
   }, []);
 
   return (
-    <AppScrollbar className="h-full px-4 py-8 md:px-10">
-      <div className="mx-auto max-w-3xl">
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Settings</DialogTitle>
+          <DialogDescription>Audio, lyrics, appearance and who you are in a room.</DialogDescription>
+        </DialogHeader>
+        <AppScrollbar className="px-6 pb-6">
 
         <Section title="Audio">
           <Row
@@ -167,7 +174,8 @@ export default function SettingView() {
             </Button>
           </Row>
         </Section>
-      </div>
-    </AppScrollbar>
+        </AppScrollbar>
+      </DialogContent>
+    </Dialog>
   );
 }

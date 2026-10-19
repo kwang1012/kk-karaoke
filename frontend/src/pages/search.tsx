@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Clock, Search as SearchIcon, X } from 'lucide-react';
 import { api } from 'src/utils/api';
 import Carousel, { CarouselItem } from '../components/Carousel';
 import SongCard from '../components/SongCard';
@@ -11,6 +12,85 @@ import { cn } from 'src/lib/utils';
 import SearchBox from 'src/components/SearchBox';
 import { usePlayerStore } from 'src/store/player';
 import { useDebouncedCallback } from 'src/hooks/debounce';
+
+const SUGGESTIONS = ['周杰倫', '五月天', '蔡依林', '鄧紫棋', 'BTS', 'IU', 'Taylor Swift', '米津玄師', 'YOASOBI', 'Adele'];
+const RECENT_KEY = 'recent-searches';
+
+const loadRecent = (): string[] => {
+  try {
+    return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
+  } catch {
+    return [];
+  }
+};
+
+function Chip({ children, onClick, onRemove }: { children: React.ReactNode; onClick: () => void; onRemove?: () => void }) {
+  return (
+    <span className="inline-flex items-center rounded-full border text-sm transition-colors hover:bg-accent">
+      <button className="py-1.5 pr-3 pl-4" onClick={onClick}>
+        {children}
+      </button>
+      {onRemove && (
+        <button aria-label="Remove" className="mr-2 rounded-full p-1 text-muted-foreground hover:text-foreground" onClick={onRemove}>
+          <X className="size-3" />
+        </button>
+      )}
+    </span>
+  );
+}
+
+function EmptySearch({
+  recent,
+  onPick,
+  onRemove,
+  onClear,
+}: {
+  recent: string[];
+  onPick: (query: string) => void;
+  onRemove: (query: string) => void;
+  onClear: () => void;
+}) {
+  return (
+    <div className="mx-auto flex max-w-2xl flex-col px-4 pt-6 pb-12 md:px-8 md:pt-12">
+      <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-primary/12 text-primary">
+        <SearchIcon className="size-7" />
+      </div>
+      <h2 className="mt-4 text-center text-2xl font-bold tracking-tight">What do you want to sing?</h2>
+      <p className="mt-1 text-center text-sm text-muted-foreground">Search by song, artist, album or playlist.</p>
+
+      {recent.length > 0 && (
+        <section className="mt-10">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="flex items-center gap-2 text-sm font-semibold">
+              <Clock className="size-4 text-muted-foreground" /> Recent
+            </h3>
+            <button className="text-xs text-muted-foreground hover:text-foreground" onClick={onClear}>
+              Clear all
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {recent.map((query) => (
+              <Chip key={query} onClick={() => onPick(query)} onRemove={() => onRemove(query)}>
+                {query}
+              </Chip>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="mt-8">
+        <h3 className="mb-3 text-sm font-semibold">Popular right now</h3>
+        <div className="flex flex-wrap gap-2">
+          {SUGGESTIONS.map((query) => (
+            <Chip key={query} onClick={() => onPick(query)}>
+              {query}
+            </Chip>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
 
 const getArtistsStr = (artists: any[]) => {
   return artists
@@ -33,6 +113,13 @@ export default function SearchView() {
   const onInsert = useDebouncedCallback(insertSongToQueue, 100);
 
   const [results, setResults] = useState<any>({});
+  const [recent, setRecent] = useState<string[]>(loadRecent);
+  const updateRecent = (next: string[]) => {
+    setRecent(next);
+    try {
+      localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+    } catch {}
+  };
   const [scrollTop, setScrollTop] = useState(0);
   const tracks = results.tracks?.items?.filter((item: any) => !!item)?.slice(0, mobile ? 10 : 4) || [];
   const albums = results.albums?.items?.filter((item: any) => !!item)?.slice(0, 4) || [];
@@ -50,6 +137,14 @@ export default function SearchView() {
         .get('/search', { params: { q: searchValue } })
         .then(({ data }) => {
           setResults(data.results || {});
+          const query = searchValue.trim();
+          setRecent((prev) => {
+            const next = [query, ...prev.filter((q) => q !== query)].slice(0, 8);
+            try {
+              localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+            } catch {}
+            return next;
+          });
         })
         .catch((error) => {
           console.error('Error fetching search results:', error);
@@ -106,7 +201,14 @@ export default function SearchView() {
       )}
 
       <AppScrollbar className="h-full" onScroll={handleScroll}>
-        {results ? (
+        {!searchValue.trim() ? (
+          <EmptySearch
+            recent={recent}
+            onPick={handleSearchChange}
+            onRemove={(query) => updateRecent(recent.filter((q) => q !== query))}
+            onClear={() => updateRecent([])}
+          />
+        ) : results ? (
           <div className="pb-8">
             {tracks.length > 0 && (
               <div className="px-4 md:px-8">

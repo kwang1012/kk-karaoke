@@ -15,6 +15,8 @@ export interface SettingState {
   dark: () => void; // Set theme to dark
   light: () => void; // Set theme to light
   onBrowserThemeChange: (isDarkMode: boolean) => void; // Handle browser theme change
+  settingsOpen: boolean; // Whether the settings dialog is open
+  setSettingsOpen: (open: boolean) => void;
   queueOpen: boolean; // Whether the queue panel is shown on desktop
   toggleQueue: () => void;
   isFullScreen: boolean; // Whether the app is in full screen mode
@@ -24,6 +26,8 @@ export interface SettingState {
 export const useSettingStore = create<SettingState>()(
   persist(
     (set) => ({
+      settingsOpen: false,
+      setSettingsOpen: (settingsOpen: boolean) => set({ settingsOpen }),
       queueOpen: true,
       toggleQueue: () => set((state) => ({ queueOpen: !state.queueOpen })),
       isFullScreen: false, // Whether the app is in full screen mode

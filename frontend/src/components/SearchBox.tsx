@@ -16,6 +16,11 @@ export default function SearchBox({
 }) {
   const [input, setInput] = useState(value);
   const debouncedInput = useDebounce(input, 300);
+
+  // follow external changes (e.g. a suggestion chip) without clobbering what is being typed
+  useEffect(() => {
+    if (value !== debouncedInput) setInput(value);
+  }, [value]);
   const location = useLocation();
   const navigate = useNavigate();
 

@@ -1,9 +1,10 @@
 import { ReactElement, useEffect, useMemo, useState } from 'react';
 import placeholderImage from 'src/assets/placeholder.png';
-import { CircleCheck, CircleAlert, Cog, Music, Play } from 'lucide-react';
+import { CircleAlert, Cog, Music, Play } from 'lucide-react';
 import { useReadyTrackIds, useTrackStore } from 'src/store';
 import { Track } from 'src/models/spotify';
 import ActionMenu from './playlist/ActionMenu';
+import ReadyBadge from './ReadyBadge';
 import { Avatar, AvatarImage } from 'src/components/ui/avatar';
 import { CircularProgress } from 'src/components/ui/progress';
 import { Tooltip } from 'src/components/ui/tooltip';
@@ -112,17 +113,20 @@ export default function SongCard({
       )}
       {...props}
     >
-      <div className="relative size-10 shrink-0 overflow-hidden rounded-lg bg-muted">
+      <div className="relative size-10 shrink-0">
+        <div className="absolute inset-0 overflow-hidden rounded-lg bg-muted">
         <img src={parsedTrack.album?.images?.[0]?.url || placeholderImage} className="size-full object-cover" />
-        {onAdd && !disable && !mobile && (
-          <button
-            aria-label="Add to queue"
-            className="absolute inset-0 flex items-center justify-center bg-black/55 text-white opacity-0 transition-opacity group-hover/card:opacity-100"
-            onClick={() => track && onAdd(parsedTrack)}
-          >
-            <Play className="size-4 fill-current" />
-          </button>
-        )}
+          {onAdd && !disable && !mobile && (
+            <button
+              aria-label="Add to queue"
+              className="absolute inset-0 flex items-center justify-center bg-black/55 text-white opacity-0 transition-opacity group-hover/card:opacity-100"
+              onClick={() => track && onAdd(parsedTrack)}
+            >
+              <Play className="size-4 fill-current" />
+            </button>
+          )}
+        </div>
+        {ready && onAdd && <ReadyBadge variant="dot" />}
       </div>
       <div className="flex min-w-0 flex-1 flex-col justify-center">
         <span className="truncate text-sm font-medium">{parsedTrack.name}</span>
@@ -130,12 +134,6 @@ export default function SongCard({
           {parsedTrack.artists.map((artist) => artist.name).join(', ')}
         </span>
       </div>
-      {/* Only show ready icon if onAdd is not undefined */}
-      {ready && onAdd && (
-        <Tooltip placement="top" title="Ready">
-          <CircleCheck className="size-4 shrink-0 text-success" />
-        </Tooltip>
-      )}
       {hasActions && !disabled && (
         <div className="relative flex shrink-0 items-center">
           {track?.orderedBy && (

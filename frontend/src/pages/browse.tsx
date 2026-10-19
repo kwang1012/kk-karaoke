@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { api } from 'src/utils/api';
 import placeholder from 'src/assets/placeholder.png';
 import Carousel, { CarouselItem } from 'src/components/Carousel';
@@ -7,7 +7,13 @@ import { useQuery } from '@tanstack/react-query';
 import AppScrollbar from 'src/components/Scrollbar';
 import { Skeleton } from 'src/components/ui/skeleton';
 import { Categories, Collection } from 'src/models/spotify';
-import { Button } from 'src/components/ui/button';
+import { Mic2, Search, Settings, Shuffle } from 'lucide-react';
+import { Button, IconButton } from 'src/components/ui/button';
+import SongCard from 'src/components/SongCard';
+import { useTrackStore } from 'src/store';
+import { usePlayerStore } from 'src/store/player';
+import { useSettingStore } from 'src/store/setting';
+import { useDebouncedCallback } from 'src/hooks/debounce';
 import { useBreakpointDown } from 'src/hooks/media';
 import { cn } from 'src/lib/utils';
 import { useJam, useRoomStore } from 'src/store/room';
@@ -46,22 +52,10 @@ function PlaylistCard({
 }
 
 const SECTIONS = [
-  {
-    keyword: 'chinese',
-    name: 'Top Chinese KTV Playlists',
-  },
-  {
-    keyword: 'korean',
-    name: 'Top Korean KTV Playlists',
-  },
-  {
-    keyword: 'english',
-    name: 'Top English KTV Playlists',
-  },
-  {
-    keyword: 'japanese',
-    name: 'Top Japanese KTV Playlists',
-  },
+  { keyword: 'chinese', label: 'Chinese', name: 'Chinese KTV favorites' },
+  { keyword: 'korean', label: 'Korean', name: 'Korean KTV favorites' },
+  { keyword: 'english', label: 'English', name: 'English KTV favorites' },
+  { keyword: 'japanese', label: 'Japanese', name: 'Japanese KTV favorites' },
 ];
 
 const fetchTopCategories = async (): Promise<Categories> => {
@@ -80,6 +74,14 @@ const fetchTopCategories = async (): Promise<Categories> => {
     });
 };
 
+const greeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 5) return 'Still up?';
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+};
+
 export function MainView() {
   const { data: categories, isLoading } = useQuery({
     queryKey: ['categories'],
@@ -89,7 +91,24 @@ export function MainView() {
   const navigate = useNavigate();
   const mobile = useBreakpointDown('md');
   const leaveRoom = useRoomStore((state) => state.leaveRoom);
+  const nickname = useRoomStore((state) => state.nickname);
   const { isInJam } = useJam();
+  const setSettingsOpen = useSettingStore((state) => state.setSettingsOpen);
+  const readyTracks = useTrackStore((state) => state.readyTracks);
+  const addSongToQueue = usePlayerStore((state) => state.addSongToQueue);
+  const insertSongToQueue = usePlayerStore((state) => state.insertSongToQueue);
+  const getRandomTracks = usePlayerStore((state) => state.getRandomTracks);
+  const onAdd = useDebouncedCallback(addSongToQueue, 100);
+  const onInsert = useDebouncedCallback(insertSongToQueue, 100);
+  const [language, setLanguage] = useState<string>('all');
+
+  // Songs that are already processed can be sung right away, so they are the best recommendation.
+  const readyList = useMemo(() => {
+    const seen = new Set<string>();
+    return Array.from(readyTracks)
+      .filter((track) => !seen.has(track.id) && !!seen.add(track.id))
+      .slice(0, mobile ? 4 : 8);
+  }, [readyTracks, mobile]);
 
   const handleOnClickPlaylist = (playlist: Collection) => {
     navigate(`/playlist/${playlist.id}`, {
@@ -101,8 +120,8 @@ export function MainView() {
     return SECTIONS.map((section) => ({
       ...section,
       collections: categories?.[section.keyword] || [],
-    }));
-  }, [categories]);
+    })).filter((section) => language === 'all' || section.keyword === language);
+  }, [categories, language]);
   return (
     <AppScrollbar className="h-full">
       {mobile && isInJam && (
@@ -113,13 +132,81 @@ export function MainView() {
           </Button>
         </div>
       )}
-      <div className={cn('w-full overflow-hidden pb-6', mobile && isInJam ? 'pt-16' : 'pt-8')}>
-        <div className="mb-8 px-4 md:px-8">
-          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Sing something tonight</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Pick a playlist, queue a few songs, and take the mic.</p>
+      <div className={cn('w-full overflow-hidden pb-8', mobile && isInJam ? 'pt-14' : 'pt-4 md:pt-6')}>
+        {/* Hero */}
+        <div className="px-4 md:px-8">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#ff6aa8] to-[#b81d58] p-6 text-white shadow-lg md:p-10">
+            <div className="pointer-events-none absolute -top-16 -right-10 size-64 rounded-full bg-white/10 blur-2xl" />
+            <Mic2 className="pointer-events-none absolute right-6 bottom-[-1.5rem] size-40 -rotate-12 text-white/10 md:right-14 md:size-56" />
+            {mobile && (
+              <IconButton
+                aria-label="Settings"
+                className="absolute top-3 right-3 text-white hover:bg-white/15"
+                onClick={() => setSettingsOpen(true)}
+              >
+                <Settings className="size-5" />
+              </IconButton>
+            )}
+            <p className="text-sm font-medium text-white/80">
+              {greeting()}
+              {nickname ? `, ${nickname}` : ''}
+            </p>
+            <h1 className="mt-1 max-w-md text-3xl font-extrabold tracking-tight md:text-5xl">Ready to sing?</h1>
+            <p className="mt-2 max-w-md text-sm text-white/80">
+              Pick a song, drop it in the queue, and the lyrics follow along. Invite friends from the queue panel.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <Button className="bg-white text-black shadow-none hover:bg-white/90" onClick={() => getRandomTracks()}>
+                <Shuffle /> Surprise me
+              </Button>
+              <Button
+                variant="ghost"
+                className="bg-white/15 text-white hover:bg-white/25 hover:text-white"
+                onClick={() => navigate('/search')}
+              >
+                <Search /> Search songs
+              </Button>
+            </div>
+          </div>
         </div>
+
+        {/* Ready to sing */}
+        {readyList.length > 0 && (
+          <section className="mt-8 px-4 md:px-8">
+            <div className="mb-2 flex items-baseline justify-between">
+              <h2 className="text-lg font-semibold tracking-tight">Ready to sing</h2>
+              <span className="text-xs text-muted-foreground">Processed songs start instantly</span>
+            </div>
+            <div className="grid gap-x-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+              {readyList.map((track) => (
+                <SongCard key={track.id} track={track} className="px-1" onAdd={onAdd} onInsert={onInsert} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Language filter */}
+        <div className="no-scrollbar mt-8 flex gap-2 overflow-x-auto px-4 md:px-8">
+          {[{ keyword: 'all', label: 'All' }, ...SECTIONS.map((s) => ({ keyword: s.keyword, label: s.label }))].map(
+            (option) => (
+              <button
+                key={option.keyword}
+                onClick={() => setLanguage(option.keyword)}
+                className={cn(
+                  'shrink-0 rounded-full border px-4 py-1.5 text-sm font-medium transition-colors',
+                  language === option.keyword
+                    ? 'border-transparent bg-foreground text-background'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                )}
+              >
+                {option.label}
+              </button>
+            )
+          )}
+        </div>
+
         {sections.map((section) => (
-          <div key={section.keyword} className="mb-8">
+          <section key={section.keyword} className="mt-6">
             <h2 className="mx-4 mb-2 text-lg font-semibold tracking-tight md:mx-8">{section.name}</h2>
             <Carousel>
               {isLoading
@@ -128,7 +215,7 @@ export function MainView() {
                     <PlaylistCard key={collection.id} playlist={collection} onCardClick={handleOnClickPlaylist} />
                   ))}
             </Carousel>
-          </div>
+          </section>
         ))}
       </div>
     </AppScrollbar>

@@ -24,7 +24,6 @@ import MobileLyricsView from './pages/mobile-lyrics';
 
 // lazily loaded components
 const JoinView = lazy(() => import('./pages/join'));
-const SettingView = lazy(() => import('./pages/setting'));
 
 const queryClient = new QueryClient();
 
@@ -51,7 +50,6 @@ const AppRouters = () => {
             <Route path="search/*" element={<SearchView />} />
             <Route path="lyrics" element={mobile ? <MobileLyricsView /> : <LyricsView />} />
             <Route path="play" element={<PlayView />} />
-            <Route path="settings" element={<SettingView />} />
           </Route>
         </Route>
         <Route path="/lyrics/edit/:trackId?" element={<LyricsEditView />} />

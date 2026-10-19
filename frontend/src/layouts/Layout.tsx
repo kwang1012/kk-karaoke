@@ -1,5 +1,5 @@
 import { Outlet } from 'react-router-dom';
-import { lazy } from 'react';
+import { Suspense, lazy } from 'react';
 import Rail from 'src/components/Rail';
 import TopBar from 'src/components/TopBar';
 import Queue from 'src/components/Queue';
@@ -10,6 +10,7 @@ import { useSettingStore } from 'src/store/setting';
 
 // lazy import mobile components
 const AppNavigation = lazy(() => import('src/components/Navigation'));
+const SettingsDialog = lazy(() => import('src/components/SettingsDialog'));
 
 export default function Layout() {
   const mobile = useBreakpointDown('md');
@@ -27,6 +28,9 @@ export default function Layout() {
         </div>
         <Queue hidden />
         <AppSnackbar />
+        <Suspense fallback={null}>
+          <SettingsDialog />
+        </Suspense>
       </div>
     );
   }
@@ -46,6 +50,9 @@ export default function Layout() {
         <AudioController />
       </div>
       <AppSnackbar />
+      <Suspense fallback={null}>
+        <SettingsDialog />
+      </Suspense>
     </div>
   );
 }

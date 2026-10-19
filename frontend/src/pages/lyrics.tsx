@@ -9,7 +9,7 @@ import { useThemeMode } from 'src/hooks/theme';
 import { cn } from 'src/lib/utils';
 import { useSettingStore } from 'src/store/setting';
 import MobilePlayer from 'src/components/MobilePlayer';
-import NonLinearSlider from 'src/components/NonLinearSlider';
+import LyricsOffset from 'src/components/LyricsOffset';
 import { api } from 'src/utils/api';
 import { useDebouncedCallback } from 'src/hooks/debounce';
 
@@ -46,7 +46,6 @@ export default function LyricsView() {
   const isFullscreen = useSettingStore((state) => state.isFullScreen);
   const showTranslatinon = useSettingStore((state) => state.showTranslatinon);
   const scrollbarRef = useRef<HTMLDivElement>(null);
-  const [delaySeeking, setDelaySeeking] = useState(false);
   const [active, setActive] = useState(false);
 
   // Set the document title to the current song name and artist
@@ -90,9 +89,9 @@ export default function LyricsView() {
 
     viewport.scrollTo({
       top: elTop - viewportHeight / 2 + elHeight / 2,
-      behavior: delaySeeking ? 'instant' : 'smooth',
+      behavior: 'smooth',
     });
-  }, [currentLine, delaySeeking, lineRefs.current.length, isFullscreen]);
+  }, [currentLine, lineRefs.current.length, isFullscreen]);
 
   // Update the current line based on the progress
   useEffect(() => {
@@ -148,19 +147,15 @@ export default function LyricsView() {
       )}
       <div className={isFullscreen ? 'fixed left-0 w-screen h-screen z-11' : 'w-full h-full'}>
         <div className="relative w-full h-full" ref={containerRef}>
-          {/* Delay controller */}
-          <div className="absolute top-1/2 left-5 z-12 flex -translate-y-1/2 flex-col items-start">
-            <NonLinearSlider
-              onDragStart={() => setDelaySeeking(true)}
-              onDragEnd={() => setDelaySeeking(false)}
+          <div className="absolute bottom-4 left-4 z-12">
+            <LyricsOffset
+              value={ahead}
               onChange={(newAhead) => {
-                if (currentTrack) {
-                  setLyricsDelay(currentTrack.id, -newAhead);
-                  saveDelay(currentTrack.id, -newAhead);
-                }
+                if (!currentTrack) return;
+                setLyricsDelay(currentTrack.id, -newAhead);
+                saveDelay(currentTrack.id, -newAhead);
               }}
             />
-            <span className="mt-2 rounded-full bg-black/30 px-2 py-0.5 text-xs text-white tabular-nums backdrop-blur">{ahead.toFixed(1)} s</span>
           </div>
           {currentTrack?.orderedBy && (
             <div className="absolute top-4 right-4 z-10 flex items-center gap-2 rounded-full bg-black/30 py-1 pr-4 pl-1 backdrop-blur">

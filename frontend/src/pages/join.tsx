@@ -10,7 +10,7 @@ import { api } from 'src/utils/api';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useRoomStore } from 'src/store/room';
 import { generateAvatars, generateNickname } from 'src/utils';
-import logo from 'src/assets/logo.png';
+import Logo from 'src/components/Logo';
 import { RefreshCw } from 'lucide-react';
 
 export default function JoinView() {
@@ -93,7 +93,7 @@ export default function JoinView() {
       <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-[radial-gradient(60%_80%_at_50%_0%,color-mix(in_oklab,var(--primary)_28%,transparent),transparent)]" />
       <div className="relative w-full max-w-md rounded-3xl border bg-card/80 p-8 shadow-app backdrop-blur-xl">
         <div className="flex flex-col items-center text-center">
-          <img src={logo} className="size-24 rounded-2xl" />
+          <Logo className="size-20" />
           <h1 className="mt-4 text-3xl font-bold tracking-tight">Welcome to KKaraoke</h1>
           <p className="mt-1 text-sm text-muted-foreground">Synced lyrics, vocal removal, and friends on the mic.</p>
         </div>

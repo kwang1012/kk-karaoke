@@ -1,6 +1,7 @@
 import { Home, Mic2, Search, Settings } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
-import Logo from 'src/assets/logo.png';
+import { useSettingStore } from 'src/store/setting';
+import Logo from './Logo';
 import { Tooltip } from 'src/components/ui/tooltip';
 import { cn } from 'src/lib/utils';
 
@@ -34,15 +35,22 @@ function RailLink({ to, label, icon: Icon, end }: { to: string; label: string; i
 }
 
 export default function Rail() {
+  const setSettingsOpen = useSettingStore((state) => state.setSettingsOpen);
   return (
     <nav className="flex w-[72px] shrink-0 flex-col items-center gap-2 rounded-2xl border bg-card py-4 max-md:hidden">
-      <img src={Logo} alt="KKaraoke" className={cn('mb-4 size-10 rounded-xl', isElectron && 'invisible')} />
+      <Logo className={cn('mb-4 size-10', isElectron && 'invisible')} />
       {items.map((item) => (
         <RailLink key={item.to} {...item} />
       ))}
-      <div className="mt-auto">
-        <RailLink to="/settings" label="Settings" icon={Settings} />
-      </div>
+      <Tooltip title="Settings" side="right">
+        <button
+          aria-label="Settings"
+          onClick={() => setSettingsOpen(true)}
+          className="mt-auto flex size-12 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <Settings className="size-5" />
+        </button>
+      </Tooltip>
     </nav>
   );
 }

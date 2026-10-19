@@ -1,10 +1,11 @@
-import { CircleArrowDown, CircleCheck, Loader, Play } from 'lucide-react';
+import { CircleArrowDown, Loader, Play } from 'lucide-react';
 import { memo, useContext, useEffect, useState } from 'react';
 import { Skeleton } from 'src/components/ui/skeleton';
 import { Track } from 'src/models/spotify';
 import { useReadyTrackIds, useTrackStore } from 'src/store';
 import placeholder from 'src/assets/placeholder.png';
 import ActionMenu from './ActionMenu';
+import ReadyBadge from 'src/components/ReadyBadge';
 import { PlaylistContext } from 'src/context/playlist';
 import { usePlaylistStore } from 'src/store/playlist';
 import { Tooltip } from 'src/components/ui/tooltip';
@@ -130,9 +131,7 @@ const PlaylistRow = memo(({ track, index }: { track: Track; index: number }) => 
     action: !isLoading && (
       <div className="flex items-center justify-end">
         {ready || downloaded ? (
-          <Tooltip placement="top" title="Ready">
-            <CircleCheck className="checked-icon mr-2 size-4 text-success" />
-          </Tooltip>
+          <ReadyBadge className="mr-2" />
         ) : unknown ? (
           <Tooltip placement="top" title="Download and process">
             <IconButton className="row-actions mr-2 p-0" onClick={() => onDownload(parsedTrack)}>

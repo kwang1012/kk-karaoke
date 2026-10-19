@@ -76,29 +76,40 @@ class DatabaseManager:
             host = kwargs.get("host", REDIS_HOST)
             port = kwargs.get("port", REDIS_PORT)
             self._try_connect(host, port, kwargs.get("db", 0), kwargs.get("password"))
-            self._start_background_task()
+            # get_session() re-runs this while Redis is down; only start one dedup thread.
+            if not getattr(DatabaseManager, "_task_started", False):
+                DatabaseManager._task_started = True
+                self._start_background_task()
 
     def _try_connect(self, host, port, db=0, password=None):
         try:
-            DatabaseManager._redis_pool = redis.ConnectionPool(
+            # Only publish the pool once it has answered a ping; otherwise other
+            # threads can grab a dead pool while we are still connecting.
+            pool = redis.ConnectionPool(
                 host=host, port=port, db=db,
                 password=password, decode_responses=True,
                 max_connections=20,
             )
-            r = redis.Redis(connection_pool=DatabaseManager._redis_pool)
-            r.ping()
+            redis.Redis(connection_pool=pool).ping()
+            DatabaseManager._redis_pool = pool
         except redis.ConnectionError:
-            print("Redis not available — attempting to start via Docker...")
             DatabaseManager._redis_pool = None
+            # Starting containers as a side effect of connecting is surprising (and
+            # runs on every retry), so it is opt-in.
+            if os.getenv("REDIS_AUTOSTART", "").lower() not in ("1", "true", "yes"):
+                print(f"Redis not available at {host}:{port}. Start it, or set "
+                      "REDIS_AUTOSTART=1 to let the app start one via Docker.")
+                return
+            print("Redis not available — attempting to start via Docker...")
             if _ensure_redis_via_docker(host, port):
                 try:
-                    DatabaseManager._redis_pool = redis.ConnectionPool(
+                    pool = redis.ConnectionPool(
                         host=host, port=port, db=db,
                         password=password, decode_responses=True,
                         max_connections=20,
                     )
-                    r = redis.Redis(connection_pool=DatabaseManager._redis_pool)
-                    r.ping()
+                    redis.Redis(connection_pool=pool).ping()
+                    DatabaseManager._redis_pool = pool
                     print("Connected to Docker Redis successfully.")
                 except redis.ConnectionError as e:
                     print(f"Still cannot connect to Redis after Docker start: {e}")
@@ -111,7 +122,8 @@ class DatabaseManager:
         if DatabaseManager._redis_pool is None:
             self._initialize_manager()
             if DatabaseManager._redis_pool is None:
-                raise ConnectionError("Failed to establish Redis connection.")
+                raise redis.ConnectionError(  # a RedisError, so the API answers 503
+                    "Failed to establish Redis connection.")
         return redis.Redis(connection_pool=DatabaseManager._redis_pool)
 
     def _start_background_task(self):

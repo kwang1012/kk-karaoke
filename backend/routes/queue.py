@@ -38,6 +38,31 @@ def create_track_progress_callback(
     return callback
 
 
+def resume_pending_tracks(loop: asyncio.AbstractEventLoop) -> int:
+    """After an API restart, pick up queued tracks that are not processed yet.
+
+    The queue lives in Redis and must survive restarts, but the progress subscriptions were
+    in-process threads and are gone. Re-subscribe so status/progress updates reach the queue and
+    clients again, and re-submit the processing job once per track (it is idempotent: the worker
+    skips work that is already done, and a job lost with a crashed worker gets run again).
+    Returns the number of tracks resumed.
+    """
+    r = get_db()
+    redis_interface = RedisQueueInterface(r)
+    submitted: set[str] = set()
+    for key in r.scan_iter("room:*:queue"):
+        room_id = key.split(":")[1]
+        for track in redis_interface.get_queue(room_id):
+            if is_ready(track):
+                continue
+            callback = create_track_progress_callback(track, room_id, redis_interface, loop)
+            redis_interface.subscribe_to_channel(track.id, callback)
+            if track.id not in submitted:
+                submitted.add(track.id)
+                send_process_request(track)
+    return len(submitted)
+
+
 async def _add_and_process_track(
     room_id: str,
     track: Track,

@@ -16,7 +16,7 @@ from managers.websocket import WebSocketManager
 from middlewares.format import FormatReponseMiddleware
 from routes.track import router as track_router
 from routes.lyrics import router as lyrics_router
-from routes.queue import router as queue_router
+from routes.queue import resume_pending_tracks, router as queue_router
 from routes.room import router as room_router
 from redis_keys import RedisKeys
 from config import CORS_ORIGINS, DEFAULT_PLAYLIST_ID
@@ -27,23 +27,14 @@ load_dotenv()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    r = get_redis()
-    for key in r.scan_iter("room:*:queue"):
-        # Snapshot first: removing while indexing shifts later entries and skips them.
-        entries = r.lrange(key, 0, -1)
-        queue_length = len(entries)
-        for track_data in entries:
-            stored_track = Track(**json.loads(track_data))
-            if not is_ready(stored_track):
-                r.lrem(key, 1, track_data)
-        new_queue_length: int = r.llen(key)  # type: ignore
-        if new_queue_length != queue_length:
-            room_id = key.split(":")[1]
-            idx_key = RedisKeys.room_queue_idx(room_id)
-            raw = r.get(idx_key)
-            current_idx = json.loads(raw) if raw else 0
-            current_idx = current_idx + new_queue_length - queue_length
-            r.set(idx_key, current_idx)
+    # Queues persist across restarts. (This used to delete every track that wasn't processed
+    # yet, so anything still downloading or separating vanished whenever the API restarted.)
+    try:
+        resumed = resume_pending_tracks(asyncio.get_running_loop())
+        if resumed:
+            print(f"Resumed processing for {resumed} queued track(s)")
+    except Exception as e:  # never block startup on this
+        print(f"Could not resume queued tracks: {e}")
     yield
 
 

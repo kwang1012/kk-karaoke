@@ -135,10 +135,19 @@ export function generateAvatars(count: number = 10): string[] {
   return avatars;
 }
 
-export function getSchemesForAddress(address: string) {
+export function getSchemesForAddress(address: string = import.meta.env.VITE_API_ADDR): {
+  http: string;
+  ws: string;
+  address: string;
+} {
+  // No address configured (e.g. the Docker image): talk to whatever host served the page.
+  if (!address) {
+    const secure = window.location.protocol === 'https:';
+    return { http: secure ? 'https://' : 'http://', ws: secure ? 'wss://' : 'ws://', address: window.location.host };
+  }
   let host = address;
   if (host === 'localhost') {
-    return { http: 'http://', ws: 'ws://' };
+    return { http: 'http://', ws: 'ws://', address };
   }
   if (address.startsWith('[')) {
     host = address.slice(1, address.indexOf(']'));
@@ -151,12 +160,12 @@ export function getSchemesForAddress(address: string) {
 
   // Special case for localhost
   if (host === 'localhost') {
-    return { http: 'http://', ws: 'ws://' };
+    return { http: 'http://', ws: 'ws://', address };
   }
 
   if (ipv4Regex.test(host) || (host.includes(':') && ipv6Regex.test(host))) {
-    return { http: 'http://', ws: 'ws://' }; // IP → insecure
+    return { http: 'http://', ws: 'ws://', address }; // IP → insecure
   }
 
-  return { http: 'https://', ws: 'wss://' }; // Hostname → secure
+  return { http: 'https://', ws: 'wss://', address }; // Hostname → secure
 }

@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 import httpx
 import os
 
-from managers.setup_redis import get_redis
+from managers.db import get_redis
 
 load_dotenv()  # Load environment variables from .env file
 
@@ -46,12 +46,13 @@ def refresh_token(func):
         if not access_token:
             getSpotifyToken()
         response = func(*args, **kwargs)
-        if response.status_code == 200:
-            return response
         if response.status_code == 401:
             print("Token expired, refreshing...")
             getSpotifyToken()  # Refresh token
-            return func(*args, **kwargs)  # Retry the function
+            response = func(*args, **kwargs)  # Retry the function
+        # Always hand the response back so callers can inspect the status code
+        # (previously any non-200/401 status returned None and crashed callers).
+        return response
     return wrapper
 
 
@@ -166,6 +167,9 @@ def getCollectionTracks(collection_type: str, collection_id: str):
             continue
         tracks.append(track)
     response = _get_collection(collection_type, collection_id)
+    if response.status_code != 200:
+        print(f"Error fetching collection: {response.status_code}")
+        return None, None
     collection = response.json()
     return collection, tracks
 

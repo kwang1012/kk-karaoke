@@ -7,7 +7,7 @@ from typing import Dict, List
 from fastapi.websockets import WebSocketState
 
 from models.user import User
-from managers.redis import get_redis
+from managers.db import get_redis
 from interfaces.jam import RedisJamInterface
 from middlewares.format import convert_keys
 import services.jam as jam
@@ -17,7 +17,6 @@ class WebSocketManager:
     _instance = None
     _lock = threading.Lock()
     rooms: Dict[str, list[tuple[User, WebSocket]]] = {}
-    _send_lock = threading.Lock()
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
@@ -30,6 +29,9 @@ class WebSocketManager:
 
     def _initialize_service(self):
         self.service_id = uuid.uuid4()
+        # asyncio lock: a threading.Lock held across `await` would block the whole
+        # event loop as soon as a second sender tried to acquire it.
+        self._send_lock = asyncio.Lock()
         self.connected_clients: List[WebSocket] = []
         self.queue: List[dict] = []
         self.jam_interface = RedisJamInterface(get_redis())
@@ -59,10 +61,10 @@ class WebSocketManager:
         })
 
     async def multicast(self, roomId, data, *, socket=None):
-        with self._send_lock:
+        async with self._send_lock:
             data = convert_keys(data)
             disconnected_clients = []
-            connections = self.rooms.get(roomId, [])
+            connections = list(self.rooms.get(roomId, []))
             for (_, connection) in connections:
                 if connection.client_state == WebSocketState.DISCONNECTED:
                     disconnected_clients.append(connection)
@@ -73,12 +75,17 @@ class WebSocketManager:
                     await connection.send_json(data)
                 except Exception:
                     disconnected_clients.append(connection)
+            if disconnected_clients and roomId in self.rooms:
+                self.rooms[roomId] = [
+                    (u, ws) for (u, ws) in self.rooms[roomId]
+                    if ws not in disconnected_clients
+                ]
 
     async def broadcast(self, data):
-        with self._send_lock:
+        async with self._send_lock:
             data = convert_keys(data)
             disconnected_clients = []
-            for client in self.connected_clients:
+            for client in list(self.connected_clients):
                 if client.client_state == WebSocketState.DISCONNECTED:
                     disconnected_clients.append(client)
                     continue
@@ -87,7 +94,8 @@ class WebSocketManager:
                 except Exception as e:
                     disconnected_clients.append(client)
             for client in disconnected_clients:
-                self.connected_clients.remove(client)
+                if client in self.connected_clients:
+                    self.connected_clients.remove(client)
 
     async def websocket_endpoint(self, websocket: WebSocket):
         await self.connect(websocket)
@@ -106,10 +114,12 @@ class WebSocketManager:
                 elif msg_type == "jam":
                     await self.handle_jam_message(websocket, msg)
         except WebSocketDisconnect:
+            pass
+        finally:
+            if websocket in self.connected_clients:
+                self.connected_clients.remove(websocket)
             if user and room_id:
                 await self.disconnect(websocket, room_id, user)
-            elif websocket in self.connected_clients:
-                self.connected_clients.remove(websocket)
 
     async def handle_join_message(self, socket: WebSocket, room_id: str, user: User):
         """

@@ -11,8 +11,7 @@ def extract_midi(track_id: str):
     vocal_path = get_vocal_path(track_id)
 
     if vocal_path is None:
-        print("No vocal path found.")
-        exit(1)
+        raise FileNotFoundError(f"No vocal file found for track {track_id}")
 
     audio, sr = torchaudio.load(vocal_path)
     audio = audio.mean(dim=0, keepdim=True)  # mono

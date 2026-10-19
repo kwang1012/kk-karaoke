@@ -1,8 +1,8 @@
 import axios from 'axios';
 import { getSchemesForAddress } from '.';
 
-const protocol = getSchemesForAddress(import.meta.env.VITE_API_ADDR).http;
+const { http: protocol, address } = getSchemesForAddress();
 export const api = axios.create({
-  baseURL: `${protocol}${import.meta.env.VITE_API_ADDR}/api`,
+  baseURL: `${protocol}${address}/api`,
   timeout: 10000,
 });

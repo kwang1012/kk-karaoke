@@ -94,11 +94,13 @@ def to_lrc(segments):
     return "\n".join(f"{ts(seg['start'])}{seg['text']}" for seg in segments if seg['text'].strip())
 
 def main():
-    track_id = "49MzKlO2t325zW3QDN2NW1"
+    track_id = "3ar8egO3eEowO02iMx1Ktu"
     ground_truth_lyrics = get_ground_truth_lyrics(track_id)
     model_lyrics = get_model_lyrics(track_id)
     aligned_lyrics = align_with_timestamps(model_lyrics, ground_truth_lyrics)
     lrc_content = to_lrc(aligned_lyrics)
+    print("Model Lyrics:")
+    print(model_lyrics)
     print("LRC Content:")
     print(lrc_content)
 

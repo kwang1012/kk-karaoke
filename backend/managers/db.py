@@ -1,75 +1,157 @@
+import json
+import os
+import shutil
+import subprocess
 import threading
+import time
 import redis
+from config import REDIS_HOST, REDIS_PORT
+from redis_keys import RedisKeys
+
+REDIS_CONTAINER_NAME = "karaoke-redis"
+REDIS_STORAGE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "storage")
+
+
+def _ensure_redis_via_docker(host: str, port: int) -> bool:
+    """Start a Redis Docker container if one isn't already running."""
+    if not shutil.which("docker"):
+        print("Docker is not installed — cannot auto-start Redis.")
+        return False
+
+    # Check if our container already exists
+    result = subprocess.run(
+        ["docker", "inspect", "-f", "{{.State.Running}}", REDIS_CONTAINER_NAME],
+        capture_output=True, text=True,
+    )
+    if result.returncode == 0 and result.stdout.strip() == "true":
+        print(f"Redis container '{REDIS_CONTAINER_NAME}' is already running.")
+        return True
+
+    # Try to start a stopped container first
+    start = subprocess.run(
+        ["docker", "start", REDIS_CONTAINER_NAME],
+        capture_output=True, text=True,
+    )
+    if start.returncode == 0:
+        print(f"Started existing Redis container '{REDIS_CONTAINER_NAME}'.")
+        return True
+
+    # Create a new container
+    os.makedirs(REDIS_STORAGE_DIR, exist_ok=True)
+    print(f"Starting new Redis container '{REDIS_CONTAINER_NAME}' on port {port}...")
+    run = subprocess.run(
+        [
+            "docker", "run", "-d",
+            "--name", REDIS_CONTAINER_NAME,
+            "-p", f"{port}:6379",
+            "-v", f"{REDIS_STORAGE_DIR}:/data",
+            "redis:7-alpine",
+            "redis-server", "--appendonly", "yes",
+        ],
+        capture_output=True, text=True,
+    )
+    if run.returncode == 0:
+        print(f"Redis container '{REDIS_CONTAINER_NAME}' started successfully.")
+        return True
+
+    print(f"Failed to start Redis container: {run.stderr.strip()}")
+    return False
+
 
 class DatabaseManager:
     _instance = None
     _lock = threading.Lock()
-    _redis_pool = None  # To store the Redis connection pool
+    _redis_pool = None
 
     def __new__(cls, **kwargs):
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
                     cls._instance = super(DatabaseManager, cls).__new__(cls)
-                    # Pass Redis connection parameters from kwargs or config
                     cls._instance._initialize_manager(**kwargs)
         return cls._instance
 
-    def _initialize_manager(self, host='localhost', port=6379, db=0, password=None, **kwargs):
-        """
-        Initializes the Redis connection pool.
-        Additional kwargs can be passed for more redis.ConnectionPool options.
-        """
+    def _initialize_manager(self, **kwargs):
         if DatabaseManager._redis_pool is None:
-            try:
-                print(f"Initializing Redis connection pool to host='{host}', port={port}, db={db}")
-                DatabaseManager._redis_pool = redis.ConnectionPool(
-                    host=host,
-                    port=port,
-                    db=db,
-                    password=password,
-                    decode_responses=True,  # Automatically decode responses to strings (optional)
-                    **kwargs  # Pass any other connection pool options
-                )
-                # Test connection (optional but recommended)
-                r = redis.Redis(connection_pool=DatabaseManager._redis_pool)
-                r.ping()
-                print("Successfully connected to Redis and pinged the server.")
-            except redis.ConnectionError as e:
-                print(f"Error: Could not connect to Redis. {e}")
-                # Handle connection error appropriately, e.g., raise an exception, log, or set a flag
-                DatabaseManager._redis_pool = None  # Ensure pool is None if connection failed
-            except Exception as e:
-                print(f"An unexpected error occurred during Redis initialization: {e}")
-                DatabaseManager._redis_pool = None
+            host = kwargs.get("host", REDIS_HOST)
+            port = kwargs.get("port", REDIS_PORT)
+            self._try_connect(host, port, kwargs.get("db", 0), kwargs.get("password"))
+            # get_session() re-runs this while Redis is down; only start one dedup thread.
+            if not getattr(DatabaseManager, "_task_started", False):
+                DatabaseManager._task_started = True
+                self._start_background_task()
+
+    def _try_connect(self, host, port, db=0, password=None):
+        try:
+            # Only publish the pool once it has answered a ping; otherwise other
+            # threads can grab a dead pool while we are still connecting.
+            pool = redis.ConnectionPool(
+                host=host, port=port, db=db,
+                password=password, decode_responses=True,
+                max_connections=20,
+            )
+            redis.Redis(connection_pool=pool).ping()
+            DatabaseManager._redis_pool = pool
+        except redis.ConnectionError:
+            DatabaseManager._redis_pool = None
+            # Starting containers as a side effect of connecting is surprising (and
+            # runs on every retry), so it is opt-in.
+            if os.getenv("REDIS_AUTOSTART", "").lower() not in ("1", "true", "yes"):
+                print(f"Redis not available at {host}:{port}. Start it, or set "
+                      "REDIS_AUTOSTART=1 to let the app start one via Docker.")
+                return
+            print("Redis not available — attempting to start via Docker...")
+            if _ensure_redis_via_docker(host, port):
+                try:
+                    pool = redis.ConnectionPool(
+                        host=host, port=port, db=db,
+                        password=password, decode_responses=True,
+                        max_connections=20,
+                    )
+                    redis.Redis(connection_pool=pool).ping()
+                    DatabaseManager._redis_pool = pool
+                    print("Connected to Docker Redis successfully.")
+                except redis.ConnectionError as e:
+                    print(f"Still cannot connect to Redis after Docker start: {e}")
+                    DatabaseManager._redis_pool = None
+        except Exception as e:
+            print(f"Unexpected error during Redis initialization: {e}")
+            DatabaseManager._redis_pool = None
 
     def get_session(self):
-        """
-        Returns a Redis connection from the pool.
-        """
         if DatabaseManager._redis_pool is None:
-            # Attempt to re-initialize if the pool is not set up
-            # This could happen if the initial connection failed and you want to retry on next get_session call
-            # Or, you might want to raise an exception here if the pool should have been initialized.
-            print("Redis connection pool is not initialized. Attempting to re-initialize.")
-            # You might want to pass default or configured connection params here
-            self._initialize_manager(host='localhost', port=6379, db=0, password=None)  # Or self._initialize_manager(host='your_host', ...)
+            self._initialize_manager()
             if DatabaseManager._redis_pool is None:
-                raise ConnectionError("Failed to establish Redis connection.")
-
-        # Each call to redis.Redis with a connection_pool gets a connection from the pool
+                raise redis.ConnectionError(  # a RedisError, so the API answers 503
+                    "Failed to establish Redis connection.")
         return redis.Redis(connection_pool=DatabaseManager._redis_pool)
 
-    def get_connection_pool(self):
-        """
-        Returns the underlying connection pool itself, if direct access is needed.
-        """
-        return DatabaseManager._redis_pool
+    def _start_background_task(self):
+        task = threading.Thread(target=self._dedup_track_data, daemon=True)
+        task.start()
+
+    def _dedup_track_data(self):
+        while True:
+            try:
+                r = self.get_session()
+                track_ids = set()
+                data = r.smembers(RedisKeys.TRACK_DATA_SET)  # type: ignore
+                for track_data in data:
+                    track = json.loads(track_data)
+                    if track["id"] in track_ids:
+                        r.srem(RedisKeys.TRACK_DATA_SET, track_data)
+                    else:
+                        track_ids.add(track["id"])
+            except Exception as e:
+                print(f"Background dedup task error: {e}")
+            time.sleep(60)
+
 
 def get_db():
-    """
-    Provides a Redis connection instance.  NOT a context manager in this case.
-    """
-    db_manager = DatabaseManager()  # Ensure the manager is initialized
+    db_manager = DatabaseManager()
     return db_manager.get_session()
+
+
+# Alias for backward compatibility
+get_redis = get_db
 

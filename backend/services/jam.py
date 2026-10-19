@@ -1,5 +1,5 @@
 
-from managers.redis import get_redis
+from managers.db import get_redis
 from interfaces.jam import RedisJamInterface
 interface = RedisJamInterface(get_redis())
 

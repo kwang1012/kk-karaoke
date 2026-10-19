@@ -5,7 +5,7 @@ import placeholderImage from 'src/assets/placeholder.png';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faGears, faMusic } from '@fortawesome/free-solid-svg-icons';
 import { useReadyTrackIds, useTrackStore } from 'src/store';
-import { CheckCircle, PlayArrow } from '@mui/icons-material';
+import { CheckCircle, ErrorOutline, PlayArrow } from '@mui/icons-material';
 import { Track } from 'src/models/spotify';
 import ActionMenu from './playlist/ActionMenu';
 
@@ -225,7 +225,12 @@ export default function SongCard({
           />
         </div>
       )}
-      {!isReady && !disable && (
+      {status === 'error' && !disable && (
+        <Tooltip placement="top" title="Processing failed. Remove it and try again.">
+          <ErrorOutline fontSize="small" color="error" className="mr-2" />
+        </Tooltip>
+      )}
+      {!isReady && status !== 'error' && !disable && (
         <div className="shrink-0">
           <CircularProgressWithLabel
             size={36}

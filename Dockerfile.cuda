@@ -3,7 +3,8 @@ FROM node:22-alpine AS frontend
 
 WORKDIR /app/frontend
 COPY frontend/ ./
-RUN yarn install && yarn build
+# Empty address = call the API on the same host/port that serves the page.
+RUN yarn install && VITE_API_ADDR= yarn build
 
 
 # --- Stage 2: Build FastAPI backend ---
@@ -55,5 +56,7 @@ COPY run.sh /run.sh
 RUN chmod +x /run.sh
 
 EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD curl -fsS http://localhost:8080/api/ || exit 1
 
 CMD ["/run.sh"]

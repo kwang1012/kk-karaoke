@@ -2,7 +2,7 @@ import { Track } from 'src/models/spotify';
 import { api } from 'src/utils/api';
 import { create } from 'zustand';
 
-export type SongStatus = 'submitted' | 'downloading_lyrics' | 'downloading_audio' | 'separating' | 'ready';
+export type SongStatus = 'submitted' | 'downloading_lyrics' | 'downloading_audio' | 'separating' | 'ready' | 'error';
 export interface TrackStore {
   readyTracks: Set<Track>; // List of tracks that are ready to be played
   addReadyTrack: (track: Track) => void; // Add a track to the list of ready tracks

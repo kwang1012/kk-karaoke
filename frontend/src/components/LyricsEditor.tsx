@@ -183,6 +183,9 @@ export default function LyricsEditor({ track, progress }: { track: Track; progre
       })
       .catch((err) => {
         console.error(err);
+        setContent('');
+        setOriginalContent('');
+        setLyrics([]);
       });
   }, [track.id]);
 

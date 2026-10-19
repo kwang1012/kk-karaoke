@@ -53,22 +53,40 @@ docker build -f Dockerfile.cuda -t kkaraoke:cuda .
 docker run -it --rm -p 8080:8080 -v $(pwd)/backend/storage:/app/backend/storage --env-file ./backend/.env --gpus all kkaraoke
 ```
 
+Then open http://localhost:8080. The image serves the frontend and API from the same
+address, so it works from any host without extra build arguments. To pin the API to a
+different address, build with `--build-arg APP_ADDR=host:port`.
+
+The container exits if any of its services (API, worker, nginx) dies; add
+`--restart unless-stopped` to the `docker run` command (and drop `--rm`) to have Docker
+bring it back. Processing runs on CPU inside Docker (Apple's MPS isn't available there);
+use the local setup below on a Mac for GPU acceleration.
+
 ### Local environment
 
 #### Prerequisites:
 
-1. ffmpeg in your system PATH.
-2. A running redis in your system
+1. [uv](https://docs.astral.sh/uv/) installed.
+2. ffmpeg in your system PATH.
+3. A running redis in your system
+
+Optional backend settings (see `backend/.env.example`): `REDIS_AUTOSTART=1` lets the
+backend start a Redis Docker container if none is running, and `CORS_ORIGINS` restricts
+which origins may call the API.
 
 #### Backend (FastAPI)
 
 ```bash
 cd backend
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-uvicorn main:app --reload
-celery -A services.process_request.celery worker -l info --concurrency=1 --pool=solo
+uv sync
+uv run uvicorn main:app --reload --port 8080
+```
+
+In a second terminal, start the Celery worker:
+
+```bash
+cd backend
+uv run celery -A services.process_request.celery worker -l info --concurrency=1 --pool=solo
 ```
 
 #### Frontend
@@ -85,7 +103,7 @@ If you want to preprocess the tracks so that the users can immediately enjoy the
 
 ```
 cd backend
-python -m scripts.process_default_queue.py
+uv run python -m scripts.process_default_queue
 ```
 
 ---

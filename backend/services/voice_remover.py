@@ -1,5 +1,4 @@
 import argparse
-from logging import fatal
 import sys
 from pathlib import Path
 from typing import Any
@@ -13,6 +12,28 @@ from services.demucs.audio import save_audio
 from services.demucs.pretrained import get_model_from_args
 from services.demucs.repo import ModelLoadingError
 from services.demucs.separate import load_track
+
+
+class SeparationError(RuntimeError):
+    """Raised when a track cannot be separated."""
+
+
+# Loading the model takes seconds and gigabytes of I/O; the worker is a long-lived
+# process, so load it once per (model, device) instead of once per track.
+_MODEL_CACHE: dict[tuple[str, str], Any] = {}
+
+
+def _load_model(args: argparse.Namespace, device: str) -> Any:
+    key = (args.name, device)
+    if key not in _MODEL_CACHE:
+        try:
+            model: Any = get_model_from_args(args)
+        except ModelLoadingError as error:
+            raise SeparationError(error.args[0]) from error
+        model.to(device)
+        model.eval()
+        _MODEL_CACHE[key] = model
+    return _MODEL_CACHE[key]
 
 
 async def async_separate_vocals(sid: str, model_name: str = "htdemucs",
@@ -61,7 +82,13 @@ def separate_vocals(
         verbose (bool): Verbose
     """
 
-    if os.environ.get("LIMIT_CPU", False):
+    # Fail fast, before paying for model loading.
+    track = Path(RAW_AUDIO_DIR, f"{sid}.mp3")
+    if not track.exists():
+        raise FileNotFoundError(f"Raw audio {track} does not exist")
+
+    # "0"/"false" must mean off (any non-empty string used to be truthy).
+    if os.environ.get("LIMIT_CPU", "").strip().lower() in ("1", "true", "yes", "on"):
         th.set_num_threads(1)
         jobs = 1
     else:
@@ -95,17 +122,13 @@ def separate_vocals(
     args.name = model_name
     args.repo = None
 
-    model: Any = None
-    try:
-        model: Any = get_model_from_args(args)
-    except ModelLoadingError as error:
-        fatal(error.args[0])
+    model = _load_model(args, device)
 
     if args.segment is not None and args.segment < 8:
-        fatal("Segment must greater than 8. ")
+        raise SeparationError("Segment must greater than 8.")
 
     if ".." in args.filename.replace("\\", "/").split("/"):
-        fatal('".." must not appear in filename. ')
+        raise SeparationError('".." must not appear in filename.')
 
     if isinstance(model, BagOfModels):
         print(
@@ -119,12 +142,9 @@ def separate_vocals(
         if args.segment is not None:
             model.segment = args.segment
 
-    model.to(device)
-    model.eval()
-
     if args.stem is not None and args.stem not in model.sources:
-        fatal(
-            'error: stem "{stem}" is not in selected model. STEM must be one of {sources}.'.format(
+        raise SeparationError(
+            'stem "{stem}" is not in selected model. STEM must be one of {sources}.'.format(
                 stem=args.stem, sources=", ".join(model.sources)
             )
         )
@@ -146,14 +166,6 @@ def separate_vocals(
 
     print(
         f"Separated tracks will be stored in {vocal_stem} and {non_vocal_stem}")
-    track = Path(RAW_AUDIO_DIR, f"{sid}.mp3")
-    if not track.exists():
-        print(
-            f"File {track} does not exist. If the path contains spaces, "
-            'please try again after surrounding the entire path with quotes "".',
-            file=sys.stderr,
-        )
-        return
     print(f"Separating track {track}")
     wav = load_track(track, model.audio_channels, model.samplerate)
 
@@ -180,13 +192,24 @@ def separate_vocals(
         "bits_per_sample": 24 if args.int24 else 16,
     }
     sources = list(sources)
-    save_audio(sources.pop(model.sources.index(args.stem)),
-               str(vocal_stem), **kwargs)
-    # Warning : after poping the stem, selected stem is no longer in the list 'sources'
-    other_stem = th.zeros_like(sources[0])
-    for i in sources:
-        other_stem += i
-    save_audio(other_stem, str(non_vocal_stem), **kwargs)
+    # Write to temp names first and rename at the end, so a crash can never leave
+    # a truncated file at the final path (is_ready() only looks at the final path).
+    vocal_tmp = vocal_stem.with_name(f"{vocal_stem.stem}.part{vocal_stem.suffix}")
+    non_vocal_tmp = non_vocal_stem.with_name(
+        f"{non_vocal_stem.stem}.part{non_vocal_stem.suffix}")
+    try:
+        save_audio(sources.pop(model.sources.index(args.stem)),
+                   str(vocal_tmp), **kwargs)
+        # Warning : after poping the stem, selected stem is no longer in the list 'sources'
+        other_stem = th.zeros_like(sources[0])
+        for i in sources:
+            other_stem += i
+        save_audio(other_stem, str(non_vocal_tmp), **kwargs)
+        os.replace(non_vocal_tmp, non_vocal_stem)
+        os.replace(vocal_tmp, vocal_stem)
+    finally:
+        for tmp in (vocal_tmp, non_vocal_tmp):
+            tmp.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

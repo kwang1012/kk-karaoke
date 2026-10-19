@@ -1,23 +1,23 @@
 # --- Stage 1: Build React frontend ---
 FROM node:22-alpine AS frontend
 
-ARG APP_ADDR=localhost:8080
+# Leave empty to call the API on the same host/port that serves the page.
+ARG APP_ADDR=
 WORKDIR /app/frontend
 COPY frontend/ ./
 RUN yarn install && VITE_API_ADDR=${APP_ADDR} yarn build
 
 
 # --- Stage 2: Build FastAPI backend ---
-FROM debian:stable-slim
+FROM ghcr.io/astral-sh/uv:bookworm-slim
 
 # Install system dependencies
 RUN apt-get update && \
     apt-get install -y \
     ffmpeg \
     redis-server \
+    build-essential \
     python3 \
-    python3-pip \
-    python3-venv \
     nginx \
     curl \
     && apt-get clean \
@@ -28,13 +28,9 @@ WORKDIR /app
 COPY --from=frontend /app/frontend/build /usr/share/nginx/html
 COPY backend/ ./backend/
 
-# Install Python deps
-RUN python3 -m venv /venv
-
-ENV PATH="/venv/bin:$PATH"
-COPY backend/requirements.txt .
 # Make sure uvicorn uses the venv Python
-RUN pip install --no-cache-dir -r requirements.txt
+RUN cd backend && uv sync
+RUN pwd
 
 # Copy Nginx config and start script
 COPY nginx.conf /etc/nginx/conf.d/default.conf
@@ -42,5 +38,6 @@ COPY run.sh /run.sh
 RUN chmod +x /run.sh
 
 EXPOSE 8080
-
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD curl -fsS http://localhost:8080/api/ || exit 1
 CMD ["/run.sh"]

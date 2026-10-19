@@ -15,6 +15,8 @@ export interface SettingState {
   dark: () => void; // Set theme to dark
   light: () => void; // Set theme to light
   onBrowserThemeChange: (isDarkMode: boolean) => void; // Handle browser theme change
+  inviteOpen: boolean; // Whether the invite (QR code) dialog is open
+  setInviteOpen: (open: boolean) => void;
   settingsOpen: boolean; // Whether the settings dialog is open
   setSettingsOpen: (open: boolean) => void;
   queueOpen: boolean; // Whether the queue panel is shown on desktop
@@ -26,6 +28,8 @@ export interface SettingState {
 export const useSettingStore = create<SettingState>()(
   persist(
     (set) => ({
+      inviteOpen: false,
+      setInviteOpen: (inviteOpen: boolean) => set({ inviteOpen }),
       settingsOpen: false,
       setSettingsOpen: (settingsOpen: boolean) => set({ settingsOpen }),
       queueOpen: true,

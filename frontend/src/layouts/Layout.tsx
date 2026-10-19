@@ -10,6 +10,7 @@ import { useSettingStore } from 'src/store/setting';
 // lazy import mobile components
 const AppNavigation = lazy(() => import('src/components/Navigation'));
 const SettingsDialog = lazy(() => import('src/components/SettingsDialog'));
+const InviteDialog = lazy(() => import('src/components/InviteDialog'));
 
 export default function Layout() {
   const mobile = useBreakpointDown('md');
@@ -29,6 +30,7 @@ export default function Layout() {
         <AppSnackbar />
         <Suspense fallback={null}>
           <SettingsDialog />
+          <InviteDialog />
         </Suspense>
       </div>
     );
@@ -50,6 +52,7 @@ export default function Layout() {
       <AppSnackbar />
       <Suspense fallback={null}>
         <SettingsDialog />
+          <InviteDialog />
       </Suspense>
     </div>
   );

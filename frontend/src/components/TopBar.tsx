@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Moon, Settings, Sun } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Moon, Settings, Sun, UserPlus } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import Logo from './Logo';
 import SearchBox from './SearchBox';
@@ -30,6 +30,7 @@ export default function TopBar() {
   const theme = useSettingStore((state) => state.theme);
   const toggleTheme = useSettingStore((state) => state.toggleTheme);
   const setSettingsOpen = useSettingStore((state) => state.setSettingsOpen);
+  const setInviteOpen = useSettingStore((state) => state.setInviteOpen);
 
   useRemoteMessageQueue('jam', {
     onAddItem: (message) => {
@@ -83,6 +84,9 @@ export default function TopBar() {
             )}
           </AvatarGroup>
         )}
+        <Button variant="outline" size="sm" onClick={() => setInviteOpen(true)}>
+          <UserPlus /> {t('invite.button')}
+        </Button>
         {isInJam && (
           <Button variant="outline" size="sm" onClick={leaveRoom}>
             {t('nav.leaveRoom')}

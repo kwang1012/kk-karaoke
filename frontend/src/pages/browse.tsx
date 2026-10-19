@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import AppScrollbar from 'src/components/Scrollbar';
 import { Skeleton } from 'src/components/ui/skeleton';
 import { Categories, Collection } from 'src/models/spotify';
-import { Mic2, Search, Settings, Shuffle } from 'lucide-react';
+import { Mic2, Search, Settings, Shuffle, UserPlus } from 'lucide-react';
 import { Button, IconButton } from 'src/components/ui/button';
 import SongCard from 'src/components/SongCard';
 import { useTrackStore } from 'src/store';
@@ -96,6 +96,7 @@ export function MainView() {
   const nickname = useRoomStore((state) => state.nickname);
   const { isInJam } = useJam();
   const setSettingsOpen = useSettingStore((state) => state.setSettingsOpen);
+  const setInviteOpen = useSettingStore((state) => state.setInviteOpen);
   const readyTracks = useTrackStore((state) => state.readyTracks);
   const addSongToQueue = usePlayerStore((state) => state.addSongToQueue);
   const insertSongToQueue = usePlayerStore((state) => state.insertSongToQueue);
@@ -141,13 +142,22 @@ export function MainView() {
             <div className="pointer-events-none absolute -top-16 -right-10 size-64 rounded-full bg-white/10 blur-2xl" />
             <Mic2 className="pointer-events-none absolute right-6 bottom-[-1.5rem] size-40 -rotate-12 text-white/10 md:right-14 md:size-56" />
             {mobile && (
-              <IconButton
-                aria-label={t('nav.settings')}
-                className="absolute top-3 right-3 text-white hover:bg-white/15"
-                onClick={() => setSettingsOpen(true)}
-              >
-                <Settings className="size-5" />
-              </IconButton>
+              <div className="absolute top-3 right-3 flex">
+                <IconButton
+                  aria-label={t('invite.button')}
+                  className="text-white hover:bg-white/15"
+                  onClick={() => setInviteOpen(true)}
+                >
+                  <UserPlus className="size-5" />
+                </IconButton>
+                <IconButton
+                  aria-label={t('nav.settings')}
+                  className="text-white hover:bg-white/15"
+                  onClick={() => setSettingsOpen(true)}
+                >
+                  <Settings className="size-5" />
+                </IconButton>
+              </div>
             )}
             <p className="text-sm font-medium text-white/80">
               {nickname ? t('home.greetingNamed', { greeting: t(greetingKey()), name: nickname }) : t(greetingKey())}

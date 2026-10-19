@@ -108,9 +108,18 @@ export const en = {
   'queue.empty': 'Nothing queued yet.',
   'queue.random': 'Random songs?',
   'jam.invite': 'Invite your friends to join your room. Sing together, or just hang out.',
-  'jam.share': 'Copy and share the link with your friends, or ask them to join the QRCode',
-  'jam.start': 'Start a room',
-  'jam.copyLink': 'Copy Link',
+  'jam.active': 'Your room is open. Share the QR code or link so friends can join.',
+
+  // invite
+  'invite.button': 'Invite',
+  'invite.title': 'Invite friends',
+  'invite.subtitle': 'Scan the QR code or share the link to sing together.',
+  'invite.start': 'Start a room',
+  'invite.startHint': 'Open a room first, then share its QR code or link.',
+  'invite.copy': 'Copy link',
+  'invite.copied': 'Copied',
+  'invite.inRoom': 'In the room ({count})',
+  'invite.alone': 'Just you so far.',
 
   // lyrics
   'lyrics.none': 'No lyrics available for this track.',

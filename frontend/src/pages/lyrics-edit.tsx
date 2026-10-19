@@ -9,7 +9,9 @@ import LyricsEditor from 'src/components/LyricsEditor';
 import AppScrollbar from 'src/components/Scrollbar';
 import { useTrackStore } from 'src/store';
 import LyricsEditorPlayer from 'src/components/LyricsEditor/Player';
+import { useT } from 'src/i18n';
 export default function LyricsEditView() {
+  const t = useT();
   const { trackId } = useParams();
   const navigate = useNavigate();
   const readyTracks = useTrackStore((state) => state.readyTracks);
@@ -30,7 +32,7 @@ export default function LyricsEditView() {
   }, [readyTracks, search]);
   const track = uniqueTracks.find((track) => track.id === trackId) ?? {
     id: '',
-    name: 'No selected track',
+    name: t('editor.noTrack'),
     artists: [],
     timeAdded: Date.now(),
   };
@@ -49,13 +51,13 @@ export default function LyricsEditView() {
             <IconButton onClick={() => navigate('/')}>
               <Home className="size-6" />
             </IconButton>
-            Lyrics
+            {t('nav.lyrics')}
           </h1>
           <div className="relative mt-4">
             <Search className="absolute top-1/2 left-2 size-5 -translate-y-1/2" />
             <Input
               className="h-10 px-9"
-              placeholder="Search"
+              placeholder={t('editor.searchTracks')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />

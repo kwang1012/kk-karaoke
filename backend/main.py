@@ -81,20 +81,20 @@ async def root():
 
 
 @app.get("/top-categories")
-async def get_top_categories(keyword: str):
+def get_top_categories(keyword: str):
     return JSONResponse(
         content={"categories": getTopCategories(keyword)}, status_code=200
     )
 
 
 @app.get("/playlist/{playlist_id}/tracks")
-async def get_playlist_tracks(playlist_id: str):
+def get_playlist_tracks(playlist_id: str):
     collection, tracks = getCollectionTracks("playlists", playlist_id)
     return JSONResponse(content={"collection": collection, "tracks": tracks})
 
 
 @app.get("/album/{album_id}/tracks")
-async def get_album_tracks(album_id: str):
+def get_album_tracks(album_id: str):
     collection, tracks = getCollectionTracks("albums", album_id)
     return JSONResponse(content={"collection": collection, "tracks": tracks})
 
@@ -111,7 +111,7 @@ async def get_tracks(
 
 
 @app.get("/random_tracks")
-async def get_random_tracks():
+def get_random_tracks():
     _, tracks = getCollectionTracks("playlists", DEFAULT_PLAYLIST_ID)
     tracks = tracks or []
     random.shuffle(tracks)

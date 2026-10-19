@@ -3,11 +3,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { IconButton } from 'src/components/ui/button';
 import { useBreakpointDown } from 'src/hooks/media';
 import { cn } from 'src/lib/utils';
+import { useT } from 'src/i18n';
 
 export default function Carousel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLeft, setShowLeft] = useState(false);
   const [showRight, setShowRight] = useState(false);
+  const t = useT();
   const mobile = useBreakpointDown('md');
 
   const handleScroll = () => {
@@ -28,7 +30,7 @@ export default function Carousel({ children, className = '' }: { children: React
 
   const arrow = (side: 'left' | 'right') => (
     <IconButton
-      aria-label={side === 'left' ? 'Scroll left' : 'Scroll right'}
+      aria-label={side === 'left' ? t('carousel.left') : t('carousel.right')}
       onClick={() => scrollBy(side === 'left' ? -1 : 1)}
       className={cn(
         'absolute top-1/3 z-10 size-9 border bg-popover/90 p-0 shadow-lg backdrop-blur',

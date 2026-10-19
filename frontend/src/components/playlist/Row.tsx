@@ -13,6 +13,7 @@ import { IconButton } from 'src/components/ui/button';
 import { TableCell, TableRow } from 'src/components/ui/table';
 import { useBreakpointDown } from 'src/hooks/media';
 import { cn } from 'src/lib/utils';
+import { useT } from 'src/i18n';
 
 export const HoverTableRow = ({ className, ...props }: React.ComponentProps<'tr'>) => (
   <TableRow
@@ -40,6 +41,7 @@ export const getColWidth = (key: string) => {
 };
 
 const PlaylistRow = memo(({ track, index }: { track: Track; index: number }) => {
+  const t = useT();
   const mobile = useBreakpointDown('md');
   const songStatus = useTrackStore((state) => state.songStatus);
   // const status = track ? songStatus[track.id] : 'ready';
@@ -49,7 +51,7 @@ const PlaylistRow = memo(({ track, index }: { track: Track; index: number }) => 
   const readyTrackIds = useReadyTrackIds();
   const parsedTrack = track ?? {
     id: '',
-    name: 'Not playing',
+    name: t('common.notPlaying'),
     artists: [],
     timeAdded: Date.now(),
   };
@@ -133,13 +135,13 @@ const PlaylistRow = memo(({ track, index }: { track: Track; index: number }) => 
         {ready || downloaded ? (
           <ReadyBadge className="mr-2" />
         ) : unknown ? (
-          <Tooltip placement="top" title="Download and process">
+          <Tooltip placement="top" title={t('playlist.download')}>
             <IconButton className="row-actions mr-2 p-0" onClick={() => onDownload(parsedTrack)}>
               <CircleArrowDown className="size-4" />
             </IconButton>
           </Tooltip>
         ) : (
-          <Tooltip placement="top" title="Downloading">
+          <Tooltip placement="top" title={t('playlist.downloading')}>
             <Loader className="mr-2 size-4 animate-spin" />
           </Tooltip>
         )}

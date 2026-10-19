@@ -6,6 +6,7 @@ import { useRef, useMemo, useEffect, useState } from 'react';
 import { Lyrics, Track } from 'src/models/spotify';
 import * as OpenCC from 'opencc-js';
 import { api } from 'src/utils/api';
+import { useT } from 'src/i18n';
 const converter = OpenCC.Converter({ from: 'cn', to: 'tw' });
 
 const LYRICS_REGEX = /^\[\d{2}:\d{2}(?:\.\d{2,3})] ?(.+)?$/;
@@ -32,6 +33,7 @@ function isValidLRC(input: string) {
 }
 
 export default function LyricsEditor({ track, progress }: { track: Track; progress?: number }) {
+  const t = useT();
   const [content, setContent] = useState('');
   const [originalContent, setOriginalContent] = useState('');
   const [lyrics, setLyrics] = useState<Lyrics[]>([]);
@@ -123,18 +125,18 @@ export default function LyricsEditor({ track, progress }: { track: Track; progre
   const onSave = (content: string) => {
     const isValid = isValidLRC(content);
     if (!isValid) {
-      showStatus('Invalid LRC format');
+      showStatus(t('editor.invalid'));
     } else {
       api
         .post(`/lyrics/${track.id}/update`, { content })
         .then(() => {
-          showStatus('Saved successfully');
+          showStatus(t('editor.saved'));
           setEditing(false);
           setOriginalContent(content);
         })
         .catch((err) => {
           console.error(err);
-          showStatus('Failed to save');
+          showStatus(t('editor.failed'));
         });
     }
   };
@@ -160,10 +162,10 @@ export default function LyricsEditor({ track, progress }: { track: Track; progre
                   className="mr-2 bg-transparent"
                   onClick={onCancel}
                 >
-                  Cancel changes
+                  {t('editor.cancelChanges')}
                 </Button>
                 <Button disabled={!modified} onClick={() => onSave(content)}>
-                  Save changes
+                  {t('editor.saveChanges')}
                 </Button>
               </>
             ) : (
@@ -178,7 +180,7 @@ export default function LyricsEditor({ track, progress }: { track: Track; progre
           {editing && (
             <div className="w-full border-b bg-muted p-2">
               <div className="relative mr-2 inline-flex w-[150px] items-center align-middle">
-                <label className="absolute -top-2 left-2 bg-muted px-1 text-xs text-muted-foreground">Offset (s)</label>
+                <label className="absolute -top-2 left-2 bg-muted px-1 text-xs text-muted-foreground">{t('editor.offset')}</label>
                 <Input
                   type="number"
                   value={delay}
@@ -186,7 +188,7 @@ export default function LyricsEditor({ track, progress }: { track: Track; progre
                   className="pr-16"
                 />
                 <Button variant="ghost" size="sm" className="absolute right-0 bg-accent text-muted-foreground hover:text-foreground">
-                  Apply
+                  {t('common.apply')}
                 </Button>
               </div>
               <Button
@@ -194,7 +196,7 @@ export default function LyricsEditor({ track, progress }: { track: Track; progre
                 className="bg-transparent px-2 text-muted-foreground"
                 onClick={() => setContent(converter(content))}
               >
-                {'簡→繁'}
+                {t('editor.toTraditional')}
               </Button>
               <Button
                 variant="outline"
@@ -218,7 +220,7 @@ export default function LyricsEditor({ track, progress }: { track: Track; progre
                   }
                 }}
               >
-                Current time
+                {t('editor.currentTime')}
               </Button>
             </div>
           )}

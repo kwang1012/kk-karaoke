@@ -12,9 +12,11 @@ import TrackQueue from './TrackQueue';
 import Jam from './Jam';
 import { getUniqueId } from 'src/utils';
 import { useRoomStore } from 'src/store/room';
+import { useT } from 'src/i18n';
 
 /** Always mounted (even when hidden) because it owns the websocket queue listener. */
 export default function Queue({ hidden }: { hidden?: boolean }) {
+  const t = useT();
   const scrollbarRef = useRef<HTMLDivElement>(null);
   const setSongStatus = useTrackStore((state) => state.setSongStatus);
 
@@ -67,29 +69,29 @@ export default function Queue({ hidden }: { hidden?: boolean }) {
       )}
     >
       <div className="flex items-center justify-between px-5 pt-5 pb-3">
-        <h2 className="text-lg font-semibold">Queue</h2>
+        <h2 className="text-lg font-semibold">{t('queue.title')}</h2>
         {tracks.length > 0 && (
           <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={clearQueue}>
-            Clear
+            {t('common.clear')}
           </Button>
         )}
       </div>
       <AppScrollbar className="min-h-0 flex-1 px-3 pb-4" ref={scrollbarRef}>
-        <div className="px-2 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">Now playing</div>
+        <div className="px-2 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">{t('queue.nowPlaying')}</div>
         <SongCard disableHover className="rounded-xl bg-accent/60" track={currentTrack} />
 
         <div className="mt-4">
           <Jam />
         </div>
 
-        <div className="mt-6 px-2 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">Next up</div>
+        <div className="mt-6 px-2 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">{t('queue.nextUp')}</div>
         {tracks.length ? (
           <TrackQueue tracks={tracks} />
         ) : (
           <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed px-4 py-8 text-center">
-            <p className="text-sm text-muted-foreground">Nothing queued yet.</p>
+            <p className="text-sm text-muted-foreground">{t('queue.empty')}</p>
             <Button size="sm" onClick={getRandomTracks}>
-              <Shuffle /> Surprise me
+              <Shuffle /> {t('home.surprise')}
             </Button>
           </div>
         )}

@@ -6,8 +6,10 @@ import { useState, useRef, useMemo, useEffect } from 'react';
 import { useQueue, usePlayerStore } from 'src/store/player';
 import { getUniqueId } from 'src/utils';
 import placeholder from 'src/assets/placeholder.png';
+import { useT } from 'src/i18n';
 
 export default function MobilePlayer({ color }: { color?: string }) {
+  const t = useT();
   const { currentTrack, queue, queueIdx } = useQueue();
   const getRandomTracks = usePlayerStore((state) => state.getRandomTracks);
   const [scrollTop, setScrollTop] = useState(0);
@@ -43,17 +45,17 @@ export default function MobilePlayer({ color }: { color?: string }) {
           <div className="w-16 h-16 rounded-md bg-[#c3c3c3] overflow-hidden">
             <img src={currentTrack?.album?.images?.[0]?.url || placeholder} className="w-full h-full" />
           </div>
-          <span className="text-xl ml-2 text-white">{currentTrack?.name || 'Not Playing'}</span>
+          <span className="text-xl ml-2 text-white">{currentTrack?.name || t('common.notPlaying')}</span>
         </div>
         <div className="w-full px-6 pt-5 text-white">
           {tracks.length ? (
             <TrackQueue tracks={tracks} />
           ) : (
             <>
-              <div className="text-gray-400 mt-2 w-full pl-2">There's no music in the queue.</div>
+              <div className="mt-2 w-full pl-2 text-gray-400">{t('queue.empty')}</div>
               <div className="mt-5 px-2 flex justify-center text-primary">
                 <Button onClick={getRandomTracks}>
-                  Random songs?
+                  {t('queue.random')}
                 </Button>
               </div>
             </>

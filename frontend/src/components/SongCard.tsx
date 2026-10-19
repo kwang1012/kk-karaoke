@@ -10,6 +10,7 @@ import { CircularProgress } from 'src/components/ui/progress';
 import { Tooltip } from 'src/components/ui/tooltip';
 import { useBreakpointDown } from 'src/hooks/media';
 import { cn } from 'src/lib/utils';
+import { useT } from 'src/i18n';
 
 const CircularProgressWithLabel = ({
   children,
@@ -53,6 +54,7 @@ export default function SongCard({
   onDelete,
   ...props
 }: SongCardProps) {
+  const t = useT();
   const songStatus = useTrackStore((state) => state.songStatus);
   const songProgress = useTrackStore((state) => state.songProgress);
   const hasActions = useMemo(() => !!onAdd || !!onDelete || !!onInsert, [onAdd, onDelete, onInsert]);
@@ -81,7 +83,7 @@ export default function SongCard({
     if (!track)
       return {
         id: '',
-        name: 'Not playing',
+        name: t('common.notPlaying'),
         artists: [],
         timeAdded: Date.now(),
       };
@@ -118,7 +120,7 @@ export default function SongCard({
         <img src={parsedTrack.album?.images?.[0]?.url || placeholderImage} className="size-full object-cover" />
           {onAdd && !disable && !mobile && (
             <button
-              aria-label="Add to queue"
+              aria-label={t('song.addToQueue')}
               className="absolute inset-0 flex items-center justify-center bg-black/55 text-white opacity-0 transition-opacity group-hover/card:opacity-100"
               onClick={() => track && onAdd(parsedTrack)}
             >
@@ -155,7 +157,7 @@ export default function SongCard({
         </div>
       )}
       {status === 'error' && !disable && (
-        <Tooltip placement="top" title="Processing failed. Remove it and try again.">
+        <Tooltip placement="top" title={t('song.failed')}>
           <CircleAlert className="size-4 shrink-0 text-destructive" />
         </Tooltip>
       )}

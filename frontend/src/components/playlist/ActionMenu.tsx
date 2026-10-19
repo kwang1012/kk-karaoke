@@ -4,6 +4,7 @@ import { Track } from 'src/models/spotify';
 import { IconButton } from 'src/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from 'src/components/ui/dropdown-menu';
 import { cn } from 'src/lib/utils';
+import { useT } from 'src/i18n';
 
 const ActionMenu = memo(
   ({
@@ -22,10 +23,11 @@ const ActionMenu = memo(
     onOpen: () => void;
     onClose: () => void;
   }) => {
+    const t = useT();
     const functions = [
-      { fn: onInsert, icon: <ListEnd />, text: 'Play next' },
-      { fn: onAdd, icon: <ListMusic />, text: 'Add to queue' },
-      { fn: onDelete, icon: <ListX />, text: 'Remove from queue' },
+      { fn: onInsert, icon: <ListEnd />, text: t('song.playNext') },
+      { fn: onAdd, icon: <ListMusic />, text: t('song.addToQueue') },
+      { fn: onDelete, icon: <ListX />, text: t('song.removeFromQueue') },
     ];
     return (
       <div>

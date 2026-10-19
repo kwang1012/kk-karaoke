@@ -12,6 +12,7 @@ import { cn } from 'src/lib/utils';
 import SearchBox from 'src/components/SearchBox';
 import { usePlayerStore } from 'src/store/player';
 import { useDebouncedCallback } from 'src/hooks/debounce';
+import { useT } from 'src/i18n';
 
 const SUGGESTIONS = ['周杰倫', '五月天', '蔡依林', '鄧紫棋', 'BTS', 'IU', 'Taylor Swift', '米津玄師', 'YOASOBI', 'Adele'];
 const RECENT_KEY = 'recent-searches';
@@ -25,13 +26,14 @@ const loadRecent = (): string[] => {
 };
 
 function Chip({ children, onClick, onRemove }: { children: React.ReactNode; onClick: () => void; onRemove?: () => void }) {
+  const t = useT();
   return (
     <span className="inline-flex items-center rounded-full border text-sm transition-colors hover:bg-accent">
       <button className="py-1.5 pr-3 pl-4" onClick={onClick}>
         {children}
       </button>
       {onRemove && (
-        <button aria-label="Remove" className="mr-2 rounded-full p-1 text-muted-foreground hover:text-foreground" onClick={onRemove}>
+        <button aria-label={t('search.remove')} className="mr-2 rounded-full p-1 text-muted-foreground hover:text-foreground" onClick={onRemove}>
           <X className="size-3" />
         </button>
       )}
@@ -50,22 +52,23 @@ function EmptySearch({
   onRemove: (query: string) => void;
   onClear: () => void;
 }) {
+  const t = useT();
   return (
     <div className="mx-auto flex max-w-2xl flex-col px-4 pt-6 pb-12 md:px-8 md:pt-12">
       <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-primary/12 text-primary">
         <SearchIcon className="size-7" />
       </div>
-      <h2 className="mt-4 text-center text-2xl font-bold tracking-tight">What do you want to sing?</h2>
-      <p className="mt-1 text-center text-sm text-muted-foreground">Search by song, artist, album or playlist.</p>
+      <h2 className="mt-4 text-center text-2xl font-bold tracking-tight">{t('search.empty.title')}</h2>
+      <p className="mt-1 text-center text-sm text-muted-foreground">{t('search.empty.subtitle')}</p>
 
       {recent.length > 0 && (
         <section className="mt-10">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="flex items-center gap-2 text-sm font-semibold">
-              <Clock className="size-4 text-muted-foreground" /> Recent
+              <Clock className="size-4 text-muted-foreground" /> {t('search.recent')}
             </h3>
             <button className="text-xs text-muted-foreground hover:text-foreground" onClick={onClear}>
-              Clear all
+              {t('common.clearAll')}
             </button>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -79,7 +82,7 @@ function EmptySearch({
       )}
 
       <section className="mt-8">
-        <h3 className="mb-3 text-sm font-semibold">Popular right now</h3>
+        <h3 className="mb-3 text-sm font-semibold">{t('search.popular')}</h3>
         <div className="flex flex-wrap gap-2">
           {SUGGESTIONS.map((query) => (
             <Chip key={query} onClick={() => onPick(query)}>
@@ -102,6 +105,7 @@ const getArtistsStr = (artists: any[]) => {
 };
 
 export default function SearchView() {
+  const t = useT();
   const mobile = useBreakpointDown('md');
   const navigate = useNavigate();
   const searchValue = useAppStore((state) => state.searchValue);
@@ -183,7 +187,7 @@ export default function SearchView() {
     <div className="grid h-full w-full grid-rows-[auto_1fr]">
       {mobile ? (
         <div className="p-2">
-          <h1 className="px-4 py-2 text-3xl font-bold tracking-tight">Search</h1>
+          <h1 className="px-4 py-2 text-3xl font-bold tracking-tight">{t('search.title')}</h1>
           <div className="mx-2">
             <SearchBox value={searchValue} onChange={handleSearchChange} />
           </div>
@@ -192,10 +196,10 @@ export default function SearchView() {
         <div className={cn('flex h-16 items-center px-8 text-xl font-semibold tracking-tight transition-shadow', scrollTop > 0 && 'shadow-md')}>
           {searchValue ? (
             <>
-              Results for <span className="ml-2 text-primary">“{searchValue}”</span>
+              {t('search.resultsFor')} <span className="ml-2 text-primary">“{searchValue}”</span>
             </>
           ) : (
-            'Search'
+            t('search.title')
           )}
         </div>
       )}
@@ -212,7 +216,7 @@ export default function SearchView() {
           <div className="pb-8">
             {tracks.length > 0 && (
               <div className="px-4 md:px-8">
-                <h2 className="mt-2 text-lg font-semibold tracking-tight">Songs</h2>
+                <h2 className="mt-2 text-lg font-semibold tracking-tight">{t('search.songs')}</h2>
                 <div className="mt-2">
                   {tracks.map((track: any, i: number) => (
                     <SongCard key={i} track={track} dense className="mt-1" onAdd={onAdd} onInsert={onInsert} />
@@ -222,7 +226,7 @@ export default function SearchView() {
             )}
             {albums.length > 0 && (
               <>
-                <h2 className="mt-8 mb-2 px-4 text-lg font-semibold tracking-tight md:px-8">Albums</h2>
+                <h2 className="mt-8 mb-2 px-4 text-lg font-semibold tracking-tight md:px-8">{t('search.albums')}</h2>
                 <Carousel>
                   {albums.map((album: any) => (
                     <CarouselItem
@@ -245,7 +249,7 @@ export default function SearchView() {
             )}
             {playlists.length > 0 && (
               <>
-                <h2 className="mt-8 mb-2 px-4 text-lg font-semibold tracking-tight md:px-8">Playlists</h2>
+                <h2 className="mt-8 mb-2 px-4 text-lg font-semibold tracking-tight md:px-8">{t('search.playlists')}</h2>
                 <Carousel>
                   {playlists.map((playlist: any) => (
                     <CarouselItem
@@ -257,7 +261,7 @@ export default function SearchView() {
                       <img src={playlist.images?.[0]?.url || placeholder} className="aspect-square w-full rounded-lg object-cover shadow-md" />
                       <span className="mt-2 line-clamp-2 text-sm font-medium">{playlist.name}</span>
                       <span className="line-clamp-1 text-xs text-muted-foreground">
-                        By {playlist.owner?.display_name || 'Unknown'}
+                        {t('search.byOwner', { name: playlist.owner?.display_name || t('common.unknown') })}
                       </span>
                     </CarouselItem>
                   ))}
@@ -280,7 +284,7 @@ export default function SearchView() {
               )} */}
           </div>
         ) : (
-          <p>No results found.</p>
+          <p>{t('search.noResults')}</p>
         )}
       </AppScrollbar>
     </div>

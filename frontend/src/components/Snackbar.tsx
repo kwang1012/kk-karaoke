@@ -3,8 +3,10 @@ import { Volume2 } from 'lucide-react';
 import { Progress } from 'src/components/ui/progress';
 import { usePlayer } from 'src/store/player';
 import { useNotifyStore } from 'src/store/notify';
+import { useT } from 'src/i18n';
 
 export default function AppSnackbar() {
+  const t = useT();
   const { volume, semitone, enabledPitchShift } = usePlayer();
   const { open, key } = useNotifyStore((state) => state.snackbar);
   const closeSnackbar = useNotifyStore((state) => state.closeSnackbar);
@@ -28,7 +30,7 @@ export default function AppSnackbar() {
         {enabledPitchShift && (
           <div className="mt-1">
             <span className="text-sm font-semibold">
-              Current Key: {semitone > 0 ? `+${semitone}` : semitone < 0 ? `${semitone}` : '0'}
+              {t('player.currentKey', { value: semitone > 0 ? `+${semitone}` : `${semitone}` })}
             </span>
           </div>
         )}

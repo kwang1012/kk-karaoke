@@ -4,8 +4,10 @@ import { usePlayer } from 'src/store/player';
 import placeholder from 'src/assets/placeholder.png';
 import { useTrackStore } from 'src/store';
 import { useSettingStore } from 'src/store/setting';
+import { useT } from 'src/i18n';
 
 export default function MobileLyrics({ color, bgColor }: { color?: string; bgColor?: string }) {
+  const t = useT();
   // local states
   const lineRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -90,7 +92,7 @@ export default function MobileLyrics({ color, bgColor }: { color?: string; bgCol
         <div className="w-16 h-16 rounded-md bg-[#c3c3c3] overflow-hidden">
           <img src={currentTrack?.album?.images?.[0]?.url || placeholder} className="w-full h-full" />
         </div>
-        <span className="text-xl ml-2 text-white">{currentTrack?.name || 'Not Playing'}</span>
+        <span className="text-xl ml-2 text-white">{currentTrack?.name || t('common.notPlaying')}</span>
       </div>
       {syncedLyrics.length > 0 ? (
         syncedLyrics.map((line, i) => (
@@ -118,7 +120,7 @@ export default function MobileLyrics({ color, bgColor }: { color?: string; bgCol
         ))
       ) : (
         <div className="text-center mt-20 text-4xl font-bold" style={{ color }}>
-          {!loading && <p>{currentTrack ? 'No lyrics available for this track.' : 'Start playing a track!'}</p>}
+          {!loading && <p>{currentTrack ? t('lyrics.none') : t('lyrics.start')}</p>}
         </div>
       )}
     </AppScrollbar>

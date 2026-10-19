@@ -9,6 +9,7 @@ import { usePlayer } from 'src/store/player';
 import { useNotifyStore } from 'src/store/notify';
 import { useSettingStore } from 'src/store/setting';
 import { cn } from 'src/lib/utils';
+import { useT } from 'src/i18n';
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds)) return '0:00';
@@ -18,6 +19,7 @@ function formatTime(seconds: number): string {
 }
 
 export default function AudioController() {
+  const t = useT();
   const { currentTrack, progress, seeking, setSeeking, duration, playing, seek } = usePlayer();
   const { play, pause, next, previous } = usePlayer();
   const { vocalOn, toggleVocal, volume, setVolume, enabledPitchShift, semitone } = usePlayer();
@@ -43,22 +45,22 @@ export default function AudioController() {
       {/* Transport + seek */}
       <div className="flex flex-col items-center gap-1">
         <div className="flex items-center gap-3">
-          <Tooltip title="Previous" side="top">
-            <IconButton aria-label="Previous" onClick={() => previous()}>
+          <Tooltip title={t('player.previous')} side="top">
+            <IconButton aria-label={t('player.previous')} onClick={() => previous()}>
               <SkipBack className="size-5 fill-current" />
             </IconButton>
           </Tooltip>
-          <Tooltip title={playing ? 'Pause' : 'Play'} side="top">
+          <Tooltip title={playing ? t('player.pause') : t('player.play')} side="top">
             <button
-              aria-label={playing ? 'Pause' : 'Play'}
+              aria-label={playing ? t('player.pause') : t('player.play')}
               onClick={handlePlayPause}
               className="flex size-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform hover:scale-105 active:scale-95"
             >
               {playing ? <Pause className="size-5 fill-current" /> : <Play className="size-5 translate-x-px fill-current" />}
             </button>
           </Tooltip>
-          <Tooltip title="Next" side="top">
-            <IconButton aria-label="Next" onClick={() => next()}>
+          <Tooltip title={t('player.next')} side="top">
+            <IconButton aria-label={t('player.next')} onClick={() => next()}>
               <SkipForward className="size-5 fill-current" />
             </IconButton>
           </Tooltip>
@@ -86,7 +88,7 @@ export default function AudioController() {
 
       {/* Karaoke controls */}
       <div className="flex items-center justify-end gap-1">
-        <Tooltip title={vocalOn ? 'Turn off vocal' : 'Turn on vocal'} side="top">
+        <Tooltip title={vocalOn ? t('player.vocalOff') : t('player.vocalOn')} side="top">
           <button
             onClick={() => toggleVocal()}
             className={cn(
@@ -95,14 +97,14 @@ export default function AudioController() {
             )}
           >
             {vocalOn ? <Mic className="size-4" /> : <MicOff className="size-4" />}
-            {vocalOn ? 'Vocal' : 'Karaoke'}
+            {vocalOn ? t('player.vocal') : t('player.karaoke')}
           </button>
         </Tooltip>
         {enabledPitchShift && (
           <div className="ml-1 flex items-center rounded-full border text-xs">
             <IconButton
               size="small"
-              aria-label="Lower key"
+              aria-label={t('player.lowerKey')}
               onClick={() => {
                 decreaseSemitone();
                 showSnackbar();
@@ -113,7 +115,7 @@ export default function AudioController() {
             <span className="w-8 text-center font-medium tabular-nums">{semitone > 0 ? `+${semitone}` : semitone}</span>
             <IconButton
               size="small"
-              aria-label="Raise key"
+              aria-label={t('player.raiseKey')}
               onClick={() => {
                 increaseSemitone();
                 showSnackbar();
@@ -133,9 +135,9 @@ export default function AudioController() {
             aria-labelledby="volume-slider"
           />
         </div>
-        <Tooltip title={onStage ? 'Leave lyrics view' : 'Lyrics view'} side="top">
+        <Tooltip title={onStage ? t('player.leaveLyricsView') : t('player.lyricsView')} side="top">
           <IconButton
-            aria-label="Lyrics view"
+            aria-label={t('player.lyricsView')}
             aria-pressed={onStage}
             className={cn(onStage && 'text-primary')}
             onClick={() => navigate(onStage ? '/' : '/lyrics')}
@@ -144,15 +146,15 @@ export default function AudioController() {
           </IconButton>
         </Tooltip>
         {currentTrack?.id && (
-          <Tooltip title="Edit lyrics" side="top">
-            <IconButton aria-label="Edit lyrics" onClick={() => window.open(`/lyrics/edit/${currentTrack.id}`, '_blank')}>
+          <Tooltip title={t('player.editLyrics')} side="top">
+            <IconButton aria-label={t('player.editLyrics')} onClick={() => window.open(`/lyrics/edit/${currentTrack.id}`, '_blank')}>
               <PencilLine className="size-5" />
             </IconButton>
           </Tooltip>
         )}
-        <Tooltip title={queueOpen ? 'Hide queue' : 'Show queue'} side="top">
+        <Tooltip title={queueOpen ? t('player.hideQueue') : t('player.showQueue')} side="top">
           <IconButton
-            aria-label="Toggle queue"
+            aria-label={queueOpen ? t('player.hideQueue') : t('player.showQueue')}
             aria-pressed={queueOpen}
             className={cn(queueOpen && 'text-primary')}
             onClick={toggleQueue}

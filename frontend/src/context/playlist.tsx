@@ -1,6 +1,7 @@
 import { createContext } from 'react';
 import { Collection, Track } from 'src/models/spotify';
 import { DEFAULT_BG_COLOR } from 'src/utils';
+import type { TranslationKey } from 'src/i18n';
 
 export const PlaylistContext = createContext({
   collection: {} as Collection,
@@ -14,7 +15,7 @@ export const PlaylistContext = createContext({
   isLoading: false,
   isSticky: false,
   setIsSticky: (isSticky: boolean) => {},
-  headers: [] as { key: string; label: string }[],
+  headers: [] as { key: string; label: TranslationKey | '#' | '' }[],
   scrollTop: 0,
   setScrollTop: (scrollTop: number) => {},
   halfway: false,

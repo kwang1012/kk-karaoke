@@ -7,10 +7,12 @@ import PlaylistRow, { getColWidth, HoverTableRow } from './Row';
 import { PlaylistContext } from 'src/context/playlist';
 import { TableComponents, TableVirtuoso } from 'react-virtuoso';
 import { usePlaylistStore } from 'src/store/playlist';
+import { useT } from 'src/i18n';
 
 const VirtuosoTableComponents: TableComponents<Track> = {
   Table: (props) => {
     const { collection, collectionType, collectionImage, color, setIsSticky, scrollTop, setHalfway } = useContext(PlaylistContext);
+    const t = useT();
 
     const headerRef = useRef<HTMLDivElement>(null);
 
@@ -32,7 +34,7 @@ const VirtuosoTableComponents: TableComponents<Track> = {
             <img src={collectionImage} className="size-full rounded-xl object-cover shadow-2xl" alt={collection.name} />
           </div>
           <div className="ml-4 flex w-full flex-col justify-center text-white md:justify-end md:self-end">
-            <span className="text-xs font-medium tracking-wide uppercase opacity-80">{collectionType === 'album' ? 'Album' : 'Playlist'}</span>
+            <span className="text-xs font-medium tracking-wide uppercase opacity-80">{collectionType === 'album' ? t('playlist.type.album') : t('playlist.type.playlist')}</span>
             <span className="line-clamp-2 text-2xl font-extrabold leading-tight tracking-tight md:text-5xl">{collection.name}</span>
             <div className="mt-2 line-clamp-1 text-sm opacity-80">{collection.description}</div>
           </div>
@@ -51,6 +53,7 @@ const VirtuosoTableComponents: TableComponents<Track> = {
 };
 
 function fixedHeaderContent() {
+  const t = useT();
   const { headers, isSticky } = useContext(PlaylistContext);
   const mobile = useBreakpointDown('md');
   return (
@@ -68,7 +71,7 @@ function fixedHeaderContent() {
             header.key == 'row_id' ? 'text-center' : 'text-left'
           )}
         >
-          {header.label}
+          {header.label === '#' ? '#' : header.label && t(header.label)}
         </TableCell>
       ))}
     </TableRow>

@@ -17,6 +17,7 @@ import { useDebouncedCallback } from 'src/hooks/debounce';
 import { useBreakpointDown } from 'src/hooks/media';
 import { cn } from 'src/lib/utils';
 import { useJam, useRoomStore } from 'src/store/room';
+import { useT, type TranslationKey } from 'src/i18n';
 
 function PlaylistCard({
   playlist,
@@ -51,11 +52,11 @@ function PlaylistCard({
   );
 }
 
-const SECTIONS = [
-  { keyword: 'chinese', label: 'Chinese', name: 'Chinese KTV favorites' },
-  { keyword: 'korean', label: 'Korean', name: 'Korean KTV favorites' },
-  { keyword: 'english', label: 'English', name: 'English KTV favorites' },
-  { keyword: 'japanese', label: 'Japanese', name: 'Japanese KTV favorites' },
+const SECTIONS: { keyword: string; label: TranslationKey; name: TranslationKey }[] = [
+  { keyword: 'chinese', label: 'home.lang.chinese', name: 'home.section.chinese' },
+  { keyword: 'korean', label: 'home.lang.korean', name: 'home.section.korean' },
+  { keyword: 'english', label: 'home.lang.english', name: 'home.section.english' },
+  { keyword: 'japanese', label: 'home.lang.japanese', name: 'home.section.japanese' },
 ];
 
 const fetchTopCategories = async (): Promise<Categories> => {
@@ -69,24 +70,25 @@ const fetchTopCategories = async (): Promise<Categories> => {
       return data['categories'] || [];
     })
     .catch((error) => {
+      // rethrow so react-query retries instead of caching an empty result
       console.error('Error fetching top categories:', error);
-      return [];
+      throw error;
     });
 };
 
-const greeting = () => {
+export const topCategoriesQuery = { queryKey: ['categories'], queryFn: fetchTopCategories };
+
+const greetingKey = (): TranslationKey => {
   const hour = new Date().getHours();
-  if (hour < 5) return 'Still up?';
-  if (hour < 12) return 'Good morning';
-  if (hour < 18) return 'Good afternoon';
-  return 'Good evening';
+  if (hour < 5) return 'home.greeting.late';
+  if (hour < 12) return 'home.greeting.morning';
+  if (hour < 18) return 'home.greeting.afternoon';
+  return 'home.greeting.evening';
 };
 
 export function MainView() {
-  const { data: categories, isLoading } = useQuery({
-    queryKey: ['categories'],
-    queryFn: () => fetchTopCategories(),
-  });
+  const t = useT();
+  const { data: categories, isLoading } = useQuery(topCategoriesQuery);
 
   const navigate = useNavigate();
   const mobile = useBreakpointDown('md');
@@ -126,9 +128,9 @@ export function MainView() {
     <AppScrollbar className="h-full">
       {mobile && isInJam && (
         <div className="fixed z-50 flex h-12 w-full items-center justify-between bg-primary px-4">
-          <span className="text-sm text-white">You are in a jam session</span>
+          <span className="text-sm text-white">{t('home.jamBanner')}</span>
           <Button variant="ghost" size="sm" className="text-white hover:bg-white/15" onClick={leaveRoom}>
-            Leave
+            {t('common.leave')}
           </Button>
         </div>
       )}
@@ -140,7 +142,7 @@ export function MainView() {
             <Mic2 className="pointer-events-none absolute right-6 bottom-[-1.5rem] size-40 -rotate-12 text-white/10 md:right-14 md:size-56" />
             {mobile && (
               <IconButton
-                aria-label="Settings"
+                aria-label={t('nav.settings')}
                 className="absolute top-3 right-3 text-white hover:bg-white/15"
                 onClick={() => setSettingsOpen(true)}
               >
@@ -148,23 +150,22 @@ export function MainView() {
               </IconButton>
             )}
             <p className="text-sm font-medium text-white/80">
-              {greeting()}
-              {nickname ? `, ${nickname}` : ''}
+              {nickname ? t('home.greetingNamed', { greeting: t(greetingKey()), name: nickname }) : t(greetingKey())}
             </p>
-            <h1 className="mt-1 max-w-md text-3xl font-extrabold tracking-tight md:text-5xl">Ready to sing?</h1>
+            <h1 className="mt-1 max-w-md text-3xl font-extrabold tracking-tight md:text-5xl">{t('home.title')}</h1>
             <p className="mt-2 max-w-md text-sm text-white/80">
-              Pick a song, drop it in the queue, and the lyrics follow along. Invite friends from the queue panel.
+              {t('home.subtitle')}
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
               <Button className="bg-white text-black shadow-none hover:bg-white/90" onClick={() => getRandomTracks()}>
-                <Shuffle /> Surprise me
+                <Shuffle /> {t('home.surprise')}
               </Button>
               <Button
                 variant="ghost"
                 className="bg-white/15 text-white hover:bg-white/25 hover:text-white"
                 onClick={() => navigate('/search')}
               >
-                <Search /> Search songs
+                <Search /> {t('home.searchSongs')}
               </Button>
             </div>
           </div>
@@ -174,8 +175,8 @@ export function MainView() {
         {readyList.length > 0 && (
           <section className="mt-8 px-4 md:px-8">
             <div className="mb-2 flex items-baseline justify-between">
-              <h2 className="text-lg font-semibold tracking-tight">Ready to sing</h2>
-              <span className="text-xs text-muted-foreground">Processed songs start instantly</span>
+              <h2 className="text-lg font-semibold tracking-tight">{t('home.ready')}</h2>
+              <span className="text-xs text-muted-foreground">{t('home.readyHint')}</span>
             </div>
             <div className="grid gap-x-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {readyList.map((track) => (
@@ -187,7 +188,7 @@ export function MainView() {
 
         {/* Language filter */}
         <div className="no-scrollbar mt-8 flex gap-2 overflow-x-auto px-4 md:px-8">
-          {[{ keyword: 'all', label: 'All' }, ...SECTIONS.map((s) => ({ keyword: s.keyword, label: s.label }))].map(
+          {[{ keyword: 'all', label: 'home.filter.all' as TranslationKey }, ...SECTIONS].map(
             (option) => (
               <button
                 key={option.keyword}
@@ -199,7 +200,7 @@ export function MainView() {
                     : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                 )}
               >
-                {option.label}
+                {t(option.label)}
               </button>
             )
           )}
@@ -207,7 +208,7 @@ export function MainView() {
 
         {sections.map((section) => (
           <section key={section.keyword} className="mt-6">
-            <h2 className="mx-4 mb-2 text-lg font-semibold tracking-tight md:mx-8">{section.name}</h2>
+            <h2 className="mx-4 mb-2 text-lg font-semibold tracking-tight md:mx-8">{t(section.name)}</h2>
             <Carousel>
               {isLoading
                 ? Array.from({ length: 5 }).map((_, index) => <PlaylistCard key={index} />)

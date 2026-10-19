@@ -2,15 +2,17 @@ import { Home, ListMusic, MicVocal, Search } from 'lucide-react';
 import { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from 'src/lib/utils';
+import { useT, type TranslationKey } from 'src/i18n';
 
-const items = [
-  { label: 'Browse', path: '/', icon: Home },
-  { label: 'Search', path: '/search', icon: Search },
-  { label: 'Queue', path: '/play', icon: ListMusic },
-  { label: 'Lyrics', path: '/lyrics', icon: MicVocal },
+const items: { label: TranslationKey; path: string; icon: typeof Home }[] = [
+  { label: 'nav.browse', path: '/', icon: Home },
+  { label: 'nav.search', path: '/search', icon: Search },
+  { label: 'nav.queue', path: '/play', icon: ListMusic },
+  { label: 'nav.lyrics', path: '/lyrics', icon: MicVocal },
 ];
 
 export default function AppNavigation() {
+  const t = useT();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -34,7 +36,7 @@ export default function AppNavigation() {
           onClick={() => location.pathname !== path && navigate(path)}
         >
           <Icon className="size-6" />
-          <span className="text-[11px] font-medium">{label}</span>
+          <span className="text-[11px] font-medium">{t(label)}</span>
         </button>
       ))}
     </nav>

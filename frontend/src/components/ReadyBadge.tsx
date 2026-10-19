@@ -1,11 +1,13 @@
 import { Check } from 'lucide-react';
 import { Tooltip } from 'src/components/ui/tooltip';
 import { cn } from 'src/lib/utils';
+import { useT } from 'src/i18n';
 
-const TITLE = 'Processed: vocals are separated, ready to sing';
 
 /** Marks a song that has been processed. `dot` is the small corner badge for thumbnails. */
 export default function ReadyBadge({ variant = 'pill', className }: { variant?: 'pill' | 'dot'; className?: string }) {
+  const t = useT();
+  const TITLE = t('song.readyHint');
   if (variant === 'dot') {
     return (
       <Tooltip title={TITLE} side="top">
@@ -29,7 +31,7 @@ export default function ReadyBadge({ variant = 'pill', className }: { variant?: 
         )}
       >
         <Check className="size-3" strokeWidth={3} />
-        Ready
+        {t('song.ready')}
       </span>
     </Tooltip>
   );

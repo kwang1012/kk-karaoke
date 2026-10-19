@@ -8,20 +8,23 @@ import { cn } from 'src/lib/utils';
 import { useRoomStore } from 'src/store/room';
 import { copyToClipboard } from 'src/utils';
 import { api } from 'src/utils/api';
+import { useT } from 'src/i18n';
 
 const pillButton =
   'rounded-full text-sm font-bold shadow-[0_2px_10px_rgba(0,0,0,0.1)] transition-transform duration-200 hover:scale-[1.02] hover:shadow-[0_4px_20px_rgba(0,0,0,0.2)]';
 
 function StartButton({ className, ...props }: React.ComponentProps<typeof Button>) {
+  const t = useT();
   return (
     <Button className={cn(pillButton, 'text-white', className)} {...props}>
       <UsersRound className="size-4" />
-      Start a room
+      {t('jam.start')}
     </Button>
   );
 }
 
 export default function Jam() {
+  const t = useT();
   const [showQRCode, setShowQRCode] = useState(false);
   const [minimized, setMinimized] = useState(false);
   const roomId = useRoomStore((state) => state.roomId);
@@ -51,8 +54,8 @@ export default function Jam() {
             <div className="flex items-start">
               <div className="flex-1">
                 {showQRCode
-                  ? 'Copy and share the link with your friends, or ask them to join the QRCode'
-                  : 'Invite your friends to join your room. Sing together, or just hang out.'}
+                  ? t('jam.share')
+                  : t('jam.invite')}
               </div>
               <Button
                 variant="ghost"
@@ -80,7 +83,7 @@ export default function Jam() {
                   }}
                 >
                   <Copy className="size-4" />
-                  Copy Link
+                  {t('jam.copyLink')}
                 </Button>
                 <div className="mx-5 mt-4 size-40 rounded-xl bg-white p-3">
                   <QRCode value={joinURL} className="w-full h-full" />

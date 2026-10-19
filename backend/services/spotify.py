@@ -1,6 +1,9 @@
 
 import base64
 import functools
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
 import httpx
 import os
@@ -8,6 +11,27 @@ import os
 from managers.db import get_redis
 
 load_dotenv()  # Load environment variables from .env file
+
+# One pooled client: reuses TCP/TLS connections instead of handshaking on every call.
+_client = httpx.Client(timeout=10)
+_pool = ThreadPoolExecutor(max_workers=8)
+
+_cache: dict[str, tuple[float, object]] = {}
+_cache_lock = threading.Lock()
+
+
+def _cached(key: str, ttl: float, fn):
+    """Return fn()'s result, reusing it for `ttl` seconds. Failures (None/empty) are not cached."""
+    now = time.monotonic()
+    with _cache_lock:
+        hit = _cache.get(key)
+    if hit and now - hit[0] < ttl:
+        return hit[1]
+    value = fn()
+    if value:
+        with _cache_lock:
+            _cache[key] = (now, value)
+    return value
 
 
 class SpotifyTokenManager:
@@ -89,8 +113,7 @@ def getSpotifyToken():
 @refresh_token
 def _get_categories(keyword: str):
     access_token = manager.get_token()
-    with httpx.Client() as client:
-        response = client.get("https://api.spotify.com/v1/search", headers={
+    response = _client.get("https://api.spotify.com/v1/search", headers={
             "Authorization": access_token,
         },
             params={
@@ -101,35 +124,31 @@ def _get_categories(keyword: str):
     return response
 
 
+def _fetch_category(keyword: str):
+    response = _get_categories(keyword)
+    if response is None:
+        return None
+    if response.status_code != 200:
+        print(f"Error fetching categories for {keyword}: {response.status_code}")
+        return None
+    results = response.json()
+    if "playlists" not in results or "items" not in results["playlists"]:
+        return None
+    return [item for item in results["playlists"]["items"] if item is not None]
+
+
 def getTopCategories(keyword_str: str = "chinese"):
-    """ Fetches the top Chinese songs from Spotify."""
-    categories = {}
-    keywords = keyword_str.split(",")
-    for keyword in keywords:
-        response = _get_categories(keyword)
-        if response is None:
-            continue
-        if response.status_code != 200:
-            print(
-                f"Error fetching categories for {keyword}: {response.status_code}")
-            continue
-        results = response.json()
-
-        if "playlists" in results and "items" in results["playlists"]:
-            categories[keyword] = []
-            for item in results["playlists"]["items"]:
-                if item is None:
-                    continue
-                categories[keyword].append(item)
-
-    return categories
+    """ Fetches the top playlists for each comma separated keyword (cached for an hour)."""
+    keywords = [k for k in keyword_str.split(",") if k]
+    results = _pool.map(
+        lambda k: _cached(f"category:{k}", 3600, lambda: _fetch_category(k)), keywords)
+    return {k: items for k, items in zip(keywords, results) if items is not None}
 
 
 @refresh_token
 def _get_tracks(collection_type: str, collection_id: str):
     access_token = manager.get_token()
-    with httpx.Client() as client:
-        response = client.get(f"https://api.spotify.com/v1/{collection_type}/{collection_id}/tracks", headers={
+    response = _client.get(f"https://api.spotify.com/v1/{collection_type}/{collection_id}/tracks", headers={
             "Authorization": access_token,
         }, params={
             "fields": "items(track(id,name,artists,album(name,images)))" if collection_type == "playlists" else "items(id,name,artists)",
@@ -140,8 +159,7 @@ def _get_tracks(collection_type: str, collection_id: str):
 @refresh_token
 def _get_collection(collection_type: str, collection_id: str):
     access_token = manager.get_token()
-    with httpx.Client() as client:
-        response = client.get(f"https://api.spotify.com/v1/{collection_type}/{collection_id}", headers={
+    response = _client.get(f"https://api.spotify.com/v1/{collection_type}/{collection_id}", headers={
             "Authorization": access_token,
         }, params={
             "fields": "id,name,description,images,total_tracks,tracks",
@@ -149,36 +167,41 @@ def _get_collection(collection_type: str, collection_id: str):
     return response
 
 
-def getCollectionTracks(collection_type: str, collection_id: str):
-    """ Fetches tracks from a specific Spotify playlist."""
-    if collection_type not in ["playlists", "albums"]:
-        print(f"Invalid collection type: {collection_type}")
-        return None, None
-    response = _get_tracks(collection_type, collection_id)
+def _fetch_collection_tracks(collection_type: str, collection_id: str):
+    tracks_future = _pool.submit(_get_tracks, collection_type, collection_id)
+    collection_future = _pool.submit(_get_collection, collection_type, collection_id)
+    response = tracks_future.result()
     if response.status_code != 200:
         print(f"Error fetching collection tracks: {response.status_code}")
-        return None, None
-    result = response.json()
+        return None
     tracks = []
-    for track in result["items"]:
+    for track in response.json()["items"]:
         if collection_type == "playlists":
             track = track["track"] if "track" in track else None
         if track is None:
             continue
         tracks.append(track)
-    response = _get_collection(collection_type, collection_id)
+    response = collection_future.result()
     if response.status_code != 200:
         print(f"Error fetching collection: {response.status_code}")
+        return None
+    return response.json(), tracks
+
+
+def getCollectionTracks(collection_type: str, collection_id: str):
+    """ Fetches a playlist/album and its tracks from Spotify (cached for 10 minutes)."""
+    if collection_type not in ["playlists", "albums"]:
+        print(f"Invalid collection type: {collection_type}")
         return None, None
-    collection = response.json()
-    return collection, tracks
+    result = _cached(f"collection:{collection_type}:{collection_id}", 600,
+                     lambda: _fetch_collection_tracks(collection_type, collection_id))
+    return result if result else (None, None)
 
 
 @refresh_token
 def _search(keyword: str):
     access_token = manager.get_token()
-    with httpx.Client() as client:
-        response = client.get("https://api.spotify.com/v1/search", headers={
+    response = _client.get("https://api.spotify.com/v1/search", headers={
             "Authorization": access_token,
         }, params={
             "q": keyword,
@@ -188,11 +211,7 @@ def _search(keyword: str):
     return response
 
 
-def searchSpotify(keyword: str):
-    """
-    Searches for tracks on Spotify based on a keyword.
-    Returns a list of dictionaries containing track details.
-    """
+def _fetch_search(keyword: str):
     response = _search(keyword)
     if response is None:
         return None
@@ -200,6 +219,13 @@ def searchSpotify(keyword: str):
         print(f"Error searching tracks: {response.status_code}")
         return None
     return {"results": response.json()}
+
+
+def searchSpotify(keyword: str):
+    """
+    Searches Spotify for tracks, albums, artists and playlists (cached for 10 minutes).
+    """
+    return _cached(f"search:{keyword.strip().lower()}", 600, lambda: _fetch_search(keyword))
 
 
 if __name__ == "__main__":

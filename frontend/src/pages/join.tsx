@@ -12,8 +12,10 @@ import { useRoomStore } from 'src/store/room';
 import { generateAvatars, generateNickname } from 'src/utils';
 import Logo from 'src/components/Logo';
 import { RefreshCw } from 'lucide-react';
+import { useT } from 'src/i18n';
 
 export default function JoinView() {
+  const t = useT();
   const navigate = useNavigate();
   const [avatars, setAvatars] = useState<string[]>([]);
   const [nameError, setNameError] = useState(false);
@@ -94,13 +96,13 @@ export default function JoinView() {
       <div className="relative w-full max-w-md rounded-3xl border bg-card/80 p-8 shadow-app backdrop-blur-xl">
         <div className="flex flex-col items-center text-center">
           <Logo className="size-20" />
-          <h1 className="mt-4 text-3xl font-bold tracking-tight">Welcome to KKaraoke</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Synced lyrics, vocal removal, and friends on the mic.</p>
+          <h1 className="mt-4 text-3xl font-bold tracking-tight">{t('join.title')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t('join.subtitle')}</p>
         </div>
 
         <div className="mt-8">
           <label className="text-sm font-medium" htmlFor="nickname">
-            Nickname
+            {t('join.nickname')}
           </label>
           <div className="relative mt-2 w-full">
             <Input
@@ -112,17 +114,17 @@ export default function JoinView() {
               className={cn('h-11 pr-28', nameError && 'border-destructive')}
             />
             <Button variant="ghost" size="sm" className="absolute top-1/2 right-1.5 -translate-y-1/2" onClick={handleGenerate}>
-              Randomize
+              {t('join.randomize')}
             </Button>
           </div>
-          {nameError && <p className="mt-1 text-xs text-destructive">Nickname is required</p>}
+          {nameError && <p className="mt-1 text-xs text-destructive">{t('join.nicknameRequired')}</p>}
         </div>
 
         <div className="mt-6">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Avatar</span>
-            <Tooltip title="New avatars" placement="right">
-              <IconButton size="small" aria-label="New avatars" onClick={handleGenerateAvatars}>
+            <span className="text-sm font-medium">{t('join.avatar')}</span>
+            <Tooltip title={t('join.newAvatars')} placement="right">
+              <IconButton size="small" aria-label={t('join.newAvatars')} onClick={handleGenerateAvatars}>
                 <RefreshCw className="size-4" />
               </IconButton>
             </Tooltip>
@@ -143,11 +145,11 @@ export default function JoinView() {
               </CarouselItem>
             ))}
           </Carousel>
-          {avatarError && <p className="mt-1 text-xs text-destructive">Pick an avatar</p>}
+          {avatarError && <p className="mt-1 text-xs text-destructive">{t('join.avatarRequired')}</p>}
         </div>
 
         <Button disabled={!nickname || !selectedAvatar} className="mt-8 w-full" size="lg" onClick={handleJoin}>
-          Start singing
+          {t('join.start')}
         </Button>
       </div>
     </div>

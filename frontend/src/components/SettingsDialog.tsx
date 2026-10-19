@@ -12,6 +12,7 @@ import { useSettingStore } from 'src/store/setting';
 import { useRoomStore } from 'src/store/room';
 import { generateAvatars } from 'src/utils';
 import { cn } from 'src/lib/utils';
+import { LANGUAGES, useLanguageStore, useT, type Language } from 'src/i18n';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -35,6 +36,9 @@ function Row({ title, description, children }: { title: string; description?: st
 }
 
 export default function SettingsDialog() {
+  const t = useT();
+  const language = useLanguageStore((state) => state.language);
+  const setLanguage = useLanguageStore((state) => state.setLanguage);
   const open = useSettingStore((state) => state.settingsOpen);
   const setOpen = useSettingStore((state) => state.setSettingsOpen);
   const [avatars, setAvatars] = useState<string[]>([]);
@@ -74,44 +78,56 @@ export default function SettingsDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Settings</DialogTitle>
-          <DialogDescription>Audio, lyrics, appearance and who you are in a room.</DialogDescription>
+          <DialogTitle>{t('settings.title')}</DialogTitle>
+          <DialogDescription>{t('settings.subtitle')}</DialogDescription>
         </DialogHeader>
         <AppScrollbar className="px-6 pb-6">
 
-        <Section title="Audio">
-          <Row
-            title="Key shift"
-            description="Change the song's key. Seeking may be slower while this is enabled."
-          >
-            <AppSwitch checked={enabledPitchShift} onCheckedChange={onChangePitchShift} />
-          </Row>
-          <Row title="Separation quality" description="Recommended: High">
-            <AppSelect disabled className="w-[200px]">
-              <option value="vocal_remover">Low (Fast)</option>
-              <option value="htdemucs">High</option>
-              <option value="htdemucs_6s">Extreme High (Slow)</option>
+        <Section title={t('settings.general')}>
+          <Row title={t('settings.language')} description={t('settings.languageHint')}>
+            <AppSelect value={language} onChange={(e) => setLanguage(e.target.value as Language)} className="w-[200px]">
+              {LANGUAGES.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.label}
+                </option>
+              ))}
             </AppSelect>
           </Row>
         </Section>
 
-        <Section title="Lyrics">
+        <Section title={t('settings.audio')}>
           <Row
-            title="Show romanization"
-            description="For Korean and Japanese songs, show the romanized lyrics under each line."
+            title={t('settings.keyShift')}
+            description={t('settings.keyShiftHint')}
+          >
+            <AppSwitch checked={enabledPitchShift} onCheckedChange={onChangePitchShift} />
+          </Row>
+          <Row title={t('settings.quality')} description={t('settings.qualityHint')}>
+            <AppSelect disabled className="w-[200px]">
+              <option value="vocal_remover">{t('settings.quality.low')}</option>
+              <option value="htdemucs">{t('settings.quality.high')}</option>
+              <option value="htdemucs_6s">{t('settings.quality.extreme')}</option>
+            </AppSelect>
+          </Row>
+        </Section>
+
+        <Section title={t('settings.lyrics')}>
+          <Row
+            title={t('settings.romanization')}
+            description={t('settings.romanizationHint')}
           >
             <AppSwitch checked={showTranslatinon} onCheckedChange={setShowTranslatinon} />
           </Row>
         </Section>
 
-        <Section title="Appearance">
-          <Row title="Dark mode" description={theme === 'dark' ? 'Easy on the eyes at the karaoke bar.' : 'Bright and clear.'}>
+        <Section title={t('settings.appearance')}>
+          <Row title={t('settings.darkMode')} description={theme === 'dark' ? t('settings.darkHint') : t('settings.lightHint')}>
             <AppSwitch checked={theme === 'dark'} onCheckedChange={() => toggleTheme()} />
           </Row>
         </Section>
 
-        <Section title="Identity">
-          <Row title="Nickname" description="Shown to other people in your room.">
+        <Section title={t('settings.identity')}>
+          <Row title={t('settings.nickname')} description={t('settings.nicknameHint')}>
             {editNickname ? (
               <Input
                 autoFocus
@@ -134,14 +150,14 @@ export default function SettingsDialog() {
                 }
               }}
             >
-              {editNickname ? 'Save' : 'Edit'}
+              {editNickname ? t('common.save') : t('common.edit')}
             </Button>
           </Row>
-          <Row title="Avatar" description="Pick the face you'll sing with.">
+          <Row title={t('settings.avatar')} description={t('settings.avatarHint')}>
             {editAvatar ? (
               <>
-                <Tooltip title="New avatars" side="top">
-                  <IconButton size="small" aria-label="New avatars" onClick={handleGenerateAvatars} className="mr-1">
+                <Tooltip title={t('settings.newAvatars')} side="top">
+                  <IconButton size="small" aria-label={t('settings.newAvatars')} onClick={handleGenerateAvatars} className="mr-1">
                     <RefreshCw className="size-4" />
                   </IconButton>
                 </Tooltip>
@@ -170,7 +186,7 @@ export default function SettingsDialog() {
                 } else setEditAvatar(true);
               }}
             >
-              {editAvatar ? 'Save' : 'Edit'}
+              {editAvatar ? t('common.save') : t('common.edit')}
             </Button>
           </Row>
         </Section>

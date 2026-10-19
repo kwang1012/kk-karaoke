@@ -3,7 +3,7 @@ import { useSettingStore } from 'src/store/setting';
 import { Route, Routes, HashRouter, BrowserRouter, Navigate } from 'react-router-dom';
 import Layout from './layouts/Layout';
 import LyricsView from './pages/lyrics';
-import BrowseView, { MainView } from './pages/browse';
+import BrowseView, { MainView, topCategoriesQuery } from './pages/browse';
 import PlaylistView from './pages/playlist';
 import SearchView from './pages/search';
 
@@ -21,11 +21,22 @@ import Player from './components/Player';
 import { api } from './utils/api';
 import LyricsEditView from './pages/lyrics-edit';
 import MobileLyricsView from './pages/mobile-lyrics';
+import { useLanguageStore } from 'src/i18n';
 
 // lazily loaded components
 const JoinView = lazy(() => import('./pages/join'));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 10 * 60 * 1000, // playlists and search results barely change; avoid refetching on every mount
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+// start loading the home page data before the route renders
+queryClient.prefetchQuery(topCategoriesQuery).catch(() => {});
 
 const Providers = ({ children }: { children: React.ReactNode }) => (
   <QueryClientProvider client={queryClient}>
@@ -61,6 +72,10 @@ const AppRouters = () => {
 };
 
 function App() {
+  const language = useLanguageStore((state) => state.language);
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
   const connect = useWebSocketStore((state) => state.connect);
   const setSongStatus = useTrackStore((state) => state.setSongStatus);
   const setSongProgress = useTrackStore((state) => state.setSongProgress);

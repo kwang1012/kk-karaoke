@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useDebounce } from 'src/hooks/debounce';
 import { IconButton } from 'src/components/ui/button';
 import { cn } from 'src/lib/utils';
+import { useT } from 'src/i18n';
 
 export default function SearchBox({
   className = '',
@@ -14,6 +15,7 @@ export default function SearchBox({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const t = useT();
   const [input, setInput] = useState(value);
   const debouncedInput = useDebounce(input, 300);
 
@@ -40,13 +42,13 @@ export default function SearchBox({
       <Search className="size-4 shrink-0 text-muted-foreground group-focus-within:text-primary" />
       <input
         className="h-full w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-        placeholder="Search songs, albums, playlists"
+        placeholder={t('search.placeholder')}
         value={input}
         onChange={(e) => setInput(e.target.value)}
-        aria-label="search"
+        aria-label={t('search.title')}
       />
       {input.length > 0 && (
-        <IconButton size="small" aria-label="Clear search" onClick={() => setInput('')}>
+        <IconButton size="small" aria-label={t('search.clear')} onClick={() => setInput('')}>
           <X className="size-4" />
         </IconButton>
       )}

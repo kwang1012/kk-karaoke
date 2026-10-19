@@ -1,11 +1,15 @@
-export const ALBUM_HEADERS = [
+import type { TranslationKey } from 'src/i18n';
+
+type Header = { key: string; label: TranslationKey | '#' | '' };
+
+export const ALBUM_HEADERS: Header[] = [
   {
     key: 'row_id',
     label: '#',
   },
   {
     key: 'name',
-    label: 'Title',
+    label: 'playlist.col.title',
   },
   {
     key: 'action',
@@ -13,22 +17,22 @@ export const ALBUM_HEADERS = [
   },
 ];
 
-export const PLAYLIST_HEADERS = [
+export const PLAYLIST_HEADERS: Header[] = [
   {
     key: 'row_id',
     label: '#',
   },
   {
     key: 'name',
-    label: 'Title',
+    label: 'playlist.col.title',
   },
   {
     key: 'album',
-    label: 'Album',
+    label: 'playlist.col.album',
   },
   {
     key: 'artists',
-    label: 'Artists',
+    label: 'playlist.col.artists',
   },
   {
     key: 'action',

@@ -11,8 +11,10 @@ import { useSettingStore } from 'src/store/setting';
 import MobilePlayer from 'src/components/MobilePlayer';
 import LyricsOffset from 'src/components/LyricsOffset';
 import { useLyricsOffset } from 'src/hooks/lyricsOffset';
+import { useT } from 'src/i18n';
 
 export default function LyricsView() {
+  const t = useT();
   // local states
   const lineRefs = useRef<(HTMLSpanElement | null)[]>([]);
 
@@ -191,7 +193,7 @@ export default function LyricsView() {
               ))
             ) : (
               <div className="mt-24 text-center text-3xl font-bold" style={{ color }}>
-                {!loading && <p>{currentTrack ? 'No lyrics available for this track.' : 'Start playing a track!'}</p>}
+                {!loading && <p>{currentTrack ? t('lyrics.none') : t('lyrics.start')}</p>}
               </div>
             )}
           </AppScrollbar>

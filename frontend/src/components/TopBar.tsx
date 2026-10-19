@@ -10,10 +10,12 @@ import { useHistoryBoundaries } from 'src/hooks/history';
 import { useJam, useRoomStore } from 'src/store/room';
 import { useSettingStore } from 'src/store/setting';
 import { useRemoteMessageQueue } from 'src/hooks/queue';
+import { useT } from 'src/i18n';
 
 const isElectron = navigator.userAgent.toLowerCase().includes('electron');
 
 export default function TopBar() {
+  const t = useT();
   const navigate = useNavigate();
   const { isTop, isBottom } = useHistoryBoundaries();
 
@@ -46,15 +48,15 @@ export default function TopBar() {
     <header className="flex h-12 shrink-0 touch-none items-center gap-3 [-webkit-app-region:drag] max-md:hidden [&_button]:[-webkit-app-region:no-drag] [&_input]:[-webkit-app-region:no-drag]">
       <div className="flex items-center gap-1">
         {/* the logo doubles as the home button; hidden in electron to leave room for the window controls */}
-        <Tooltip title="Home" side="bottom">
-          <Link to="/" aria-label="Home" className={isElectron ? 'invisible' : 'mr-2 shrink-0'}>
+        <Tooltip title={t('nav.home')} side="bottom">
+          <Link to="/" aria-label={t('nav.home')} className={isElectron ? 'invisible' : 'mr-2 shrink-0'}>
             <Logo className="size-9" />
           </Link>
         </Tooltip>
-        <IconButton aria-label="Back" disabled={isBottom} onClick={() => navigate(-1)}>
+        <IconButton aria-label={t('nav.back')} disabled={isBottom} onClick={() => navigate(-1)}>
           <ChevronLeft className="size-5" />
         </IconButton>
-        <IconButton aria-label="Forward" disabled={isTop} onClick={() => navigate(1)}>
+        <IconButton aria-label={t('nav.forward')} disabled={isTop} onClick={() => navigate(1)}>
           <ChevronRight className="size-5" />
         </IconButton>
       </div>
@@ -83,16 +85,16 @@ export default function TopBar() {
         )}
         {isInJam && (
           <Button variant="outline" size="sm" onClick={leaveRoom}>
-            Leave room
+            {t('nav.leaveRoom')}
           </Button>
         )}
-        <Tooltip title="Settings" side="bottom">
-          <IconButton aria-label="Settings" onClick={() => setSettingsOpen(true)}>
+        <Tooltip title={t('nav.settings')} side="bottom">
+          <IconButton aria-label={t('nav.settings')} onClick={() => setSettingsOpen(true)}>
             <Settings className="size-5" />
           </IconButton>
         </Tooltip>
-        <Tooltip title={theme === 'dark' ? 'Light mode' : 'Dark mode'} side="bottom">
-          <IconButton aria-label="Toggle theme" onClick={() => toggleTheme()}>
+        <Tooltip title={theme === 'dark' ? t('nav.lightMode') : t('nav.darkMode')} side="bottom">
+          <IconButton aria-label={t('nav.toggleTheme')} onClick={() => toggleTheme()}>
             {theme === 'dark' ? <Sun className="size-5" /> : <Moon className="size-5" />}
           </IconButton>
         </Tooltip>

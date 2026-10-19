@@ -11,7 +11,9 @@ WORKDIR /app
 
 # Install dependencies first so code changes don't invalidate this (large) layer.
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev --no-install-project
+# The cache mount keeps downloaded wheels (PyTorch is ~GBs) between builds.
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev --no-install-project
 
 COPY . .
 

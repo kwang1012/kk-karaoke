@@ -142,6 +142,7 @@ def pipeline(tmp_path, monkeypatch):
     for name in ("VOCALS_DIR", "NO_VOCALS_DIR", "RAW_AUDIO_DIR"):
         monkeypatch.setattr(pr, name, str(tmp_path))
     monkeypatch.setattr(pr, "_publish_status", lambda *a, **k: None)
+    monkeypatch.setattr(pr, "save_track", lambda t: None)  # would write into the real library folder
     monkeypatch.setattr(pr, "is_ready", lambda t: True)
     monkeypatch.setattr(pr.r2, "upload_track", lambda t: None)
 

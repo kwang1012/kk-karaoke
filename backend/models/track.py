@@ -1,8 +1,8 @@
 import re
 from typing import Annotated, Any, Optional
-from pydantic import BaseModel, ConfigDict, StringConstraints
-from pydantic.alias_generators import to_camel
+from pydantic import ConfigDict, StringConstraints
 
+from models.base import CamelModel
 from models.user import User
 
 
@@ -11,17 +11,14 @@ from models.user import User
 TrackId = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9_-]{1,64}$")]
 
 
-class Artist(BaseModel):
+class Artist(CamelModel):
     id: str
     uri: str
     name: str
 
 
-class Track(BaseModel):
-    # Responses are camelCased on the way out (middlewares/format.py), so the client posts
-    # `durationMs` back. Without the alias those fields were silently dropped.
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
-
+class Track(CamelModel):
+    # camelCase and snake_case are both accepted (see CamelModel): the client posts `durationMs` back.
     id: TrackId
     name: str
     artists: list[Artist]
@@ -38,17 +35,18 @@ class Track(BaseModel):
     kind: Optional[str] = None
 
 
-class LyricsDelay(BaseModel):
+class LyricsDelay(CamelModel):
     id: TrackId
     delay: float = 0.0
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "id": "7eb3ee16-e6dc-4f2e-ad2c-d1ba75408f13",
                 "delay": 1.5,
             }
         }
+    )
 
 
 _VIDEO_ID = re.compile(r"[A-Za-z0-9_-]{11}")

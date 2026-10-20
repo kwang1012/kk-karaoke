@@ -157,6 +157,24 @@ def _same_artist(wanted: list[str], got: list[str]) -> bool:
     return False
 
 
+def _is_cjk(text: str) -> bool:
+    return any("\u3040" <= ch <= "\u30ff" or "\u3400" <= ch <= "\u9fff" or "\uac00" <= ch <= "\ud7af"
+               for ch in text)
+
+
+def _artist_in_other_script(wanted: list[str], got: list[str]) -> bool:
+    """
+    Spotify says "Gary Chaw", YouTube Music says "曹格": names cannot be compared, but every
+    one of them being written in a different script is not evidence of a different artist.
+    "BTS" against "Calvin Sparks" is (both Latin, and they differ).
+    """
+    return bool(wanted and got) and all(_is_cjk(w) != _is_cjk(g) for w in wanted for g in got)
+
+
+# Without a matching artist name we only accept a hit whose length is essentially identical.
+UNNAMED_ARTIST_MAX_DIFF_S = 2
+
+
 def resolve_recording(
     title: str, artists: list[str], duration_s: Optional[float]
 ) -> Optional[Recording]:
@@ -169,7 +187,8 @@ def resolve_recording(
         return None
 
     want = _norm(title)
-    best: tuple[float, Recording] | None = None
+    named: list[tuple[float, Recording]] = []
+    unnamed: list[Recording] = []  # in search order: the engine's own ranking is the evidence
     for hit in hits:
         video_id = hit.get("videoId")
         if not video_id:
@@ -177,19 +196,21 @@ def resolve_recording(
         got = hit.get("duration_seconds")
         if duration_s and got and abs(got - duration_s) > MAX_DURATION_DIFF_S:
             continue
-        names = [a["name"] for a in hit.get("artists") or []]
-        if artists and not _same_artist(artists, names):
-            continue
         have = _norm(hit.get("title") or "")
         similarity = SequenceMatcher(None, want, have).ratio()
         if want not in have and have not in want and similarity < 0.6:
             continue
-        diff = abs(got - duration_s) if duration_s and got else 0
-        score = similarity - 0.05 * diff
+        names = [a["name"] for a in hit.get("artists") or []]
         recording = Recording(video_id, hit.get("title") or "", names[0] if names else "", got)
-        if best is None or score > best[0]:
-            best = (score, recording)
-    return best[1] if best else None
+        diff = abs(got - duration_s) if duration_s and got else 0
+        if not artists or _same_artist(artists, names):
+            named.append((similarity - 0.05 * diff, recording))
+        elif (_artist_in_other_script(artists, names) and duration_s and got
+              and diff <= UNNAMED_ARTIST_MAX_DIFF_S):
+            unnamed.append(recording)
+    if named:
+        return max(named, key=lambda c: c[0])[1]
+    return unnamed[0] if unnamed else None
 
 
 def fetch_ytmusic_lines(video_id: str) -> Optional[Lines]:

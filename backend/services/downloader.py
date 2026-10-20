@@ -11,6 +11,7 @@ import opencc
 from utils import RAW_AUDIO_DIR
 
 _s2t_converter = opencc.OpenCC('s2t')
+_t2s_converter = opencc.OpenCC('t2s')
 
 
 def _search_youtube(query: str, limit: int = 5) -> list:
@@ -51,13 +52,19 @@ def length_tolerance(target_s: float) -> float:
     return max(10.0, 0.08 * target_s)
 
 
-def _best_match(results: list, target_duration_s: float | None) -> dict | None:
+def _fold(text: str) -> str:
+    return re.sub(r"[\W_]+", "", _t2s_converter.convert(text).lower())
+
+
+def _best_match(results: list, target_duration_s: float | None, title: str | None = None) -> dict | None:
     """
-    The result that can be this song: full length and, when we know the song's length,
-    close to it. None when nothing qualifies -- wrong audio is worse than no audio.
+    The result that can be this song: named after it, full length and, when we know the
+    song's length, close to it. None when nothing qualifies -- wrong audio is worse than no audio.
     """
     usable = []
     for r in results:
+        if title and _fold(title) not in _fold(r.get("title") or ""):
+            continue
         dur = r.get("duration")
         if dur is None:
             if target_duration_s is None:
@@ -77,6 +84,7 @@ def download_audio(
     search_term: str,
     target_duration_s: float | None = None,
     video_id: str | None = None,
+    title: str | None = None,
 ) -> None:
     """
     Downloads a YouTube video's audio. With `video_id` (the recording the lyrics were
@@ -89,7 +97,7 @@ def download_audio(
         url = f"https://www.youtube.com/watch?v={video_id}"
         print(f"Downloading audio for resolved recording {video_id}")
     else:
-        url = _search_best_url(search_term, target_duration_s)
+        url = _search_best_url(search_term, target_duration_s, title)
     _download(sid, search_term, url)
     _verify_length(Path(RAW_AUDIO_DIR, sid + ".mp3"), target_duration_s)
 
@@ -116,7 +124,7 @@ def _verify_length(path: Path, expected_s: float | None) -> None:
             f"{f'{expected_s:.0f}s' if expected_s else 'a full track'}; discarded it")
 
 
-def _search_best_url(search_term: str, target_duration_s: float | None) -> str:
+def _search_best_url(search_term: str, target_duration_s: float | None, title: str | None = None) -> str:
     results = []
     for query in (search_term + " official audio", search_term):
         try:
@@ -128,7 +136,7 @@ def _search_best_url(search_term: str, target_duration_s: float | None) -> str:
     if not results:
         raise RuntimeError(f"No YouTube results found for '{search_term}'")
 
-    chosen = _best_match(results, target_duration_s)
+    chosen = _best_match(results, target_duration_s, title)
     if chosen is None:
         raise RuntimeError(
             f"No full-length YouTube match for '{search_term}'"

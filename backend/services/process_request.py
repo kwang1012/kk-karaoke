@@ -132,7 +132,7 @@ def _process_track(track: Track):
 
     if not vocals_exist or not non_vocals_exist:
         _publish_status(track, "downloading_audio")
-        download_audio(track.id, search_term, target_duration_s=duration_s, video_id=video_id)
+        download_audio(track.id, search_term, target_duration_s=duration_s, video_id=video_id, title=title)
 
         _publish_status(track, "separating")
 

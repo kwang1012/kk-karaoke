@@ -164,3 +164,60 @@ def test_a_track_queued_without_a_length_asks_spotify(pipeline):
     pr._process_track(Track(id="spot22charsxxxxxxxxxxxx", name="S", artists=[]))
     assert pipeline["spotify"] == 1
     assert pipeline["download"][0][1]["target_duration_s"] == 313
+
+
+# --- a different song of similar length is not the song (Gary Chaw's MV for 背叛) ----------
+
+TITLED = [
+    {"title": "曹格 Gary Chaw【背叛】Official Music Video", "duration": 318},
+    {"title": "Superwoman - Gary Chaw 曹格", "duration": 35},
+    {"title": "曹格 Gary Chaw【Superwoman】Official MV", "duration": 466},
+    {"title": "【高音質】曹格-Superwoman", "duration": 315},
+]
+
+
+def test_a_longer_unrelated_song_is_not_chosen_for_its_length():
+    assert downloader._best_match(TITLED, 313, "Superwoman")["duration"] == 315
+
+
+def test_the_title_is_matched_across_chinese_scripts_and_case():
+    r = [{"title": "歌曲：別說再見 (Official)", "duration": 233}]
+    assert downloader._best_match(r, 233, "别说再见") is not None
+    assert downloader._best_match([{"title": "SUPERWOMAN", "duration": 300}], 300, "Superwoman") is not None
+
+
+def test_no_title_match_means_no_audio():
+    assert downloader._best_match(TITLED[:1], 313, "Superwoman") is None
+
+
+# --- resolving when the artist is written in another script -----------------------------
+
+def _ytm_hit(video_id, title, seconds, artist):
+    return {"videoId": video_id, "title": title, "duration_seconds": seconds, "artists": [{"name": artist}]}
+
+
+@pytest.fixture
+def ytm(monkeypatch):
+    def install(*hits):
+        monkeypatch.setattr(ls, "_client", lambda: type("C", (), {"search": lambda self, *a, **k: list(hits)})())
+    return install
+
+
+def test_gary_chaw_resolves_to_his_chinese_name(ytm):
+    ytm(_ytm_hit("qj2_y35XApk", "Superwoman", 314, "曹格"))
+    assert ls.resolve_recording("Superwoman", ["Gary Chaw"], 313).video_id == "qj2_y35XApk"
+
+
+def test_other_script_still_needs_the_same_length(ytm):
+    ytm(_ytm_hit("v", "Superwoman", 300, "曹格"))
+    assert ls.resolve_recording("Superwoman", ["Gary Chaw"], 313) is None
+
+
+def test_two_latin_names_that_differ_are_a_different_artist(ytm):
+    ytm(_ytm_hit("calvin", "Dynamite", 199, "Calvin Sparks"))
+    assert ls.resolve_recording("Dynamite", ["BTS"], 199) is None
+
+
+def test_a_named_match_beats_an_unnamed_one(ytm):
+    ytm(_ytm_hit("other", "Superwoman", 313, "曹格"), _ytm_hit("named", "Superwoman", 316, "Gary Chaw"))
+    assert ls.resolve_recording("Superwoman", ["Gary Chaw"], 313).video_id == "named"

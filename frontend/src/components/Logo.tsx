@@ -2,23 +2,37 @@ import { useId } from 'react';
 import { cn } from 'src/lib/utils';
 
 /**
- * App mark: a bold K with a calligraphic swash leg, on a pink gradient tile.
+ * App mark: the KKTrip-style K whose leg is a karaoke pitch guide — two sung
+ * notes, two faded upcoming ones — on a pink gradient tile.
  * Keep in sync with public/favicon.svg.
  */
 export default function Logo({ className }: { className?: string }) {
   const id = useId();
+  const gradientId = `${id}-g`;
+  const clipId = `${id}-c`;
   return (
-    <svg viewBox="0 0 96 96" role="img" aria-label="KKaraoke" className={cn('size-10', className)}>
+    <svg viewBox="0 0 1024 1024" role="img" aria-label="KKaraoke" className={cn('size-10', className)}>
       <defs>
-        <linearGradient id={id} x1="48" y1="0" x2="48" y2="96" gradientUnits="userSpaceOnUse">
+        <linearGradient id={gradientId} x1="512" y1="0" x2="512" y2="1024" gradientUnits="userSpaceOnUse">
           <stop stopColor="#ff6aa8" />
           <stop offset="1" stopColor="#c91f5f" />
         </linearGradient>
+        <clipPath id={clipId}>
+          <rect width="1024" height="1024" rx="230" />
+        </clipPath>
       </defs>
-      <rect width="96" height="96" rx="22" fill={`url(#${id})`} />
-      <g transform="translate(-7.3 0)" fill="#fff">
-        <path d="M28 21V75M31 53L60 23" fill="none" stroke="#fff" strokeWidth="12.5" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M25.0 57.8L26.3 58.9L27.6 60.1L28.8 61.3L30.1 62.6L31.3 63.9L32.6 65.2L33.8 66.6L35.1 68.0L36.4 69.4L37.8 70.8L39.2 72.2L40.7 73.5L42.2 74.8L43.9 76.1L45.6 77.3L47.5 78.3L49.4 79.3L51.5 80.2L53.7 80.8L56.1 81.3L58.5 81.6L61.0 81.8L63.3 81.6L65.4 81.0L67.4 80.2L69.1 79.2L70.7 78.0L72.1 76.6L73.3 75.2L74.3 73.7L75.3 72.2L76.2 70.6L77.1 69.0L77.9 67.4L78.7 65.8L79.6 64.2L80.5 62.6L81.4 61.0L82.5 59.5L83.6 58.0L84.8 56.7L86.1 55.4L87.5 54.2L89.1 53.2L88.9 52.8L87.3 53.8L85.7 54.8L84.1 55.9L82.6 57.0L81.0 58.1L79.5 59.2L78.0 60.4L76.5 61.5L75.1 62.7L73.6 63.7L72.2 64.8L70.8 65.7L69.5 66.6L68.2 67.3L66.9 68.0L65.8 68.4L64.8 68.8L63.8 69.0L63.0 69.2L62.3 69.2L61.7 69.2L61.0 69.2L59.5 69.2L58.2 69.0L56.9 68.7L55.7 68.4L54.6 67.9L53.4 67.4L52.3 66.7L51.2 65.9L50.1 65.1L48.9 64.1L47.8 63.1L46.6 62.0L45.5 60.8L44.3 59.5L43.0 58.1L41.8 56.8L40.5 55.4L39.1 53.9L37.7 52.5L36.2 51.0L34.6 49.6L33.0 48.2Z" />
+      <g clipPath={`url(#${clipId})`}>
+        <rect width="1024" height="1024" fill={`url(#${gradientId})`} />
+        <path
+          fill="#fff"
+          d="M248.397 193.38C258.856 182.712 272.625 175.327 286.389 173.001C301.228 170.495 315.705 172.694 329.858 179.607C337.637 183.405 340.797 185.697 347.494 192.393C354.218 199.118 356.456 202.211 360.22 209.982C362.731 215.169 365.347 221.438 366.032 223.913C366.974 227.315 367.411 254.61 367.825 335.889L368.372 443.367L498.345 313.871C594.184 218.385 629.78 183.524 633.885 181.136C663.781 163.748 704.047 172.225 722.734 199.843C730.654 211.547 733.797 222.078 733.797 236.91C733.797 248.956 732.051 256.607 727.066 266.404C723.745 272.931 712.412 284.503 558.657 438.368C467.99 529.099 392.192 605.584 390.215 608.333C384.946 615.664 377.299 632.154 374.916 641.326C373.773 645.725 372.387 654.467 371.835 660.752C369.686 685.244 364.599 697.296 350.486 711.331C335.625 726.112 319.849 732.807 299.886 732.807C264.996 732.807 235.714 708.315 229.961 674.319C229.066 669.034 228.853 613.382 229.089 446.866L229.401 226.412L232.08 219.079C235.904 208.61 240.387 201.55 248.397 193.38Z"
+        />
+        <g fill="none" stroke="#fff" strokeWidth="92" strokeLinecap="round">
+          <path d="M470 585H555" />
+          <path d="M615 712H715" />
+          <path d="M775 839H860" opacity="0.5" />
+          <path d="M920 966H1010" opacity="0.5" />
+        </g>
       </g>
     </svg>
   );

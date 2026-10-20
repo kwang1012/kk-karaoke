@@ -1,8 +1,5 @@
-import { createAvatar, Result } from '@dicebear/core';
-import { adventurer } from '@dicebear/collection';
-import { Button, IconButton } from 'src/components/ui/button';
+import { Button } from 'src/components/ui/button';
 import { Input } from 'src/components/ui/input';
-import { Tooltip } from 'src/components/ui/tooltip';
 import { cn } from 'src/lib/utils';
 import AvatarPicker from 'src/components/AvatarPicker';
 import { useEffect, useState } from 'react';
@@ -11,15 +8,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useRoomStore } from 'src/store/room';
 import { resolveRoomCode } from 'src/apis/room';
 import { useBreakpointDown } from 'src/hooks/media';
-import { generateAvatars, generateNickname, uuid } from 'src/utils';
+import { PRESET_AVATARS, uuid } from 'src/utils';
 import Logo from 'src/components/Logo';
-import { RefreshCw } from 'lucide-react';
 import { useT } from 'src/i18n';
 
 export default function JoinView() {
   const t = useT();
   const navigate = useNavigate();
-  const [avatars, setAvatars] = useState<string[]>([]);
   const [nameError, setNameError] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
   const setJoinedRoom = useRoomStore((state) => state.setJoinedRoom);
@@ -31,7 +26,7 @@ export default function JoinView() {
   const setAvatarInStore = useRoomStore((state) => state.setAvatar);
 
   const [nickname, setNickname] = useState(nickName || '');
-  const [selectedAvatar, setSelectedAvatar] = useState<string | null>(avatar || avatars[0]);
+  const [selectedAvatar, setSelectedAvatar] = useState<string | null>(avatar || null);
 
   const [searchParams] = useSearchParams();
   const roomIdToJoin = searchParams.get('room');
@@ -69,22 +64,7 @@ export default function JoinView() {
       navigate('/');
       return;
     }
-    handleGenerateAvatars();
   }, []);
-
-  const handleGenerateAvatars = () => {
-    let generatedAvatars = generateAvatars();
-    if (avatar) {
-      generatedAvatars = [avatar, ...generatedAvatars.filter((a) => a !== avatar)];
-    }
-    setAvatars(generatedAvatars);
-  };
-
-  const handleGenerate = () => {
-    const newNickname = generateNickname();
-    setNickname(newNickname);
-    setNameError(false);
-  };
 
   const handleJoin = async () => {
     if (!nickname) {
@@ -137,28 +117,24 @@ export default function JoinView() {
               required
               value={nickname}
               aria-invalid={nameError}
-              onChange={(e) => setNickname(e.target.value)}
-              className={cn('h-11 pr-28', nameError && 'border-destructive')}
+              maxLength={24}
+              autoComplete="off"
+              placeholder={t('join.nicknamePlaceholder')}
+              onChange={(e) => {
+                setNickname(e.target.value);
+                setNameError(false);
+              }}
+              className={cn('h-11', nameError && 'border-destructive')}
             />
-            <Button variant="ghost" size="sm" className="absolute top-1/2 right-1.5 -translate-y-1/2" onClick={handleGenerate}>
-              {t('join.randomize')}
-            </Button>
           </div>
           {nameError && <p className="mt-1 text-xs text-destructive">{t('join.nicknameRequired')}</p>}
         </div>
 
         <div className="mt-6">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">{t('join.avatar')}</span>
-            <Tooltip title={t('join.newAvatars')} placement="right">
-              <IconButton size="small" aria-label={t('join.newAvatars')} onClick={handleGenerateAvatars}>
-                <RefreshCw className="size-4" />
-              </IconButton>
-            </Tooltip>
-          </div>
+          <span className="text-sm font-medium">{t('join.avatar')}</span>
           <AvatarPicker
-            className="mt-3 grid grid-cols-5 gap-3"
-            avatars={avatars}
+            className="mt-3 grid grid-cols-6 gap-2.5"
+            avatars={PRESET_AVATARS}
             value={selectedAvatar}
             onChange={(avatar) => {
               setSelectedAvatar(avatar);

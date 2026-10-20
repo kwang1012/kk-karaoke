@@ -179,10 +179,9 @@ export const en = {
   'join.subtitle': 'Synced lyrics, vocal removal, and friends on the mic.',
   'join.nickname': 'Nickname',
   'join.nicknameRequired': 'Nickname is required',
-  'join.randomize': 'Randomize',
+  'join.nicknamePlaceholder': 'What should we call you?',
   'join.avatar': 'Avatar',
   'join.avatarRequired': 'Pick an avatar',
-  'join.newAvatars': 'New avatars',
   'join.start': 'Start singing',
   'join.code': 'Room code',
   'join.codeHint': 'Optional. Enter the code shown on the TV to join that room.',
@@ -214,7 +213,6 @@ export const en = {
   'settings.nicknameHint': 'Shown to other people in your room.',
   'settings.avatar': 'Avatar',
   'settings.avatarHint': "Pick the face you'll sing with.",
-  'settings.newAvatars': 'New avatars',
 
   // misc
   // tv (the big screen of a room)

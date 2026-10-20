@@ -1,8 +1,5 @@
 import { Vibrant } from 'node-vibrant/browser';
 import { Track } from 'src/models/spotify';
-import { adventurer } from '@dicebear/collection';
-import { createAvatar } from '@dicebear/core';
-
 
 type Swatch = NonNullable<Awaited<ReturnType<Vibrant['getPalette']>>['Vibrant']>;
 
@@ -127,28 +124,14 @@ export function copyToClipboard(text: string): Promise<void> {
   });
 }
 
-export function generateNickname() {
-  const adjectives = ['Cool', 'Silly', 'Brave', 'Happy', 'Sleepy', 'Jolly', 'Swift', 'Witty', 'Funky', 'Chill'];
-  const nouns = ['Panda', 'Tiger', 'Eagle', 'Otter', 'Fox', 'Koala', 'Hawk', 'Bear', 'Penguin', 'Shark'];
+/** Preset avatars (public/avatars), shared with KK Trip: animals, travel companions, and a funny set. */
+const AVATAR_IDS = [
+  'shiba', 'cat', 'panda', 'bunny', 'bear', 'owl',
+  'suitcase', 'balloon', 'plane', 'train', 'camera', 'compass',
+  'lemon', 'toast', 'egg', 'ghost', 'dumpling', 'potato',
+];
 
-  const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
-  const noun = nouns[Math.floor(Math.random() * nouns.length)];
-  const number = Math.floor(100 + Math.random() * 900); // 3-digit random number
-
-  return `${adj}${noun}${number}`; // e.g. "HappyOtter738"
-}
-
-export function generateAvatars(count: number = 10): string[] {
-  const avatars: string[] = [];
-  for (let i = 0; i < count; i++) {
-    const avatar = createAvatar(adventurer, {
-      seed: Math.random().toString(36).substring(2, 15), // Random seed for each avatar
-      // ... other options
-    });
-    avatars.push(avatar.toDataUri());
-  }
-  return avatars;
-}
+export const PRESET_AVATARS: string[] = AVATAR_IDS.map((id) => `/avatars/${id}.svg`);
 
 export const isLoopbackHost = (hostname: string) => ['localhost', '127.0.0.1', '[::1]'].includes(hostname);
 

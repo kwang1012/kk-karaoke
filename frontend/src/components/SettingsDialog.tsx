@@ -1,8 +1,6 @@
-import { RefreshCw } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { Button, IconButton } from 'src/components/ui/button';
+import { useState } from 'react';
+import { Button } from 'src/components/ui/button';
 import { Input } from 'src/components/ui/input';
-import { Tooltip } from 'src/components/ui/tooltip';
 import AppSelect from 'src/components/Select';
 import AvatarPicker from 'src/components/AvatarPicker';
 import AppSwitch from 'src/components/Switch';
@@ -11,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { usePlayerStore } from 'src/store/player';
 import { useSettingStore } from 'src/store/setting';
 import { useRoomStore } from 'src/store/room';
-import { generateAvatars } from 'src/utils';
+import { PRESET_AVATARS } from 'src/utils';
 import { LANGUAGES, useLanguageStore, useT, type Language } from 'src/i18n';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -41,7 +39,6 @@ export default function SettingsDialog() {
   const setLanguage = useLanguageStore((state) => state.setLanguage);
   const open = useSettingStore((state) => state.settingsOpen);
   const setOpen = useSettingStore((state) => state.setSettingsOpen);
-  const [avatars, setAvatars] = useState<string[]>([]);
   const enabledPitchShift = usePlayerStore((state) => state.enabledPitchShift);
   const setEnabledPitchShift = usePlayerStore((state) => state.setEnabledPitchShift);
   const theme = useSettingStore((state) => state.theme);
@@ -54,7 +51,7 @@ export default function SettingsDialog() {
   const setNickname = useRoomStore((state) => state.setNickname);
   const avatar = useRoomStore((state) => state.avatar);
   const setAvatar = useRoomStore((state) => state.setAvatar);
-  const [localAvatar, setLocalAvatar] = useState<string | null>(avatar || avatars[0]);
+  const [localAvatar, setLocalAvatar] = useState<string | null>(avatar || PRESET_AVATARS[0]);
   const [localNickName, setLocalNickName] = useState(nickName || '');
   const [editNickname, setEditNickname] = useState(false);
   const [editAvatar, setEditAvatar] = useState(false);
@@ -63,18 +60,6 @@ export default function SettingsDialog() {
     setEnabledPitchShift(checked);
     window.location.reload();
   };
-
-  const handleGenerateAvatars = () => {
-    let generatedAvatars = generateAvatars(5);
-    if (avatar) {
-      generatedAvatars = [avatar, ...generatedAvatars.filter((a) => a !== avatar)];
-    }
-    setAvatars(generatedAvatars);
-  };
-
-  useEffect(() => {
-    handleGenerateAvatars();
-  }, []);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -165,15 +150,10 @@ export default function SettingsDialog() {
           <Row title={t('settings.avatar')} description={t('settings.avatarHint')}>
             {editAvatar ? (
               <>
-                <Tooltip title={t('settings.newAvatars')} side="top">
-                  <IconButton size="small" aria-label={t('settings.newAvatars')} onClick={handleGenerateAvatars} className="mr-1">
-                    <RefreshCw className="size-4" />
-                  </IconButton>
-                </Tooltip>
                 <AvatarPicker
                   className="flex items-center gap-2"
                   itemClassName="size-9"
-                  avatars={avatars}
+                  avatars={PRESET_AVATARS}
                   value={localAvatar}
                   onChange={setLocalAvatar}
                 />

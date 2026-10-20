@@ -168,10 +168,9 @@ export const zhTW: Record<TranslationKey, string> = {
   'join.subtitle': '同步歌詞、人聲消除，和朋友一起開唱。',
   'join.nickname': '暱稱',
   'join.nicknameRequired': '請輸入暱稱',
-  'join.randomize': '隨機產生',
+  'join.nicknamePlaceholder': '大家怎麼叫你？',
   'join.avatar': '頭像',
   'join.avatarRequired': '請選擇頭像',
-  'join.newAvatars': '換一批頭像',
   'join.start': '開始唱歌',
   'join.code': '房間代碼',
   'join.codeHint': '選填。輸入電視上顯示的代碼即可加入該房間。',
@@ -202,7 +201,6 @@ export const zhTW: Record<TranslationKey, string> = {
   'settings.nicknameHint': '會顯示給房間裡的其他人。',
   'settings.avatar': '頭像',
   'settings.avatarHint': '挑一個代表你的頭像。',
-  'settings.newAvatars': '換一批頭像',
 
   // tv (the big screen of a room)
   'tv.start': '按「確定」開始',

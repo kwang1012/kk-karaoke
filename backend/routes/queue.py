@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from interfaces.queue import RedisQueueInterface
 from managers.websocket import WebSocketManager
 from managers.db import get_db
-from models.track import Track
+from models.track import Track, is_retired_track_id
 from models.requests import ReorderRequest, UpdateQueueIdxRequest
 from redis_keys import RedisKeys
 from services.process_request import send_process_request, is_ready
@@ -70,6 +70,9 @@ async def _add_and_process_track(
     add_fn: str,
 ) -> JSONResponse:
     """Shared logic for adding a track to the queue and starting processing."""
+    if is_retired_track_id(track.id):
+        return JSONResponse(
+            status_code=400, content={"error": "This song is from an older version; search for it again"})
     is_track_ready = is_ready(track)
     track.status = "ready" if is_track_ready else "submitted"
 

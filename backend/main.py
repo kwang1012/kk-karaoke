@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from redis import RedisError
 from managers import r2
 from managers.db import get_redis
-from models.track import Track
+from models.track import Track, is_retired_track_id
 from services.process_request import is_ready, send_process_request
 from managers.db import get_db
 from interfaces.queue import RedisQueueInterface
@@ -35,10 +35,17 @@ async def lifespan(app: FastAPI):
         await asyncio.get_running_loop().run_in_executor(None, r2.sync)
     except Exception as e:  # R2 being down must not stop the API
         print(f"R2 sync failed: {e!r}")
-    # Queues persist across restarts. (This used to delete every track that wasn't processed
     # Titles for processed tracks live next to the stems; rebuild any that are missing (e.g. after
-    # Redis or the disk was wiped) in the background so startup is not held up by Spotify.
+    # Redis or the disk was wiped) in the background so startup is not held up by it.
     asyncio.get_running_loop().run_in_executor(None, sync_metadata)
+    # Tracks from before YouTube was the catalog cannot be played: take them out of the queues.
+    try:
+        removed = RedisQueueInterface(get_db()).purge_retired_tracks()
+        if removed:
+            print(f"Removed {removed} old track(s) from the queues")
+    except Exception as e:  # never block startup on this
+        print(f"Could not clean the queues: {e}")
+    # Queues persist across restarts. (This used to delete every track that wasn't processed
     # yet, so anything still downloading or separating vanished whenever the API restarted.)
     try:
         resumed = resume_pending_tracks(asyncio.get_running_loop())
@@ -118,15 +125,15 @@ async def get_tracks(
     return JSONResponse(content={"ready_tracks": ready_tracks}, status_code=200)
 
 
+@app.get("/library")
+def get_library():
+    """Every processed song with its metadata, read from storage (plain `def`: it reads the disk)."""
+    return JSONResponse(content=build_library(), status_code=200)
+
+
 @app.get("/random_tracks")
 def get_random_tracks():
     return JSONResponse(content={"tracks": random_tracks(10)}, status_code=200)
-
-@app.get("/library")
-def get_library():
-    """Every processed song with its metadata, read from storage (plain `def`: it may call Spotify)."""
-    return JSONResponse(content=build_library(), status_code=200)
-
 
 
 @app.get("/search")
@@ -144,6 +151,8 @@ async def download_track(
         lambda: RedisQueueInterface(get_db())
     ),
 ):
+    if is_retired_track_id(track.id):
+        return JSONResponse(status_code=400, content={"error": "This song is from an older version; search for it again"})
     if is_ready(track):
         return JSONResponse(content={"task": None}, status_code=200)
 

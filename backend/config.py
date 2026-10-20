@@ -9,9 +9,6 @@ load_dotenv()
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
 
-# Spotify
-DEFAULT_PLAYLIST_ID = os.getenv("DEFAULT_PLAYLIST_ID", "3AEkt2VeAAHFc1TC5FLuIl")
-
 # The address other devices (a phone scanning the QR code) should use to reach this machine.
 # Normally found automatically; set it when that guess is wrong, e.g. inside Docker.
 SHARE_HOST = os.getenv("SHARE_HOST", "").strip()

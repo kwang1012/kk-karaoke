@@ -3,7 +3,7 @@ import threading
 from typing import Callable, Optional, List, Any, Union
 import redis
 from managers.db import DatabaseManager
-from models.track import Track
+from models.track import Track, is_retired_track_id
 from redis_keys import RedisKeys
 import time
 
@@ -21,6 +21,7 @@ class RedisQueueInterface:
         trimmed_track = Track(
             id=track.id, name=track.name,
             artists=track.artists, album=track.album,
+            duration_ms=track.duration_ms, video_id=track.video_id, kind=track.kind,
         )
         self.redis.sadd(
             RedisKeys.TRACK_DATA_SET,
@@ -80,6 +81,32 @@ class RedisQueueInterface:
         except redis.RedisError as e:
             print(f"Error getting track queue for room {room_id}: {e}")
             return []
+
+    def purge_retired_tracks(self) -> int:
+        """
+        Drop tracks that have no recording (see is_retired_track_id) from every room's queue and
+        from the remembered track data. The place in each queue is kept: the current index moves
+        back by however many removed tracks were before it. Returns how many were removed.
+        """
+        removed = 0
+        for key in self.redis.scan_iter("room:*:queue"):
+            room_id = key.split(":")[1]
+            queue = self.get_queue(room_id)
+            kept = [t for t in queue if not is_retired_track_id(t.id)]
+            if len(kept) == len(queue):
+                continue
+            idx = self.get_current_idx(room_id)
+            kept_before = sum(1 for t in queue[:idx] if not is_retired_track_id(t.id))
+            self.set_queue(room_id, kept)
+            self.set_current_idx(room_id, kept_before)
+            removed += len(queue) - len(kept)
+        for raw in self.redis.smembers(RedisKeys.TRACK_DATA_SET):
+            try:
+                if is_retired_track_id(json.loads(raw).get("id", "")):
+                    self.redis.srem(RedisKeys.TRACK_DATA_SET, raw)
+            except (TypeError, json.JSONDecodeError):
+                continue
+        return removed
 
     def get_current_idx(self, room_id: str) -> int:
         key = RedisKeys.room_queue_idx(room_id)

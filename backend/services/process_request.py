@@ -8,11 +8,11 @@ from celery import Celery
 from celery.signals import worker_ready
 import redis
 from utils import NO_VOCALS_DIR, LYRICS_DIR, VOCALS_DIR, RAW_AUDIO_DIR
-from models.track import Artist, Track
+from models.track import Artist, Track, is_video_id
 from managers.websocket import WebSocketManager
 from services.downloader import download_audio
 from services.library import save_track
-from services.lyrics_sources import Recording, add_word_timing, artist_aliases, find_lyrics, find_plain_lyrics, read_meta, resolve_recording, save_plain, save_result, verify_against_audio, video_duration_s, write_meta
+from services.lyrics_sources import Recording, add_word_timing, artist_aliases, find_lyrics, find_plain_lyrics, read_meta, save_plain, save_result, verify_against_audio, video_duration_s, write_meta
 from services.voice_remover import separate_vocals
 from config import REDIS_HOST, REDIS_PORT
 from managers import r2
@@ -37,14 +37,6 @@ def _sync_r2_on_worker_start(**_):
         r2.sync()
     except Exception as e:
         print(f"R2 sync failed: {e!r}")
-
-
-def _spotify_duration_ms(track_id: str):
-    """Only tracks queued by an older version carry a Spotify id; without credentials there is nobody to ask."""
-    if not (os.getenv("SPOTIFY_CLIENT_ID") and os.getenv("SPOTIFY_SECRET")):
-        return None
-    from services.spotify import getTrackDurationMs
-    return getTrackDurationMs(track_id)
 
 
 def is_ready(track: Track) -> bool:
@@ -101,30 +93,22 @@ def _process_track(track: Track):
 
     title = track.name
     artist = track.artists[0].name if track.artists else ""
+    # A track is a YouTube recording and its id is the video id. One recording drives both the
+    # lyrics and the audio, so they always describe the same take.
+    video_id = track.video_id or (track.id if is_video_id(track.id) else None)
+    if not video_id:
+        raise RuntimeError(f"'{track.name}' ({track.id}) is not a YouTube recording; search for it again")
+
     duration_ms = track.duration_ms
-    known_video = track.video_id or read_meta(track.id).get("video_id")
     if not duration_ms:
-        # Tracks queued before durations were carried through: ask the catalog they came from.
-        if known_video:
-            seconds = video_duration_s(known_video)
-            duration_ms = seconds * 1000 if seconds else None
-        else:
-            duration_ms = _spotify_duration_ms(track.id)
+        # Queued before lengths were carried through: ask YouTube Music.
+        seconds = video_duration_s(video_id)
+        duration_ms = seconds * 1000 if seconds else None
     duration_s = duration_ms / 1000 if duration_ms else None
 
-    # One recording drives both the lyrics and the audio, so they describe the same take.
-    # Tracks fetched before this existed have no recorded video id; they keep their search.
-    # A YouTube Music result is a recording already; a Spotify track keeps the one it was
-    # resolved to, so retries (and the audio) never drift to a different upload.
-    video_id = track.video_id or read_meta(track.id).get("video_id")
-    recording = None
-    if video_id:
-        recording = Recording(video_id, title, artist, round(duration_s) if duration_s else None)
-    elif not lyrics_exist or not vocals_exist or not non_vocals_exist:
-        recording = resolve_recording(title, [a.name for a in track.artists], duration_s)
-        video_id = recording.video_id if recording else None
-    if recording and not read_meta(track.id):
-        write_meta(track.id, {"video_id": recording.video_id})
+    recording = Recording(video_id, title, artist, round(duration_s) if duration_s else None)
+    if not read_meta(track.id):
+        write_meta(track.id, {"video_id": video_id})
 
     if not lyrics_exist:
         _publish_status(track, "downloading_lyrics")

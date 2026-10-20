@@ -38,16 +38,15 @@
 
 ## Setup
 
-### 1. Add your Spotify credentials
+### 1. Create your settings file
 
-KKaraoke searches Spotify for songs, so it needs API credentials. Create an app at
-https://developer.spotify.com/dashboard, then:
+KKaraoke finds songs, albums and playlists on YouTube Music, which needs no account or API key.
 
 ```bash
 cp backend/.env.example backend/.env
 ```
 
-and put your client id and secret in `backend/.env` (`SPOTIFY_CLIENT_ID`, `SPOTIFY_SECRET`).
+Everything in it is optional.
 
 ### 2. Run it
 
@@ -131,7 +130,13 @@ R2 is the source of truth:
 Without these variables nothing changes and everything stays on local disk. The sync never
 overwrites a file that exists on both sides, and R2 being unreachable only logs an error.
 
-In three terminals:
+From the repo root, start Redis (if needed), the API, the worker and the frontend with one command:
+
+```bash
+npm run dev      # or ./dev.sh   (first time: npm run install:all)
+```
+
+Or run each piece yourself in three terminals:
 
 ```bash
 # 1. API (http://localhost:8000)
@@ -190,7 +195,7 @@ Spotify-like user interface to allow you to start playing your favorite songs sm
 Engage with your favorite tunes in a whole new way!
 
 KKaraoke offers an immersive online karaoke experience, allowing you to search
-for any song on Spotify and remove the vocals in the background.
+for any song on YouTube Music and remove the vocals in the background.
 
 Enjoy singing along with high-quality instrumentals at the comfort of your home.
 

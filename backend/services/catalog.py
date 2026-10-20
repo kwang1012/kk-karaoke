@@ -2,9 +2,8 @@
 Search the catalog the audio actually comes from.
 
 A search result here *is* a recording: its id is the YouTube video id, which is what we
-download and what lyrics are looked up against. Results come back shaped like the Spotify
-tracks the client already understands, so the rest of the app does not care where a track
-came from.
+download and what lyrics are looked up against. Results are shaped like the tracks the
+client already understands (cover images, artists, a length in milliseconds).
 
 Albums, playlists and the home page's shelves come from here too, so nothing the app shows
 or plays depends on a second catalog.

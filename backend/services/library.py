@@ -4,35 +4,33 @@ Storage is the source of truth, not Redis (which can be wiped at any time). Stem
 the track id and carry no metadata, so each processed track also gets a small JSON file in
 `TRACKS_DIR` with what the library displays; it is written when a track finishes processing and
 synced to R2 together with the stems. `sync_metadata()` runs at startup and fills in a file for any
-processed track that lacks one: from whatever Redis still has, otherwise from Spotify in batches
-of 50. After that the library is read from disk alone.
+processed track that lacks one from whatever Redis still remembers. After that the library is read
+from disk alone; a track nothing remembers is counted as unresolved and not listed.
 """
 
 import json
 import os
-import time
 from pathlib import Path
 
-from models.track import Artist, Track
+from models.track import Track, is_retired_track_id
 from redis_keys import RedisKeys
-from services.spotify import getTracksByIds
 from utils import NO_VOCALS_DIR, TRACKS_DIR, VOCALS_DIR
 
-SPOTIFY_ID_LENGTH = 22
-# Ids that could not be resolved are not looked up again on every request.
-_RETRY_AFTER_SECONDS = 3600
-_unresolved_at: dict[str, float] = {}
 # Old cache written by an earlier version of this module; still read as a source, never written.
 _LEGACY_REDIS_KEY = "library_meta"
 
 
 def processed_ids() -> dict[str, int]:
-    """Ids with both stems on disk, mapped to when they were produced (epoch milliseconds)."""
+    """Ids with both stems on disk, mapped to when they were produced (epoch milliseconds).
+
+    Tracks from before YouTube was the catalog are left out: they can no longer be queued (nothing
+    says which recording their lyrics and audio were for). Their files stay where they are.
+    """
     vocals = {p.stem: p for p in Path(VOCALS_DIR).glob("*.mp3")}
     ids: dict[str, int] = {}
     for instrumental in Path(NO_VOCALS_DIR).glob("*.mp3"):
         vocal = vocals.get(instrumental.stem)
-        if vocal:
+        if vocal and not is_retired_track_id(instrumental.stem):
             ids[instrumental.stem] = int(max(instrumental.stat().st_mtime, vocal.stat().st_mtime) * 1000)
     return ids
 
@@ -42,7 +40,7 @@ def _path(track_id: str) -> Path:
 
 
 def _display_fields(track: Track | dict) -> dict:
-    """The subset of a track the library needs (the full Spotify album object is large)."""
+    """The subset of a track the library needs."""
     data = track.model_dump() if isinstance(track, Track) else dict(track)
     album = data.get("album") or {}
     return {
@@ -77,17 +75,6 @@ def _load(track_id: str) -> dict | None:
         return None
 
 
-def _spotify_to_dict(raw: dict) -> dict:
-    return _display_fields({
-        "id": raw["id"],
-        "name": raw["name"],
-        "artists": [Artist(id=a.get("id") or "", uri=a.get("uri") or "", name=a["name"]).model_dump()
-                    for a in raw.get("artists", [])],
-        "album": raw.get("album"),
-        "duration_ms": raw.get("duration_ms"),
-    })
-
-
 def _redis_sources(wanted: set[str]) -> dict[str, dict]:
     """Whatever Redis still remembers about these tracks (queue data, an old library cache).
 
@@ -113,7 +100,6 @@ def _redis_sources(wanted: set[str]) -> dict[str, dict]:
 
 def fill_missing(ids: list[str]) -> int:
     """Write metadata files for `ids` that lack one. Returns how many were written."""
-    now = time.time()
     todo = [i for i in ids if not _path(i).exists()]
     if not todo:
         return 0
@@ -123,24 +109,6 @@ def fill_missing(ids: list[str]) -> int:
         path = save_track(data)
         if path:
             written.append(path)
-
-    remaining = [
-        i for i in todo
-        if not _path(i).exists() and len(i) == SPOTIFY_ID_LENGTH and now - _unresolved_at.get(i, 0) > _RETRY_AFTER_SECONDS
-    ]
-    if remaining:
-        try:
-            resolved = getTracksByIds(remaining)
-        except Exception as e:
-            print(f"Spotify lookup failed: {e!r}")
-            resolved = {}
-        for track_id in remaining:
-            raw = resolved.get(track_id)
-            path = save_track(_spotify_to_dict(raw)) if raw else None
-            if path:
-                written.append(path)
-            else:
-                _unresolved_at[track_id] = now
 
     if written:
         from managers import r2  # imported here: r2 reads storage paths at import time
@@ -161,7 +129,7 @@ def sync_metadata() -> dict:
 
 def build_library() -> dict:
     ids = processed_ids()
-    fill_missing(list(ids))  # tracks processed since startup, or earlier lookups that failed
+    fill_missing(list(ids))  # tracks processed since startup
 
     tracks = []
     for track_id, added in ids.items():

@@ -45,8 +45,8 @@ log = logging.getLogger(__name__)
 # unsynced:    words only, no timing (shown as static text)
 Confidence = Literal["verified", "synced", "approximate", "unsynced"]
 
-# YouTube Music's duration for the chosen song may differ from Spotify's by a little
-# (silence at the ends); beyond this it is a different cut.
+# Two catalogs' lengths for the same song differ by a little (silence at the ends); beyond
+# this it is a different cut.
 MAX_DURATION_DIFF_S = 4
 # Two sources "agree" when their matched lines sit within this of each other.
 AGREE_TOLERANCE_S = 0.5
@@ -164,53 +164,11 @@ def _is_cjk(text: str) -> bool:
 
 def _artist_in_other_script(wanted: list[str], got: list[str]) -> bool:
     """
-    Spotify says "Gary Chaw", YouTube Music says "曹格": names cannot be compared, but every
+    A video channel says "Nine Chen", the song says "陳零九": names cannot be compared, but every
     one of them being written in a different script is not evidence of a different artist.
     "BTS" against "Calvin Sparks" is (both Latin, and they differ).
     """
     return bool(wanted and got) and all(_is_cjk(w) != _is_cjk(g) for w in wanted for g in got)
-
-
-# Without a matching artist name we only accept a hit whose length is essentially identical.
-UNNAMED_ARTIST_MAX_DIFF_S = 2
-
-
-def resolve_recording(
-    title: str, artists: list[str], duration_s: Optional[float]
-) -> Optional[Recording]:
-    """Pick the YouTube Music song that is this track: right title, artist and length."""
-    try:
-        hits = _client().search(f"{artists[0] if artists else ''} {title}".strip(),
-                                filter="songs", limit=5)
-    except Exception as e:  # noqa: BLE001 - YT Music is unofficial; never block the track on it
-        log.warning("YT Music search failed for %r: %r", title, e)
-        return None
-
-    want = _norm(title)
-    named: list[tuple[float, Recording]] = []
-    unnamed: list[Recording] = []  # in search order: the engine's own ranking is the evidence
-    for hit in hits:
-        video_id = hit.get("videoId")
-        if not video_id:
-            continue
-        got = hit.get("duration_seconds")
-        if duration_s and got and abs(got - duration_s) > MAX_DURATION_DIFF_S:
-            continue
-        have = _norm(hit.get("title") or "")
-        similarity = SequenceMatcher(None, want, have).ratio()
-        if want not in have and have not in want and similarity < 0.6:
-            continue
-        names = [a["name"] for a in hit.get("artists") or []]
-        recording = Recording(video_id, hit.get("title") or "", names[0] if names else "", got)
-        diff = abs(got - duration_s) if duration_s and got else 0
-        if not artists or _same_artist(artists, names):
-            named.append((similarity - 0.05 * diff, recording))
-        elif (_artist_in_other_script(artists, names) and duration_s and got
-              and diff <= UNNAMED_ARTIST_MAX_DIFF_S):
-            unnamed.append(recording)
-    if named:
-        return max(named, key=lambda c: c[0])[1]
-    return unnamed[0] if unnamed else None
 
 
 def video_duration_s(video_id: str) -> Optional[int]:
@@ -231,7 +189,7 @@ def artist_aliases(
 ) -> list[str]:
     """
     Every name this song's artist goes by. Lyric sites index "陳零九", while a music video
-    channel or Spotify may call the same artist "Nine Chen", and a search under the wrong
+    channel may call the same artist "Nine Chen", and a search under the wrong
     one finds nothing. Names come from the recording itself and from the YouTube Music song
     with the same title and length.
     """

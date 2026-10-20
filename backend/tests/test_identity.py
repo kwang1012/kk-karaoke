@@ -136,7 +136,7 @@ def test_search_survives_an_outage(monkeypatch):
 
 @pytest.fixture
 def pipeline(tmp_path, monkeypatch):
-    calls = {"resolve": 0, "download": [], "spotify": 0}
+    calls = {"download": [], "length": 0}
     for mod in (pr, ls):
         monkeypatch.setattr(mod, "LYRICS_DIR", str(tmp_path))
     for name in ("VOCALS_DIR", "NO_VOCALS_DIR", "RAW_AUDIO_DIR"):
@@ -145,16 +145,6 @@ def pipeline(tmp_path, monkeypatch):
     monkeypatch.setattr(pr, "is_ready", lambda t: True)
     monkeypatch.setattr(pr.r2, "upload_track", lambda t: None)
 
-    def resolve(*a, **k):
-        calls["resolve"] += 1
-        return ls.Recording("RESOLVED1234", "S", "A", 200)
-
-    def spotify_ms(_id):
-        calls["spotify"] += 1
-        return 313000
-
-    monkeypatch.setattr(pr, "resolve_recording", resolve)
-    monkeypatch.setattr(pr, "_spotify_duration_ms", spotify_ms)
     monkeypatch.setattr(pr, "download_audio", lambda *a, **k: calls["download"].append((a, k)))
     monkeypatch.setattr(pr, "separate_vocals", lambda *a, **k: None)
     monkeypatch.setattr(pr, "find_lyrics", lambda *a, **k: None)
@@ -163,26 +153,23 @@ def pipeline(tmp_path, monkeypatch):
     return calls
 
 
-def test_a_youtube_track_downloads_its_own_video_without_resolving(pipeline):
+def test_a_youtube_track_downloads_its_own_video(pipeline):
     pr._process_track(Track(id="VIDEO123456", name="S", artists=[], video_id="VIDEO123456", duration_ms=200000))
-    assert pipeline["resolve"] == 0 and pipeline["spotify"] == 0
     (args, kwargs), = pipeline["download"]
     assert kwargs["video_id"] == "VIDEO123456" and kwargs["target_duration_s"] == 200
+    assert ls.read_meta("VIDEO123456")["video_id"] == "VIDEO123456"
 
 
-def test_a_spotify_track_is_resolved_and_pinned(pipeline, tmp_path):
-    pr._process_track(Track(id="spot22charsxxxxxxxxxxxx", name="S", artists=[], duration_ms=200000))
-    assert pipeline["resolve"] == 1 and pipeline["download"][0][1]["video_id"] == "RESOLVED1234"
-    assert ls.read_meta("spot22charsxxxxxxxxxxxx")["video_id"] == "RESOLVED1234"
-    # A retry reuses the pinned recording rather than searching again.
-    pr._process_track(Track(id="spot22charsxxxxxxxxxxxx", name="S", artists=[], duration_ms=200000))
-    assert pipeline["resolve"] == 1 and pipeline["download"][1][1]["video_id"] == "RESOLVED1234"
+def test_an_older_record_without_video_id_still_is_a_recording(pipeline):
+    # Queue data saved before video_id was kept: the id itself is the video id.
+    pr._process_track(Track(id="VIDEO123456", name="S", artists=[], duration_ms=200000))
+    assert pipeline["download"][0][1]["video_id"] == "VIDEO123456"
 
 
-def test_a_track_queued_without_a_length_asks_spotify(pipeline):
-    pr._process_track(Track(id="spot22charsxxxxxxxxxxxx", name="S", artists=[]))
-    assert pipeline["spotify"] == 1
-    assert pipeline["download"][0][1]["target_duration_s"] == 313
+def test_a_track_that_is_not_a_recording_is_refused(pipeline):
+    with pytest.raises(RuntimeError, match="not a YouTube recording"):
+        pr._process_track(Track(id="A" * 22, name="Old", artists=[]))
+    assert pipeline["download"] == []
 
 
 # --- a different song of similar length is not the song (Gary Chaw's MV for 背叛) ----------
@@ -209,7 +196,7 @@ def test_no_title_match_means_no_audio():
     assert downloader._best_match(TITLED[:1], 313, "Superwoman") is None
 
 
-# --- resolving when the artist is written in another script -----------------------------
+# --- YouTube Music fakes ------------------------------------------------------------------
 
 def _ytm_hit(video_id, title, seconds, artist):
     return {"videoId": video_id, "title": title, "duration_seconds": seconds, "artists": [{"name": artist}]}
@@ -220,26 +207,6 @@ def ytm(monkeypatch):
     def install(*hits):
         monkeypatch.setattr(ls, "_client", lambda: type("C", (), {"search": lambda self, *a, **k: list(hits)})())
     return install
-
-
-def test_gary_chaw_resolves_to_his_chinese_name(ytm):
-    ytm(_ytm_hit("qj2_y35XApk", "Superwoman", 314, "曹格"))
-    assert ls.resolve_recording("Superwoman", ["Gary Chaw"], 313).video_id == "qj2_y35XApk"
-
-
-def test_other_script_still_needs_the_same_length(ytm):
-    ytm(_ytm_hit("v", "Superwoman", 300, "曹格"))
-    assert ls.resolve_recording("Superwoman", ["Gary Chaw"], 313) is None
-
-
-def test_two_latin_names_that_differ_are_a_different_artist(ytm):
-    ytm(_ytm_hit("calvin", "Dynamite", 199, "Calvin Sparks"))
-    assert ls.resolve_recording("Dynamite", ["BTS"], 199) is None
-
-
-def test_a_named_match_beats_an_unnamed_one(ytm):
-    ytm(_ytm_hit("other", "Superwoman", 313, "曹格"), _ytm_hit("named", "Superwoman", 316, "Gary Chaw"))
-    assert ls.resolve_recording("Superwoman", ["Gary Chaw"], 313).video_id == "named"
 
 
 # --- the same artist under another name (Nine Chen / 陳零九) ---------------------------
@@ -309,7 +276,95 @@ def test_video_length_unknown_is_none(monkeypatch):
     assert _ls.video_duration_s("v") is None
 
 
-def test_a_pinned_youtube_track_without_a_length_asks_youtube_music(pipeline, monkeypatch):
+def test_a_track_queued_without_a_length_asks_youtube_music(pipeline, monkeypatch):
     monkeypatch.setattr(pr, "video_duration_s", lambda v: 254)
     pr._process_track(Track(id="VIDEO123456", name="S", artists=[], video_id="VIDEO123456"))
-    assert pipeline["spotify"] == 0 and pipeline["download"][0][1]["target_duration_s"] == 254
+    assert pipeline["download"][0][1]["target_duration_s"] == 254
+
+
+# --- tracks from before YouTube was the catalog -----------------------------------------
+
+from models.track import is_retired_track_id, is_video_id  # noqa: E402
+
+
+def test_id_shapes_tell_recordings_from_retired_tracks():
+    assert is_video_id("-hRQH7ARaHw") and is_video_id("qj2_y35XApk")
+    assert is_retired_track_id("1lqWsPvpHKjbhX59QBUoVc") and not is_retired_track_id("-hRQH7ARaHw")
+    assert not is_video_id("1lqWsPvpHKjbhX59QBUoVc") and not is_retired_track_id("abc")
+
+
+class FakeRedis:
+    """Just enough Redis for the queue: strings, lists and a set."""
+
+    def __init__(self):
+        self.kv, self.lists, self.sets = {}, {}, {}
+
+    def scan_iter(self, pattern):
+        import fnmatch
+        return [k for k in list(self.lists) if fnmatch.fnmatch(k, pattern)]
+
+    def lrange(self, key, a, b):
+        return list(self.lists.get(key, []))
+
+    def rpush(self, key, value):
+        self.lists.setdefault(key, []).append(value)
+
+    def delete(self, key):
+        self.lists.pop(key, None)
+
+    def get(self, key):
+        return self.kv.get(key)
+
+    def set(self, key, value):
+        self.kv[key] = str(value)  # Redis hands strings back
+
+    def smembers(self, key):
+        return set(self.sets.get(key, set()))
+
+    def srem(self, key, value):
+        self.sets.get(key, set()).discard(value)
+
+    def sadd(self, key, value):
+        self.sets.setdefault(key, set()).add(value)
+
+
+def _queue_with(tracks, current):
+    import json
+    from interfaces.queue import RedisQueueInterface
+    from redis_keys import RedisKeys
+    fake = FakeRedis()
+    q = RedisQueueInterface(fake)
+    for t in tracks:
+        fake.rpush(RedisKeys.room_queue("r1"), json.dumps(Track(id=t, name=t, artists=[]).model_dump()))
+        fake.sadd(RedisKeys.TRACK_DATA_SET, json.dumps(Track(id=t, name=t, artists=[]).model_dump()))
+    q.set_current_idx("r1", current)
+    return q, fake
+
+
+OLD = "1lqWsPvpHKjbhX59QBUoVc"
+
+
+def test_retired_tracks_are_removed_from_queues_and_remembered_data():
+    q, fake = _queue_with(["-hRQH7ARaHw", OLD, "qj2_y35XApk"], current=2)
+    assert q.purge_retired_tracks() == 1
+    assert [t.id for t in q.get_queue("r1")] == ["-hRQH7ARaHw", "qj2_y35XApk"]
+    assert q.get_current_idx("r1") == 1  # still on the same song
+    assert OLD not in str(fake.smembers("track_data:"))
+
+
+def test_the_current_place_survives_when_the_current_track_is_removed():
+    q, _ = _queue_with(["-hRQH7ARaHw", OLD, "qj2_y35XApk"], current=1)
+    q.purge_retired_tracks()
+    assert q.get_current_idx("r1") == 1  # the song that followed it
+
+
+def test_a_clean_queue_is_left_alone():
+    q, _ = _queue_with(["-hRQH7ARaHw", "qj2_y35XApk"], current=1)
+    assert q.purge_retired_tracks() == 0 and q.get_current_idx("r1") == 1
+
+
+def test_download_refuses_a_retired_track():
+    import asyncio, json
+    import main
+    r = asyncio.run(main.download_track(Track(id=OLD, name="Old", artists=[]), redis_interface=None))
+    assert r.status_code == 400 and "older version" in json.loads(r.body)["error"]

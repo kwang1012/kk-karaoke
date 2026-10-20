@@ -1,7 +1,6 @@
 import asyncio
 from contextlib import asynccontextmanager
 import json
-import random
 from fastapi import Depends, FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -12,9 +11,8 @@ from models.track import Track
 from services.process_request import is_ready, send_process_request
 from managers.db import get_db
 from interfaces.queue import RedisQueueInterface
-from services.catalog import search_tracks
+from services.catalog import collection_tracks, random_tracks, search_collections, search_tracks, top_categories
 from services.library import build_library, sync_metadata
-from services.spotify import getCollectionTracks, getTopCategories, searchSpotify
 from managers.websocket import WebSocketManager
 from middlewares.format import FormatReponseMiddleware
 from routes.track import router as track_router
@@ -22,7 +20,7 @@ from routes.lyrics import router as lyrics_router
 from routes.queue import resume_pending_tracks, router as queue_router
 from routes.room import router as room_router
 from redis_keys import RedisKeys
-from config import CORS_ORIGINS, DEFAULT_PLAYLIST_ID
+from config import CORS_ORIGINS
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -86,19 +84,19 @@ async def root():
 @app.get("/top-categories")
 def get_top_categories(keyword: str):
     return JSONResponse(
-        content={"categories": getTopCategories(keyword)}, status_code=200
+        content={"categories": top_categories(keyword)}, status_code=200
     )
 
 
 @app.get("/playlist/{playlist_id}/tracks")
 def get_playlist_tracks(playlist_id: str):
-    collection, tracks = getCollectionTracks("playlists", playlist_id)
+    collection, tracks = collection_tracks("playlists", playlist_id)
     return JSONResponse(content={"collection": collection, "tracks": tracks})
 
 
 @app.get("/album/{album_id}/tracks")
 def get_album_tracks(album_id: str):
-    collection, tracks = getCollectionTracks("albums", album_id)
+    collection, tracks = collection_tracks("albums", album_id)
     return JSONResponse(content={"collection": collection, "tracks": tracks})
 
 
@@ -115,10 +113,7 @@ async def get_tracks(
 
 @app.get("/random_tracks")
 def get_random_tracks():
-    _, tracks = getCollectionTracks("playlists", DEFAULT_PLAYLIST_ID)
-    tracks = tracks or []
-    random.shuffle(tracks)
-    return JSONResponse(content={"tracks": tracks[:10]}, status_code=200)
+    return JSONResponse(content={"tracks": random_tracks(10)}, status_code=200)
 
 @app.get("/library")
 def get_library():
@@ -129,14 +124,10 @@ def get_library():
 
 @app.get("/search")
 def search(q: str):
-    # Albums, artists and playlists still come from Spotify; tracks come from YouTube Music,
-    # because a track is only useful as the recording we can actually play.
-    searchResults = searchSpotify(q) or {"results": {}}
-    tracks = search_tracks(q)
-    if tracks:
-        searchResults = {**searchResults, "results": {
-            **searchResults.get("results", {}), "tracks": {"items": tracks}}}
-    return JSONResponse(content=searchResults, status_code=200)
+    # Everything searched, browsed and played comes from YouTube Music, so a result is always
+    # a recording we can play and look lyrics up against.
+    return JSONResponse(content={"results": {"tracks": {"items": search_tracks(q)}, **search_collections(q)}},
+                        status_code=200)
 
 
 @app.post("/download")

@@ -104,7 +104,7 @@ export default function SongCard({
     >
       <div className="relative size-10 shrink-0">
         <div className="absolute inset-0 overflow-hidden rounded-lg bg-muted">
-        <img src={parsedTrack.album?.images?.[0]?.url || placeholderImage} className="size-full object-cover" />
+        <img referrerPolicy="no-referrer" src={parsedTrack.album?.images?.[0]?.url || placeholderImage} className="size-full object-cover" />
           {onAdd && !disable && !mobile && (
             <button
               aria-label={t('song.addToQueue')}

@@ -1,5 +1,5 @@
 # Start everything with:  docker compose up --build   (then open http://localhost:8080)
-# Needs backend/.env (copy backend/.env.example and add your Spotify credentials).
+# Needs backend/.env (copy backend/.env.example; no credentials are required to start).
 x-backend: &backend
   build: ./backend
   env_file: ./backend/.env

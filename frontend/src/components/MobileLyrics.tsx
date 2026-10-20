@@ -95,7 +95,7 @@ export default function MobileLyrics({ color, bgColor }: { color?: string; bgCol
       )}
       <div className="sticky top-0 flex items-center w-full z-50 px-6">
         <div className="w-16 h-16 rounded-md bg-[#c3c3c3] overflow-hidden">
-          <img src={currentTrack?.album?.images?.[0]?.url || placeholder} className="w-full h-full" />
+          <img referrerPolicy="no-referrer" src={currentTrack?.album?.images?.[0]?.url || placeholder} className="w-full h-full" />
         </div>
         <span className="text-xl ml-2 text-white">{currentTrack?.name || t('common.notPlaying')}</span>
       </div>

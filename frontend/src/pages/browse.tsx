@@ -40,7 +40,8 @@ function PlaylistCard({
       {playlist ? (
         <>
           <img
-            src={playlist.images[0].url || placeholder}
+            referrerPolicy="no-referrer"
+            src={playlist.images?.[0]?.url || placeholder}
             className="aspect-square w-full rounded-lg object-cover shadow-md"
           />
           <span className="mt-2 line-clamp-2 text-sm font-medium">{playlist.name}</span>

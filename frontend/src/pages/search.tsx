@@ -264,10 +264,10 @@ export default function SearchView() {
                       dense={mobile}
                       onClick={() => handleClickAlbum(album)}
                     >
-                      <img src={album.images?.[0]?.url || placeholder} className="aspect-square w-full rounded-lg object-cover shadow-md" />
+                      <img referrerPolicy="no-referrer" src={album.images?.[0]?.url || placeholder} className="aspect-square w-full rounded-lg object-cover shadow-md" />
                       <span className="mt-2 line-clamp-2 text-sm font-medium">{album.name}</span>
                       <span className="line-clamp-1 text-xs text-muted-foreground">
-                        {String(album.release_date ?? '').slice(0, 4)}．
+                        {String(album.releaseDate ?? '').slice(0, 4)}．
                         {album.artists.map((a: any) => a.name).join(', ')}
                       </span>
                     </CarouselItem>
@@ -286,10 +286,10 @@ export default function SearchView() {
                       dense={mobile}
                       onClick={() => handleClickPlaylist(playlist)}
                     >
-                      <img src={playlist.images?.[0]?.url || placeholder} className="aspect-square w-full rounded-lg object-cover shadow-md" />
+                      <img referrerPolicy="no-referrer" src={playlist.images?.[0]?.url || placeholder} className="aspect-square w-full rounded-lg object-cover shadow-md" />
                       <span className="mt-2 line-clamp-2 text-sm font-medium">{playlist.name}</span>
                       <span className="line-clamp-1 text-xs text-muted-foreground">
-                        {t('search.byOwner', { name: playlist.owner?.display_name || t('common.unknown') })}
+                        {t('search.byOwner', { name: playlist.owner?.displayName || t('common.unknown') })}
                       </span>
                     </CarouselItem>
                   ))}
@@ -302,7 +302,7 @@ export default function SearchView() {
                   <Carousel className="px-0">
                     {artists.map((artist: any) => (
                       <CarouselItem key={artist.id} className="flex-1">
-                        <img src={artist.images?.[0]?.url || placeholder} className="w-full rounded-full" />
+                        <img referrerPolicy="no-referrer" src={artist.images?.[0]?.url || placeholder} className="w-full rounded-full" />
                         <span className="mt-2 line-clamp-2 text-sm font-medium">{artist.name}</span>
                         <span className="line-clamp-1 text-xs text-muted-foreground">{capitalizeFirstLetter(artist.type)}</span>
                       </CarouselItem>

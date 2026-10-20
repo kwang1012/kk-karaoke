@@ -101,7 +101,7 @@ export default function PlaylistView() {
       >
         {halfway && (
           <div className="flex h-12 items-center px-4 md:h-16 md:px-6">
-            <img src={collectionImage} className="w-8 h-8 rounded-md" />
+            <img referrerPolicy="no-referrer" src={collectionImage} className="w-8 h-8 rounded-md" />
             <div className="text-xl ml-4 line-clamp-1">{collection.name}</div>
           </div>
         )}

@@ -272,7 +272,7 @@ export default function TvView() {
 
   return (
     <div className="fixed inset-0 overflow-hidden text-white select-none cursor-none" style={{ backgroundColor: bgColor }}>
-      {image && <img src={image} alt="" className="absolute inset-0 size-full scale-110 object-cover opacity-30 blur-3xl" />}
+      {image && <img referrerPolicy="no-referrer" src={image} alt="" className="absolute inset-0 size-full scale-110 object-cover opacity-30 blur-3xl" />}
       <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/60" />
 
       {!currentTrack ? (

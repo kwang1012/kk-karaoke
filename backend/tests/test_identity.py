@@ -109,6 +109,15 @@ def test_videos_surface_within_the_first_screen_of_results(monkeypatch):
     assert kinds[:8] == ["song"] * 5 + ["video"] * 3 and len(kinds) == 15
 
 
+def test_a_full_page_of_hits_is_cut_to_the_limit(monkeypatch):
+    class Page:
+        def search(self, q, filter=None, limit=None):
+            return [{**HIT, "videoId": f"{filter[0].upper()}{i:010d}"} for i in range(20)]  # API ignores limit
+    monkeypatch.setattr(catalog, "_ytm", lambda: Page())
+    kinds = [t["kind"] for t in catalog.search_tracks("x")]
+    assert kinds.count("song") == catalog.SONG_LIMIT and kinds.count("video") == catalog.VIDEO_LIMIT
+
+
 def test_search_lists_songs_first_and_does_not_repeat(monkeypatch):
     monkeypatch.setattr(catalog, "_ytm", lambda: FakeYTM())
     tracks = catalog.search_tracks("別說再見")
@@ -145,7 +154,7 @@ def pipeline(tmp_path, monkeypatch):
         return 313000
 
     monkeypatch.setattr(pr, "resolve_recording", resolve)
-    monkeypatch.setattr(pr, "getTrackDurationMs", spotify_ms)
+    monkeypatch.setattr(pr, "_spotify_duration_ms", spotify_ms)
     monkeypatch.setattr(pr, "download_audio", lambda *a, **k: calls["download"].append((a, k)))
     monkeypatch.setattr(pr, "separate_vocals", lambda *a, **k: None)
     monkeypatch.setattr(pr, "find_lyrics", lambda *a, **k: None)

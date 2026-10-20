@@ -11,7 +11,6 @@ from utils import NO_VOCALS_DIR, LYRICS_DIR, VOCALS_DIR, RAW_AUDIO_DIR
 from models.track import Artist, Track
 from managers.websocket import WebSocketManager
 from services.downloader import download_audio
-from services.spotify import getTrackDurationMs
 from services.library import save_track
 from services.lyrics_sources import Recording, add_word_timing, artist_aliases, find_lyrics, find_plain_lyrics, read_meta, resolve_recording, save_plain, save_result, verify_against_audio, video_duration_s, write_meta
 from services.voice_remover import separate_vocals
@@ -38,6 +37,14 @@ def _sync_r2_on_worker_start(**_):
         r2.sync()
     except Exception as e:
         print(f"R2 sync failed: {e!r}")
+
+
+def _spotify_duration_ms(track_id: str):
+    """Only tracks queued by an older version carry a Spotify id; without credentials there is nobody to ask."""
+    if not (os.getenv("SPOTIFY_CLIENT_ID") and os.getenv("SPOTIFY_SECRET")):
+        return None
+    from services.spotify import getTrackDurationMs
+    return getTrackDurationMs(track_id)
 
 
 def is_ready(track: Track) -> bool:
@@ -102,7 +109,7 @@ def _process_track(track: Track):
             seconds = video_duration_s(known_video)
             duration_ms = seconds * 1000 if seconds else None
         else:
-            duration_ms = getTrackDurationMs(track.id)
+            duration_ms = _spotify_duration_ms(track.id)
     duration_s = duration_ms / 1000 if duration_ms else None
 
     # One recording drives both the lyrics and the audio, so they describe the same take.

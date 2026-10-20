@@ -55,7 +55,7 @@ function NowPlaying({ onAdd }: { onAdd: () => void }) {
   const shown = seeking ? dragValue : progress;
   return (
     <div className="mx-auto flex h-full w-full max-w-md flex-col justify-center gap-5 px-6 py-4">
-      <img src={image || placeholder} alt="" className="mx-auto aspect-square w-full max-w-[18rem] min-h-0 rounded-2xl object-cover shadow-app" />
+      <img referrerPolicy="no-referrer" src={image || placeholder} alt="" className="mx-auto aspect-square w-full max-w-[18rem] min-h-0 rounded-2xl object-cover shadow-app" />
       <div className="min-w-0 text-center">
         <h2 className="truncate text-xl font-bold tracking-tight">{currentTrack.name}</h2>
         <p className="truncate text-sm text-muted-foreground">{currentTrack.artists.map((artist) => artist.name).join(', ')}</p>

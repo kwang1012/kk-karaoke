@@ -31,7 +31,7 @@ const VirtuosoTableComponents: TableComponents<Track> = {
           }}
         >
           <div className="title h-full w-full max-w-[400px] shrink-0 max-md:px-[75px] max-md:pb-2.5 md:w-40">
-            <img src={collectionImage} className="size-full rounded-xl object-cover shadow-2xl" alt={collection.name} />
+            <img referrerPolicy="no-referrer" src={collectionImage} className="size-full rounded-xl object-cover shadow-2xl" alt={collection.name} />
           </div>
           <div className="ml-4 flex w-full flex-col justify-center text-white md:justify-end md:self-end">
             <span className="text-xs font-medium tracking-wide uppercase opacity-80">{collectionType === 'album' ? t('playlist.type.album') : t('playlist.type.playlist')}</span>

@@ -91,7 +91,7 @@ const PlaylistRow = memo(({ track, index }: { track: Track; index: number }) => 
     name: !isLoading ? (
       <div className="flex items-center">
         {collectionType === 'playlist' && (
-          <img src={image} className="mr-3 inline-block size-10 rounded-lg object-cover" alt={parsedTrack.name} />
+          <img referrerPolicy="no-referrer" src={image} className="mr-3 inline-block size-10 rounded-lg object-cover" alt={parsedTrack.name} />
         )}
         <div>
           <span className="line-clamp-1 font-medium">{parsedTrack.name}</span>

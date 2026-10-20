@@ -13,7 +13,7 @@ import { usePlayer } from 'src/store/player';
 import { useTrackStore } from 'src/store';
 import { useActiveRoomId, useRoomStore } from 'src/store/room';
 import { useWebSocketStore } from 'src/store/ws';
-import { DEFAULT_BG_COLOR, DEFAULT_COLOR, generateAvatars, getLyricsRGB } from 'src/utils';
+import { DEFAULT_BG_COLOR, DEFAULT_COLOR, generateAvatars, getLyricsRGB, uuid } from 'src/utils';
 import { api } from 'src/utils/api';
 
 const SEEK_STEP_S = 5;
@@ -28,7 +28,7 @@ function useTvRoom() {
     const room = useRoomStore.getState();
     if (!room.nickname) room.setNickname('TV');
     if (!room.avatar) room.setAvatar(generateAvatars(1)[0]);
-    if (!room.roomId) room.setRoomId(crypto.randomUUID());
+    if (!room.roomId) room.setRoomId(uuid());
     const id = useRoomStore.getState().roomId!;
 
     let stopped = false;

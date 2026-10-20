@@ -11,7 +11,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useRoomStore } from 'src/store/room';
 import { resolveRoomCode } from 'src/apis/room';
 import { useBreakpointDown } from 'src/hooks/media';
-import { generateAvatars, generateNickname } from 'src/utils';
+import { generateAvatars, generateNickname, uuid } from 'src/utils';
 import Logo from 'src/components/Logo';
 import { RefreshCw } from 'lucide-react';
 import { useT } from 'src/i18n';
@@ -107,7 +107,7 @@ export default function JoinView() {
       }
     }
     if (!roomId) {
-      setRoomId(crypto.randomUUID());
+      setRoomId(uuid());
     }
     if (!avatar) {
       setAvatarInStore(selectedAvatar);

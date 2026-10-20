@@ -15,6 +15,7 @@ export default defineConfig(({ mode }) => ({
     outDir: path.resolve(__dirname, './build'),
   },
   server: {
+    host: true, // reachable from a phone on the same network
     port: 3000,
     open: true,
   },

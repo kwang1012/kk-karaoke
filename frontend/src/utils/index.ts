@@ -89,6 +89,16 @@ export function getUniqueId(track: Track) {
   return `${track.id}-${track.timeAdded}`;
 }
 
+/** crypto.randomUUID only exists in secure contexts; a phone on http://<laptop-ip> is not one. */
+export function uuid(): string {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  const b = crypto.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6] & 0x0f) | 0x40; // version 4
+  b[8] = (b[8] & 0x3f) | 0x80; // variant
+  const h = Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
 export function copyToClipboard(text: string): Promise<void> {
   if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
     return navigator.clipboard.writeText(text);
@@ -140,6 +150,8 @@ export function generateAvatars(count: number = 10): string[] {
   return avatars;
 }
 
+export const isLoopbackHost = (hostname: string) => ['localhost', '127.0.0.1', '[::1]'].includes(hostname);
+
 export function getSchemesForAddress(address: string = import.meta.env.VITE_API_ADDR): {
   http: string;
   ws: string;
@@ -149,6 +161,13 @@ export function getSchemesForAddress(address: string = import.meta.env.VITE_API_
   if (!address) {
     const secure = window.location.protocol === 'https:';
     return { http: secure ? 'https://' : 'http://', ws: secure ? 'wss://' : 'ws://', address: window.location.host };
+  }
+  // "localhost" in the config means the machine that serves the page. Opened from another device
+  // (a phone on the LAN) that machine is whatever host the page came from, not the phone itself.
+  const configured = address.match(/^(localhost|127\.0\.0\.1)(:\d+)?$/);
+  if (configured && !isLoopbackHost(window.location.hostname)) {
+    const secure = window.location.protocol === 'https:';
+    return { http: secure ? 'https://' : 'http://', ws: secure ? 'wss://' : 'ws://', address: window.location.hostname + (configured[2] ?? '') };
   }
   let host = address;
   if (host === 'localhost') {

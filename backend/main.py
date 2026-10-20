@@ -15,6 +15,7 @@ from services.catalog import collection_tracks, random_tracks, search_collection
 from services.library import build_library, sync_metadata
 from managers.websocket import WebSocketManager
 from middlewares.format import FormatReponseMiddleware
+from services.network import lan_ip
 from routes.track import router as track_router
 from routes.lyrics import router as lyrics_router
 from routes.queue import resume_pending_tracks, router as queue_router
@@ -74,6 +75,12 @@ app.include_router(track_router, prefix="/tracks", tags=["tracks"])
 app.include_router(lyrics_router, prefix="/lyrics", tags=["lyrics"])
 app.include_router(queue_router, prefix="/queue", tags=["queue"])
 app.include_router(room_router, prefix="/room", tags=["room"])
+
+
+@app.get("/network")
+async def network():
+    """Lets the page put an address a phone can open into its QR code, whatever the browser used."""
+    return {"lan_ip": lan_ip()}
 
 
 @app.get("/")

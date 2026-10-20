@@ -26,7 +26,7 @@ export function useLyricsOffset() {
     ahead: -lyricsDelay,
     setAhead,
     approximate,
-    videoUrl: videoId ? `https://www.youtube.com/watch?v=${videoId}` : null,
+    videoId,
     disabled: !currentTrack,
   };
 }

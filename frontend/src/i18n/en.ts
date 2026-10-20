@@ -19,6 +19,7 @@ export const en = {
   'nav.forward': 'Forward',
   'nav.settings': 'Settings',
   'nav.browse': 'Browse',
+  'nav.library': 'Library',
   'nav.search': 'Search',
   'nav.queue': 'Queue',
   'nav.lyrics': 'Lyrics',
@@ -65,6 +66,19 @@ export const en = {
   'home.section.korean': 'Korean KTV favorites',
   'home.section.english': 'English KTV favorites',
   'home.section.japanese': 'Japanese KTV favorites',
+
+  // library
+  'library.title': 'Library',
+  'library.count': '{total} processed songs, ready to sing',
+  'library.countFiltered': '{shown} of {total} songs',
+  'library.search': 'Search your library',
+  'library.sort.recent': 'Recently added',
+  'library.sort.title': 'Title (A–Z)',
+  'library.sort.artist': 'Artist (A–Z)',
+  'library.empty': 'No processed songs yet. Search for a song and add it to the queue to process it.',
+  'library.noMatch': 'No songs in your library match that search.',
+  'library.seeAll': 'See all',
+  'search.inLibrary': 'In your library',
 
   // playlist
   'playlist.type.playlist': 'Playlist',
@@ -136,7 +150,11 @@ export const en = {
   'lyrics.later': 'Show lyrics later',
   'lyrics.earlier': 'Show lyrics earlier',
   'lyrics.resetSync': 'Reset sync',
-  'lyrics.originalVideo': 'Open the original video',
+  'lyrics.showVideo': 'Show video',
+  'lyrics.hideVideo': 'Hide video',
+  'lyrics.videoBlocked': "This video can't be embedded. Open it on YouTube",
+  'settings.wordHighlight': 'Highlight word by word',
+  'settings.wordHighlightHint': 'Fill the current line as it is sung, for songs with word-level timing.',
   'song.video': 'Video',
   'lyrics.unsynced': "These lyrics aren't synced to the song.",
   'lyrics.approximate': 'Timing may be off: these lyrics might be for a different version. Nudge them here.',
@@ -198,6 +216,15 @@ export const en = {
   'settings.newAvatars': 'New avatars',
 
   // misc
+  // tv (the big screen of a room)
+  'tv.start': 'Press OK to start',
+  'tv.startHint': 'Sound and fullscreen start with your first key press.',
+  'tv.joinTitle': 'Scan the code with your phone to pick songs and take the mic',
+  'tv.paused': 'Paused',
+  'tv.playing': 'Playing',
+  'tv.loading': 'Getting the song ready…',
+  'tv.loadFailed': "This song couldn't be loaded.",
+
   // remote (phone as the remote of a room)
   'remote.nowPlaying': 'Now playing',
   'remote.queue': 'Queue',
@@ -214,7 +241,7 @@ export const en = {
   'remote.upNext': 'Up next',
   'remote.queueEmpty': 'The queue is empty.',
   'remote.searchPlaceholder': 'Search for a song or artist',
-  'remote.searchHint': 'Search, then tap the menu on a song to queue it or sing it next.',
+  'remote.searchHint': 'Search, then tap + to queue a song. The menu next to it can sing it next.',
   'remote.noResults': 'No songs found.',
   'remote.searching': 'Searching…',
   'remote.reconnecting': 'Reconnecting…',

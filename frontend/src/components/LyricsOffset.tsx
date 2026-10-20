@@ -1,4 +1,5 @@
-import { ExternalLink, Minus, Plus, RotateCcw, Timer, TriangleAlert } from 'lucide-react';
+import { Minus, Plus, RotateCcw, Timer, TriangleAlert, Video, VideoOff } from 'lucide-react';
+import { useSettingStore } from 'src/store/setting';
 import { IconButton } from 'src/components/ui/button';
 import { Tooltip } from 'src/components/ui/tooltip';
 import { useT } from 'src/i18n';
@@ -14,16 +15,18 @@ export default function LyricsOffset({
   value,
   onChange,
   approximate = false,
-  videoUrl = null,
+  hasVideo = false,
 }: {
   value: number;
   onChange: (value: number) => void;
   /** The timing came from a free-text search, so it may be for another version of the song. */
   approximate?: boolean;
-  /** The recording these lyrics belong to, to check them against by eye. */
-  videoUrl?: string | null;
+  /** The recording has a video that can be shown behind the lyrics. */
+  hasVideo?: boolean;
 }) {
   const t = useT();
+  const showVideo = useSettingStore((state) => state.showVideo);
+  const setShowVideo = useSettingStore((state) => state.setShowVideo);
   const set = (next: number) => onChange(Math.round(Math.max(-LIMIT, Math.min(LIMIT, next)) * 10) / 10);
   const label = `${value > 0 ? '+' : ''}${value.toFixed(1)}s`;
   return (
@@ -58,17 +61,17 @@ export default function LyricsOffset({
           <RotateCcw className="size-3.5" />
         </IconButton>
       </Tooltip>
-      {videoUrl && (
-        <Tooltip title={t('lyrics.originalVideo')} side="top">
-          <a
-            href={videoUrl}
-            target="_blank"
-            rel="noreferrer"
-            aria-label={t('lyrics.originalVideo')}
-            className="ml-1 flex size-8 items-center justify-center rounded-full hover:bg-white/15"
+      {hasVideo && (
+        <Tooltip title={showVideo ? t('lyrics.hideVideo') : t('lyrics.showVideo')} side="top">
+          <IconButton
+            size="small"
+            aria-label={showVideo ? t('lyrics.hideVideo') : t('lyrics.showVideo')}
+            aria-pressed={showVideo}
+            className={showVideo ? 'ml-1 bg-white/25 hover:bg-white/35' : 'ml-1 hover:bg-white/15'}
+            onClick={() => setShowVideo(!showVideo)}
           >
-            <ExternalLink className="size-4" />
-          </a>
+            {showVideo ? <Video className="size-4" /> : <VideoOff className="size-4" />}
+          </IconButton>
         </Tooltip>
       )}
     </div>

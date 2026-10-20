@@ -5,8 +5,10 @@ export interface SettingState {
   // settings
   refreshKey: number; // Key to refresh the settings
   refresh: () => void; // Function to refresh the settings
-  useWordLevelSync: boolean; // Whether to use word-level sync
-  setUseWordLevelSync: (useWordLevelSync: boolean) => void; // Set word-level sync
+  wordHighlight: boolean; // Fill the current line word by word when word timing exists
+  setWordHighlight: (wordHighlight: boolean) => void;
+  showVideo: boolean; // Play the recording's video behind the lyrics
+  setShowVideo: (showVideo: boolean) => void;
   showTranslatinon: boolean; // Whether to show translation
   setShowTranslatinon: (showTranslatinon: boolean) => void; // Set show translation
   theme: 'light' | 'dark'; // Current theme mode
@@ -40,10 +42,10 @@ export const useSettingStore = create<SettingState>()(
       },
       refreshKey: 0, // Key to refresh the settings
       refresh: () => set((state) => ({ refreshKey: state.refreshKey + 1 })), // Function to refresh the settings
-      useWordLevelSync: false, // Whether to use word-level sync
-      setUseWordLevelSync: (useWordLevelSync: boolean) => {
-        set(() => ({ useWordLevelSync }));
-      },
+      wordHighlight: true,
+      setWordHighlight: (wordHighlight: boolean) => set({ wordHighlight }),
+      showVideo: false,
+      setShowVideo: (showVideo: boolean) => set({ showVideo }),
       showTranslatinon: false, // Whether to show translation
       setShowTranslatinon: (showTranslatinon: boolean) => {
         set(() => ({ showTranslatinon }));
@@ -90,7 +92,8 @@ export const useSettingStore = create<SettingState>()(
       partialize: (state) => ({
         theme: state.theme,
         queueOpen: state.queueOpen,
-        useWordLevelSync: state.useWordLevelSync,
+        wordHighlight: state.wordHighlight,
+        showVideo: state.showVideo,
         showTranslatinon: state.showTranslatinon,
         refreshKey: state.refreshKey,
         modified: state.modified,

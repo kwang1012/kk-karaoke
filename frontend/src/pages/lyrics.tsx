@@ -13,6 +13,8 @@ import { useIdle } from 'src/hooks/idle';
 import LyricsOffset from 'src/components/LyricsOffset';
 import LyricsSkeleton from 'src/components/LyricsSkeleton';
 import PlainLyrics from 'src/components/PlainLyrics';
+import VideoBackdrop from 'src/components/VideoBackdrop';
+import WordLine from 'src/components/WordLine';
 import { useLyricsOffset } from 'src/hooks/lyricsOffset';
 import { useT } from 'src/i18n';
 
@@ -26,7 +28,10 @@ export default function LyricsView() {
   const lyricsDelay = useTrackStore((state) => state.lyricsDelays[currentTrack?.id || ''] || 0);
   const plain = useTrackStore((state) => state.plainLyrics[currentTrack?.id || '']);
   // How many seconds earlier the lyrics are shown, derived from the shared per-track delay.
-  const { ahead, setAhead, approximate, videoUrl } = useLyricsOffset();
+  const { ahead, setAhead, approximate, videoId } = useLyricsOffset();
+  const showVideoSetting = useSettingStore((state) => state.showVideo);
+  const wordHighlight = useSettingStore((state) => state.wordHighlight);
+  const overVideo = showVideoSetting && !!videoId;
   const syncedLyrics = useMemo(() => {
     return (
       lyrics?.map((line) => {
@@ -130,9 +135,10 @@ export default function LyricsView() {
     <>
       <div className={cn(isFullscreen ? 'fixed inset-0 z-11' : 'h-full w-full', isFullscreen && idle && 'cursor-none')}>
         <div className="relative w-full h-full" ref={containerRef}>
+          {overVideo && videoId && <VideoBackdrop videoId={videoId} />}
           {!isFullscreen && (
             <div className="absolute bottom-4 left-4 z-12">
-              <LyricsOffset value={ahead} onChange={setAhead} approximate={approximate} videoUrl={videoUrl} />
+              <LyricsOffset value={ahead} onChange={setAhead} approximate={approximate} hasVideo={!!videoId} />
             </div>
           )}
           {currentTrack?.orderedBy && (
@@ -161,7 +167,7 @@ export default function LyricsView() {
             >
               <div className="mx-auto max-w-6xl">
                 <div className="mb-3 flex items-center justify-between">
-                  <LyricsOffset value={ahead} onChange={setAhead} approximate={approximate} videoUrl={videoUrl} />
+                  <LyricsOffset value={ahead} onChange={setAhead} approximate={approximate} hasVideo={!!videoId} />
                   <IconButton
                     aria-label={t('lyrics.exitFullscreen')}
                     className="bg-black/40 text-white backdrop-blur hover:bg-black/60"
@@ -178,8 +184,8 @@ export default function LyricsView() {
           )}
           <AppScrollbar
             ref={scrollbarRef}
-            className={['w-full h-full px-10', isFullscreen ? 'py-[25%]' : ''].join(' ')}
-            style={{ color, backgroundColor: bgColor }}
+            className={['relative z-[1] w-full h-full px-10', isFullscreen ? 'py-[25%]' : ''].join(' ')}
+            style={{ color: overVideo ? '#fff' : color, backgroundColor: overVideo ? 'transparent' : bgColor }}
           >
             {syncedLyrics.length > 0 ? (
               syncedLyrics.map((line, i) => (
@@ -197,7 +203,13 @@ export default function LyricsView() {
                     }}
                     onClick={handleLineClick.bind(null, i)}
                   >
-                    {line.text === '' ? '♪' : line.text}
+                    {wordHighlight && i === currentLine && line.words?.length ? (
+                      <WordLine words={line.words} delay={lyricsDelay} progress={progress} dimColor={overVideo ? 'rgba(255,255,255,0.7)' : color} />
+                    ) : line.text === '' ? (
+                      '♪'
+                    ) : (
+                      line.text
+                    )}
 
                     {line.romanized && showTranslatinon && (
                       <>

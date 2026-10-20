@@ -47,6 +47,8 @@ export default function SettingsDialog() {
   const theme = useSettingStore((state) => state.theme);
   const toggleTheme = useSettingStore((state) => state.toggleTheme);
   const showTranslatinon = useSettingStore((state) => state.showTranslatinon);
+  const wordHighlight = useSettingStore((state) => state.wordHighlight);
+  const setWordHighlight = useSettingStore((state) => state.setWordHighlight);
   const setShowTranslatinon = useSettingStore((state) => state.setShowTranslatinon);
   const nickName = useRoomStore((state) => state.nickname);
   const setNickname = useRoomStore((state) => state.setNickname);
@@ -121,6 +123,9 @@ export default function SettingsDialog() {
             description={t('settings.romanizationHint')}
           >
             <AppSwitch checked={showTranslatinon} onCheckedChange={setShowTranslatinon} />
+          </Row>
+          <Row title={t('settings.wordHighlight')} description={t('settings.wordHighlightHint')}>
+            <AppSwitch checked={wordHighlight} onCheckedChange={setWordHighlight} />
           </Row>
         </Section>
 

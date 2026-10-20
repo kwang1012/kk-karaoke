@@ -1,4 +1,4 @@
-import { Home, ListMusic, MicVocal, Search } from 'lucide-react';
+import { Home, LibraryBig, ListMusic, MicVocal, Search } from 'lucide-react';
 import { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from 'src/lib/utils';
@@ -7,6 +7,7 @@ import { useT, type TranslationKey } from 'src/i18n';
 const items: { label: TranslationKey; path: string; icon: typeof Home }[] = [
   { label: 'nav.browse', path: '/', icon: Home },
   { label: 'nav.search', path: '/search', icon: Search },
+  { label: 'nav.library', path: '/library', icon: LibraryBig },
   { label: 'nav.queue', path: '/play', icon: ListMusic },
   { label: 'nav.lyrics', path: '/lyrics', icon: MicVocal },
 ];
@@ -20,8 +21,9 @@ export default function AppNavigation() {
     const { pathname } = location;
     if (pathname === '/' || pathname.startsWith('/playlist')) return 0;
     if (pathname.startsWith('/search')) return 1;
-    if (pathname.startsWith('/play')) return 2;
-    if (pathname.startsWith('/lyrics')) return 3;
+    if (pathname.startsWith('/library')) return 2;
+    if (pathname.startsWith('/play')) return 3;
+    if (pathname.startsWith('/lyrics')) return 4;
   }, [location.pathname]);
 
   return (
@@ -30,7 +32,7 @@ export default function AppNavigation() {
         <button
           key={label}
           className={cn(
-            'flex min-w-20 max-w-32 flex-1 flex-col items-center justify-center gap-0.5 px-3 text-muted-foreground transition-colors',
+            'flex min-w-14 max-w-28 flex-1 flex-col items-center justify-center gap-0.5 px-3 text-muted-foreground transition-colors',
             selectedIndex === index && 'text-primary'
           )}
           onClick={() => location.pathname !== path && navigate(path)}

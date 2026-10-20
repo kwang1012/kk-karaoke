@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { api } from 'src/utils/api';
 import placeholder from 'src/assets/placeholder.png';
 import Carousel, { CarouselItem } from 'src/components/Carousel';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import AppScrollbar from 'src/components/Scrollbar';
 import { Skeleton } from 'src/components/ui/skeleton';
@@ -184,9 +184,14 @@ export function MainView() {
         {/* Ready to sing */}
         {readyList.length > 0 && (
           <section className="mt-8 px-4 md:px-8">
-            <div className="mb-2 flex items-baseline justify-between">
-              <h2 className="text-lg font-semibold tracking-tight">{t('home.ready')}</h2>
-              <span className="text-xs text-muted-foreground">{t('home.readyHint')}</span>
+            <div className="mb-2 flex items-end justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold tracking-tight">{t('home.ready')}</h2>
+                <span className="text-xs text-muted-foreground">{t('home.readyHint')}</span>
+              </div>
+              <Link to="/library" className="shrink-0 text-sm font-medium text-primary hover:underline">
+                {t('library.seeAll')} →
+              </Link>
             </div>
             <div className="grid gap-x-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {readyList.map((track) => (

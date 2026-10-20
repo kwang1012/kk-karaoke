@@ -1,5 +1,6 @@
-import { ChevronLeft, ChevronRight, Moon, Settings, Sun, UserPlus } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { ChevronLeft, ChevronRight, LibraryBig, Moon, Settings, Sun, UserPlus } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { cn } from 'src/lib/utils';
 import Logo from './Logo';
 import SearchBox from './SearchBox';
 import { Button, IconButton } from 'src/components/ui/button';
@@ -17,6 +18,7 @@ const isElectron = navigator.userAgent.toLowerCase().includes('electron');
 export default function TopBar() {
   const t = useT();
   const navigate = useNavigate();
+  const onLibrary = useLocation().pathname.startsWith('/library');
   const { isTop, isBottom } = useHistoryBoundaries();
 
   const setSearching = useAppStore((state) => state.setSearching);
@@ -60,6 +62,18 @@ export default function TopBar() {
         <IconButton aria-label={t('nav.forward')} disabled={isTop} onClick={() => navigate(1)}>
           <ChevronRight className="size-5" />
         </IconButton>
+        <Tooltip title={t('nav.library')} side="bottom">
+          <Link
+            to="/library"
+            aria-label={t('nav.library')}
+            className={cn(
+              'ml-1 inline-flex items-center justify-center rounded-full p-2 transition-colors hover:bg-accent',
+              onLibrary && 'bg-primary/15 text-primary'
+            )}
+          >
+            <LibraryBig className="size-5" />
+          </Link>
+        </Tooltip>
       </div>
 
       <div className="mx-auto w-full max-w-xl">

@@ -5,8 +5,8 @@ import Carousel, { CarouselItem } from '../components/Carousel';
 import SongCard from '../components/SongCard';
 import placeholder from 'src/assets/placeholder.png';
 import AppScrollbar from '../components/Scrollbar';
-import { useNavigate } from 'react-router-dom';
-import { useAppStore } from 'src/store';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAppStore, useTrackStore } from 'src/store';
 import { useBreakpointDown } from 'src/hooks/media';
 import { cn } from 'src/lib/utils';
 import SearchBox from 'src/components/SearchBox';
@@ -116,6 +116,19 @@ export default function SearchView() {
   const onAdd = useDebouncedCallback(addSongToQueue, 100);
   const onInsert = useDebouncedCallback(insertSongToQueue, 100);
 
+  const readyTracks = useTrackStore((state) => state.readyTracks);
+  // songs that are already processed and match the query: they can be sung right away
+  const libraryMatches = useMemo(() => {
+    const needle = searchValue.trim().toLowerCase();
+    if (!needle) return [];
+    const seen = new Set<string>();
+    return Array.from(readyTracks)
+      .filter((track) => {
+        const text = `${track.name} ${track.artists.map((a) => a.name).join(' ')} ${track.album?.name ?? ''}`.toLowerCase();
+        return text.includes(needle) && !seen.has(track.id) && !!seen.add(track.id);
+      })
+      .slice(0, 5);
+  }, [readyTracks, searchValue]);
   const [results, setResults] = useState<any>({});
   const [recent, setRecent] = useState<string[]>(loadRecent);
   const updateRecent = (next: string[]) => {
@@ -214,6 +227,21 @@ export default function SearchView() {
           />
         ) : results ? (
           <div className="pb-8">
+            {libraryMatches.length > 0 && (
+              <div className="px-4 md:px-8">
+                <div className="mt-2 flex items-baseline justify-between">
+                  <h2 className="text-lg font-semibold tracking-tight">{t('search.inLibrary')}</h2>
+                  <Link to="/library" className="text-sm font-medium text-primary hover:underline">
+                    {t('library.seeAll')} →
+                  </Link>
+                </div>
+                <div className="mt-2">
+                  {libraryMatches.map((track) => (
+                    <SongCard key={track.id} track={track} dense className="mt-1" onAdd={onAdd} onInsert={onInsert} />
+                  ))}
+                </div>
+              </div>
+            )}
             {tracks.length > 0 && (
               <div className="px-4 md:px-8">
                 <h2 className="mt-2 text-lg font-semibold tracking-tight">{t('search.songs')}</h2>

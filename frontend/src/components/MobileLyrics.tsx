@@ -1,6 +1,7 @@
 import AppScrollbar from './Scrollbar';
 import LyricsSkeleton from './LyricsSkeleton';
 import PlainLyrics from './PlainLyrics';
+import WordLine from './WordLine';
 import { useState, useRef, useMemo, useEffect } from 'react';
 import { usePlayer } from 'src/store/player';
 import placeholder from 'src/assets/placeholder.png';
@@ -17,6 +18,7 @@ export default function MobileLyrics({ color, bgColor }: { color?: string; bgCol
   const { progress, currentLine, setCurrentLine, currentTrack, lyrics, seeking, loading } = usePlayer();
   const { seek } = usePlayer();
   const lyricsDelay = useTrackStore((state) => state.lyricsDelays[currentTrack?.id || ''] || 0);
+  const wordHighlight = useSettingStore((state) => state.wordHighlight);
   const plain = useTrackStore((state) => state.plainLyrics[currentTrack?.id || '']);
   const syncedLyrics = useMemo(() => {
     return (
@@ -110,7 +112,13 @@ export default function MobileLyrics({ color, bgColor }: { color?: string; bgCol
               }}
               onClick={handleLineClick.bind(null, i)}
             >
-              {line.text === '' ? '♪' : line.text}
+              {wordHighlight && i === currentLine && line.words?.length ? (
+                <WordLine words={line.words} delay={lyricsDelay} progress={progress} dimColor={color || 'currentColor'} />
+              ) : line.text === '' ? (
+                '♪'
+              ) : (
+                line.text
+              )}
 
               {line.romanized && showTranslatinon && (
                 <>

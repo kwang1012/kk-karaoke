@@ -37,7 +37,7 @@ export default function JoinView() {
   const roomIdToJoin = searchParams.get('room');
   // `?code=` (even empty) means the visitor came to join a room by its short code
   const codeParam = searchParams.get('code');
-  const [code, setCode] = useState(codeParam ?? '');
+  const [code, setCode] = useState((codeParam ?? '').toUpperCase());
   const [codeError, setCodeError] = useState(false);
   const phone = useBreakpointDown('md');
   // A phone that joins someone's room is a remote for it; anything bigger gets the full app.

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { ListMusic, LogOut, Mic, MicOff, Minus, Music, Pause, Play, Plus, Search, SkipBack, SkipForward, Volume1, Volume2 } from 'lucide-react';
+import { Check, ListMusic, LogOut, Mic, MicOff, Minus, Music, Pause, Play, Plus, Search, SkipBack, SkipForward, Volume1, Volume2 } from 'lucide-react';
 import placeholder from 'src/assets/placeholder.png';
 import AppScrollbar from 'src/components/Scrollbar';
+import Queue from 'src/components/Queue';
 import AppSlider from 'src/components/Slider';
 import SongCard from 'src/components/SongCard';
 import TrackQueue from 'src/components/TrackQueue';
@@ -179,6 +180,33 @@ function UpNext() {
   );
 }
 
+/** A search result with a one-tap add (the menu next to it has the rarer "sing it next"). */
+function AddRow({ track, onAdd, onInsert }: { track: Track; onAdd: (track: Track) => void; onInsert: (track: Track) => void }) {
+  const t = useT();
+  const [added, setAdded] = useState(false);
+  useEffect(() => {
+    if (!added) return;
+    const timer = setTimeout(() => setAdded(false), 1500);
+    return () => clearTimeout(timer);
+  }, [added]);
+  return (
+    <div className="mt-1 flex items-center gap-1">
+      <SongCard track={track} dense className="min-w-0 flex-1" onAdd={onAdd} onInsert={onInsert} />
+      <IconButton
+        aria-label={t('song.addToQueue')}
+        disabled={added}
+        className={cn('shrink-0 bg-secondary', added && 'text-primary')}
+        onClick={() => {
+          onAdd(track);
+          setAdded(true);
+        }}
+      >
+        {added ? <Check className="size-5" /> : <Plus className="size-5" />}
+      </IconButton>
+    </div>
+  );
+}
+
 function AddSongs() {
   const t = useT();
   const addSongToQueue = usePlayerStore((state) => state.addSongToQueue);
@@ -241,7 +269,7 @@ function AddSongs() {
           ) : results.length === 0 ? (
             <p className="px-2 pt-6 text-center text-sm text-muted-foreground">{t('remote.noResults')}</p>
           ) : (
-            results.map((track) => <SongCard key={track.id} track={track} dense className="mt-1" onAdd={onAdd} onInsert={onInsert} />)
+            results.map((track) => <AddRow key={track.id} track={track} onAdd={onAdd} onInsert={onInsert} />)
           )}
         </div>
       </AppScrollbar>
@@ -315,6 +343,8 @@ export default function RemoteView() {
           </button>
         ))}
       </nav>
+      {/* owns the websocket queue listener, so it has to stay mounted even though it is not shown */}
+      <Queue hidden />
     </div>
   );
 }

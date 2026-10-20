@@ -203,6 +203,11 @@ class SyncedAudioPlayer {
     throw new Error('Not implemented');
   }
 
+  /** Browsers keep the context suspended until a user gesture; call this from one (e.g. a key press). */
+  resume() {
+    return this.context.resume();
+  }
+
   getCurrentTime(): number {
     return Math.min(
       this.isPlaying ? this.context.currentTime - this.startTime + this.startOffset : this.startOffset,

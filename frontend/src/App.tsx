@@ -6,6 +6,7 @@ import LyricsView from './pages/lyrics';
 import BrowseView, { MainView, topCategoriesQuery } from './pages/browse';
 import PlaylistView from './pages/playlist';
 import SearchView from './pages/search';
+import LibraryView from './pages/library';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Message, useWebSocketStore } from './store/ws';
@@ -26,6 +27,7 @@ import { useLanguageStore } from 'src/i18n';
 // lazily loaded components
 const JoinView = lazy(() => import('./pages/join'));
 const RemoteView = lazy(() => import('./pages/remote'));
+const TvView = lazy(() => import('./pages/tv'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -60,12 +62,14 @@ const AppRouters = () => {
             <Route path="playlist/:id" element={<PlaylistView />} />
             <Route path="album/:id" element={<PlaylistView />} />
             <Route path="search/*" element={<SearchView />} />
+            <Route path="library" element={<LibraryView />} />
             <Route path="lyrics" element={mobile ? <MobileLyricsView /> : <LyricsView />} />
             <Route path="play" element={<PlayView />} />
           </Route>
         </Route>
         <Route path="/lyrics/edit/:trackId?" element={<LyricsEditView />} />
         <Route path="join" element={<JoinView />} />
+        <Route path="tv" element={<TvView />} />
         <Route path="remote" element={isLoggedIn ? <RemoteView /> : <Navigate to="/join" replace />} />
       </Routes>
       </Suspense>

@@ -164,6 +164,9 @@ export const Player = () => {
       if (typeof room.currentTime === 'number') setProgress(room.currentTime);
       if (typeof room.volume === 'number') setVolume(room.volume, true);
       if (typeof room.vocalOn === 'boolean' && room.vocalOn !== vocalOn) toggleVocal(true);
+      if (typeof room.semitone === 'number') setSemitone(room.semitone);
+      if (room.duration > 0) setDuration(room.duration);
+      if (typeof room.pitchShift === 'boolean') setHostPitchShift(room.pitchShift);
     });
   }, [connected, activeRoomId, isOwner]);
 
@@ -233,6 +236,29 @@ export const Player = () => {
     return () => clearInterval(interval);
   }, [playing, duration, seeking, vocalOn, volume, queueIdx, semitone, enabledPitchShift]);
 
+  // Guests learn the length (and whether the key can be changed) from the owner. The periodic
+  // update only runs while playing, so announce them as soon as they are known: a remote that
+  // joins or opens a song while it is paused would otherwise show 0:00.
+  useEffect(() => {
+    if (!isOwner || activeRoomId === 'default' || !duration) return;
+    sendMessage({
+      type: 'jam',
+      action: 'update',
+      force: true, // keep it on the server too, for remotes that join later
+      roomId: activeRoomId,
+      data: {
+        currentTime: syncedPlayer?.getCurrentTime() ?? 0,
+        playing,
+        queueIdx,
+        volume,
+        vocalOn,
+        semitone,
+        duration,
+        pitchShift: enabledPitchShift,
+      },
+    });
+  }, [duration, enabledPitchShift, isOwner, activeRoomId]);
+
   // detect current track change
   useEffect(() => {
     // no next track
@@ -284,7 +310,7 @@ export const Player = () => {
       .then(([_, lyrics, jamState]) => {
         setLyrics(lyrics);
         // until the owner's next update reports the real length, use what the track says
-        setDuration(withAudio ? player.getDuration() : (track.durationMs ?? 0) / 1000);
+        setDuration(withAudio ? player.getDuration() : jamState?.duration || (track.durationMs ?? 0) / 1000);
         if (jamState) {
           const { currentTime, playing, vocalOn, queueIdx: currentIdx } = jamState;
           if (!currentIdx || currentIdx === queueIdx) {

@@ -2,6 +2,7 @@ import { CirclePause, CirclePlay, Mic, MicOff, SkipBack, SkipForward, Volume1, V
 import { IconButton } from 'src/components/ui/button';
 import { useThemeMode } from 'src/hooks/theme';
 import { CircularProgress } from 'src/components/ui/progress';
+import GuideVocalControl from './GuideVocalControl';
 import AppSlider from './Slider';
 import { usePlayer } from 'src/store/player';
 import { useState } from 'react';
@@ -47,10 +48,11 @@ export default function MobileAudioController({ progressOnly }: { progressOnly?:
   };
   return (
     <div className="w-full h-full flex flex-col justify-center">
-      <div className="flex justify-start pt-2">
+      <div className="flex items-center justify-start pt-2">
         <IconButton className="p-0 hover:bg-transparent hover:opacity-90 active:opacity-70" onClick={() => toggleVocal()}>
           {vocalOn ? <Mic className="size-7" color={dark ? '#ffeaed' : '#959595'} /> : <MicOff className="size-7" color="#fa6171" />}
         </IconButton>
+        <GuideVocalControl light className="ml-1" />
       </div>
       <div className="flex flex-col w-full mt-4">
         <AppSlider

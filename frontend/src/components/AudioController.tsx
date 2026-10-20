@@ -10,6 +10,7 @@ import { useNotifyStore } from 'src/store/notify';
 import { useSettingStore } from 'src/store/setting';
 import { cn } from 'src/lib/utils';
 import { CircularProgress } from 'src/components/ui/progress';
+import GuideVocalControl from './GuideVocalControl';
 import { useT } from 'src/i18n';
 
 function formatTime(seconds: number): string {
@@ -24,7 +25,7 @@ export default function AudioController() {
   const { currentTrack, progress, seeking, setSeeking, duration, playing, seek } = usePlayer();
   const { play, pause, next, previous } = usePlayer();
   const { loading, loadProgress, loadError, retryLoad } = usePlayer();
-  const { vocalOn, toggleVocal, volume, setVolume, enabledPitchShift, semitone } = usePlayer();
+  const { vocalOn, guideLevel, toggleVocal, volume, setVolume, enabledPitchShift, semitone } = usePlayer();
   const { increaseSemitone, decreaseSemitone } = usePlayer();
   const showSnackbar = useNotifyStore((state) => state.showSnackbar);
   const queueOpen = useSettingStore((state) => state.queueOpen);
@@ -142,8 +143,12 @@ export default function AudioController() {
           >
             {vocalOn ? <Mic className="size-4" /> : <MicOff className="size-4" />}
             {vocalOn ? t('player.vocal') : t('player.karaoke')}
+            {!vocalOn && guideLevel > 0 && (
+              <span className="tabular-nums opacity-70">{Math.round(guideLevel * 100)}%</span>
+            )}
           </button>
         </Tooltip>
+        <GuideVocalControl className="-ml-1" />
         {enabledPitchShift && (
           <div className="ml-1 flex items-center rounded-full border text-xs">
             <IconButton

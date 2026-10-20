@@ -7,6 +7,8 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 export interface RoomState {
   roomId?: string; // The ID of the room
   joinedRoom?: string;
+  code?: string; // The short code others can type to join the room
+  setCode: (code?: string) => void;
   avatar?: string; // The avatar of the user
   setAvatar: (avatar: string) => void; // Set the avatar of the user
   nickname?: string; // The nickname of the user
@@ -28,6 +30,7 @@ export const useRoomStore = create<RoomState>()(
   persist(
     (set, get) => ({
       participants: [],
+      setCode: (code?: string) => set({ code }),
       currentTime: 0,
       isOn: false,
       playing: false,
@@ -78,6 +81,7 @@ export const useRoomStore = create<RoomState>()(
             isOn: data.isOn,
             playing: data.playing,
             volume: data.volume,
+            code: data.code ?? undefined,
           });
           return data;
         } catch (error) {

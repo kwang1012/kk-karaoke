@@ -25,6 +25,7 @@ import { useLanguageStore } from 'src/i18n';
 
 // lazily loaded components
 const JoinView = lazy(() => import('./pages/join'));
+const RemoteView = lazy(() => import('./pages/remote'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -65,6 +66,7 @@ const AppRouters = () => {
         </Route>
         <Route path="/lyrics/edit/:trackId?" element={<LyricsEditView />} />
         <Route path="join" element={<JoinView />} />
+        <Route path="remote" element={isLoggedIn ? <RemoteView /> : <Navigate to="/join" replace />} />
       </Routes>
       </Suspense>
     </Router>

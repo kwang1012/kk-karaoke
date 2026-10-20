@@ -48,6 +48,9 @@ export const Player = () => {
     decreaseVolume,
     increaseSemitone,
     decreaseSemitone,
+    semitone,
+    setSemitone,
+    setHostPitchShift,
     seek,
     next,
     previous,
@@ -58,6 +61,8 @@ export const Player = () => {
   const activeRoomId = useActiveRoomId();
   const songStatus = useTrackStore((state) => state.songStatus);
   const { isOwner } = useJam();
+  // the track whose stems this tab has loaded or is loading (guests never load any)
+  const audioLoadedFor = useRef<string | null>(null);
   const {
     data: { index, tracks },
     refetch: refetchQueue,
@@ -99,7 +104,11 @@ export const Player = () => {
           if (typeof data.queueIdx === 'number' && data.queueIdx !== queueIdx) setQueueIdx(data.queueIdx);
           if (typeof data.volume === 'number' && data.volume !== volume) setVolume(data.volume, true);
           if (typeof data.vocalOn === 'boolean' && data.vocalOn !== vocalOn) toggleVocal(true);
+          if (typeof data.semitone === 'number' && data.semitone !== semitone) setSemitone(data.semitone);
         }
+        // A guest has no audio of its own, so the owner's duration is the only reliable one.
+        if (typeof data.duration === 'number' && data.duration > 0 && data.duration !== duration) setDuration(data.duration);
+        if (typeof data.pitchShift === 'boolean') setHostPitchShift(data.pitchShift);
       }
       if (action == 'control') {
         console.log('Operation:', op, 'data:', data);
@@ -208,6 +217,9 @@ export const Player = () => {
               queueIdx,
               volume,
               vocalOn,
+              semitone,
+              duration,
+              pitchShift: enabledPitchShift,
             },
           });
         }
@@ -219,7 +231,7 @@ export const Player = () => {
     }, 200);
 
     return () => clearInterval(interval);
-  }, [playing, duration, seeking, vocalOn, volume, queueIdx]);
+  }, [playing, duration, seeking, vocalOn, volume, queueIdx, semitone, enabledPitchShift]);
 
   // detect current track change
   useEffect(() => {
@@ -235,8 +247,8 @@ export const Player = () => {
       return;
     }
 
-    // prevent re-initialization on every render
-    if (currentTrack.id === lastSongId) return;
+    // prevent re-initialization on every render (but a guest that becomes the owner has no audio yet)
+    if (currentTrack.id === lastSongId && (!isOwner || audioLoadedFor.current === currentTrack.id)) return;
 
     // Skip if the track is still processing. songStatus is only known for this session, so after
     // a reload fall back to the status the server stored with the queue item.
@@ -257,21 +269,26 @@ export const Player = () => {
     load(syncedPlayer, currentTrack);
 
     setLastSongId(currentTrack.id);
-  }, [currentTrack?.id, songStatus[currentTrack?.id || ''], loadAttempt]);
+  }, [currentTrack?.id, songStatus[currentTrack?.id || ''], loadAttempt, isOwner]);
 
   const load = (player: SyncedAudioPlayer, track: Track) => {
+    // Only the owner plays audio, so a guest (typically a phone used as a remote) skips the two
+    // stems of every song: they would cost it two downloads and a decode for nothing.
+    const withAudio = isOwner;
+    if (withAudio) audioLoadedFor.current = track.id;
     Promise.all([
-      player.loadAudio(track, setLoadProgress),
+      withAudio ? player.loadAudio(track, setLoadProgress) : Promise.resolve(),
       fetchLyrics(track.id),
       !lastSongId && fetchRoom(activeRoomId), // fetch jam state only when loading first track
     ])
       .then(([_, lyrics, jamState]) => {
         setLyrics(lyrics);
-        setDuration(player.getDuration());
+        // until the owner's next update reports the real length, use what the track says
+        setDuration(withAudio ? player.getDuration() : (track.durationMs ?? 0) / 1000);
         if (jamState) {
           const { currentTime, playing, vocalOn, queueIdx: currentIdx } = jamState;
           if (!currentIdx || currentIdx === queueIdx) {
-            player.seek(currentTime);
+            if (withAudio) player.seek(currentTime);
             setProgress(currentTime);
           }
           setVocalOn(vocalOn);
@@ -292,8 +309,10 @@ export const Player = () => {
         setLoading(false);
         setLoadProgress(null);
         // only now warm the neighbours, so they do not compete with the current track for bandwidth
-        if (nextTrack) player.preload(nextTrack);
-        if (prevTrack) player.preload(prevTrack);
+        if (withAudio) {
+          if (nextTrack) player.preload(nextTrack);
+          if (prevTrack) player.preload(prevTrack);
+        }
       });
   };
 

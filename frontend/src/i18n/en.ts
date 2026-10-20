@@ -99,6 +99,8 @@ export const en = {
   'player.editLyrics': 'Edit lyrics',
   'player.showQueue': 'Show queue',
   'player.hideQueue': 'Hide queue',
+  'player.guide': 'Guide vocal',
+  'player.guideHint': 'Keep a faint original vocal to help you follow the melody. 0% removes it completely.',
   'player.loading': 'Loading…',
   'player.loadingPercent': 'Loading… {percent}%',
   'player.loadFailed': "Couldn't load this song.",
@@ -124,6 +126,8 @@ export const en = {
   'invite.copied': 'Copied',
   'invite.inRoom': 'In the room ({count})',
   'invite.alone': 'Just you so far.',
+  'invite.code': 'Room code',
+  'invite.haveCode': 'Have a room code? Join one',
 
   // lyrics
   'lyrics.none': 'No lyrics available for this track.',
@@ -161,6 +165,9 @@ export const en = {
   'join.avatarRequired': 'Pick an avatar',
   'join.newAvatars': 'New avatars',
   'join.start': 'Start singing',
+  'join.code': 'Room code',
+  'join.codeHint': 'Optional. Enter the code shown on the TV to join that room.',
+  'join.codeInvalid': 'No room has that code',
 
   // settings
   'settings.title': 'Settings',
@@ -191,6 +198,31 @@ export const en = {
   'settings.newAvatars': 'New avatars',
 
   // misc
+  // remote (phone as the remote of a room)
+  'remote.nowPlaying': 'Now playing',
+  'remote.queue': 'Queue',
+  'remote.add': 'Add songs',
+  'remote.room': 'Room {code}',
+  'remote.fullApp': 'Full app',
+  'remote.leave': 'Leave room',
+  'remote.nothingPlaying': 'Nothing playing yet',
+  'remote.nothingPlayingHint': 'Add a song and it starts here.',
+  'remote.addedBy': 'Added by {name}',
+  'remote.vocals': 'Guide vocals',
+  'remote.key': 'Key',
+  'remote.volume': 'Volume',
+  'remote.upNext': 'Up next',
+  'remote.queueEmpty': 'The queue is empty.',
+  'remote.searchPlaceholder': 'Search for a song or artist',
+  'remote.searchHint': 'Search, then tap the menu on a song to queue it or sing it next.',
+  'remote.noResults': 'No songs found.',
+  'remote.searching': 'Searching…',
+  'remote.reconnecting': 'Reconnecting…',
+  'remote.play': 'Play',
+  'remote.pause': 'Pause',
+  'remote.next': 'Next song',
+  'remote.previous': 'Previous song',
+
   'carousel.left': 'Scroll left',
   'carousel.right': 'Scroll right',
 } as const;

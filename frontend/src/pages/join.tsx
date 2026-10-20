@@ -9,6 +9,8 @@ import { useEffect, useState } from 'react';
 import { api } from 'src/utils/api';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useRoomStore } from 'src/store/room';
+import { resolveRoomCode } from 'src/apis/room';
+import { useBreakpointDown } from 'src/hooks/media';
 import { generateAvatars, generateNickname } from 'src/utils';
 import Logo from 'src/components/Logo';
 import { RefreshCw } from 'lucide-react';
@@ -33,22 +35,39 @@ export default function JoinView() {
 
   const [searchParams] = useSearchParams();
   const roomIdToJoin = searchParams.get('room');
+  // `?code=` (even empty) means the visitor came to join a room by its short code
+  const codeParam = searchParams.get('code');
+  const [code, setCode] = useState(codeParam ?? '');
+  const [codeError, setCodeError] = useState(false);
+  const phone = useBreakpointDown('md');
+  // A phone that joins someone's room is a remote for it; anything bigger gets the full app.
+  const afterJoin = (joined: boolean) => (joined && phone ? '/remote' : '/');
+
+  // Point this device at the room behind a code. Returns false when no room has that code.
+  const joinByCode = async (value: string) => {
+    const resolved = await resolveRoomCode(value);
+    if (!resolved) return false;
+    setJoinedRoom(resolved);
+    return true;
+  };
 
   useEffect(() => {
-    if (!roomIdToJoin) {
-      // initial join
-      // has alreay joined before
-      if (roomId && nickName && avatar) {
-        navigate('/');
-        return;
-      }
-    } else {
+    const hasProfile = !!(roomId && nickName && avatar);
+    if (hasProfile && roomIdToJoin) {
       // join a jam from link
-      if (roomId && nickName && avatar) {
-        setJoinedRoom(roomIdToJoin);
-        navigate('/');
-        return;
-      }
+      setJoinedRoom(roomIdToJoin);
+      navigate(afterJoin(true));
+      return;
+    }
+    if (hasProfile && codeParam) {
+      joinByCode(codeParam).then((joined) => {
+        if (joined) navigate(afterJoin(true));
+        else setCodeError(true);
+      });
+    } else if (hasProfile && codeParam === null && !roomIdToJoin) {
+      // has already joined before
+      navigate('/');
+      return;
     }
     handleGenerateAvatars();
   }, []);
@@ -67,7 +86,7 @@ export default function JoinView() {
     setNameError(false);
   };
 
-  const handleJoin = () => {
+  const handleJoin = async () => {
     if (!nickname) {
       setNameError(true);
       return;
@@ -76,8 +95,16 @@ export default function JoinView() {
       setAvatarError(true);
       return;
     }
+    let joined = false;
     if (roomIdToJoin) {
       setJoinedRoom(roomIdToJoin);
+      joined = true;
+    } else if (code.trim()) {
+      joined = await joinByCode(code);
+      if (!joined) {
+        setCodeError(true);
+        return;
+      }
     }
     if (!roomId) {
       setRoomId(crypto.randomUUID());
@@ -88,7 +115,7 @@ export default function JoinView() {
     if (!nickName) {
       setNicknameInStore(nickname);
     }
-    navigate('/', { replace: true });
+    navigate(afterJoin(joined), { replace: true });
   };
   return (
     <div className="relative flex h-full w-full items-center justify-center overflow-y-auto px-4 py-8">
@@ -140,6 +167,31 @@ export default function JoinView() {
           />
           {avatarError && <p className="mt-1 text-xs text-destructive">{t('join.avatarRequired')}</p>}
         </div>
+
+        {!roomIdToJoin && (
+          <div className="mt-6">
+            <label className="text-sm font-medium" htmlFor="room-code">
+              {t('join.code')}
+            </label>
+            <Input
+              id="room-code"
+              value={code}
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
+              maxLength={8}
+              aria-invalid={codeError}
+              onChange={(e) => {
+                setCode(e.target.value.toUpperCase());
+                setCodeError(false);
+              }}
+              className={cn('mt-2 h-11 font-mono tracking-[0.3em] uppercase', codeError && 'border-destructive')}
+            />
+            <p className={cn('mt-1 text-xs', codeError ? 'text-destructive' : 'text-muted-foreground')}>
+              {codeError ? t('join.codeInvalid') : t('join.codeHint')}
+            </p>
+          </div>
+        )}
 
         <Button disabled={!nickname || !selectedAvatar} className="mt-8 w-full" size="lg" onClick={handleJoin}>
           {t('join.start')}

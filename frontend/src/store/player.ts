@@ -40,7 +40,11 @@ type PlayerStore = {
   seeking: boolean;
   setSeeking: (seeking: boolean) => void;
   enabledPitchShift: boolean; // Whether pitch shift is enabled
+  hostPitchShift: boolean; // Whether the room's owner can change the key (known to guests only)
+  setHostPitchShift: (enabled: boolean) => void;
   setEnabledPitchShift: (enabled: boolean) => void; // Set pitch shift enabled state
+  guideLevel: number; // 0..1: how much of the original vocal stays audible in karaoke mode
+  setGuideLevel: (level: number) => void;
   vocalOn: boolean; // Set vocal on
   setVocalOn: (enabled: boolean) => void; // Set vocal on state
   toggleVocalOn: () => void; // Toggle vocal on state
@@ -92,6 +96,10 @@ export const usePlayerStore = create<PlayerStore>()(
       playing: false,
       setPlaying: (playing: boolean) => set({ playing }),
       enabledPitchShift: false,
+      hostPitchShift: false,
+      setHostPitchShift: (hostPitchShift: boolean) => set({ hostPitchShift }),
+      guideLevel: 0,
+      setGuideLevel: (guideLevel: number) => set({ guideLevel }),
       vocalOn: false,
       setVocalOn: (enabled: boolean) => set({ vocalOn: enabled }),
       toggleVocalOn: () => set((state) => ({ vocalOn: !state.vocalOn })),
@@ -244,6 +252,7 @@ export const usePlayerStore = create<PlayerStore>()(
         semitone: state.semitone,
         enabledPitchShift: state.enabledPitchShift,
         vocalOn: state.vocalOn,
+        guideLevel: state.guideLevel,
       }),
     }
   )
@@ -258,6 +267,8 @@ export const usePlayer = () => {
     volume,
     setVolume,
     vocalOn,
+    guideLevel,
+    setGuideLevel,
     toggleVocalOn,
     semitone,
     setSemitone,
@@ -328,7 +339,7 @@ export const usePlayer = () => {
     if (!currentTrack || !syncedPlayer) return;
 
     if (isOwner) {
-      syncedPlayer.setVolume(volume, vocalOn ? volume : 0);
+      syncedPlayer.setVolume(volume, vocalVolume(volume, vocalOn));
       syncedPlayer.play();
     }
     setPlaying(true);
@@ -357,10 +368,17 @@ export const usePlayer = () => {
     });
   };
 
+  // Vocal gain: full when the vocal is on, otherwise only the guide level (0 = completely removed).
+  const vocalVolume = (masterVolume: number, on: boolean) => (on ? masterVolume : masterVolume * guideLevel);
+
+  const changeGuideLevel = (level: number) => {
+    setGuideLevel(level);
+    if (isOwner && syncedPlayer && !vocalOn) syncedPlayer.setVolume(volume, volume * level);
+  };
+
   const toggleVocal = (isCallback: boolean = false) => {
     if (isOwner && syncedPlayer) {
-      const newVolume = vocalOn ? 0 : volume;
-      syncedPlayer.setVolume(volume, newVolume);
+      syncedPlayer.setVolume(volume, vocalVolume(volume, !vocalOn));
     }
 
     toggleVocalOn();
@@ -375,7 +393,7 @@ export const usePlayer = () => {
 
   const setAudioVolume = (value: number, isCallback: boolean = false) => {
     if (isOwner && syncedPlayer) {
-      syncedPlayer.setVolume(value, vocalOn ? value : 0);
+      syncedPlayer.setVolume(value, vocalVolume(value, vocalOn));
     }
     setVolume(value);
     if (isCallback) return;
@@ -392,7 +410,7 @@ export const usePlayer = () => {
   const increaseVolume = (isCallback: boolean = false) => {
     const newVolume = Math.min(1, volume + 0.1);
     if (isOwner && syncedPlayer) {
-      syncedPlayer.setVolume(newVolume, vocalOn ? newVolume : 0);
+      syncedPlayer.setVolume(newVolume, vocalVolume(newVolume, vocalOn));
     }
     // setAudioVolume already broadcasts the absolute value. Also sending a relative
     // increase made every receiver apply the change twice.
@@ -401,7 +419,7 @@ export const usePlayer = () => {
   const decreaseVolume = (isCallback: boolean = false) => {
     const newVolume = Math.max(0, volume - 0.1);
     if (isOwner && syncedPlayer) {
-      syncedPlayer.setVolume(newVolume, vocalOn ? newVolume : 0);
+      syncedPlayer.setVolume(newVolume, vocalVolume(newVolume, vocalOn));
     }
     setAudioVolume(newVolume, isCallback);
   };
@@ -462,6 +480,8 @@ export const usePlayer = () => {
     playAudio,
     pauseAudio,
     vocalOn,
+    guideLevel,
+    setGuideLevel: changeGuideLevel,
     toggleVocal,
     volume,
     setVolume: setAudioVolume,

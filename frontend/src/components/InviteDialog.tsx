@@ -1,5 +1,6 @@
 import { Check, Copy, UsersRound } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import QRCode from 'react-qr-code';
 import { Avatar, AvatarFallback, AvatarImage } from 'src/components/ui/avatar';
 import { Button } from 'src/components/ui/button';
@@ -7,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from 'src/components/ui/input';
 import { useInvite } from 'src/hooks/invite';
 import { useT } from 'src/i18n';
-import { useRoomStore } from 'src/store/room';
+import { useActiveRoomId, useRoomStore } from 'src/store/room';
 import { useSettingStore } from 'src/store/setting';
 import { copyToClipboard } from 'src/utils';
 
@@ -16,10 +17,22 @@ export default function InviteDialog() {
   const open = useSettingStore((state) => state.inviteOpen);
   const setOpen = useSettingStore((state) => state.setInviteOpen);
   const participants = useRoomStore((state) => state.participants);
-  const { inRoom, joinURL, startRoom } = useInvite();
+  const { inRoom, joinURL, code, startRoom } = useInvite();
+  const fetchRoom = useRoomStore((state) => state.fetchRoom);
+  const activeRoomId = useActiveRoomId();
+  const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   const [starting, setStarting] = useState(false);
 
+  // the code is kept by the server; fetch it when the dialog opens (e.g. after a reload)
+  useEffect(() => {
+    if (open && inRoom) fetchRoom(activeRoomId);
+  }, [open, inRoom, activeRoomId]);
+
+  const joinWithCode = () => {
+    setOpen(false);
+    navigate('/join?code=');
+  };
   const copy = () => {
     copyToClipboard(joinURL)
       .then(() => {
@@ -49,6 +62,14 @@ export default function InviteDialog() {
               <div className="rounded-2xl bg-white p-4 shadow-sm">
                 <QRCode value={joinURL} size={176} />
               </div>
+              {code && (
+                <div className="flex flex-col items-center">
+                  <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{t('invite.code')}</span>
+                  <span className="font-mono text-4xl font-bold tracking-[0.3em] pl-[0.3em]" aria-label={code.split('').join(' ')}>
+                    {code}
+                  </span>
+                </div>
+              )}
               <div className="flex w-full gap-2">
                 <Input readOnly value={joinURL} className="select-all" onFocus={(e) => e.currentTarget.select()} />
                 <Button variant="outline" className="shrink-0" onClick={copy}>
@@ -78,9 +99,14 @@ export default function InviteDialog() {
               </div>
             </>
           ) : (
-            <Button size="lg" className="w-full" disabled={starting} onClick={start}>
-              <UsersRound /> {t('invite.start')}
-            </Button>
+            <>
+              <Button size="lg" className="w-full" disabled={starting} onClick={start}>
+                <UsersRound /> {t('invite.start')}
+              </Button>
+              <button className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline" onClick={joinWithCode}>
+                {t('invite.haveCode')}
+              </button>
+            </>
           )}
         </div>
       </DialogContent>

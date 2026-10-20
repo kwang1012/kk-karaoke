@@ -27,6 +27,7 @@ export const fetchLyrics = async (songId: string) => {
       // The server stores one delay per track, shared by everyone.
       useTrackStore.getState().setLyricsDelay(songId, data.delay ?? 0);
       useTrackStore.getState().setLyricsConfidence(songId, data.confidence ?? null);
+      useTrackStore.getState().setPlainLyrics(songId, data.plain ?? null);
       return data.lyrics;
     })
     .catch((error) => {

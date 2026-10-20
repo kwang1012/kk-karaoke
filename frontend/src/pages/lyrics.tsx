@@ -12,6 +12,7 @@ import AudioController from 'src/components/AudioController';
 import { useIdle } from 'src/hooks/idle';
 import LyricsOffset from 'src/components/LyricsOffset';
 import LyricsSkeleton from 'src/components/LyricsSkeleton';
+import PlainLyrics from 'src/components/PlainLyrics';
 import { useLyricsOffset } from 'src/hooks/lyricsOffset';
 import { useT } from 'src/i18n';
 
@@ -23,6 +24,7 @@ export default function LyricsView() {
   const { progress, currentLine, setCurrentLine, currentTrack, lyrics, seeking, loading } = usePlayer();
   const { seek } = usePlayer();
   const lyricsDelay = useTrackStore((state) => state.lyricsDelays[currentTrack?.id || ''] || 0);
+  const plain = useTrackStore((state) => state.plainLyrics[currentTrack?.id || '']);
   // How many seconds earlier the lyrics are shown, derived from the shared per-track delay.
   const { ahead, setAhead, approximate } = useLyricsOffset();
   const syncedLyrics = useMemo(() => {
@@ -206,6 +208,8 @@ export default function LyricsView() {
                   </span>
                 </div>
               ))
+            ) : plain ? (
+              <PlainLyrics text={plain} className="mx-16 my-10 text-[2vw]" />
             ) : (
               <div className="mt-24 text-center text-3xl font-bold" style={{ color }}>
                 {loading ? <LyricsSkeleton className="mx-auto max-w-3xl py-0" /> : <p>{currentTrack ? t('lyrics.none') : t('lyrics.start')}</p>}

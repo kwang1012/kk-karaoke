@@ -1,5 +1,6 @@
 import AppScrollbar from './Scrollbar';
 import LyricsSkeleton from './LyricsSkeleton';
+import PlainLyrics from './PlainLyrics';
 import { useState, useRef, useMemo, useEffect } from 'react';
 import { usePlayer } from 'src/store/player';
 import placeholder from 'src/assets/placeholder.png';
@@ -16,6 +17,7 @@ export default function MobileLyrics({ color, bgColor }: { color?: string; bgCol
   const { progress, currentLine, setCurrentLine, currentTrack, lyrics, seeking, loading } = usePlayer();
   const { seek } = usePlayer();
   const lyricsDelay = useTrackStore((state) => state.lyricsDelays[currentTrack?.id || ''] || 0);
+  const plain = useTrackStore((state) => state.plainLyrics[currentTrack?.id || '']);
   const syncedLyrics = useMemo(() => {
     return (
       lyrics?.map((line) => {
@@ -119,6 +121,8 @@ export default function MobileLyrics({ color, bgColor }: { color?: string; bgCol
             </span>
           </div>
         ))
+      ) : plain ? (
+        <PlainLyrics text={plain} className="m-5 text-2xl" />
       ) : (
         <div className="text-center mt-20 text-4xl font-bold" style={{ color }}>
           {loading ? <LyricsSkeleton className="px-2 py-0" /> : <p>{currentTrack ? t('lyrics.none') : t('lyrics.start')}</p>}

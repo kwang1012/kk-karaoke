@@ -32,6 +32,7 @@ from services.downloader import (
     _convert_lrc_to_traditional,
     _fetch_lrclib,
     _has_simplified_chinese,
+    fetch_lrclib_record,
     search_synced_lyrics,
 )
 from utils import LYRICS_DIR
@@ -41,7 +42,8 @@ log = logging.getLogger(__name__)
 # verified:    two independent sources agree on the timing
 # synced:      one source that is tied to the audio (same videoId, or LRCLib matched on duration)
 # approximate: timing from a free-text search; may be for a different version of the song
-Confidence = Literal["verified", "synced", "approximate"]
+# unsynced:    words only, no timing (shown as static text)
+Confidence = Literal["verified", "synced", "approximate", "unsynced"]
 
 # YouTube Music's duration for the chosen song may differ from Spotify's by a little
 # (silence at the ends); beyond this it is a different cut.
@@ -53,6 +55,7 @@ MIN_MATCHED_LINES = 5
 Lines = list[tuple[float, str]]
 
 _t2s = opencc.OpenCC("t2s").convert
+_t2tw = opencc.OpenCC("s2t").convert
 _ytm: Optional[YTMusic] = None
 
 
@@ -247,6 +250,47 @@ def find_lyrics(
     return None
 
 
+@dataclass
+class PlainLyrics:
+    text: str
+    source: str
+    video_id: Optional[str] = None
+
+
+def find_plain_lyrics(
+    title: str,
+    artist: str,
+    album: Optional[str],
+    duration_s: Optional[float],
+    recording: Optional[Recording],
+) -> Optional[PlainLyrics]:
+    """Last resort when nothing is timed: the words alone are still worth showing."""
+    video_id = recording.video_id if recording else None
+    text, source = None, ""
+    if video_id:
+        text, source = fetch_ytmusic_plain(video_id), "ytmusic"
+    if not text and artist:
+        record = fetch_lrclib_record(title, artist, album, round(duration_s) if duration_s else None)
+        text, source = (record or {}).get("plainLyrics"), "lrclib"
+    if not text or not text.strip():
+        return None
+    text = text.strip()
+    if _has_simplified_chinese(text):
+        text = _t2tw(text)
+    return PlainLyrics(text, source, video_id)
+
+
+def fetch_ytmusic_plain(video_id: str) -> Optional[str]:
+    try:
+        browse_id = _client().get_watch_playlist(video_id).get("lyrics")
+        res = _client().get_lyrics(browse_id) if browse_id else None
+    except Exception as e:  # noqa: BLE001
+        log.warning("YT Music plain lyrics failed for %s: %r", video_id, e)
+        return None
+    text = res.get("lyrics") if res else None
+    return text if isinstance(text, str) else None
+
+
 def _finish(result: LyricsResult) -> LyricsResult:
     if _has_simplified_chinese(result.lrc):
         result.lrc = _convert_lrc_to_traditional(result.lrc)
@@ -268,6 +312,14 @@ def save_result(track_id: str, result: LyricsResult) -> None:
 
 def write_meta(track_id: str, meta: dict) -> None:
     _meta_path(track_id).write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+
+
+def save_plain(track_id: str, plain: PlainLyrics) -> None:
+    """Words without timing live in the sidecar: the .lrc file only ever holds timed lines."""
+    write_meta(track_id, {
+        "source": plain.source, "confidence": "unsynced", "video_id": plain.video_id,
+        "notes": ["No timed lyrics found; showing the words only"], "plain": plain.text,
+    })
 
 
 def read_meta(track_id: str) -> dict:

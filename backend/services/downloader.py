@@ -146,13 +146,13 @@ def _convert_lrc_to_traditional(lrc: str) -> str:
     return '\n'.join(lines)
 
 
-def _fetch_lrclib(
+def fetch_lrclib_record(
     track_name: str,
     artist_name: str,
     album_name: str | None = None,
     duration_s: int | None = None,
-) -> str | None:
-    """Try Lrclib's structured /api/get endpoint for an exact synced lyrics match."""
+) -> dict | None:
+    """LRCLib's structured /api/get: an exact match on title, artist and (when given) duration."""
     params: dict = {
         "track_name": track_name,
         "artist_name": artist_name,
@@ -166,13 +166,21 @@ def _fetch_lrclib(
         with httpx.Client() as client:
             resp = client.get("https://lrclib.net/api/get", params=params, timeout=10)
         if resp.status_code == 200:
-            data = resp.json()
-            synced = data.get("syncedLyrics")
-            if synced:
-                return synced
+            return resp.json()
     except Exception as e:
-        print(f"Lrclib structured lookup failed: {e}")
+        print(f"Lrclib structured lookup failed: {e!r}")
     return None
+
+
+def _fetch_lrclib(
+    track_name: str,
+    artist_name: str,
+    album_name: str | None = None,
+    duration_s: int | None = None,
+) -> str | None:
+    """Synced lyrics from LRCLib's exact match, if it has them."""
+    record = fetch_lrclib_record(track_name, artist_name, album_name, duration_s)
+    return (record or {}).get("syncedLyrics") or None
 
 
 def search_synced_lyrics(search_term: str) -> str | None:

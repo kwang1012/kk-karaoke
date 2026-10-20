@@ -11,7 +11,7 @@ from utils import NO_VOCALS_DIR, LYRICS_DIR, VOCALS_DIR, RAW_AUDIO_DIR
 from models.track import Artist, Track
 from managers.websocket import WebSocketManager
 from services.downloader import download_audio
-from services.lyrics_sources import find_lyrics, read_meta, resolve_recording, save_result, verify_against_audio
+from services.lyrics_sources import find_lyrics, find_plain_lyrics, read_meta, resolve_recording, save_plain, save_result, verify_against_audio
 from services.voice_remover import separate_vocals
 from config import REDIS_HOST, REDIS_PORT
 from managers import r2
@@ -86,7 +86,7 @@ def process_request(track: Union[dict[str, Any], Track]):
 def _process_track(track: Track):
     print("Processing request for track:", track.name)
     search_term = f"{track.name} {' '.join(map(lambda artist: artist.name, track.artists))}"
-    lyrics_exist = Path(LYRICS_DIR, f"{track.id}.lrc").exists()
+    lyrics_exist = Path(LYRICS_DIR, f"{track.id}.lrc").exists() or bool(read_meta(track.id).get("plain"))
     vocals_exist = Path(VOCALS_DIR, f"{track.id}.mp3").exists()
     non_vocals_exist = Path(NO_VOCALS_DIR, f"{track.id}.mp3").exists()
 
@@ -112,7 +112,10 @@ def _process_track(track: Track):
                 save_result(track.id, result)
                 print(f"Lyrics for {track.id}: {result.source} ({result.confidence})")
             else:
-                print(f"No timed lyrics found for {track.id}")
+                plain = find_plain_lyrics(title, artist, album_name, duration_s, recording)
+                if plain:
+                    save_plain(track.id, plain)
+                print(f"No timed lyrics found for {track.id}" + (" (kept the words only)" if plain else ""))
         except Exception as e:
             # Missing lyrics shouldn't stop the track from being playable.
             print(f"Lyrics download failed for {track.id}: {e!r}")

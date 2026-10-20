@@ -3,7 +3,7 @@ import { api } from 'src/utils/api';
 import { create } from 'zustand';
 
 export type SongStatus = 'submitted' | 'downloading_lyrics' | 'downloading_audio' | 'separating' | 'ready' | 'error';
-export type LyricsConfidence = 'verified' | 'synced' | 'approximate';
+export type LyricsConfidence = 'verified' | 'synced' | 'approximate' | 'unsynced';
 export interface TrackStore {
   readyTracks: Set<Track>; // List of tracks that are ready to be played
   addReadyTrack: (track: Track) => void; // Add a track to the list of ready tracks
@@ -12,6 +12,8 @@ export interface TrackStore {
   setLyricsDelay: (songId: string, delay: number) => void; // Set the delay of a track in the queue
   lyricsConfidence: Record<string, LyricsConfidence | null>; // How far to trust each track's lyric timing
   setLyricsConfidence: (songId: string, confidence: LyricsConfidence | null) => void;
+  plainLyrics: Record<string, string | null>; // Words-only lyrics, for tracks with no timed lyrics
+  setPlainLyrics: (songId: string, text: string | null) => void;
   songStatus: Record<string, SongStatus>; // Status of each track in the queue. used for adding track to queue
   setSongStatus: (songId: string, status: SongStatus) => void; // Set the status of a track in the queue
   removeSongStatus: (songId: string) => void; // Remove the status of a track in the queue
@@ -47,6 +49,9 @@ export const useTrackStore = create<TrackStore>((set, get) => ({
   lyricsConfidence: {},
   setLyricsConfidence: (songId: string, confidence: LyricsConfidence | null) =>
     set((state) => ({ lyricsConfidence: { ...state.lyricsConfidence, [songId]: confidence } })),
+  plainLyrics: {},
+  setPlainLyrics: (songId: string, text: string | null) =>
+    set((state) => ({ plainLyrics: { ...state.plainLyrics, [songId]: text } })),
   songStatus: {},
   setSongStatus: (songId: string, status: SongStatus) =>
     set((state) => ({

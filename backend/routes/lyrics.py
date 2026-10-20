@@ -51,6 +51,12 @@ def get_lyrics(
 ):
     file_path = get_lyrics_path(track_id)
     if not file_path:
+        plain = read_meta(track_id).get("plain")
+        if plain:
+            # Words without timing: no lines to highlight, so the client shows them as text.
+            return JSONResponse(content={
+                "lyrics": [], "content": "", "plain": plain, "delay": 0, "confidence": "unsynced",
+            })
         return JSONResponse(status_code=404, content={"error": "Lyrics not found"})
     try:
         romanized_exists = redis_interface.check_romanized_lyrics(track_id)

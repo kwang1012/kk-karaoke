@@ -271,3 +271,52 @@ def test_hand_edited_and_legacy_lyrics_are_left_alone(saved, monkeypatch):
     assert run_check(monkeypatch, _check("corrected", 2.0)) is None
     (saved / "t.meta.json").unlink()
     assert run_check(monkeypatch, _check("corrected", 2.0)) is None
+
+
+# --- words-only fallback -----------------------------------------------------------
+
+@pytest.fixture
+def plain_sources(monkeypatch):
+    def install(ytm=None, lrclib=None):
+        monkeypatch.setattr(ls, "fetch_ytmusic_plain", lambda vid: ytm)
+        monkeypatch.setattr(ls, "fetch_lrclib_record",
+                            lambda *a, **k: {"plainLyrics": lrclib} if lrclib else None)
+    return install
+
+
+def test_plain_prefers_ytmusic(plain_sources):
+    plain_sources(ytm="la la\nla", lrclib="other")
+    p = ls.find_plain_lyrics("S", "A", None, 240, REC)
+    assert (p.text, p.source, p.video_id) == ("la la\nla", "ytmusic", "vid")
+
+
+def test_plain_falls_back_to_lrclib(plain_sources):
+    plain_sources(lrclib="words here")
+    assert ls.find_plain_lyrics("S", "A", None, 240, None).source == "lrclib"
+
+
+def test_plain_none_when_nothing_or_blank(plain_sources):
+    plain_sources()
+    assert ls.find_plain_lyrics("S", "A", None, 240, REC) is None
+    plain_sources(lrclib="   \n ")
+    assert ls.find_plain_lyrics("S", "A", None, 240, REC) is None
+
+
+def test_plain_simplified_chinese_is_converted(plain_sources):
+    plain_sources(ytm="我爱你")
+    assert ls.find_plain_lyrics("S", "A", None, 240, REC).text == "我愛你"
+
+
+def test_save_plain_is_served_as_unsynced(tmp_path, monkeypatch):
+    monkeypatch.setattr(ls, "LYRICS_DIR", str(tmp_path))
+    ls.save_plain("t", ls.PlainLyrics("la la", "ytmusic", "vid"))
+    meta = ls.read_meta("t")
+    assert meta["confidence"] == "unsynced" and meta["plain"] == "la la" and meta["video_id"] == "vid"
+    assert not (tmp_path / "t.lrc").exists()
+
+    import json
+    from routes import lyrics as route
+    monkeypatch.setattr(route, "read_meta", ls.read_meta)
+    monkeypatch.setattr(route, "get_lyrics_path", lambda _id: None)
+    body = json.loads(route.get_lyrics("t", redis_interface=None).body)
+    assert body["plain"] == "la la" and body["lyrics"] == [] and body["confidence"] == "unsynced"

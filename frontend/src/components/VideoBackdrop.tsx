@@ -45,7 +45,7 @@ export default function VideoBackdrop({ videoId }: { videoId: string }) {
   const playerRef = useRef<any>(null);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
-  const { progress, playing, seeking } = usePlayer();
+  const { progress, playing, seeking, loading } = usePlayer();
 
   useEffect(() => {
     let cancelled = false;
@@ -53,10 +53,15 @@ export default function VideoBackdrop({ videoId }: { videoId: string }) {
     setFailed(false);
     loadYouTubeApi()
       .then((YT) => {
-        const host = hostRef.current;
-        if (cancelled || !host) return;
-        const mount = document.createElement('div');
-        host.appendChild(mount);
+    // Every player gets its own wrapper, so tearing it down removes every trace of it. YouTube's
+    // destroy() throws when it runs before the player is ready and leaves its iframe behind: with a
+    // shared container a skipped song's video then stayed stacked above the next one.
+    const wrapper = document.createElement('div');
+    wrapper.className = 'absolute inset-0 [&_iframe]:size-full';
+    hostRef.current?.appendChild(wrapper);
+    const mount = document.createElement('div');
+    wrapper.appendChild(mount);
+        if (cancelled) return;
         playerRef.current = new YT.Player(mount, {
           videoId,
           playerVars: { controls: 0, disablekb: 1, fs: 0, modestbranding: 1, rel: 0, iv_load_policy: 3, playsinline: 1 },
@@ -78,19 +83,22 @@ export default function VideoBackdrop({ videoId }: { videoId: string }) {
       playerRef.current = null;
     };
   }, [videoId]);
+      wrapper.remove();
 
   useEffect(() => {
     const player = playerRef.current;
     if (!ready || !player || seeking) return;
     try {
-      if (!playing) {
+      // Hold the picture until the audio really runs: while the next song is still loading the video
+      // would otherwise play ahead of it and then have to jump back.
+      if (!playing || loading) {
         player.pauseVideo();
         return;
       }
       if (Math.abs(player.getCurrentTime() - progress) > DRIFT_S) player.seekTo(progress, true);
       player.playVideo();
     } catch {}
-  }, [ready, playing, seeking, progress]);
+  }, [ready, playing, seeking, loading, progress]);
 
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden bg-black [container-type:size]">

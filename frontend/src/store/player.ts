@@ -178,10 +178,12 @@ export const usePlayerStore = create<PlayerStore>()(
         const activeRoomId = joinedRoomId || roomId || 'default';
         return pushToQueue(activeRoomId, {
           ...track,
-          ordered_by: {
-            id: roomId,
-            name,
-            avatar,
+          // camelCase on purpose: tracks from the library carry `orderedBy: null`, which the server
+          // would prefer over a snake_case `ordered_by` and so drop who added the song
+          orderedBy: {
+            id: roomId ?? '',
+            name: name ?? '',
+            avatar: avatar ?? '',
           },
         }).then((data) => {
           if (data.isReady) {
@@ -198,10 +200,12 @@ export const usePlayerStore = create<PlayerStore>()(
         const activeRoomId = joinedRoomId || roomId || 'default';
         insertToQueue(activeRoomId, {
           ...track,
-          ordered_by: {
-            id: roomId,
-            name,
-            avatar,
+          // camelCase on purpose: tracks from the library carry `orderedBy: null`, which the server
+          // would prefer over a snake_case `ordered_by` and so drop who added the song
+          orderedBy: {
+            id: roomId ?? '',
+            name: name ?? '',
+            avatar: avatar ?? '',
           },
         }).then((data) => {
           if (data.isReady) {

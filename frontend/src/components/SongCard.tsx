@@ -128,7 +128,8 @@ export default function SongCard({
           {parsedTrack.artists.map((artist) => artist.name).join(', ')}
         </span>
       </div>
-      {hasActions && !disabled && (
+      {/* shown while the song is still processing too: who added it, and a way to remove it */}
+      {hasActions && !disable && (
         <div className="relative flex shrink-0 items-center">
           {track?.orderedBy && (
             <Tooltip title={track.orderedBy.name} placement="top">

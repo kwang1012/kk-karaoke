@@ -22,6 +22,8 @@ def _state_patch(room_id: str, message: dict) -> dict | None:
         return {"currentTime": data["seekTime"]}
     if op == "setVolume" and "volume" in data:
         return {"volume": data["volume"]}
+    if op == "setGuideLevel" and "level" in data:
+        return {"guideLevel": data["level"]}
     if op == "toggleVocal":
         return {"vocalOn": not interface.get_jam_state(room_id).vocal_on}
     return None
@@ -43,6 +45,6 @@ def handle_message(message):
         print("Received jam op:", op)
     patch = _state_patch(room_id, message)
     if patch:
-        interface.create_or_update_jam_state(
-            room_id, patch, force=message.get("action") != "update"
-        )
+        # a one-off update (the owner announcing a new song's length) must not be throttled away
+        force = message.get("action") != "update" or bool(message.get("force"))
+        interface.create_or_update_jam_state(room_id, patch, force=force)

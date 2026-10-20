@@ -67,3 +67,32 @@ def test_use_refreshes_the_expiry():
     jam.redis.ttl.clear()  # type: ignore[attr-defined]
     jam.room_for_code(code)
     assert len(jam.redis.ttl) == 2  # type: ignore[attr-defined]
+
+
+# --- what a remote needs from the owner's state -------------------------------------
+
+class FakeHashRedis(FakeRedis):
+    def __init__(self):
+        super().__init__()
+        self.hashes: dict[str, dict[str, str]] = {}
+
+    def hset(self, key, mapping):
+        self.hashes.setdefault(key, {}).update(mapping)
+
+    def hgetall(self, key):
+        return dict(self.hashes.get(key, {}))
+
+
+def test_late_joining_remote_gets_length_and_key_from_the_server():
+    redis = FakeHashRedis()
+    RedisJamInterface(redis).create_or_update_jam_state(  # type: ignore[arg-type]
+        "room-1", {"duration": 212.5, "pitchShift": True, "semitone": -2}, force=True
+    )
+    state = RedisJamInterface(redis).get_jam_state("room-1")  # type: ignore[arg-type]
+    assert (state.duration, state.pitch_shift, state.semitone) == (212.5, True, -2)
+
+
+def test_guide_level_is_remembered_for_late_joiners():
+    redis = FakeHashRedis()
+    RedisJamInterface(redis).create_or_update_jam_state("room-1", {"guideLevel": 0.35}, force=True)  # type: ignore[arg-type]
+    assert RedisJamInterface(redis).get_jam_state("room-1").guide_level == 0.35  # type: ignore[arg-type]

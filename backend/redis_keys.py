@@ -10,6 +10,10 @@ class RedisKeys:
     # Jam keys
     JAM = "jam:{jam_id}"
 
+    # Short, typeable codes that point at a room (and back)
+    ROOM_CODE = "room_code:{code}"
+    ROOM_CODE_OF = "room:{room_id}:code"
+
     # Track keys
     TRACK_DATA_SET = "track_data:"
     TRACK_DATA = "track_data:{track_id}"
@@ -33,6 +37,14 @@ class RedisKeys:
     @staticmethod
     def jam(jam_id: str) -> str:
         return RedisKeys.JAM.format(jam_id=jam_id)
+
+    @staticmethod
+    def room_code(code: str) -> str:
+        return RedisKeys.ROOM_CODE.format(code=code)
+
+    @staticmethod
+    def room_code_of(room_id: str) -> str:
+        return RedisKeys.ROOM_CODE_OF.format(room_id=room_id)
 
     @staticmethod
     def track_data(track_id: str) -> str:

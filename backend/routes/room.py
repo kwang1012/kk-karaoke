@@ -18,7 +18,21 @@ async def create_room(
     ),
 ):
     redis_interface.create_or_update_jam_state(room.id, {**room.model_dump(), "is_on": True})
-    return {"message": f"Room {room.id} created successfully."}
+    code = redis_interface.get_or_create_code(room.id)
+    return {"message": f"Room {room.id} created successfully.", "code": code}
+
+
+@router.get("/code/{code}")
+async def get_room_by_code(
+    code: str,
+    redis_interface: RedisJamInterface = Depends(
+        lambda: RedisJamInterface(get_db())
+    ),
+):
+    room_id = redis_interface.room_for_code(code)
+    if not room_id or not redis_interface.jam_exists(room_id):
+        raise HTTPException(status_code=404, detail="No room has that code")
+    return {"room_id": room_id}
 
 
 @router.post("/{room_id}/join")
@@ -89,4 +103,5 @@ async def get_room(
     return {
         **jam_state.model_dump(),
         "participants": deduped,
+        "code": redis_interface.get_or_create_code(room_id) if jam_state.is_on else None,
     }

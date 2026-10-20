@@ -128,27 +128,6 @@ export default function SongCard({
           {parsedTrack.artists.map((artist) => artist.name).join(', ')}
         </span>
       </div>
-      {/* shown while the song is still processing too: who added it, and a way to remove it */}
-      {hasActions && !disable && (
-        <div className="relative flex shrink-0 items-center">
-          {track?.orderedBy && (
-            <Tooltip title={track.orderedBy.name} placement="top">
-              <Avatar className="mr-1 size-7">
-                <AvatarImage alt={track.orderedBy.name} src={track.orderedBy.avatar} />
-              </Avatar>
-            </Tooltip>
-          )}
-          <ActionMenu
-            className={cn(!mobile && !menuOpen && 'opacity-0 group-hover/card:opacity-100 focus-visible:opacity-100')}
-            track={parsedTrack}
-            onAdd={onAdd}
-            onInsert={onInsert}
-            onDelete={onDelete}
-            onOpen={() => setMenuOpen(true)}
-            onClose={() => setMenuOpen(false)}
-          />
-        </div>
-      )}
       {status === 'error' && !disable && (
         <Tooltip placement="top" title={t('song.failed')}>
           <CircleAlert className="size-4 shrink-0 text-destructive" />
@@ -159,6 +138,37 @@ export default function SongCard({
           <CircularProgressWithLabel size={32} indeterminate={status !== 'separating'} value={progress}>
             {progressIcon}
           </CircularProgressWithLabel>
+        </div>
+      )}
+      {/* shown while the song is still processing too: who added it, and a way to remove it */}
+      {hasActions && !disable && (
+        // On desktop the avatar and the menu share one slot at the right: the avatar fades out while the
+        // card is hovered (or its menu is open) and the menu takes its place. Mobile shows both.
+        <div className="relative flex shrink-0 items-center md:size-8">
+          {track?.orderedBy && (
+            <Tooltip title={track.orderedBy.name} placement="top">
+              <Avatar
+                className={cn(
+                  'mr-1 size-7 transition-opacity md:absolute md:inset-0 md:m-auto md:mr-auto',
+                  'md:group-focus-within/card:opacity-0 md:group-hover/card:opacity-0',
+                  menuOpen && 'md:opacity-0'
+                )}
+              >
+                <AvatarImage alt={track.orderedBy.name} src={track.orderedBy.avatar} />
+              </Avatar>
+            </Tooltip>
+          )}
+          <div className="md:absolute md:inset-0">
+            <ActionMenu
+              className={cn(!mobile && !menuOpen && 'opacity-0 group-hover/card:opacity-100 focus-visible:opacity-100')}
+              track={parsedTrack}
+              onAdd={onAdd}
+              onInsert={onInsert}
+              onDelete={onDelete}
+              onOpen={() => setMenuOpen(true)}
+              onClose={() => setMenuOpen(false)}
+            />
+          </div>
         </div>
       )}
     </div>

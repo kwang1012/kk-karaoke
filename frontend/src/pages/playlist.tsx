@@ -12,6 +12,8 @@ import PlaylistTable from 'src/components/playlist/Table';
 import { ALBUM_HEADERS, PLAYLIST_HEADERS } from 'src/components/const/header';
 import { PlaylistProvider } from 'src/context/playlist';
 import { useDebouncedCallback } from 'src/hooks/debounce';
+import { useT } from 'src/i18n';
+import { Button } from 'src/components/ui/button';
 
 type ReturnType = {
   collection: Collection;
@@ -26,11 +28,14 @@ const fetchTracks = async (collectionType: string, id: string): Promise<ReturnTy
     })
     .catch((error) => {
       console.error('Error fetching tracks:', error);
-      return { collection: {}, tracks: [] };
+      throw error;
     });
 };
 
+const PLACEHOLDER_ROWS = 12;
+
 export default function PlaylistView() {
+  const t = useT();
   const location = useLocation();
   const initCollection = location.state?.collection || {};
   const { id } = useParams();
@@ -40,7 +45,7 @@ export default function PlaylistView() {
   const insertSongToQueue = usePlayerStore((state) => state.insertSongToQueue);
   const downloadSong = usePlayerStore((state) => state.downloadSong);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: [collectionType, id],
     queryFn: () => fetchTracks(collectionType, id || ''),
   });
@@ -80,8 +85,9 @@ export default function PlaylistView() {
   };
   const showingTracks = useMemo(() => {
     if (isLoading) {
-      const totalTracks = collectionType === 'album' ? collection.totalTracks : collection.tracks?.total || 0;
-      return Array(totalTracks).fill(undefined);
+      // placeholder rows: the real count is only known once loaded (and often not at all up front)
+      const known = collectionType === 'album' ? collection.totalTracks : collection.tracks?.total;
+      return Array(Math.min(known || PLACEHOLDER_ROWS, 20)).fill(undefined);
     }
     return tracks;
   }, [tracks, isLoading]);
@@ -126,7 +132,20 @@ export default function PlaylistView() {
           setHalfway,
         }}
       >
-        <PlaylistTable tracks={showingTracks} />
+        {isError ? (
+          <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+            <p className="text-sm text-muted-foreground">{t('playlist.failed')}</p>
+            <Button size="sm" onClick={() => refetch()}>
+              {t('common.retry')}
+            </Button>
+          </div>
+        ) : !isLoading && tracks.length === 0 ? (
+          <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+            <p className="text-sm text-muted-foreground">{t('playlist.empty')}</p>
+          </div>
+        ) : (
+          <PlaylistTable tracks={showingTracks} />
+        )}
       </PlaylistProvider>
     </div>
   );

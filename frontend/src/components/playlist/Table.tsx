@@ -11,7 +11,9 @@ import { useT } from 'src/i18n';
 
 const VirtuosoTableComponents: TableComponents<Track> = {
   Table: (props) => {
-    const { collection, collectionType, collectionImage, color, setIsSticky, scrollTop, setHalfway } = useContext(PlaylistContext);
+    const { collection, collectionType, collectionImage, color, setIsSticky, scrollTop, setHalfway, isLoading } =
+      useContext(PlaylistContext);
+    const heroLoading = isLoading && !collection.name; // opened directly, nothing known about it yet
     const t = useT();
 
     const headerRef = useRef<HTMLDivElement>(null);
@@ -31,12 +33,25 @@ const VirtuosoTableComponents: TableComponents<Track> = {
           }}
         >
           <div className="title h-full w-full max-w-[400px] shrink-0 max-md:px-[75px] max-md:pb-2.5 md:w-40">
-            <img referrerPolicy="no-referrer" src={collectionImage} className="size-full rounded-xl object-cover shadow-2xl" alt={collection.name} />
+            {heroLoading ? (
+              <div className="size-full animate-pulse rounded-xl bg-white/15 shadow-2xl" />
+            ) : (
+              <img referrerPolicy="no-referrer" src={collectionImage} className="size-full rounded-xl object-cover shadow-2xl" alt={collection.name} />
+            )}
           </div>
           <div className="ml-4 flex w-full flex-col justify-center text-white md:justify-end md:self-end">
             <span className="text-xs font-medium tracking-wide uppercase opacity-80">{collectionType === 'album' ? t('playlist.type.album') : t('playlist.type.playlist')}</span>
-            <span className="line-clamp-2 text-2xl font-extrabold leading-tight tracking-tight md:text-5xl">{collection.name}</span>
-            <div className="mt-2 line-clamp-1 text-sm opacity-80">{collection.description}</div>
+            {heroLoading ? (
+              <>
+                <div className="mt-2 h-9 w-2/3 animate-pulse rounded-lg bg-white/15 md:h-12" />
+                <div className="mt-3 h-4 w-1/3 animate-pulse rounded bg-white/10" />
+              </>
+            ) : (
+              <>
+                <span className="line-clamp-2 text-2xl font-extrabold leading-tight tracking-tight md:text-5xl">{collection.name}</span>
+                <div className="mt-2 line-clamp-1 text-sm opacity-80">{collection.description}</div>
+              </>
+            )}
           </div>
         </div>
         <Table {...props} style={{ ...props.style, tableLayout: 'fixed' }}></Table>

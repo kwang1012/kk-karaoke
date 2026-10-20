@@ -40,6 +40,7 @@ export const zhTW: Record<TranslationKey, string> = {
   'search.songs': '歌曲',
   'search.albums': '專輯',
   'search.playlists': '播放清單',
+  'search.failed': '無法載入搜尋結果。',
   'search.noResults': '找不到結果。',
   'search.byOwner': '建立者：{name}',
 
@@ -83,6 +84,8 @@ export const zhTW: Record<TranslationKey, string> = {
   'playlist.col.title': '標題',
   'playlist.col.album': '專輯',
   'playlist.col.artists': '歌手',
+  'playlist.failed': '無法載入這份播放清單。',
+  'playlist.empty': '這份播放清單沒有歌曲。',
   'playlist.download': '下載並處理',
   'playlist.downloading': '下載中',
 

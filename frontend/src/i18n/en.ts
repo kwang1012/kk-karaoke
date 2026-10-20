@@ -41,6 +41,7 @@ export const en = {
   'search.songs': 'Songs',
   'search.albums': 'Albums',
   'search.playlists': 'Playlists',
+  'search.failed': "Couldn't load search results.",
   'search.noResults': 'No results found.',
   'search.byOwner': 'By {name}',
 
@@ -87,6 +88,8 @@ export const en = {
   'playlist.col.title': 'Title',
   'playlist.col.album': 'Album',
   'playlist.col.artists': 'Artists',
+  'playlist.failed': "Couldn't load this playlist.",
+  'playlist.empty': 'This playlist has no songs.',
   'playlist.download': 'Download and process',
   'playlist.downloading': 'Downloading',
 

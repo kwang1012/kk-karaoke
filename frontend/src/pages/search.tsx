@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Skeleton } from 'src/components/ui/skeleton';
+import { Button } from 'src/components/ui/button';
 import { Clock, Search as SearchIcon, X } from 'lucide-react';
 import { api } from 'src/utils/api';
 import Carousel, { CarouselItem } from '../components/Carousel';
@@ -38,6 +41,36 @@ function Chip({ children, onClick, onRemove }: { children: React.ReactNode; onCl
         </button>
       )}
     </span>
+  );
+}
+
+/** Placeholder results while a search is in flight: song rows and album/playlist cards. */
+function SearchSkeleton() {
+  return (
+    <div className="px-4 md:px-8" role="status" aria-busy="true">
+      <Skeleton className="mt-2 h-6 w-24" />
+      <div className="mt-3 space-y-1">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="flex h-12 items-center gap-3 px-1">
+            <Skeleton className="size-10 rounded-lg" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-3.5 w-2/5" />
+              <Skeleton className="h-3 w-1/4" />
+            </div>
+          </div>
+        ))}
+      </div>
+      <Skeleton className="mt-8 h-6 w-24" />
+      <div className="mt-3 flex gap-4 overflow-hidden">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="w-[160px] shrink-0 space-y-2">
+            <Skeleton className="aspect-square w-full rounded-lg" />
+            <Skeleton className="h-3.5 w-4/5" />
+            <Skeleton className="h-3 w-1/2" />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -129,7 +162,18 @@ export default function SearchView() {
       })
       .slice(0, 5);
   }, [readyTracks, searchValue]);
-  const [results, setResults] = useState<any>({});
+  const query = searchValue.trim();
+  const {
+    data: results,
+    isFetching,
+    isError,
+    refetch,
+  } = useQuery({
+    queryKey: ['search', query],
+    queryFn: () => api.get('/search', { params: { q: query } }).then(({ data }) => (data.results || {}) as any),
+    enabled: query !== '',
+  });
+  const loading = isFetching && !results;
   const [recent, setRecent] = useState<string[]>(loadRecent);
   const updateRecent = (next: string[]) => {
     setRecent(next);
@@ -138,35 +182,29 @@ export default function SearchView() {
     } catch {}
   };
   const [scrollTop, setScrollTop] = useState(0);
-  const tracks = results.tracks?.items?.filter((item: any) => !!item)?.slice(0, mobile ? 10 : 8) || [];
-  const albums = results.albums?.items?.filter((item: any) => !!item)?.slice(0, 4) || [];
-  const playlists = results.playlists?.items?.filter((item: any) => !!item)?.slice(0, 4) || [];
+  const tracks = results?.tracks?.items?.filter((item: any) => !!item)?.slice(0, mobile ? 10 : 8) || [];
+  const albums = results?.albums?.items?.filter((item: any) => !!item)?.slice(0, 4) || [];
+  const playlists = results?.playlists?.items?.filter((item: any) => !!item)?.slice(0, 4) || [];
   //   const artists = results.artists?.items.slice(0, 4) || [];
 
   useEffect(() => {
     document.title = `KKaraoke - Search`;
   }, []);
 
+  // remember a search once it has produced results
+  useEffect(() => {
+    if (!results || !query) return;
+    setRecent((prev) => {
+      const next = [query, ...prev.filter((q) => q !== query)].slice(0, 8);
+      try {
+        localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, [results]);
+
   // use useEffect bc the searchValue might be updated by other components
   useEffect(() => {
-    if (searchValue && searchValue.trim() !== '') {
-      api
-        .get('/search', { params: { q: searchValue } })
-        .then(({ data }) => {
-          setResults(data.results || {});
-          const query = searchValue.trim();
-          setRecent((prev) => {
-            const next = [query, ...prev.filter((q) => q !== query)].slice(0, 8);
-            try {
-              localStorage.setItem(RECENT_KEY, JSON.stringify(next));
-            } catch {}
-            return next;
-          });
-        })
-        .catch((error) => {
-          console.error('Error fetching search results:', error);
-        });
-    }
     navigate(`/search/${encodeURIComponent(searchValue)}`, {
       replace: true,
       state: { searchValue },
@@ -225,7 +263,7 @@ export default function SearchView() {
             onRemove={(query) => updateRecent(recent.filter((q) => q !== query))}
             onClear={() => updateRecent([])}
           />
-        ) : results ? (
+        ) : (
           <div className="pb-8">
             {libraryMatches.length > 0 && (
               <div className="px-4 md:px-8">
@@ -241,6 +279,18 @@ export default function SearchView() {
                   ))}
                 </div>
               </div>
+            )}
+            {loading && <SearchSkeleton />}
+            {isError && (
+              <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
+                <p className="text-sm text-muted-foreground">{t('search.failed')}</p>
+                <Button size="sm" onClick={() => refetch()}>
+                  {t('common.retry')}
+                </Button>
+              </div>
+            )}
+            {results && tracks.length + albums.length + playlists.length === 0 && libraryMatches.length === 0 && (
+              <p className="px-4 py-16 text-center text-sm text-muted-foreground md:px-8">{t('search.noResults')}</p>
             )}
             {tracks.length > 0 && (
               <div className="px-4 md:px-8">
@@ -311,8 +361,6 @@ export default function SearchView() {
                 </>
               )} */}
           </div>
-        ) : (
-          <p>{t('search.noResults')}</p>
         )}
       </AppScrollbar>
     </div>

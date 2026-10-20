@@ -19,9 +19,9 @@ export const HoverTableRow = ({ className, ...props }: React.ComponentProps<'tr'
   <TableRow
     className={cn(
       'group/row w-full cursor-default border-0 transition-colors hover:bg-accent [&_td]:border-0 [&_td]:p-2 [&_td:first-child]:rounded-l-xl [&_td:last-child]:rounded-r-xl',
-      '[&_.row-actions]:opacity-0 hover:[&_.row-actions]:opacity-100 [&_.row-id]:block [&_.row-play]:hidden hover:[&_.row-id]:hidden hover:[&_.row-play]:flex',
-      'max-md:[&_.row-actions]:opacity-100 max-md:hover:bg-transparent max-md:hover:[&_.row-id]:flex',
-      className?.includes('active') && 'bg-accent [&_.row-actions]:opacity-100 [&_.row-id]:hidden [&_.row-play]:flex',
+      '[&_.row-actions]:opacity-0 hover:[&_.row-actions]:opacity-100 [&_.row-play]:pointer-events-none [&_.row-play]:opacity-0 hover:[&_.row-id]:opacity-0 hover:[&_.row-play]:pointer-events-auto hover:[&_.row-play]:opacity-100',
+      'max-md:[&_.row-actions]:opacity-100 max-md:hover:bg-transparent max-md:hover:[&_.row-id]:opacity-100',
+      className?.includes('active') && 'bg-accent [&_.row-actions]:opacity-100 [&_.row-id]:opacity-0 [&_.row-play]:pointer-events-auto [&_.row-play]:opacity-100',
       className
     )}
     {...props}
@@ -73,13 +73,14 @@ const PlaylistRow = memo(({ track, index }: { track: Track; index: number }) => 
 
   const trackRow = {
     row_id: (
-      <div className="flex items-center justify-center">
-        <span className="row-id">{index + 1}</span>
-        {!mobile && (
+      // the button stays laid out (only its opacity changes) so the tooltip can measure where it is
+      <div className="relative mx-auto flex size-6 items-center justify-center">
+        <span className="row-id transition-opacity">{index + 1}</span>
+        {!mobile && !isLoading && (
           <Tooltip title={t('song.addToQueue')} side="top">
             <button
               aria-label={t('song.addToQueue')}
-              className="row-play size-6 items-center justify-center rounded-full hover:bg-foreground/10"
+              className="row-play absolute inset-0 flex items-center justify-center rounded-full transition-opacity hover:bg-foreground/10"
               onClick={() => track && onAdd(parsedTrack)}
             >
               <Plus className="size-4" strokeWidth={2.5} />

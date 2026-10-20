@@ -9,7 +9,6 @@ import { usePlayer } from 'src/store/player';
 import { useNotifyStore } from 'src/store/notify';
 import { useSettingStore } from 'src/store/setting';
 import { cn } from 'src/lib/utils';
-import { CircularProgress } from 'src/components/ui/progress';
 import GuideVocalControl from './GuideVocalControl';
 import { useT } from 'src/i18n';
 
@@ -59,15 +58,14 @@ export default function AudioController() {
               aria-label={playing ? t('player.pause') : t('player.play')}
               disabled={loading}
               onClick={handlePlayPause}
-              className="relative flex size-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform hover:scale-105 active:scale-95 disabled:scale-100 disabled:opacity-90"
+              className={cn(
+                'relative flex size-10 items-center justify-center rounded-full transition-all',
+                loading
+                  ? 'cursor-not-allowed bg-muted text-muted-foreground opacity-60'
+                  : 'bg-primary text-primary-foreground shadow-lg shadow-primary/30 hover:scale-105 active:scale-95'
+              )}
             >
-              {loading ? (
-                <CircularProgress
-                  size={24}
-                  value={loadProgress === null ? undefined : loadProgress * 100}
-                  className="text-primary-foreground"
-                />
-              ) : playing ? (
+              {playing && !loading ? (
                 <Pause className="size-5 fill-current" />
               ) : (
                 <Play className="size-5 translate-x-px fill-current" />

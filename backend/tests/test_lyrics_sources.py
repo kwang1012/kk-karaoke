@@ -95,22 +95,36 @@ def client(monkeypatch):
 
 def test_resolve_prefers_matching_duration(client):
     client(FakeClient([hit("live", "Song", 300), hit("studio", "Song", 241)]))
-    assert ls.resolve_recording("Song", "Artist", 240).video_id == "studio"
+    assert ls.resolve_recording("Song", ["Artist"], 240).video_id == "studio"
 
 
 def test_resolve_rejects_wrong_length(client):
     client(FakeClient([hit("live", "Song", 300)]))
-    assert ls.resolve_recording("Song", "Artist", 240) is None
+    assert ls.resolve_recording("Song", ["Artist"], 240) is None
+
+
+def test_resolve_rejects_same_title_by_other_artist(client):
+    other = hit("cover", "Song", 240)
+    other["artists"] = [{"name": "Someone Else"}]
+    client(FakeClient([other]))
+    assert ls.resolve_recording("Song", ["Artist"], 240) is None
+
+
+def test_resolve_matches_any_listed_artist_across_scripts(client):
+    h = hit("v", "晴天", 240)
+    h["artists"] = [{"name": "周杰倫"}]
+    client(FakeClient([h]))
+    assert ls.resolve_recording("晴天", ["周杰伦", "Other"], 240).video_id == "v"
 
 
 def test_resolve_rejects_other_title(client):
     client(FakeClient([hit("x", "Completely Different", 240)]))
-    assert ls.resolve_recording("Song", "Artist", 240) is None
+    assert ls.resolve_recording("Song", ["Artist"], 240) is None
 
 
 def test_resolve_survives_ytmusic_outage(client):
     client(FakeClient(boom=True))
-    assert ls.resolve_recording("Song", "Artist", 240) is None
+    assert ls.resolve_recording("Song", ["Artist"], 240) is None
 
 
 # --- find_lyrics ladder -----------------------------------------------------------

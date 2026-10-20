@@ -98,7 +98,7 @@ def _process_track(track: Track):
     # Tracks fetched before this existed have no recorded video id; they keep their search.
     video_id = read_meta(track.id).get("video_id") if lyrics_exist else None
     if not video_id and (not lyrics_exist or not vocals_exist or not non_vocals_exist):
-        recording = resolve_recording(title, artist, duration_s)
+        recording = resolve_recording(title, [a.name for a in track.artists], duration_s)
         video_id = recording.video_id if recording else None
     else:
         recording = None

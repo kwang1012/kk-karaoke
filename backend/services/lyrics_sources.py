@@ -144,12 +144,22 @@ def compare_timing(ref: Lines, other: Lines) -> Optional[Agreement]:
 
 # --- sources --------------------------------------------------------------------
 
+def _same_artist(wanted: list[str], got: list[str]) -> bool:
+    """Title and length are not enough: many unrelated songs are called "Dynamite"."""
+    for w in map(_norm, wanted):
+        for g in map(_norm, got):
+            if w and g and (w in g or g in w or SequenceMatcher(None, w, g).ratio() >= 0.7):
+                return True
+    return False
+
+
 def resolve_recording(
-    title: str, artist: str, duration_s: Optional[float]
+    title: str, artists: list[str], duration_s: Optional[float]
 ) -> Optional[Recording]:
-    """Pick the YouTube Music song that is this track: right title, and the same length."""
+    """Pick the YouTube Music song that is this track: right title, artist and length."""
     try:
-        hits = _client().search(f"{artist} {title}".strip(), filter="songs", limit=5)
+        hits = _client().search(f"{artists[0] if artists else ''} {title}".strip(),
+                                filter="songs", limit=5)
     except Exception as e:  # noqa: BLE001 - YT Music is unofficial; never block the track on it
         log.warning("YT Music search failed for %r: %r", title, e)
         return None
@@ -163,14 +173,16 @@ def resolve_recording(
         got = hit.get("duration_seconds")
         if duration_s and got and abs(got - duration_s) > MAX_DURATION_DIFF_S:
             continue
+        names = [a["name"] for a in hit.get("artists") or []]
+        if artists and not _same_artist(artists, names):
+            continue
         have = _norm(hit.get("title") or "")
         similarity = SequenceMatcher(None, want, have).ratio()
         if want not in have and have not in want and similarity < 0.6:
             continue
         diff = abs(got - duration_s) if duration_s and got else 0
         score = similarity - 0.05 * diff
-        names = hit.get("artists") or []
-        recording = Recording(video_id, hit.get("title") or "", names[0]["name"] if names else "", got)
+        recording = Recording(video_id, hit.get("title") or "", names[0] if names else "", got)
         if best is None or score > best[0]:
             best = (score, recording)
     return best[1] if best else None

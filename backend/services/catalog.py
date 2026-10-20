@@ -6,7 +6,7 @@ download and what lyrics are looked up against. Results come back shaped like th
 tracks the client already understands, so the rest of the app does not care where a track
 came from.
 
-Studio recordings ("songs") are listed first. Videos (music videos, live takes, uploads)
+Studio recordings ("songs") lead the list. Videos (music videos, live takes, uploads)
 are offered too, marked as such, because sometimes that is the version someone wants.
 """
 import logging
@@ -19,6 +19,8 @@ log = logging.getLogger(__name__)
 
 SONG_LIMIT = 10
 VIDEO_LIMIT = 5
+LEAD_SONGS = 5
+LEAD_VIDEOS = 3
 
 _client: Optional[YTMusic] = None
 
@@ -66,7 +68,7 @@ def to_track(hit: dict[str, Any], kind: str) -> Optional[dict[str, Any]]:
 
 def search_tracks(query: str) -> list[dict[str, Any]]:
     """Songs first, then videos, without repeats. Empty when YouTube Music is unavailable."""
-    tracks: list[dict[str, Any]] = []
+    by_kind: dict[str, list[dict[str, Any]]] = {"song": [], "video": []}
     seen: set[str] = set()
     for kind, filter_, limit in (("song", "songs", SONG_LIMIT), ("video", "videos", VIDEO_LIMIT)):
         try:
@@ -78,5 +80,8 @@ def search_tracks(query: str) -> list[dict[str, Any]]:
             track = to_track(hit, kind)
             if track and track["id"] not in seen:
                 seen.add(track["id"])
-                tracks.append(track)
-    return tracks
+                by_kind[kind].append(track)
+    songs, videos = by_kind["song"], by_kind["video"]
+    # Studio songs lead, but a few videos sit near the top: a list that only shows its first
+    # handful would otherwise never reveal that a video version exists.
+    return songs[:LEAD_SONGS] + videos[:LEAD_VIDEOS] + songs[LEAD_SONGS:] + videos[LEAD_VIDEOS:]

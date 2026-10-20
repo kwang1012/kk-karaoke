@@ -320,3 +320,118 @@ def test_save_plain_is_served_as_unsynced(tmp_path, monkeypatch):
     monkeypatch.setattr(route, "get_lyrics_path", lambda _id: None)
     body = json.loads(route.get_lyrics("t", redis_interface=None).body)
     assert body["plain"] == "la la" and body["lyrics"] == [] and body["confidence"] == "unsynced"
+
+
+# --- word-level timing --------------------------------------------------------------
+
+from services import word_timing as wt  # noqa: E402
+
+YRC = (
+    '{"t":0,"c":[{"tx":"作词: "}]}\n'
+    "[0,1000](0,1000,0)作词 : 某人\n"
+    "[10000,3000](10000,1000,0)我(11000,1000,0)爱(12000,1000,0)你\n"
+    "[14000,2000](14000,500,0)Hello (14500,1500,0)world\n"
+)
+
+
+def test_yrc_parses_words_and_drops_credits():
+    lines = wt.parse_yrc(YRC)
+    assert [l.text for l in lines] == ["我爱你", "Hello world"]
+    assert lines[0].words == [(10.0, 11.0, "我"), (11.0, 12.0, "爱"), (12.0, 13.0, "你")]
+
+
+def test_credit_lines_are_recognised_in_both_scripts():
+    for credit in ("作词 : 姚若龙", "編曲：告五人", "Producer : Alex Chang", "Mixing Engineer: 叶育轩"):
+        assert wt.is_credit_line(credit)
+    for lyric in ("我愛你", "Hello world", "Dreams: you and me"):
+        assert not wt.is_credit_line(lyric)
+
+
+def test_sheet_without_credit_lines():
+    lrc = "[00:00.00]作词 : A\n[00:01.00]Producer: B\n[00:10.00]我愛你"
+    assert ls._without_credits(lrc) == "[00:10.00]我愛你"
+
+
+def test_split_keeps_the_sheets_own_characters():
+    assert ls.split_by_words("我愛你，真的", ["我", "爱", "你", "真", "的"]) == ["我", "愛", "你，", "真", "的"]
+    assert ls.split_by_words("Hello, world", ["Hello ", "world"]) == ["Hello, ", "world"]
+    assert ls.split_by_words("something else", ["Hello ", "world"]) is None
+
+
+def _word_lines(offset=0.0, n=8, text="天 la 想 {}"):
+    out = []
+    for i in range(n):
+        t = 10 + i * 5 + offset
+        t_text = text.format(i)
+        chars = [c for c in t_text]
+        words = [(t + k * 0.3, t + k * 0.3 + 0.3, c) for k, c in enumerate(chars)]
+        out.append(wt.WordLine(t, words))
+    return out
+
+
+SHEET = [(10 + i * 5, "天 la 想 {}".format(i)) for i in range(8)]
+
+
+def test_words_attach_to_lines_that_agree():
+    words = ls.match_words(SHEET, _word_lines())
+    assert len(words) == 8
+    first = words[ls._cs(10)]
+    assert first[0][0] == 10.0 and "".join(w[2] for w in first) == "天 la 想 0"
+
+
+def test_words_are_moved_onto_the_sheets_timebase():
+    words = ls.match_words(SHEET, _word_lines(offset=0.4))
+    assert words[ls._cs(10)][0][0] == pytest.approx(10.0)
+
+
+def test_a_different_version_gets_no_words():
+    assert ls.match_words(SHEET, _word_lines(offset=5.0)) == {}
+
+
+def test_scattered_timing_gets_no_words():
+    shaky = _word_lines()
+    for i, l in enumerate(shaky):
+        d = (i % 4) * 1.4
+        l.start += d
+        l.words = [(s + d, e + d, t) for s, e, t in l.words]
+    assert ls.match_words(SHEET, shaky) == {}
+
+
+def test_too_few_matching_lines_get_no_words():
+    assert ls.match_words(SHEET[:3], _word_lines(n=3)) == {}
+
+
+def test_words_follow_a_sheet_shift_and_ignore_hand_edits(saved, monkeypatch):
+    meta = ls.read_meta("t")
+    meta["words"] = {ls._cs(10): [[10.0, 10.5, "one"]]}
+    ls.write_meta("t", meta)
+    assert ls.words_for_line(ls.read_meta("t"), 10.0) == [{"start": 10.0, "end": 10.5, "text": "one"}]
+    assert ls.words_for_line(ls.read_meta("t"), 10.01)  # tolerant of rounding
+    assert ls.words_for_line(ls.read_meta("t"), 30.0) is None
+    run_check(monkeypatch, _check("corrected", 2.0))
+    assert ls.words_for_line(ls.read_meta("t"), 12.0) == [{"start": 12.0, "end": 12.5, "text": "one"}]
+    ls.write_meta("t", {**ls.read_meta("t"), "edited": True})
+    assert ls.words_for_line(ls.read_meta("t"), 12.0) is None
+
+
+def test_a_sheet_line_can_span_several_word_lines():
+    sheet = [(10 + i * 10, f"前半{i}後半{i}") for i in range(6)]
+    word_lines = []
+    for i in range(6):
+        t = 10.5 + i * 10  # also half a second late
+        word_lines.append(wt.WordLine(t, [(t, t + 1, f"前半{i}")]))
+        word_lines.append(wt.WordLine(t + 2, [(t + 2, t + 3, f"後半{i}")]))
+    words = ls.match_words(sheet, word_lines)
+    assert len(words) == 6
+    first = words[ls._cs(10)]
+    assert "".join(w[2] for w in first) == "前半0後半0"
+    assert first[0][0] == pytest.approx(10.0) and first[1][0] == pytest.approx(12.0)
+
+
+def test_extra_lines_in_the_word_source_are_skipped():
+    sheet = [(10 + i * 10, f"歌詞第{i}行很長") for i in range(6)]
+    word_lines = [wt.WordLine(1, [(1, 2, "前奏旁白噪音")])]
+    for i in range(6):
+        t = 10 + i * 10
+        word_lines.append(wt.WordLine(t, [(t, t + 1, f"歌詞第{i}行很長")]))
+    assert len(ls.match_words(sheet, word_lines)) == 6

@@ -99,6 +99,16 @@ class FakeYTM:
         return [HIT] if filter == "songs" else [{**HIT}, {**HIT, "videoId": "VIDEO123456", "title": "MV"}]
 
 
+def test_videos_surface_within_the_first_screen_of_results(monkeypatch):
+    class Many:
+        def search(self, q, filter=None, limit=None):
+            kind = "S" if filter == "songs" else "V"
+            return [{**HIT, "videoId": f"{kind}{i:010d}", "title": f"{kind}{i}"} for i in range(limit)]
+    monkeypatch.setattr(catalog, "_ytm", lambda: Many())
+    kinds = [t["kind"] for t in catalog.search_tracks("x")]
+    assert kinds[:8] == ["song"] * 5 + ["video"] * 3 and len(kinds) == 15
+
+
 def test_search_lists_songs_first_and_does_not_repeat(monkeypatch):
     monkeypatch.setattr(catalog, "_ytm", lambda: FakeYTM())
     tracks = catalog.search_tracks("別說再見")

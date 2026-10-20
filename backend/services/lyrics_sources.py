@@ -27,7 +27,7 @@ from typing import Literal, Optional
 import opencc
 from ytmusicapi import YTMusic
 
-from services import audio_check
+from services import audio_check, word_timing
 from services.downloader import (
     _convert_lrc_to_traditional,
     _fetch_lrclib,
@@ -313,9 +313,21 @@ def fetch_ytmusic_plain(video_id: str) -> Optional[str]:
 
 
 def _finish(result: LyricsResult) -> LyricsResult:
+    result.lrc = _without_credits(result.lrc)
     if _has_simplified_chinese(result.lrc):
         result.lrc = _convert_lrc_to_traditional(result.lrc)
     return result
+
+
+def _without_credits(lrc: str) -> str:
+    """Providers list who wrote and mixed the song as lyric lines with made-up timestamps."""
+    kept = []
+    for line in lrc.splitlines():
+        m = re.match(r"\[\d+:\d+(?:\.\d+)?\](.*)", line.strip())
+        if m and word_timing.is_credit_line(m.group(1)):
+            continue
+        kept.append(line)
+    return "\n".join(kept)
 
 
 # --- persistence ----------------------------------------------------------------
@@ -383,8 +395,147 @@ def verify_against_audio(track_id: str, vocal_path: str) -> Optional[audio_check
         meta["confidence"] = "verified"
     elif check.status == "corrected":
         lrc_path.write_text(shift_lrc(lrc, check.offset_s), encoding="utf-8")
+        if meta.get("words"):
+            meta["words"] = _shift_words(meta["words"], check.offset_s)
         meta["confidence"] = "synced"
     elif check.status == "mismatch":
         meta["confidence"] = "approximate"
     write_meta(track_id, meta)
     return check
+
+
+# --- word-level timing ----------------------------------------------------------
+
+# A word timing is only believed when its lines sit this close to the sheet's, and
+# consistently so (a constant offset is fine, scatter is a different version).
+WORDS_MAX_OFFSET_S = 3.0
+WORDS_LINE_TOLERANCE_S = 1.0
+WORDS_MIN_LINES = 5
+
+Words = list[tuple[float, float, str]]
+
+
+def _cs(t: float) -> str:
+    return str(int(round(t * 100)))
+
+
+def split_by_words(line: str, word_texts: list[str]) -> Optional[list[str]]:
+    """
+    Cut `line` into pieces matching the words' lengths, keeping the sheet's own characters
+    (its script and punctuation) rather than the word source's.
+    """
+    targets = [len(_norm(w)) for w in word_texts]
+    if sum(targets) != len(_norm(line)):
+        return None
+    pieces, i = [], 0
+    for n in targets:
+        piece, count = "", 0
+        while i < len(line) and count < n:
+            piece += line[i]
+            count += len(_norm(line[i]))
+            i += 1
+        while i < len(line) and not _norm(line[i]):  # punctuation and spaces trail their word
+            piece += line[i]
+            i += 1
+        pieces.append(piece)
+    if i < len(line):
+        pieces[-1] += line[i:]
+    return pieces
+
+
+WORDS_MAX_MERGED_LINES = 4
+WORDS_MAX_SKIPPED_LINES = 6
+
+
+def _pair_lines(sheet_text: list[str], word_text: list[str]) -> list[tuple[int, int, int]]:
+    """
+    (sheet line, first, last word line) wherever the same text appears, in order. Sources
+    break lines differently, so a sheet line may be one word line or several joined.
+    """
+    pairs: list[tuple[int, int, int]] = []
+    j = 0
+    for i, target in enumerate(sheet_text):
+        if len(target) < 2:
+            continue
+        for start in range(j, min(j + WORDS_MAX_SKIPPED_LINES, len(word_text))):
+            acc, hit = "", None
+            for end in range(start, min(start + WORDS_MAX_MERGED_LINES, len(word_text))):
+                acc += word_text[end]
+                if acc == target:
+                    hit = end
+                    break
+                if not target.startswith(acc):
+                    break
+            if hit is not None:
+                pairs.append((i, start, hit))
+                j = hit + 1
+                break
+    return pairs
+
+
+def match_words(sheet: Lines, word_lines: list[word_timing.WordLine]) -> dict[str, Words]:
+    """Words for each sheet line they agree with, in the sheet's own timebase."""
+    pairs = _pair_lines([_norm(text) for _, text in sheet], [_norm(l.text) for l in word_lines])
+    if len(pairs) < WORDS_MIN_LINES:
+        return {}
+    deltas = [word_lines[js].start - sheet[i][0] for i, js, _ in pairs]
+    median = statistics.median(deltas)
+    spread = statistics.median(abs(d - median) for d in deltas)
+    if abs(median) > WORDS_MAX_OFFSET_S or spread > AGREE_TOLERANCE_S:
+        return {}
+
+    out: dict[str, Words] = {}
+    for (i, js, je), delta in zip(pairs, deltas):
+        if abs(delta - median) > WORDS_LINE_TOLERANCE_S:
+            continue
+        words = [w for l in word_lines[js:je + 1] for w in l.words]
+        pieces = split_by_words(sheet[i][1], [w[2] for w in words])
+        if pieces is None:
+            continue
+        out[_cs(sheet[i][0])] = [
+            (round(s - median, 2), round(e - median, 2), piece)
+            for (s, e, _), piece in zip(words, pieces)
+        ]
+    # A handful of lucky lines is not a word timing for this recording.
+    return out if len(out) >= WORDS_MIN_LINES else {}
+
+
+def add_word_timing(track_id: str, title: str, artists: list[str], duration_s: Optional[float]) -> int:
+    """Attach NetEase's word timings to the saved sheet. Returns how many lines got words."""
+    meta = read_meta(track_id)
+    lrc_path = Path(LYRICS_DIR, f"{track_id}.lrc")
+    if not meta or meta.get("edited") or "words" in meta or not lrc_path.exists():
+        return 0
+    sheet = parse_lrc(lrc_path.read_text(encoding="utf-8"))
+    word_lines = word_timing.find_netease_lines(
+        title, duration_s,
+        artist_ok=lambda names: (not artists or _same_artist(artists, names)
+                                 or _artist_in_other_script(artists, names)),
+        fold=_norm,
+    )
+    words = match_words(sheet, word_lines) if word_lines else {}
+    meta["words"] = words  # empty is recorded too, so we do not ask again
+    if words:
+        meta["word_source"] = "netease"
+    write_meta(track_id, meta)
+    return len(words)
+
+
+def words_for_line(meta: dict, start_s: float) -> Optional[list[dict]]:
+    """The words of the line that starts at `start_s`, if we have them."""
+    words = meta.get("words") or {}
+    if meta.get("edited") or not words:
+        return None
+    cs = int(round(start_s * 100))
+    for key in (cs, cs - 1, cs + 1, cs - 2, cs + 2):
+        found = words.get(str(key))
+        if found:
+            return [{"start": s, "end": e, "text": t} for s, e, t in found]
+    return None
+
+
+def _shift_words(words: dict, offset_s: float) -> dict:
+    return {
+        _cs(int(k) / 100 + offset_s): [[round(s + offset_s, 2), round(e + offset_s, 2), t] for s, e, t in v]
+        for k, v in words.items()
+    }

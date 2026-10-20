@@ -12,7 +12,7 @@ from models.track import Artist, Track
 from managers.websocket import WebSocketManager
 from services.downloader import download_audio
 from services.spotify import getTrackDurationMs
-from services.lyrics_sources import Recording, find_lyrics, find_plain_lyrics, read_meta, resolve_recording, save_plain, save_result, verify_against_audio, write_meta
+from services.lyrics_sources import Recording, add_word_timing, find_lyrics, find_plain_lyrics, read_meta, resolve_recording, save_plain, save_result, verify_against_audio, write_meta
 from services.voice_remover import separate_vocals
 from config import REDIS_HOST, REDIS_PORT
 from managers import r2
@@ -121,6 +121,9 @@ def _process_track(track: Track):
             if result:
                 save_result(track.id, result)
                 print(f"Lyrics for {track.id}: {result.source} ({result.confidence})")
+                words = add_word_timing(track.id, title, [a.name for a in track.artists], duration_s)
+                if words:
+                    print(f"Word timing for {track.id}: {words} lines")
             else:
                 plain = find_plain_lyrics(title, artist, album_name, duration_s, recording)
                 if plain:

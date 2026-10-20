@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from models.track import LyricsDelay
 from models.requests import UpdateLyricsRequest
 from managers import r2
-from services.lyrics_sources import read_meta, write_meta
+from services.lyrics_sources import read_meta, words_for_line, write_meta
 from utils import LYRICS_DIR, get_lyrics_path
 import re
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -60,6 +60,7 @@ def get_lyrics(
             })
         return JSONResponse(status_code=404, content={"error": "Lyrics not found"})
     try:
+        meta = read_meta(track_id)
         romanized_exists = redis_interface.check_romanized_lyrics(track_id)
         if romanized_exists:
             romanized_lines: list[Union[str, None]] = (
@@ -103,11 +104,12 @@ def get_lyrics(
                     "time": timestamp,
                     "text": text,
                     "romanized": romanized,
+                    # Per-word timing when we have a verified one; absent otherwise.
+                    "words": words_for_line(meta, timestamp),
                 })
         if not romanized_exists and any(line is not None for line in romanized_lines):
             redis_interface.store_romanized_lyrics(track_id, romanized_lines)
 
-        meta = read_meta(track_id)
         return JSONResponse(
             # The delay is returned, not baked into the times: clients apply it themselves
             # (so adjusting it live doesn't need a refetch and can't be applied twice).

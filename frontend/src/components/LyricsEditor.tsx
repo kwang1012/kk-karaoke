@@ -1,254 +1,519 @@
-import { Pencil } from 'lucide-react';
-import { Button, IconButton } from 'src/components/ui/button';
-import { Input } from 'src/components/ui/input';
-import { cn } from 'src/lib/utils';
-import { useRef, useMemo, useEffect, useState } from 'react';
-import { Lyrics, Track } from 'src/models/spotify';
+import {
+  ArrowDownUp, ClipboardPaste, Languages, Loader2, LocateFixed, Minus, Plus, Redo2, RefreshCw, Undo2,
+} from 'lucide-react';
 import * as OpenCC from 'opencc-js';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import ConfirmDialog from 'src/components/LyricsEditor/ConfirmDialog';
+import type { LyricsInfo } from 'src/components/LyricsEditor/info';
+import LineRow, { type RowActions } from 'src/components/LyricsEditor/LineRow';
+import {
+  activeIndex, formatLrc, insertAfter, mapText, newRow, nudge, parseLrc, problems, removeAt, setText,
+  setTime, shiftAll, sortRows, splitPlain, type Row,
+} from 'src/components/LyricsEditor/model';
+import type { PlayerHandle } from 'src/components/LyricsEditor/Player';
+import Provenance from 'src/components/LyricsEditor/Provenance';
+import Shortcuts from 'src/components/LyricsEditor/Shortcuts';
+import { useRowHistory } from 'src/components/LyricsEditor/useRowHistory';
+import { Button, IconButton } from 'src/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from 'src/components/ui/dialog';
+import { Input } from 'src/components/ui/input';
+import { Skeleton } from 'src/components/ui/skeleton';
+import { Tooltip } from 'src/components/ui/tooltip';
+import { useT, type TranslationKey } from 'src/i18n';
+import { cn } from 'src/lib/utils';
+import { Track } from 'src/models/spotify';
 import { api } from 'src/utils/api';
-import { useT } from 'src/i18n';
+
 const converter = OpenCC.Converter({ from: 'cn', to: 'tw' });
 
-const LYRICS_REGEX = /^\[\d{2}:\d{2}(?:\.\d{2,3})] ?(.+)?$/;
+type Note = { kind: 'ok' | 'warn' | 'error'; text: string };
+type View = 'lines' | 'raw';
 
-function validateLRCLine(line: string) {
-  return line.trim() === '' || LYRICS_REGEX.test(line);
-}
+const POLL_MS = 1500;
+const SLOW_AFTER_MS = 30_000;
+const STUCK_AFTER_MS = 120_000;
+const GIVE_UP_AFTER_MS = 10 * 60_000;
 
-function isValidLRC(input: string) {
-  const lines = input.trim().split(/\r?\n/);
+const errorText = (err: unknown) =>
+  (err as { response?: { data?: { message?: string; error?: string } }; message?: string })?.response?.data?.message ||
+  (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+  (err as { message?: string })?.message ||
+  'error';
 
-  // At least one line should match LRC format
-  let validLines = 0;
-  for (const line of lines) {
-    if (line.trim() === '') continue;
-    if (LYRICS_REGEX.test(line)) {
-      validLines++;
-    } else {
-      return false; // invalid format line found
-    }
-  }
-
-  return validLines > 0;
-}
-
-export default function LyricsEditor({ track, progress }: { track: Track; progress?: number }) {
+export default function LyricsEditor({
+  track, progress = 0, playing = false, playerRef, onDirtyChange, onChanged,
+}: {
+  track: Track;
+  progress?: number;
+  playing?: boolean;
+  playerRef?: React.RefObject<PlayerHandle | null>;
+  onDirtyChange?: (dirty: boolean) => void;
+  /** The lyrics were saved or searched again: anything showing their status should look again. */
+  onChanged?: () => void;
+}) {
   const t = useT();
-  const [content, setContent] = useState('');
-  const [originalContent, setOriginalContent] = useState('');
-  const [lyrics, setLyrics] = useState<Lyrics[]>([]);
-  const modified = content !== originalContent;
-  const [delay, setDelay] = useState(0);
-  const [editing, setEditing] = useState(false);
+  const { rows, commit, undo, redo, reset, canUndo, canRedo } = useRowHistory([]);
+  const [headers, setHeaders] = useState<string[]>([]);
+  const [baseline, setBaseline] = useState('');
+  const [info, setInfo] = useState<LyricsInfo | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [view, setView] = useState<View>('lines');
+  const [rawText, setRawText] = useState('');
+  const [selected, setSelected] = useState(0);
+  const [follow, setFollow] = useState(true);
+  const [shift, setShift] = useState(0);
+  const [note, setNote] = useState<Note | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [confirmRefresh, setConfirmRefresh] = useState(false);
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteText, setPasteText] = useState('');
 
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const highlightRef = useRef<HTMLDivElement | null>(null);
-  const lineNumbersRef = useRef<HTMLDivElement | null>(null);
-  const [currentLine, setCurrentLine] = useState(-1);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [isTwoDigits, setIsTwoDigits] = useState(false);
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
+  const progressRef = useRef(progress);
+  progressRef.current = progress;
+  const rowEls = useRef(new Map<number, HTMLDivElement>());
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const pendingFocus = useRef<number | null>(null);
+  const poller = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const syncScroll = () => {
-    if (highlightRef.current && textareaRef.current && lineNumbersRef.current) {
-      highlightRef.current.scrollTop = textareaRef.current.scrollTop;
-      highlightRef.current.scrollLeft = textareaRef.current.scrollLeft;
-      lineNumbersRef.current.scrollTop = textareaRef.current.scrollTop;
-      lineNumbersRef.current.scrollLeft = textareaRef.current.scrollLeft;
+  const say = useCallback((kind: Note['kind'], text: string) => setNote({ kind, text }), []);
+  useEffect(() => {
+    if (note?.kind !== 'ok') return;
+    const timer = setTimeout(() => setNote(null), 6000);
+    return () => clearTimeout(timer);
+  }, [note]);
+
+  // ---- loading ------------------------------------------------------------------------
+
+  const load = useCallback(async () => {
+    if (!track.id) return;
+    setLoading(true);
+    const [lyrics, details] = await Promise.allSettled([
+      api.get(`/lyrics/${track.id}`),
+      api.get(`/lyrics/${track.id}/info`),
+    ]);
+    const content: string = lyrics.status === 'fulfilled' ? lyrics.value.data.content ?? '' : '';
+    const loaded: LyricsInfo | null = details.status === 'fulfilled' ? details.value.data : null;
+    const parsed = parseLrc(content);
+    // Words without timing open ready to be timed, instead of as an empty editor.
+    const initial = parsed.rows.length === 0 && loaded?.plain ? splitPlain(loaded.plain) : parsed.rows;
+    reset(initial);
+    setHeaders(parsed.headers);
+    setBaseline(formatLrc(initial, parsed.headers));
+    setRawText(formatLrc(initial, parsed.headers));
+    setInfo(loaded);
+    setSelected(0);
+    setLoading(false);
+  }, [track.id, reset]);
+
+  useEffect(() => {
+    setNote(null);
+    setView('lines');
+    setShift(0);
+    if (poller.current) clearInterval(poller.current);
+    setRefreshing(false);
+    load();
+    return () => {
+      if (poller.current) clearInterval(poller.current);
+    };
+  }, [load]);
+
+  // ---- what is being edited -----------------------------------------------------------
+
+  const current = view === 'raw' ? parseLrc(rawText) : { rows, headers };
+  const serialized = view === 'raw' ? rawText : formatLrc(rows, headers);
+  const dirty = !loading && serialized !== baseline;
+  const issues = useMemo(() => problems(current.rows), [current.rows]);
+  const active = useMemo(() => activeIndex(rows, progress), [rows, progress]);
+  const untimedOnly = rows.length > 0 && rows.every((r) => r.time === null);
+
+  useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
+
+  // Follow the song: keep the line being sung in view.
+  useEffect(() => {
+    if (!follow || !playing || active < 0 || view !== 'lines') return;
+    rowEls.current.get(rows[active]?.id)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [active, follow, playing, view]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A line that was just added takes the caret.
+  useEffect(() => {
+    if (pendingFocus.current === null) return;
+    const el = document.querySelector<HTMLInputElement>(`[data-row-text="${pendingFocus.current}"]`);
+    if (el) {
+      el.focus();
+      pendingFocus.current = null;
     }
-  };
-  const lines = content.split('\n');
-  const lineNumbers = useMemo(() => {
-    return lines.map((_, i) => i + 1);
-  }, [lines]);
-  const highlighted = useMemo(
-    () =>
-      lines.map((line, i) => {
-        const isValid = validateLRCLine(line);
+  }, [rows]);
 
-        return (
-          <div
-            className={cn(
-              'text-lg/loose text-transparent',
-              !isValid && 'underline decoration-primary decoration-2 underline-offset-4',
-              i === currentLine &&
-                'z-[2] animate-[highlight_1s_ease-in-out_infinite] bg-[linear-gradient(90deg,var(--primary),var(--primary))] bg-[length:100%_200%] bg-[position:0%_0%] bg-clip-text [-webkit-text-fill-color:transparent]'
-            )}
-            key={i}
-          >
-            {isValid ? line : line.split(' ')[0]}
-          </div>
-        );
-      }),
-    [lines]
+  // ---- actions on rows ----------------------------------------------------------------
+
+  const stampAt = useCallback(
+    (index: number) => {
+      const row = rowsRef.current[index];
+      if (!row) return;
+      const now = playerRef?.current?.getTime() ?? progressRef.current;
+      commit((r) => setTime(r, index, now));
+      setSelected(Math.min(index + 1, rowsRef.current.length - 1));
+    },
+    [commit, playerRef]
   );
 
-  useEffect(() => {
-    if (!track.id) return;
-    api
-      .get(`/lyrics/${track.id}`)
-      .then(({ data }) => {
-        setContent(data.content);
-        setOriginalContent(data.content);
-        setLyrics(data.lyrics);
-        const firstLine = data.content.split('\n')[0];
-        const matched = firstLine.match(/:(\d{2})\.(\d+)/);
-        if (matched) {
-          setIsTwoDigits(matched[2].length === 2);
+  const actions = useMemo<RowActions>(
+    () => ({
+      select: setSelected,
+      setTime: (i, time) => commit((r) => setTime(r, i, time)),
+      setText: (i, text) => commit((r) => setText(r, i, text), `text-${rowsRef.current[i]?.id}`),
+      stamp: stampAt,
+      nudge: (i, delta) => commit((r) => nudge(r, i, delta), `nudge-${rowsRef.current[i]?.id}`),
+      playFrom: (i) => {
+        const time = rowsRef.current[i]?.time;
+        if (time === null || time === undefined) return;
+        playerRef?.current?.seek(Math.max(0, time - 0.5));
+        playerRef?.current?.play();
+      },
+      insertBelow: (i) => {
+        const row = newRow();
+        pendingFocus.current = row.id;
+        commit((r) => insertAfter(r, i, row));
+        setSelected(i + 1);
+      },
+      remove: (i) => {
+        commit((r) => removeAt(r, i));
+        setSelected(Math.max(0, Math.min(i, rowsRef.current.length - 2)));
+      },
+      focusNext: (i) => {
+        const next = rowsRef.current[i + 1];
+        if (next) {
+          document.querySelector<HTMLInputElement>(`[data-row-text="${next.id}"]`)?.focus();
+        } else {
+          const row = newRow();
+          pendingFocus.current = row.id;
+          commit((r) => insertAfter(r, i, row));
         }
-      })
-      .catch((err) => {
-        console.error(err);
-        setContent('');
-        setOriginalContent('');
-        setLyrics([]);
-      });
-  }, [track.id]);
+      },
+      register: (id, el) => {
+        if (el) rowEls.current.set(id, el);
+        else rowEls.current.delete(id);
+      },
+    }),
+    [commit, stampAt, playerRef]
+  );
 
-  useEffect(() => {
-    if (progress) setCurrentTime(progress);
-    if (!lyrics) {
+  // ---- saving -------------------------------------------------------------------------
+
+  const save = useCallback(async () => {
+    const { rows: toSave, headers: head } = view === 'raw' ? parseLrc(rawText) : { rows: rowsRef.current, headers };
+    if (toSave.length === 0 || problems(toSave).untimed > 0) {
+      say('error', toSave.length === 0 ? t('editor.invalid') : t('editor.needsTime', { count: problems(toSave).untimed }));
       return;
     }
-    const index = lyrics.findIndex((line, i) => {
-      return currentTime >= line.time && (i === lyrics.length - 1 || currentTime < lyrics[i + 1].time);
-    });
-    if (index !== currentLine) {
-      setCurrentLine(index);
+    const content = formatLrc(toSave, head, true);
+    try {
+      await api.post(`/lyrics/${track.id}/update`, { content });
+      const sorted = parseLrc(content);
+      reset(sorted.rows);
+      setHeaders(sorted.headers);
+      setBaseline(formatLrc(sorted.rows, sorted.headers));
+      setRawText(content);
+      say('ok', t('editor.saved'));
+      onChanged?.();
+      api.get(`/lyrics/${track.id}/info`).then(({ data }) => setInfo(data)).catch(() => {});
+    } catch (err) {
+      console.error(err);
+      say('error', t('editor.failed'));
     }
-  }, [progress, lyrics]);
+  }, [view, rawText, headers, track.id, reset, say, t, onChanged]);
 
-  const [status, setStatus] = useState('');
-  const showStatus = (message: string) => {
-    setStatus(message);
-    setTimeout(() => setStatus(''), 2000);
+  const revert = () => {
+    const parsed = parseLrc(baseline);
+    reset(parsed.rows);
+    setHeaders(parsed.headers);
+    setRawText(baseline);
   };
-  const onSave = (content: string) => {
-    const isValid = isValidLRC(content);
-    if (!isValid) {
-      showStatus(t('editor.invalid'));
-    } else {
-      api
-        .post(`/lyrics/${track.id}/update`, { content })
-        .then(() => {
-          showStatus(t('editor.saved'));
-          setEditing(false);
-          setOriginalContent(content);
-        })
-        .catch((err) => {
-          console.error(err);
-          showStatus(t('editor.failed'));
-        });
+
+  // ---- searching again ----------------------------------------------------------------
+
+  const finishRefresh = useCallback(
+    async (result: Record<string, any>) => {
+      setRefreshing(false);
+      await load();
+      onChanged?.();
+      if (result?.hasLyrics) {
+        const source = result.source ? t(`editor.source.${result.source}` as TranslationKey) : t('editor.source.unknown');
+        say(result.confidence === 'approximate' ? 'warn' : 'ok', t('editor.refreshFound', { count: result.lines, source }));
+      } else if (result?.hasPlain) say('warn', t('editor.refreshFoundPlain'));
+      else say('warn', t('editor.refreshNone'));
+    },
+    [load, onChanged, say, t]
+  );
+
+  const poll = useCallback(
+    (task: string) => {
+      const started = Date.now();
+      if (poller.current) clearInterval(poller.current);
+      poller.current = setInterval(async () => {
+        const waited = Date.now() - started;
+        try {
+          const { data } = await api.get(`/lyrics/refresh/${task}`);
+          if (data.state === 'done') {
+            clearInterval(poller.current!);
+            await finishRefresh(data.result);
+            return;
+          }
+          if (data.state === 'failed') {
+            clearInterval(poller.current!);
+            setRefreshing(false);
+            say('error', t('editor.refreshFailed', { error: data.error }));
+            return;
+          }
+        } catch {
+          /* a missed poll is not a failure: try again */
+        }
+        if (waited > GIVE_UP_AFTER_MS) {
+          clearInterval(poller.current!);
+          setRefreshing(false);
+        } else if (waited > STUCK_AFTER_MS) say('warn', t('editor.refreshStuck'));
+        else if (waited > SLOW_AFTER_MS) say('warn', t('editor.refreshSlow'));
+      }, POLL_MS);
+    },
+    [finishRefresh, say, t]
+  );
+
+  const startRefresh = async (force: boolean) => {
+    setConfirmRefresh(false);
+    setNote(null);
+    try {
+      const { data } = await api.post(`/lyrics/${track.id}/refresh`, null, { params: force ? { force: true } : undefined });
+      setRefreshing(true);
+      poll(data.task);
+    } catch (err) {
+      if ((err as { response?: { status?: number } })?.response?.status === 409) setConfirmRefresh(true);
+      else say('error', t('editor.refreshFailed', { error: errorText(err) }));
     }
   };
-  const onCancel = () => {
-    setContent(originalContent);
-    setEditing(false);
+
+  const askRefresh = () => (info?.edited || dirty ? setConfirmRefresh(true) : startRefresh(false));
+
+  // ---- the toolbar's other actions ----------------------------------------------------
+
+  const switchView = (next: View) => {
+    if (next === view) return;
+    if (next === 'raw') setRawText(formatLrc(rows, headers));
+    else {
+      const parsed = parseLrc(rawText);
+      commit(parsed.rows);
+      setHeaders(parsed.headers);
+      setSelected(0);
+    }
+    setView(next);
   };
+
+  const startFromPaste = () => {
+    const parsed = parseLrc(pasteText);
+    if (parsed.rows.length === 0) return;
+    commit(parsed.rows);
+    setHeaders(parsed.headers);
+    setSelected(0);
+    setPasteOpen(false);
+    setPasteText('');
+    setView('lines');
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    const inField = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
+    const mod = e.metaKey || e.ctrlKey;
+    if (mod && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      save();
+      return;
+    }
+    if (mod && e.key.toLowerCase() === 'z' && view === 'lines') {
+      e.preventDefault();
+      if (e.shiftKey) redo();
+      else undo();
+      return;
+    }
+    if (inField || view !== 'lines') return;
+    const move = (to: number) => {
+      const i = Math.max(0, Math.min(rows.length - 1, to));
+      setSelected(i);
+      rowEls.current.get(rows[i]?.id)?.scrollIntoView({ block: 'nearest' });
+    };
+    switch (e.key) {
+      case 'ArrowDown': e.preventDefault(); move(selected + 1); break;
+      case 'ArrowUp': e.preventDefault(); move(selected - 1); break;
+      case 'Enter': e.preventDefault(); stampAt(selected); break;
+      case '[': e.preventDefault(); actions.nudge(selected, -0.1); break;
+      case ']': e.preventDefault(); actions.nudge(selected, 0.1); break;
+      case 'Delete':
+      case 'Backspace': e.preventDefault(); actions.remove(selected); break;
+    }
+  };
+
+  // ---- rendering ----------------------------------------------------------------------
+
+  const empty = !loading && rows.length === 0 && view === 'lines';
+  const noteTone = { ok: 'text-emerald-600 dark:text-emerald-400', warn: 'text-amber-600 dark:text-amber-400', error: 'text-destructive' };
+  const tool = (label: string, onClick: () => void, icon: React.ReactNode, opts: { disabled?: boolean; pressed?: boolean } = {}) => (
+    <Tooltip title={label} side="bottom">
+      <IconButton
+        size="small"
+        aria-label={label}
+        aria-pressed={opts.pressed}
+        disabled={opts.disabled}
+        onClick={onClick}
+        className={cn('text-muted-foreground', opts.pressed && 'bg-primary/15 text-primary')}
+      >
+        {icon}
+      </IconButton>
+    </Tooltip>
+  );
 
   return (
-    <>
-      <div className="grid h-full w-full grid-rows-[auto_1fr] gap-5 p-2">
-        <div className="flex items-center justify-between">
-          <h1 className="font-bold text-2xl">
-            ♪ {track.name}
-            <span className="ml-2 text-sm text-muted-foreground">{track.artists.map((artist) => artist.name).join(', ')}</span>
-          </h1>
-          <div className="flex items-center">
-            {status && <span className="mr-3 text-sm text-muted-foreground" role="status">{status}</span>}
-            {editing ? (
-              <>
-                <Button
-                  variant="outline"
-                  className="mr-2 bg-transparent"
-                  onClick={onCancel}
-                >
-                  {t('editor.cancelChanges')}
-                </Button>
-                <Button disabled={!modified} onClick={() => onSave(content)}>
-                  {t('editor.saveChanges')}
-                </Button>
-              </>
-            ) : (
-              <IconButton onClick={() => setEditing(true)}>
-                <Pencil className="size-5" />
-              </IconButton>
-            )}
-          </div>
+    <div className="flex h-full min-h-0 flex-col gap-3 p-2" onKeyDown={onKeyDown}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="truncate text-2xl font-bold">♪ {track.name}</h1>
+          <p className="truncate text-sm text-muted-foreground">{track.artists.map((a) => a.name).join(', ')}</p>
         </div>
-        <div className="h-full w-full overflow-hidden rounded-xl border">
-          {/* Toolbar */}
-          {editing && (
-            <div className="w-full border-b bg-muted p-2">
-              <div className="relative mr-2 inline-flex w-[150px] items-center align-middle">
-                <label className="absolute -top-2 left-2 bg-muted px-1 text-xs text-muted-foreground">{t('editor.offset')}</label>
-                <Input
-                  type="number"
-                  value={delay}
-                  onChange={(e) => setDelay(Number(e.target.value))}
-                  className="pr-16"
-                />
-                <Button variant="ghost" size="sm" className="absolute right-0 bg-accent text-muted-foreground hover:text-foreground">
-                  {t('common.apply')}
-                </Button>
-              </div>
-              <Button
-                variant="outline"
-                className="bg-transparent px-2 text-muted-foreground"
-                onClick={() => setContent(converter(content))}
-              >
-                {t('editor.toTraditional')}
-              </Button>
-              <Button
-                variant="outline"
-                className="ml-2 bg-transparent px-2 text-muted-foreground"
-                onClick={() => {
-                  const ta = textareaRef.current;
-                  if (!ta) return;
-                  const start = ta.selectionStart;
-                  const end = ta.selectionEnd;
-                  if (start && end) {
-                    // ta.selection
-                    const min = Math.floor(currentTime / 60);
-                    const sec = Math.floor(currentTime % 60);
-                    const msec = Math.floor((currentTime % 1) * 1000);
-                    const time = `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}.${String(
-                      msec
-                    ).padStart(isTwoDigits ? 2 : 3, '0')}`;
-                    const current = ta.value;
-                    ta.value = current.slice(0, start) + time + current.slice(end);
-                    ta.setSelectionRange(start + time.length, start + time.length);
-                  }
-                }}
-              >
-                {t('editor.currentTime')}
-              </Button>
-            </div>
-          )}
-          <div className="relative h-full w-full overflow-hidden bg-background p-4 pl-14 text-foreground">
-            <div ref={highlightRef} className="no-scrollbar pointer-events-none absolute inset-y-4 right-4 left-14 z-[1] overflow-hidden">
-              {highlighted}
-              <div className="h-[100px]"></div>
-            </div>
-            <div ref={lineNumbersRef} className="no-scrollbar pointer-events-none absolute inset-y-4 left-4 z-[1] w-10 overflow-hidden text-sm/loose text-muted-foreground">
-              {lineNumbers.map((lineNumber) => (
-                <div key={lineNumber} className="flex h-9 w-full items-center justify-end pr-5 font-semibold">{lineNumber}</div>
-              ))}
-            </div>
-            <textarea
-              disabled={!editing}
-              ref={textareaRef}
-              onScroll={syncScroll}
-              className="z-10 h-full w-full resize-none bg-transparent p-0 text-lg/loose outline-none"
-              spellCheck={false}
-              value={content}
-              onChange={(e) => {
-                setContent(e.target.value);
-              }}
-            />
-          </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {dirty && <span className="text-sm text-amber-600 dark:text-amber-400">{t('editor.unsaved')}</span>}
+          <Tooltip title={t('editor.refreshTip')} side="bottom">
+            <Button variant="outline" disabled={!track.id || loading || refreshing} onClick={askRefresh}>
+              {refreshing ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+              {refreshing ? t('editor.refreshing') : t('editor.refresh')}
+            </Button>
+          </Tooltip>
+          {dirty && <Button variant="outline" onClick={revert}>{t('editor.cancelChanges')}</Button>}
+          <Button disabled={!dirty || issues.untimed > 0} onClick={save}>{t('editor.saveChanges')}</Button>
         </div>
       </div>
 
-    </>
+      {info && <Provenance info={info} dirty={dirty} untimedOnly={untimedOnly} />}
+      {note && <p role="status" className={cn('text-sm', noteTone[note.kind])}>{note.text}</p>}
+      {untimedOnly && <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">{t('editor.untimedBanner')}</p>}
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-y py-2">
+        <div className="inline-flex rounded-lg border p-0.5" role="group">
+          {(['lines', 'raw'] as View[]).map((v) => (
+            <button
+              key={v}
+              aria-pressed={view === v}
+              onClick={() => switchView(v)}
+              className={cn('rounded-md px-3 py-1 text-sm transition-colors', view === v ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}
+            >
+              {t(v === 'lines' ? 'editor.viewLines' : 'editor.viewRaw')}
+            </button>
+          ))}
+        </div>
+        {view === 'lines' && (
+          <>
+            <div className="flex items-center gap-1" role="group" aria-label={t('editor.shiftAll')}>
+              <span className="mr-1 text-sm text-muted-foreground">{t('editor.shiftAll')}</span>
+              <IconButton size="small" aria-label="−0.1" onClick={() => setShift((s) => Math.round((s - 0.1) * 10) / 10)}><Minus className="size-4" /></IconButton>
+              <Input type="number" step="0.1" value={shift} onChange={(e) => setShift(Number(e.target.value))} className="h-8 w-20 px-2 text-center tabular-nums" aria-label={t('editor.shiftAll')} />
+              <IconButton size="small" aria-label="+0.1" onClick={() => setShift((s) => Math.round((s + 0.1) * 10) / 10)}><Plus className="size-4" /></IconButton>
+              <span className="text-sm text-muted-foreground">s</span>
+              <Button variant="outline" size="sm" disabled={shift === 0 || rows.length === 0} onClick={() => { commit((r) => shiftAll(r, shift)); setShift(0); }}>
+                {t('common.apply')}
+              </Button>
+            </div>
+            <Button variant="outline" size="sm" disabled={rows.length < 2} onClick={() => commit((r) => sortRows(r))}>
+              <ArrowDownUp /> {t('editor.sortByTime')}
+            </Button>
+            <Button variant="outline" size="sm" disabled={rows.length === 0} onClick={() => commit((r) => mapText(r, converter))}>
+              <Languages /> {t('editor.toTraditional')}
+            </Button>
+          </>
+        )}
+        <div className="ml-auto flex items-center gap-1">
+          {issues.untimed > 0 && <span className="mr-2 text-sm text-amber-600 dark:text-amber-400">{t('editor.needsTime', { count: issues.untimed })}</span>}
+          {view === 'lines' && tool(t('editor.undo'), undo, <Undo2 className="size-5" />, { disabled: !canUndo })}
+          {view === 'lines' && tool(t('editor.redo'), redo, <Redo2 className="size-5" />, { disabled: !canRedo })}
+          {view === 'lines' && tool(t('editor.follow'), () => setFollow((f) => !f), <LocateFixed className="size-5" />, { pressed: follow })}
+          <Shortcuts />
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-hidden rounded-xl border bg-background">
+        {loading ? (
+          <div className="space-y-2 p-4">{Array.from({ length: 8 }, (_, i) => <Skeleton key={i} className="h-9 w-full" />)}</div>
+        ) : empty ? (
+          <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
+            <h2 className="text-lg font-semibold">{t('editor.empty.title')}</h2>
+            <p className="max-w-sm text-sm text-muted-foreground">{t('editor.empty.body')}</p>
+            <div className="mt-1 flex gap-2">
+              <Button disabled={refreshing || !track.id} onClick={askRefresh}>{refreshing ? <Loader2 className="animate-spin" /> : <RefreshCw />}{t('editor.refresh')}</Button>
+              <Button variant="outline" onClick={() => setPasteOpen(true)}><ClipboardPaste />{t('editor.paste')}</Button>
+            </div>
+          </div>
+        ) : view === 'raw' ? (
+          <textarea
+            value={rawText}
+            onChange={(e) => setRawText(e.target.value)}
+            spellCheck={false}
+            aria-label={t('editor.viewRaw')}
+            className="h-full w-full resize-none bg-transparent p-4 font-mono text-sm/7 outline-none"
+          />
+        ) : (
+          <div
+            ref={listRef}
+            tabIndex={0}
+            className="h-full overflow-y-auto p-2 pr-8 outline-none [scrollbar-width:thin]"
+            onMouseDown={() => listRef.current?.focus({ preventScroll: true })}
+          >
+            {rows.map((row, i) => (
+              <LineRow key={row.id} row={row} index={i} active={i === active} selected={i === selected} outOfOrder={issues.outOfOrder.has(i)} actions={actions} />
+            ))}
+            <div className="p-2">
+              <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => actions.insertBelow(rows.length - 1)}>
+                <Plus /> {t('editor.addLine')}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <ConfirmDialog
+        open={confirmRefresh}
+        title={t('editor.refreshConfirmTitle')}
+        confirmLabel={t('editor.refreshAction')}
+        cancelLabel={t('editor.stay')}
+        onConfirm={() => startRefresh(true)}
+        onCancel={() => setConfirmRefresh(false)}
+      >
+        {info?.edited && <p>{t('editor.refreshEdited')}</p>}
+        {dirty && <p>{t('editor.refreshDirty')}</p>}
+        {!info?.edited && !dirty && <p>{t('editor.refreshEdited')}</p>}
+      </ConfirmDialog>
+
+      <Dialog open={pasteOpen} onOpenChange={setPasteOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t('editor.pasteTitle')}</DialogTitle>
+            <DialogDescription>{t('editor.pasteHint')}</DialogDescription>
+          </DialogHeader>
+          <div className="px-6 pb-6">
+            <textarea
+              value={pasteText}
+              onChange={(e) => setPasteText(e.target.value)}
+              spellCheck={false}
+              autoFocus
+              className="h-64 w-full resize-none rounded-lg border bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-ring/30"
+            />
+            <div className="mt-3 flex justify-end">
+              <Button disabled={pasteText.trim() === ''} onClick={startFromPaste}>{t('editor.pasteStart')}</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

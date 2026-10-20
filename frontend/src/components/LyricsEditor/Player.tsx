@@ -1,6 +1,6 @@
 import { CirclePause, CirclePlay } from 'lucide-react';
 import { IconButton } from 'src/components/ui/button';
-import { useEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import AppSlider from '../Slider';
 import SyncedAudioPlayer from 'src/syncedPlayer';
 import { Track } from 'src/models/spotify';
@@ -12,13 +12,23 @@ function formatTime(seconds: number): string {
   const secs = Math.floor(seconds % 60);
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
-export default function LyricsEditorPlayer({
-  track,
-  onProgress,
-}: {
-  track: Track;
-  onProgress?: (progress: number) => void;
-}) {
+/** What the editor can ask of the player. `getTime` is exact; `progress` ticks only every 200 ms. */
+export type PlayerHandle = {
+  getTime: () => number;
+  seek: (seconds: number) => void;
+  play: () => void;
+  pause: () => void;
+  toggle: () => void;
+};
+
+const LyricsEditorPlayer = forwardRef<
+  PlayerHandle,
+  {
+    track: Track;
+    onProgress?: (progress: number) => void;
+    onPlayingChange?: (playing: boolean) => void;
+  }
+>(function LyricsEditorPlayer({ track, onProgress, onPlayingChange }, ref) {
   const [progress, setProgress] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [seeking, setSeeking] = useState(false);
@@ -119,6 +129,21 @@ export default function LyricsEditorPlayer({
   const handleSeekStart = () => {
     setSeeking(true);
   };
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      getTime: () => syncedPlayer.current?.getCurrentTime() ?? progress,
+      seek,
+      play,
+      pause,
+      toggle: handlePlayPause,
+    }),
+    [playing, progress]
+  );
+  useEffect(() => {
+    onPlayingChange?.(playing);
+  }, [playing]);
   return (
     <div className="w-full flex items-end mt-4">
       <div className="flex items-center justify-stat">
@@ -148,4 +173,6 @@ export default function LyricsEditorPlayer({
       </div>
     </div>
   );
-}
+});
+
+export default LyricsEditorPlayer;

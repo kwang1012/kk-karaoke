@@ -62,6 +62,7 @@ export default function MobileAudioController({ progressOnly }: { progressOnly?:
           onChange={handleSliderChange}
           onChangeCommitted={handleSliderCommit}
           onMouseDown={handleSeekStart}
+          preview={formatTime}
           aria-labelledby="karaoke-slider"
         />
         <div className="flex items-center justify-between w-full text-sm text-white">

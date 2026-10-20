@@ -31,7 +31,8 @@
     "electron": "electron .",
     "package-mac": "electron-packager . KKaraoke --platform=darwin --arch=arm64 --out=dist --icon=icon.icns --overwrite",
     "package-windows": "electron-packager . KKaraoke --platform=darwin --arch=x64 --out=dist --icon=icon.icns --overwrite",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test \"src/**/*.test.ts\""
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

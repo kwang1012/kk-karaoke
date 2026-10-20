@@ -21,5 +21,7 @@
       "src/*": ["./src/*"]
     }
   },
-  "include": ["src", "vite.config.ts"]
+  "include": ["src", "vite.config.ts"],
+  // Run by Node's own test runner (`yarn test`), not part of the app.
+  "exclude": ["src/**/*.test.ts"]
 }

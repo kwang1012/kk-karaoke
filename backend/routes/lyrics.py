@@ -4,7 +4,10 @@ from fastapi import APIRouter, Depends
 from models.track import LyricsDelay
 from models.requests import UpdateLyricsRequest
 from managers import r2
-from services.lyrics_sources import read_meta, words_for_line, write_meta
+from pathlib import Path
+from services import library
+from services.lyrics_sources import lyrics_summary, read_meta, words_for_line, write_meta
+from services.process_request import celery
 from utils import LYRICS_DIR, get_lyrics_path
 import re
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -40,6 +43,61 @@ async def update_delay(
         "data": {"action": "delay", "track_id": lyrics_delay.id, "delay": lyrics_delay.delay},
     })
     return {"message": "Delay updated successfully"}
+
+
+@router.get("/status")
+def lyrics_status():
+    """What every track's lyrics are, in one call: for a list that wants to show which need attention."""
+    ids = {p.name.split(".")[0] for p in Path(LYRICS_DIR).iterdir()
+           if p.is_file() and (p.suffix == ".lrc" or p.name.endswith(".meta.json"))}
+    out = {}
+    for track_id in sorted(ids):
+        meta = read_meta(track_id)
+        out[track_id] = {
+            "has_lyrics": Path(LYRICS_DIR, f"{track_id}.lrc").exists(),
+            "has_plain": bool(meta.get("plain")),
+            "confidence": meta.get("confidence"),
+            "source": meta.get("source"),
+            "edited": bool(meta.get("edited")),
+        }
+    return JSONResponse(content=out)
+
+
+_TASK_STATES = {"PENDING": "pending", "STARTED": "running", "RETRY": "running",
+                "SUCCESS": "done", "FAILURE": "failed"}
+
+
+@router.get("/refresh/{task_id}")
+def refresh_status(task_id: str):
+    """Where a refresh stands. `pending` covers both queued and running: the worker reports only the end."""
+    result = celery.AsyncResult(task_id)
+    body: dict = {"state": _TASK_STATES.get(result.state, "pending")}
+    if result.state == "SUCCESS":
+        body["result"] = result.result
+    elif result.state == "FAILURE":
+        body["error"] = str(result.result)
+    return JSONResponse(content=body)
+
+
+@router.get("/{track_id}/info")
+def lyrics_info(track_id: str):
+    """What a track's lyrics are and where they came from, whether or not it has any."""
+    return JSONResponse(content={**lyrics_summary(track_id), "plain": read_meta(track_id).get("plain")})
+
+
+@router.post("/{track_id}/refresh")
+def refresh_lyrics(track_id: str, force: bool = False):
+    """
+    Look for a track's lyrics again, on the worker (a transcript can take a minute). Hand edits are
+    not thrown away unless the caller says so.
+    """
+    if library.load_track(track_id) is None:
+        return JSONResponse(status_code=404, content={"error": "Unknown track"})
+    if not force and read_meta(track_id).get("edited"):
+        return JSONResponse(status_code=409, content={
+            "error": "edited", "message": "These lyrics were edited by hand. Refreshing replaces your edits."})
+    task = celery.send_task("refresh_lyrics", args=[track_id])
+    return JSONResponse(content={"task": task.id})
 
 
 @router.get("/{track_id}")

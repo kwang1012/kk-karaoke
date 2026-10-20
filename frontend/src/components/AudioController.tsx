@@ -122,6 +122,7 @@ export default function AudioController() {
                 }
               }}
               onMouseDown={() => setSeeking(true)}
+              preview={formatTime}
               aria-labelledby="karaoke-slider"
             />
             <span className="w-10">{formatTime(duration)}</span>

@@ -1,8 +1,9 @@
 import json
 import os
 from celery.result import AsyncResult
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, Optional, Union
 
 from celery import Celery
 from celery.signals import worker_ready
@@ -11,8 +12,9 @@ from utils import NO_VOCALS_DIR, LYRICS_DIR, VOCALS_DIR, RAW_AUDIO_DIR
 from models.track import Artist, Track, is_video_id
 from managers.websocket import WebSocketManager
 from services.downloader import download_audio
+from services import library
 from services.library import save_track
-from services.lyrics_sources import Recording, add_heard_lyrics, add_word_timing, artist_aliases, find_lyrics, find_plain_lyrics, read_meta, save_plain, save_result, verify_against_audio, video_duration_s, write_meta
+from services.lyrics_sources import Recording, add_heard_lyrics, add_word_timing, artist_aliases, discard_lyrics, find_lyrics, find_plain_lyrics, lyrics_summary, read_meta, save_plain, save_result, verify_against_audio, video_duration_s, write_meta
 from services.voice_remover import separate_vocals
 from config import REDIS_HOST, REDIS_PORT
 from managers import r2
@@ -84,13 +86,17 @@ def process_request(track: Union[dict[str, Any], Track]):
         raise
 
 
-def _process_track(track: Track):
-    print("Processing request for track:", track.name)
-    search_term = f"{track.name} {' '.join(map(lambda artist: artist.name, track.artists))}"
-    lyrics_exist = Path(LYRICS_DIR, f"{track.id}.lrc").exists() or bool(read_meta(track.id).get("plain"))
-    vocals_exist = Path(VOCALS_DIR, f"{track.id}.mp3").exists()
-    non_vocals_exist = Path(NO_VOCALS_DIR, f"{track.id}.mp3").exists()
+@dataclass
+class _Identity:
+    """Which recording a track is: everything the lyrics and the audio are looked up by."""
+    video_id: str
+    title: str
+    artist: str
+    duration_s: Optional[float]
+    recording: Recording
 
+
+def _identify(track: Track) -> _Identity:
     title = track.name
     artist = track.artists[0].name if track.artists else ""
     # A track is a YouTube recording and its id is the video id. One recording drives both the
@@ -109,31 +115,68 @@ def _process_track(track: Track):
     recording = Recording(video_id, title, artist, round(duration_s) if duration_s else None)
     if not read_meta(track.id):
         write_meta(track.id, {"video_id": video_id})
+    return _Identity(video_id, title, artist, duration_s, recording)
+
+
+def _find_lyrics(track: Track, who: _Identity) -> None:
+    """Timed lyrics from the providers, else their plain words, saved next to the track."""
+    album_name = track.album.get("name") if track.album else None
+    try:
+        names = artist_aliases(who.title, [a.name for a in track.artists], who.duration_s, who.recording)
+        result = find_lyrics(who.title, names, album_name, who.duration_s, who.recording)
+        if result:
+            save_result(track.id, result)
+            print(f"Lyrics for {track.id}: {result.source} ({result.confidence})")
+            words = add_word_timing(track.id, who.title, names, who.duration_s)
+            if words:
+                print(f"Word timing for {track.id}: {words} lines")
+        else:
+            plain = find_plain_lyrics(who.title, names, album_name, who.duration_s, who.recording)
+            if plain:
+                save_plain(track.id, plain)
+            print(f"No timed lyrics found for {track.id}" + (" (kept the words only)" if plain else ""))
+    except Exception as e:
+        # Missing lyrics shouldn't stop the track from being playable.
+        print(f"Lyrics download failed for {track.id}: {e!r}")
+
+
+def _listen_and_verify(track: Track, who: _Identity) -> None:
+    """With the vocal stem on disk: transcribe when nothing has the song, then check the timing."""
+    vocal = str(Path(VOCALS_DIR, f"{track.id}.mp3"))
+    # Nothing verified has these lyrics: listen to the vocals instead of showing nothing (or another song's).
+    try:
+        heard = add_heard_lyrics(track.id, vocal, who.video_id)
+        if heard:
+            print(f"Transcribed {heard} lines for {track.id}")
+    except Exception as e:
+        print(f"Transcription failed for {track.id}: {e!r}")
+
+    # The vocal stem is the one thing that is certainly this recording's audio: use it
+    # to confirm the lyric timing, or to move it when the whole sheet is off.
+    try:
+        check = verify_against_audio(track.id, vocal)
+        if check:
+            print(f"Audio check for {track.id}: {check.status} (offset {check.offset_s:+.2f}s, z={check.z:.1f})")
+    except Exception as e:
+        print(f"Audio check failed for {track.id}: {e!r}")
+
+
+def _process_track(track: Track):
+    print("Processing request for track:", track.name)
+    search_term = f"{track.name} {' '.join(map(lambda artist: artist.name, track.artists))}"
+    lyrics_exist = Path(LYRICS_DIR, f"{track.id}.lrc").exists() or bool(read_meta(track.id).get("plain"))
+    vocals_exist = Path(VOCALS_DIR, f"{track.id}.mp3").exists()
+    non_vocals_exist = Path(NO_VOCALS_DIR, f"{track.id}.mp3").exists()
+
+    who = _identify(track)
 
     if not lyrics_exist:
         _publish_status(track, "downloading_lyrics")
-        album_name = track.album.get("name") if track.album else None
-        try:
-            names = artist_aliases(title, [a.name for a in track.artists], duration_s, recording)
-            result = find_lyrics(title, names, album_name, duration_s, recording)
-            if result:
-                save_result(track.id, result)
-                print(f"Lyrics for {track.id}: {result.source} ({result.confidence})")
-                words = add_word_timing(track.id, title, names, duration_s)
-                if words:
-                    print(f"Word timing for {track.id}: {words} lines")
-            else:
-                plain = find_plain_lyrics(title, names, album_name, duration_s, recording)
-                if plain:
-                    save_plain(track.id, plain)
-                print(f"No timed lyrics found for {track.id}" + (" (kept the words only)" if plain else ""))
-        except Exception as e:
-            # Missing lyrics shouldn't stop the track from being playable.
-            print(f"Lyrics download failed for {track.id}: {e!r}")
+        _find_lyrics(track, who)
 
     if not vocals_exist or not non_vocals_exist:
         _publish_status(track, "downloading_audio")
-        download_audio(track.id, search_term, target_duration_s=duration_s, video_id=video_id, title=title)
+        download_audio(track.id, search_term, target_duration_s=who.duration_s, video_id=who.video_id, title=who.title)
 
         _publish_status(track, "separating")
 
@@ -147,27 +190,34 @@ def _process_track(track: Track):
     if not is_ready(track):
         raise RuntimeError("Separation finished but output files are missing")
 
-    # Nothing verified has these lyrics: listen to the vocals instead of showing nothing (or another song's).
-    try:
-        heard = add_heard_lyrics(track.id, str(Path(VOCALS_DIR, f"{track.id}.mp3")), video_id)
-        if heard:
-            print(f"Transcribed {heard} lines for {track.id}")
-    except Exception as e:
-        print(f"Transcription failed for {track.id}: {e!r}")
-
-    # The vocal stem is the one thing that is certainly this recording's audio: use it
-    # to confirm the lyric timing, or to move it when the whole sheet is off.
-    try:
-        check = verify_against_audio(track.id, str(Path(VOCALS_DIR, f"{track.id}.mp3")))
-        if check:
-            print(f"Audio check for {track.id}: {check.status} (offset {check.offset_s:+.2f}s, z={check.z:.1f})")
-    except Exception as e:
-        print(f"Audio check failed for {track.id}: {e!r}")
+    _listen_and_verify(track, who)
 
     Path(RAW_AUDIO_DIR, f"{track.id}.mp3").unlink(missing_ok=True)
     save_track(track)  # before the upload, which pushes it to R2 with the stems
     r2.upload_track(track.id)
     _publish_status(track, "ready")
+
+
+def refresh_lyrics_for(track: Track) -> dict:
+    """
+    Throw away a processed track's lyrics and look for them again, with everything the pipeline
+    knows (providers, then a transcript of the vocals). The audio is left alone.
+    """
+    who = _identify(track)
+    discard_lyrics(track.id)
+    _find_lyrics(track, who)
+    if Path(VOCALS_DIR, f"{track.id}.mp3").exists():
+        _listen_and_verify(track, who)
+    r2.upload_track(track.id)
+    return lyrics_summary(track.id)
+
+
+@celery.task(name="refresh_lyrics")
+def refresh_lyrics(track_id: str) -> dict:
+    saved = library.load_track(track_id)
+    if saved is None:
+        raise RuntimeError(f"Unknown track {track_id}")
+    return refresh_lyrics_for(saved)
 
 
 if __name__ == "__main__":

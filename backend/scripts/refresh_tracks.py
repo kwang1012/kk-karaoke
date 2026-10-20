@@ -22,7 +22,7 @@ from managers.db import get_redis  # noqa: E402
 from models.track import Track  # noqa: E402
 from redis_keys import RedisKeys  # noqa: E402
 from services import library  # noqa: E402
-from services.lyrics_sources import read_meta, write_meta  # noqa: E402
+from services.lyrics_sources import discard_lyrics  # noqa: E402
 from utils import LYRICS_DIR, MIDI_DIR, NO_VOCALS_DIR, RAW_AUDIO_DIR, VOCALS_DIR  # noqa: E402
 
 
@@ -49,17 +49,6 @@ def discard(track_id: str) -> None:
     ):
         Path(directory, name).unlink(missing_ok=True)
     r2.delete_track(track_id)
-
-
-def discard_lyrics(track_id: str) -> None:
-    """Forget only the lyrics (and what was learned about them); the audio and recording stay."""
-    meta = read_meta(track_id)
-    Path(LYRICS_DIR, f"{track_id}.lrc").unlink(missing_ok=True)
-    Path(LYRICS_DIR, f"{track_id}.meta.json").unlink(missing_ok=True)
-    if meta.get("video_id"):
-        write_meta(track_id, {"video_id": meta["video_id"]})  # keep which recording this is
-    r2.delete_path("lyrics", f"{track_id}.lrc")
-    r2.delete_path("lyrics-meta", f"{track_id}.meta.json")
 
 
 def main() -> None:

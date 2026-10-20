@@ -594,3 +594,35 @@ def add_heard_lyrics(track_id: str, vocal_path: str, video_id: Optional[str]) ->
     saved["word_source"] = "whisper"
     write_meta(track_id, saved)
     return len(lines)
+
+
+# --- looking again --------------------------------------------------------------
+
+def discard_lyrics(track_id: str) -> None:
+    """
+    Forget a track's lyrics and what was learned about them (including hand edits), keeping only
+    which recording it is. Removed from R2 too, or the next sync would bring them back.
+    """
+    from managers import r2  # imported here: r2 reads storage paths at import time
+
+    video_id = read_meta(track_id).get("video_id")
+    Path(LYRICS_DIR, f"{track_id}.lrc").unlink(missing_ok=True)
+    _meta_path(track_id).unlink(missing_ok=True)
+    if video_id:
+        write_meta(track_id, {"video_id": video_id})
+    r2.delete_path("lyrics", f"{track_id}.lrc")
+    r2.delete_path("lyrics-meta", f"{track_id}.meta.json")
+
+
+def lyrics_summary(track_id: str) -> dict:
+    """What a track's lyrics are, in a few fields: for a client that wants to say what it found."""
+    meta = read_meta(track_id)
+    lrc = Path(LYRICS_DIR, f"{track_id}.lrc")
+    lines = len(parse_lrc(lrc.read_text(encoding="utf-8"))) if lrc.exists() else 0
+    return {
+        "has_lyrics": lines > 0, "lines": lines, "has_plain": bool(meta.get("plain")),
+        "source": meta.get("source"), "confidence": meta.get("confidence"), "notes": meta.get("notes") or [],
+        "edited": bool(meta.get("edited")), "has_words": bool(meta.get("words")),
+        "word_source": meta.get("word_source"), "audio_check": meta.get("audio_check"),
+        "video_id": meta.get("video_id"),
+    }

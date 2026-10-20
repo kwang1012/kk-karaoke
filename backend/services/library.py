@@ -54,6 +54,12 @@ def _display_fields(track: Track | dict) -> dict:
     }
 
 
+def load_track(track_id: str) -> Track | None:
+    """The library's record of a processed track, as a Track."""
+    data = _load(track_id)
+    return Track(**data) if data else None
+
+
 def save_track(track: Track | dict) -> Path | None:
     """Write a track's display metadata next to its stems. Never raises: it must not fail processing."""
     try:

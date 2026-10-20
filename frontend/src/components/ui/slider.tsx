@@ -7,7 +7,7 @@ function Slider({ className, ...props }: React.ComponentProps<typeof SliderPrimi
   return (
     <SliderPrimitive.Root
       className={cn(
-        'relative flex w-full touch-none items-center select-none data-[disabled]:opacity-50 data-[orientation=vertical]:h-full data-[orientation=vertical]:min-h-32 data-[orientation=vertical]:w-auto data-[orientation=vertical]:flex-col',
+        'relative flex w-full cursor-pointer touch-none items-center select-none data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 data-[orientation=vertical]:h-full data-[orientation=vertical]:min-h-32 data-[orientation=vertical]:w-auto data-[orientation=vertical]:flex-col',
         className
       )}
       {...props}
@@ -19,7 +19,7 @@ function Slider({ className, ...props }: React.ComponentProps<typeof SliderPrimi
         <SliderPrimitive.Thumb
           key={i}
           data-slot="thumb"
-          className="block size-3 shrink-0 rounded-full bg-white shadow transition-[box-shadow] hover:ring-4 hover:ring-primary/20 focus-visible:ring-4 focus-visible:ring-primary/30 focus-visible:outline-none"
+          className="block size-3 shrink-0 cursor-grab rounded-full bg-white active:cursor-grabbing shadow transition-[box-shadow] hover:ring-4 hover:ring-primary/20 focus-visible:ring-4 focus-visible:ring-primary/30 focus-visible:outline-none"
         />
       ))}
     </SliderPrimitive.Root>

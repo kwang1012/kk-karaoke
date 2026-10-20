@@ -23,7 +23,7 @@ from config import (
     R2_SECRET_ACCESS_KEY,
     R2_SYNC_WORKERS,
 )
-from utils import LYRICS_DIR, MIDI_DIR, NO_VOCALS_DIR, VOCALS_DIR
+from utils import LYRICS_DIR, MIDI_DIR, NO_VOCALS_DIR, TRACKS_DIR, VOCALS_DIR
 
 # (R2 key prefix, local directory, file extension). Raw downloads are scratch space, not kept.
 KINDS = (
@@ -33,6 +33,8 @@ KINDS = (
     ("vocal", VOCALS_DIR, ".mp3"),
     ("instrumental", NO_VOCALS_DIR, ".mp3"),
     ("midi", MIDI_DIR, ".mid"),
+    # Title/artists/album of each processed track, so the library can be rebuilt from storage alone.
+    ("track", TRACKS_DIR, ".json"),
 )
 
 # A file this fresh may still be being written by a worker, so the sync leaves it alone.

@@ -5,7 +5,9 @@ import { create } from 'zustand';
 export type SongStatus = 'submitted' | 'downloading_lyrics' | 'downloading_audio' | 'separating' | 'ready' | 'error';
 export type LyricsConfidence = 'verified' | 'synced' | 'approximate' | 'unsynced';
 export interface TrackStore {
-  readyTracks: Set<Track>; // List of tracks that are ready to be played
+  readyTracks: Set<Track>; // The library: every processed track, ready to be played
+  readyLoaded: boolean; // Whether the library has been fetched (successfully or not)
+  readyError: boolean; // Whether fetching the library failed
   addReadyTrack: (track: Track) => void; // Add a track to the list of ready tracks
   setReadyTracks: (tracks: Track[]) => void; // Set the list of ready tracks
   lyricsDelays: Record<string, number>; // Delay of each track in the queue. used for adding track to queue
@@ -22,11 +24,13 @@ export interface TrackStore {
   songProgress: Record<string, number>; // Status of each track in the queue. used for adding track to queue
   setSongProgress: (songId: string, progress: number) => void; // Set the progress of a track in the queue
   removeSongProgress: (songId: string) => void; // Remove the progress of a track in the queue
-  getReadyTracks: () => void; // Fetch the list of ready tracks from the API and update the state
+  getReadyTracks: () => Promise<void>; // Fetch the list of ready tracks from the API and update the state
 }
 export const useTrackStore = create<TrackStore>((set, get) => ({
   // lyrics delay
   readyTracks: new Set(), // List of tracks that are ready to be played
+  readyLoaded: false,
+  readyError: false,
   readyTrackIds: new Set(), // List of track ids that are ready to be played
   addReadyTrack: (track: Track) => {
     const { readyTracks } = get();
@@ -86,15 +90,15 @@ export const useTrackStore = create<TrackStore>((set, get) => ({
     });
   },
   getReadyTracks: () => {
-    api
-      .get('/tracks')
+    set({ readyError: false });
+    return api
+      .get('/library')
       .then(({ data }) => {
-        set({
-          readyTracks: new Set(data.readyTracks),
-        });
+        set({ readyTracks: new Set(data.tracks), readyLoaded: true });
       })
       .catch((err) => {
         console.error(err);
+        set({ readyLoaded: true, readyError: true });
       });
   },
 }));

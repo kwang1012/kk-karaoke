@@ -77,6 +77,7 @@ export const en = {
   'library.sort.artist': 'Artist (A–Z)',
   'library.empty': 'No processed songs yet. Search for a song and add it to the queue to process it.',
   'library.noMatch': 'No songs in your library match that search.',
+  'library.loadFailed': "Couldn't load your library.",
   'library.seeAll': 'See all',
   'search.inLibrary': 'In your library',
 

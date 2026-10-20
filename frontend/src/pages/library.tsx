@@ -8,6 +8,7 @@ import { useDebouncedCallback } from 'src/hooks/debounce';
 import { useT } from 'src/i18n';
 import { Track } from 'src/models/spotify';
 import { useTrackStore } from 'src/store';
+import { Skeleton } from 'src/components/ui/skeleton';
 import { usePlayerStore } from 'src/store/player';
 import { useNavigate } from 'react-router-dom';
 
@@ -21,6 +22,9 @@ export default function LibraryView() {
   const t = useT();
   const navigate = useNavigate();
   const readyTracks = useTrackStore((state) => state.readyTracks);
+  const readyLoaded = useTrackStore((state) => state.readyLoaded);
+  const readyError = useTrackStore((state) => state.readyError);
+  const getReadyTracks = useTrackStore((state) => state.getReadyTracks);
   const addSongToQueue = usePlayerStore((state) => state.addSongToQueue);
   const insertSongToQueue = usePlayerStore((state) => state.insertSongToQueue);
   const onAdd = useDebouncedCallback(addSongToQueue, 100);
@@ -58,7 +62,9 @@ export default function LibraryView() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">{t('library.title')}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {deferredQuery.trim()
+              {!readyLoaded
+                ? t('player.loading')
+                : deferredQuery.trim()
                 ? t('library.countFiltered', { shown: shown.length, total: all.length })
                 : t('library.count', { total: all.length })}
             </p>
@@ -93,7 +99,26 @@ export default function LibraryView() {
         </div>
       </div>
 
-      {shown.length > 0 ? (
+      {!readyLoaded ? (
+        <div className="space-y-2 px-4 md:px-8" role="status" aria-busy="true">
+          {Array.from({ length: 9 }).map((_, i) => (
+            <div key={i} className="flex h-14 items-center gap-3">
+              <Skeleton className="size-10 rounded-lg" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-3.5 w-1/3" />
+                <Skeleton className="h-3 w-1/5" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : readyError && all.length === 0 ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 pb-16 text-center">
+          <p className="text-sm text-muted-foreground">{t('library.loadFailed')}</p>
+          <Button size="sm" onClick={() => getReadyTracks()}>
+            {t('common.retry')}
+          </Button>
+        </div>
+      ) : shown.length > 0 ? (
         <div className="min-h-0 flex-1">
           <Virtuoso
             style={{ height: '100%' }}

@@ -12,6 +12,7 @@ from models.track import Artist, Track
 from managers.websocket import WebSocketManager
 from services.downloader import download_audio
 from services.spotify import getTrackDurationMs
+from services.library import save_track
 from services.lyrics_sources import Recording, add_word_timing, find_lyrics, find_plain_lyrics, read_meta, resolve_recording, save_plain, save_result, verify_against_audio, write_meta
 from services.voice_remover import separate_vocals
 from config import REDIS_HOST, REDIS_PORT
@@ -159,6 +160,7 @@ def _process_track(track: Track):
         print(f"Audio check failed for {track.id}: {e!r}")
 
     Path(RAW_AUDIO_DIR, f"{track.id}.mp3").unlink(missing_ok=True)
+    save_track(track)  # before the upload, which pushes it to R2 with the stems
     r2.upload_track(track.id)
     _publish_status(track, "ready")
 

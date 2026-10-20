@@ -74,6 +74,7 @@ export const zhTW: Record<TranslationKey, string> = {
   'library.sort.artist': '歌手（A–Z）',
   'library.empty': '還沒有已處理的歌曲。搜尋歌曲並加入待播即可開始處理。',
   'library.noMatch': '曲庫中沒有符合的歌曲。',
+  'library.loadFailed': '無法載入曲庫。',
   'library.seeAll': '查看全部',
   'search.inLibrary': '曲庫中的歌曲',
 

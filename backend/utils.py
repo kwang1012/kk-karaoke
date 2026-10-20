@@ -18,6 +18,9 @@ VOCALS_DIR = os.path.join(STORAGE_DIR, "vocal")
 os.makedirs(VOCALS_DIR, exist_ok=True)
 MIDI_DIR = os.path.join(STORAGE_DIR, "midi")
 os.makedirs(MIDI_DIR, exist_ok=True)
+# One small JSON per processed track: what the library shows (title, artists, album, ...).
+TRACKS_DIR = os.path.join(STORAGE_DIR, "tracks")
+os.makedirs(TRACKS_DIR, exist_ok=True)
 logger.info("Storage directories initialized. Path: %s.", STORAGE_DIR)
 
 

@@ -13,6 +13,7 @@ from services.process_request import is_ready, send_process_request
 from managers.db import get_db
 from interfaces.queue import RedisQueueInterface
 from services.catalog import search_tracks
+from services.library import build_library, sync_metadata
 from services.spotify import getCollectionTracks, getTopCategories, searchSpotify
 from managers.websocket import WebSocketManager
 from middlewares.format import FormatReponseMiddleware
@@ -36,6 +37,9 @@ async def lifespan(app: FastAPI):
     except Exception as e:  # R2 being down must not stop the API
         print(f"R2 sync failed: {e!r}")
     # Queues persist across restarts. (This used to delete every track that wasn't processed
+    # Titles for processed tracks live next to the stems; rebuild any that are missing (e.g. after
+    # Redis or the disk was wiped) in the background so startup is not held up by Spotify.
+    asyncio.get_running_loop().run_in_executor(None, sync_metadata)
     # yet, so anything still downloading or separating vanished whenever the API restarted.)
     try:
         resumed = resume_pending_tracks(asyncio.get_running_loop())
@@ -115,6 +119,12 @@ def get_random_tracks():
     tracks = tracks or []
     random.shuffle(tracks)
     return JSONResponse(content={"tracks": tracks[:10]}, status_code=200)
+
+@app.get("/library")
+def get_library():
+    """Every processed song with its metadata, read from storage (plain `def`: it may call Spotify)."""
+    return JSONResponse(content=build_library(), status_code=200)
+
 
 
 @app.get("/search")

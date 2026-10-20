@@ -216,6 +216,27 @@ def getTrackDurationMs(track_id: str) -> int | None:
 
 
 @refresh_token
+def _get_tracks_by_ids(ids: list[str]):
+    access_token = manager.get_token()
+    return _client.get("https://api.spotify.com/v1/tracks", headers={
+        "Authorization": access_token,
+    }, params={"ids": ",".join(ids)})
+
+
+def getTracksByIds(ids: list[str]) -> dict[str, dict]:
+    """Look up tracks by Spotify id (50 per request, in parallel). Unknown ids are left out."""
+    def fetch(chunk: list[str]):
+        response = _get_tracks_by_ids(chunk)
+        if response is None or response.status_code != 200:
+            print(f"Error fetching tracks by id: {getattr(response, 'status_code', None)}")
+            return []
+        return [t for t in response.json().get("tracks", []) if t]
+
+    chunks = [ids[i:i + 50] for i in range(0, len(ids), 50)]
+    return {t["id"]: t for batch in _pool.map(fetch, chunks) for t in batch}
+
+
+@refresh_token
 def _search(keyword: str):
     access_token = manager.get_token()
     response = _client.get("https://api.spotify.com/v1/search", headers={

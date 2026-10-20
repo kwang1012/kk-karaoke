@@ -110,6 +110,7 @@ export function MainView() {
     const seen = new Set<string>();
     return Array.from(readyTracks)
       .filter((track) => !seen.has(track.id) && !!seen.add(track.id))
+      .sort((a, b) => (b.timeAdded ?? 0) - (a.timeAdded ?? 0)) // newest first
       .slice(0, mobile ? 4 : 8);
   }, [readyTracks, mobile]);
 

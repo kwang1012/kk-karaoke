@@ -38,7 +38,8 @@ export default function AppSlider({
   };
 
   return (
-    <div className={cn('relative', className)} onPointerMove={track} onPointerLeave={() => setHover(null)}>
+    // The wrapper owns the size (callers pass width/height classes); the slider fills it.
+    <div className={cn('relative h-4 w-full', className)} onPointerMove={track} onPointerLeave={() => setHover(null)}>
       <Slider
         {...props}
         value={[value]}
@@ -46,7 +47,7 @@ export default function AppSlider({
         onPointerDown={onMouseDown as unknown as React.PointerEventHandler}
         onValueChange={([v]) => onChange?.(new Event('change'), v)}
         onValueCommit={([v]) => onChangeCommitted?.(new Event('change'), v)}
-        className="group h-4 [&_[data-slot=thumb]]:opacity-0 hover:[&_[data-slot=thumb]]:opacity-100 hover:[&_[data-slot=range]]:bg-primary"
+        className="group h-full [&_[data-slot=thumb]]:opacity-0 hover:[&_[data-slot=thumb]]:opacity-100 hover:[&_[data-slot=range]]:bg-primary"
       />
       {preview && hover && max > min && (
         <div

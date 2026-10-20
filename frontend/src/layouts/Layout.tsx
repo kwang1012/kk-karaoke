@@ -4,6 +4,7 @@ import TopBar from 'src/components/TopBar';
 import Queue from 'src/components/Queue';
 import AudioController from 'src/components/AudioController';
 import AppSnackbar from 'src/components/Snackbar';
+import PlayerTabNotice from 'src/components/PlayerTabNotice';
 import { useBreakpointDown } from 'src/hooks/media';
 import { useSettingStore } from 'src/store/setting';
 
@@ -20,6 +21,9 @@ export default function Layout() {
   if (mobile) {
     return (
       <div className="flex h-full w-full flex-col">
+        <div className="empty:hidden">
+          <PlayerTabNotice />
+        </div>
         <main className="min-h-0 flex-1 overflow-hidden">
           <Outlet />
         </main>
@@ -40,6 +44,7 @@ export default function Layout() {
       <div className="flex min-h-0 flex-1 gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-3">
           {!isFullScreen && <TopBar />}
+          <PlayerTabNotice />
           <main className="min-h-0 flex-1 overflow-hidden rounded-2xl border bg-card">
             <Outlet />
           </main>

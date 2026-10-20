@@ -113,6 +113,8 @@ export const zhTW: Record<TranslationKey, string> = {
   'player.hideQueue': '隱藏待播',
   'player.guide': '導唱人聲',
   'player.guideHint': '保留一點原唱人聲，幫助你跟上旋律。0% 為完全消除。',
+  'tab.remote': '正在另一個分頁播放，這個分頁僅作遙控。',
+  'tab.playHere': '改在此播放',
   'player.loading': '載入中…',
   'player.loadingPercent': '載入中… {percent}%',
   'player.loadFailed': '無法載入這首歌。',

@@ -119,6 +119,8 @@ export const en = {
   'player.hideQueue': 'Hide queue',
   'player.guide': 'Guide vocal',
   'player.guideHint': 'Keep a faint original vocal to help you follow the melody. 0% removes it completely.',
+  'tab.remote': 'Playing in another tab. This one is a remote.',
+  'tab.playHere': 'Play here',
   'player.loading': 'Loading…',
   'player.loadingPercent': 'Loading… {percent}%',
   'player.loadFailed': "Couldn't load this song.",

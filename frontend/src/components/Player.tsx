@@ -7,6 +7,7 @@ import ShiftedAudioPlayer from 'src/shiftedPlayer';
 import { useTrackStore } from 'src/store';
 import { usePlayer } from 'src/store/player';
 import { useActiveRoomId, useJam, useRoomStore } from 'src/store/room';
+import { claimPlayerTab } from 'src/store/playerTab';
 import { lastControlSentAt, useWebSocketStore } from 'src/store/ws';
 import SyncedAudioPlayer from 'src/syncedPlayer';
 import { api } from 'src/utils/api';
@@ -62,7 +63,9 @@ export const Player = () => {
   const fetchRoom = useRoomStore((state) => state.fetchRoom);
   const activeRoomId = useActiveRoomId();
   const songStatus = useTrackStore((state) => state.songStatus);
-  const { isOwner } = useJam();
+  const { isOwner, isRoomOwner } = useJam();
+  // one player per room: this tab competes for it (see store/playerTab.ts)
+  useEffect(() => claimPlayerTab(isRoomOwner ? activeRoomId : null), [activeRoomId, isRoomOwner]);
   // the track whose stems this tab has loaded or is loading (guests never load any)
   const audioLoadedFor = useRef<string | null>(null);
   const {
@@ -92,7 +95,7 @@ export const Player = () => {
       const action = message.action;
       const op = message.op;
       if (rid !== activeRoomId) return; // ignore message if not in the same room
-      if (action == 'update' && rid === roomId) return; // ignore message if owner and action is update
+      if (action == 'update' && isOwner) return; // the player is the source of updates; its other tabs follow them
       if (action == 'update') {
         const currentTime = data.currentTime;
         if (currentTime === undefined) return; // 0 is a valid time

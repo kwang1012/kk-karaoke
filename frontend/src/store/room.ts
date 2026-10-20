@@ -3,6 +3,7 @@ import { User } from 'src/models/user';
 import { api } from 'src/utils/api';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { usePlayerTabStore } from './playerTab';
 
 export interface RoomState {
   roomId?: string; // The ID of the room
@@ -115,9 +116,14 @@ export const useJam = () => {
     if (joinedRoom === '') return false;
     return roomId !== joinedRoom;
   }, [roomId, joinedRoom]);
-  const isOwner = !isInJam;
+  const isPlayerTab = usePlayerTabStore((state) => state.isPlayerTab);
+  // The room's owner, and (when it has several tabs) the one tab that plays: only that tab handles
+  // audio and reports the position. The owner's other tabs behave like remotes.
+  const isRoomOwner = !isInJam;
+  const isOwner = isRoomOwner && isPlayerTab;
   return {
     isInJam,
+    isRoomOwner,
     isOwner,
     participants,
   };

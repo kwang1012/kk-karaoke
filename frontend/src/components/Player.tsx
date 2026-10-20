@@ -193,6 +193,11 @@ export const Player = () => {
     return () => player.destroy();
   }, []);
 
+  // The key belongs to the session, not to the loaded song: (re)apply it whenever the player or key changes
+  useEffect(() => {
+    syncedPlayer?.setSemitone(semitone);
+  }, [syncedPlayer, semitone]);
+
   useEffect(() => {
     if (tracks) {
       setQueue(tracks);
@@ -200,11 +205,6 @@ export const Player = () => {
     if (index !== -1 && index !== queueIdx) {
       setQueueIdx(index);
     }
-  // The key belongs to the session, not to the loaded song: (re)apply it whenever the player or key changes
-  useEffect(() => {
-    syncedPlayer?.setSemitone(semitone);
-  }, [syncedPlayer, semitone]);
-
   }, [index, tracks]);
 
   // =============== useEffect ===============

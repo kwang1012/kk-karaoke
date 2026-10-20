@@ -17,3 +17,5 @@ backend/synced_lyrics/
 
 build/
 dist/
+# Local Cloudflare tool cache (holds account details)
+.wrangler/

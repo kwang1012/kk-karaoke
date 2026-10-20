@@ -93,7 +93,7 @@ export default function SongCard({
   return (
     <div
       className={cn(
-        'group/card relative flex h-14 cursor-default items-center gap-3 rounded-xl px-2 transition-colors',
+        'group/card relative flex h-14 min-w-0 cursor-default items-center gap-3 rounded-xl px-2 transition-colors',
         dense && 'h-12 px-1',
         !disabled && !disableHover && 'hover:bg-accent',
         menuOpen && !disableHover && 'bg-accent',
@@ -118,7 +118,9 @@ export default function SongCard({
         {ready && onAdd && <ReadyBadge variant="dot" />}
       </div>
       <div className="flex min-w-0 flex-1 flex-col justify-center">
-        <span className="truncate text-sm font-medium">{parsedTrack.name}</span>
+        <span className="truncate text-sm font-medium" title={parsedTrack.name}>
+          {parsedTrack.name}
+        </span>
         <span className="truncate text-xs text-muted-foreground">
           {parsedTrack.kind === 'video' && (
             <span className="mr-1.5 rounded border px-1 py-px text-[10px] font-medium uppercase">{t('song.video')}</span>

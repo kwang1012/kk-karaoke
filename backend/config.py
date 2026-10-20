@@ -16,6 +16,9 @@ SHARE_HOST = os.getenv("SHARE_HOST", "").strip()
 # CORS: comma-separated origins, or "*" (default) to allow any
 CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",") if o.strip()]
 
+# Whisper model for songs no lyric provider has (faster-whisper name: tiny, base, small, medium, turbo...).
+WHISPER_MODEL = os.getenv("WHISPER_MODEL", "small")
+
 # Jam state
 JAM_STATE_SYNC_INTERVAL = float(os.getenv("JAM_STATE_SYNC_INTERVAL", "1.0"))
 

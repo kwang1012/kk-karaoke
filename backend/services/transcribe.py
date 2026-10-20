@@ -1,0 +1,73 @@
+"""
+Lyrics heard from the audio, for songs no provider has a verified sheet for.
+
+The vocal stem is transcribed with Whisper. The text is a machine's guess (singing is hard to
+recognise, and homophones are common in Chinese), but the timing is measured from the audio
+itself, so it is never for the wrong song or the wrong cut. Shown as approximate, below every
+verified source, and never used when a provider has the song.
+"""
+import logging
+import os
+from dataclasses import dataclass
+from typing import Optional
+
+import opencc
+
+from config import WHISPER_MODEL
+
+log = logging.getLogger(__name__)
+
+# A transcript shorter than this is a few stray words, not a song.
+MIN_LINES = 8
+# Whisper invents text in silence; segments it itself doubts are dropped.
+MAX_NO_SPEECH = 0.6
+MIN_LOGPROB = -1.5
+
+_model = None
+_s2t = opencc.OpenCC("s2t").convert
+
+
+@dataclass
+class HeardLine:
+    start: float
+    end: float
+    text: str
+    words: list[tuple[float, float, str]]  # (start_s, end_s, text)
+
+
+def _load_model():
+    """Loaded once per process: it takes seconds and a gigabyte or so of memory."""
+    global _model
+    if _model is None:
+        import torch
+        from faster_whisper import WhisperModel
+
+        cuda = torch.cuda.is_available()
+        _model = WhisperModel(WHISPER_MODEL, device="cuda" if cuda else "cpu",
+                              compute_type="float16" if cuda else "int8")
+    return _model
+
+
+def transcribe_vocals(path: str) -> Optional[list[HeardLine]]:
+    """Timed lines heard in the vocal stem, or None when there is too little to call lyrics."""
+    if not os.path.exists(path):
+        return None
+    try:
+        segments, info = _load_model().transcribe(path, beam_size=5, vad_filter=True, word_timestamps=True)
+        segments = list(segments)
+    except Exception as e:  # noqa: BLE001 - never block a track on a transcription failure
+        log.warning("Transcription failed for %s: %r", path, e)
+        return None
+
+    # Chinese comes back Simplified or Traditional at whim; the app shows Traditional.
+    convert = _s2t if getattr(info, "language", "") == "zh" else (lambda t: t)
+    lines: list[HeardLine] = []
+    for seg in segments:
+        text = convert(seg.text).strip()
+        if not text or seg.no_speech_prob > MAX_NO_SPEECH or seg.avg_logprob < MIN_LOGPROB:
+            continue
+        if lines and lines[-1].text == text:
+            continue  # the model looping on one phrase
+        words = [(round(w.start, 2), round(w.end, 2), convert(w.word)) for w in (seg.words or []) if w.word.strip()]
+        lines.append(HeardLine(round(seg.start, 2), round(seg.end, 2), text, words))
+    return lines if len(lines) >= MIN_LINES else None

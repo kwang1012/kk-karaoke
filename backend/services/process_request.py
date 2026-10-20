@@ -12,7 +12,7 @@ from models.track import Artist, Track, is_video_id
 from managers.websocket import WebSocketManager
 from services.downloader import download_audio
 from services.library import save_track
-from services.lyrics_sources import Recording, add_word_timing, artist_aliases, find_lyrics, find_plain_lyrics, read_meta, save_plain, save_result, verify_against_audio, video_duration_s, write_meta
+from services.lyrics_sources import Recording, add_heard_lyrics, add_word_timing, artist_aliases, find_lyrics, find_plain_lyrics, read_meta, save_plain, save_result, verify_against_audio, video_duration_s, write_meta
 from services.voice_remover import separate_vocals
 from config import REDIS_HOST, REDIS_PORT
 from managers import r2
@@ -146,6 +146,14 @@ def _process_track(track: Track):
 
     if not is_ready(track):
         raise RuntimeError("Separation finished but output files are missing")
+
+    # Nothing verified has these lyrics: listen to the vocals instead of showing nothing (or another song's).
+    try:
+        heard = add_heard_lyrics(track.id, str(Path(VOCALS_DIR, f"{track.id}.mp3")), video_id)
+        if heard:
+            print(f"Transcribed {heard} lines for {track.id}")
+    except Exception as e:
+        print(f"Transcription failed for {track.id}: {e!r}")
 
     # The vocal stem is the one thing that is certainly this recording's audio: use it
     # to confirm the lyric timing, or to move it when the whole sheet is off.

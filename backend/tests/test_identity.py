@@ -242,10 +242,17 @@ def test_lyrics_are_found_under_the_second_name(monkeypatch):
     seen = []
     monkeypatch.setattr(_ls, "fetch_ytmusic_lines", lambda v: None)
     monkeypatch.setattr(_ls, "_fetch_lrclib", lambda t, name, *a: seen.append(("lrclib", name)) or None)
-    monkeypatch.setattr(_ls, "search_synced_lyrics",
-                        lambda q: "\n".join(f"[00:{i:02d}.00]line {i}" for i in range(5)) if "陳零九" in q else None)
+    lrc = "\n".join(f"[00:{i:02d}.00]line {i}" for i in range(5))
+    given = []
+
+    def find_entry(title, names, duration, **kw):
+        given.append(names)
+        return _ls.providers.Entry("netease", title, ["陳零九"], 254, synced=lrc) if "陳零九" in names else None
+
+    monkeypatch.setattr(_ls.providers, "find_entry", find_entry)
     r = _ls.find_lyrics("刪了", ["Nine Chen", "陳零九"], None, 254, _ls.Recording("v", "刪了", "Nine Chen", 254))
-    assert r.source == "syncedlyrics" and [n for _, n in seen] == ["Nine Chen", "陳零九"]
+    assert r.source == "netease" and [n for _, n in seen] == ["Nine Chen", "陳零九"]
+    assert given == [["Nine Chen", "陳零九"]]  # the providers see every name, not just the first
 
 
 def test_a_single_name_still_works(monkeypatch):

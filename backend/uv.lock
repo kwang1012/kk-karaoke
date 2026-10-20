@@ -201,6 +201,7 @@ dependencies = [
     { name = "dotenv" },
     { name = "einops" },
     { name = "fastapi" },
+    { name = "faster-whisper" },
     { name = "filelock" },
     { name = "flatbuffers" },
     { name = "fsspec" },
@@ -258,7 +259,6 @@ dependencies = [
     { name = "starlette" },
     { name = "submitit" },
     { name = "sympy" },
-    { name = "syncedlyrics" },
     { name = "textgrid" },
     { name = "tokenizers" },
     { name = "torch" },
@@ -312,6 +312,7 @@ requires-dist = [
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "einops", specifier = "==0.8.1" },
     { name = "fastapi", specifier = "==0.115.12" },
+    { name = "faster-whisper", specifier = ">=1.1.1" },
     { name = "filelock", specifier = "==3.18.0" },
     { name = "flatbuffers", specifier = "==25.2.10" },
     { name = "fsspec", specifier = "==2025.3.2" },
@@ -369,7 +370,6 @@ requires-dist = [
     { name = "starlette", specifier = "==0.46.2" },
     { name = "submitit", specifier = "==1.5.2" },
     { name = "sympy", specifier = "==1.14.0" },
-    { name = "syncedlyrics", specifier = "==1.0.1" },
     { name = "textgrid", specifier = ">=1.6.1" },
     { name = "tokenizers", specifier = "==0.21.1" },
     { name = "torch", specifier = "==2.7.0" },
@@ -2580,20 +2580,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/83/d3/803453b36afefb7c2bb238361cd4ae6125a569b4db67cd9e79846ba2d68c/sympy-1.14.0.tar.gz", hash = "sha256:d3d3fe8df1e5a0b42f0e7bdf50541697dbe7d23746e894990c030e2b05e72517", size = 7793921, upload-time = "2025-04-27T18:05:01.611Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a2/09/77d55d46fd61b4a135c444fc97158ef34a095e5681d0a6c10b75bf356191/sympy-1.14.0-py3-none-any.whl", hash = "sha256:e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5", size = 6299353, upload-time = "2025-04-27T18:04:59.103Z" },
-]
-
-[[package]]
-name = "syncedlyrics"
-version = "1.0.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "beautifulsoup4" },
-    { name = "rapidfuzz" },
-    { name = "requests" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/f1/7d/8b1d838a4c1a9fd9ed2dfd5296592e1090f935748cb3b4996e4efe531d5d/syncedlyrics-1.0.1.tar.gz", hash = "sha256:3db32469ed5a6dd5d96bb4eb16df44ba749121529b462efe0eb8b3df790f66b0", size = 13210, upload-time = "2024-07-28T09:42:14.582Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/7f/ad/62d2a1cd2a251ea2d43185f2b98badb8acf97a42278ce424ea8a97d8f911/syncedlyrics-1.0.1-py3-none-any.whl", hash = "sha256:31ca4322311b454f969e837c7350ecbef241f705f2122ea0183a2902a1a3791a", size = 17971, upload-time = "2024-07-28T09:42:13.198Z" },
 ]
 
 [[package]]

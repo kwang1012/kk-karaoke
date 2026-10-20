@@ -1,6 +1,7 @@
 import pytest
 
 from services import lyrics_sources as ls
+from services import providers
 
 
 def lines(*starts, text="line"):
@@ -109,7 +110,10 @@ def sources(monkeypatch):
     def install(ytm=None, lrclib=None, search=None):
         monkeypatch.setattr(ls, "fetch_ytmusic_lines", lambda vid: ytm)
         monkeypatch.setattr(ls, "_fetch_lrclib", lambda *a, **k: ls.format_lrc(lrclib) if lrclib else None)
-        monkeypatch.setattr(ls, "search_synced_lyrics", lambda q: ls.format_lrc(search) if search else None)
+        entry = None
+        if search:
+            entry = providers.Entry("netease", "Song", ["Artist"], 240, synced=ls.format_lrc(search))
+        monkeypatch.setattr(ls.providers, "find_entry", lambda *a, **k: entry)
     return install
 
 
@@ -141,10 +145,28 @@ def test_lrclib_without_duration_is_approximate(sources):
     assert ls.find_lyrics("Song", "Artist", None, None, None).confidence == "approximate"
 
 
-def test_search_fallback_is_approximate(sources):
+def test_a_verified_provider_entry_is_synced_and_says_where_it_came_from(sources):
     sources(search=A)
     r = ls.find_lyrics("Song", "Artist", None, 240, REC)
-    assert (r.source, r.confidence) == ("syncedlyrics", "approximate")
+    assert (r.source, r.confidence) == ("netease", "synced") and "netease" in r.notes[0]
+
+
+def test_an_entry_matched_only_across_scripts_is_approximate(monkeypatch, sources):
+    sources()
+    entry = providers.Entry("netease", "Song", ["蔡依林"], 240, synced=ls.format_lrc(A), loose_artist=True)
+    monkeypatch.setattr(ls.providers, "find_entry", lambda *a, **k: entry)
+    r = ls.find_lyrics("Song", "Jolin", None, 240, REC)
+    assert r.confidence == "approximate" and "蔡依林" in r.notes[0]
+
+
+def test_every_title_variant_is_tried_against_lrclib(monkeypatch):
+    asked = []
+    monkeypatch.setattr(ls, "fetch_ytmusic_lines", lambda v: None)
+    monkeypatch.setattr(ls, "_fetch_lrclib",
+                        lambda t, n, *a: asked.append(t) or (ls.format_lrc(A) if t == "第三人稱" else None))
+    monkeypatch.setattr(ls.providers, "find_entry", lambda *a, **k: None)
+    r = ls.find_lyrics("第三人稱 - The Third Person and I", "Jolin Tsai", None, 291, REC)
+    assert r.source == "lrclib" and asked == ["第三人稱 - The Third Person and I", "第三人稱"]
 
 
 def test_nothing_found(sources):

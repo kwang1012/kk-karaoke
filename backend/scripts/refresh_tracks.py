@@ -8,7 +8,7 @@ separate free-text searches and may not be the same song, or even the right one.
   uv run python scripts/refresh_tracks.py --inline <track_id>   # run here instead of on the worker
   uv run python scripts/refresh_tracks.py --lyrics-only <track_id>   # keep the audio, find lyrics again
 
-The track's name and artists come from the queue data the app stored when it was added.
+The track's name and artists come from the library's record of it (or, failing that, the queue data).
 """
 import argparse
 import json
@@ -21,11 +21,16 @@ from managers import r2  # noqa: E402
 from managers.db import get_redis  # noqa: E402
 from models.track import Track  # noqa: E402
 from redis_keys import RedisKeys  # noqa: E402
+from services import library  # noqa: E402
 from services.lyrics_sources import read_meta, write_meta  # noqa: E402
 from utils import LYRICS_DIR, MIDI_DIR, NO_VOCALS_DIR, RAW_AUDIO_DIR, VOCALS_DIR  # noqa: E402
 
 
 def stored_track(track_id: str) -> Track | None:
+    """The library's record of the track (it outlives the queue), else what the queue remembers."""
+    saved = library._load(track_id)
+    if saved:
+        return Track(**saved)
     for raw in get_redis().smembers(RedisKeys.TRACK_DATA_SET):
         try:
             data = json.loads(raw)

@@ -3,7 +3,6 @@ import os
 import re
 import subprocess
 from pathlib import Path
-import syncedlyrics
 import httpx
 import opencc
 
@@ -229,13 +228,3 @@ def _fetch_lrclib(
     """Synced lyrics from LRCLib's exact match, if it has them."""
     record = fetch_lrclib_record(track_name, artist_name, album_name, duration_s)
     return (record or {}).get("syncedLyrics") or None
-
-
-def search_synced_lyrics(search_term: str) -> str | None:
-    """Free-text lyrics search across providers. Last resort: nothing ties it to the audio."""
-    try:
-        return syncedlyrics.search(search_term, synced_only=True, providers=[
-            "NetEase", "Lrclib", "Megalobiz", "Genius"])
-    except Exception as e:
-        print(f"syncedlyrics search failed for '{search_term}': {e!r}")
-        return None

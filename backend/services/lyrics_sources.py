@@ -9,7 +9,9 @@ use its videoId for both the audio download and its lyrics.
 Sources, best first (the first usable one wins):
   1. YouTube Music timed lyrics for that exact videoId  -- same recording by construction
   2. LRCLib by artist/title/duration                    -- LRCLib only answers when durations match
-  3. syncedlyrics providers                             -- free-text search, nothing ties it to the audio
+  3. LRCLib / NetEase searched by metadata             -- accepted only if title, artist and length fit
+  4. Whisper listening to the vocal stem               -- only when nothing above has the song; timing is
+                                                          measured from the audio, the words are a guess
 
 Sources 1 and 2 are independent, so when both exist we compare them line by line.
 Agreement is the strongest evidence we can get without listening to the audio.
@@ -27,13 +29,12 @@ from typing import Literal, Optional
 import opencc
 from ytmusicapi import YTMusic
 
-from services import audio_check, word_timing
+from services import audio_check, providers, transcribe, word_timing
 from services.downloader import (
     _convert_lrc_to_traditional,
     _fetch_lrclib,
     _has_simplified_chinese,
     fetch_lrclib_record,
-    search_synced_lyrics,
 )
 from utils import LYRICS_DIR
 
@@ -93,7 +94,7 @@ class Agreement:
 @dataclass
 class LyricsResult:
     lrc: str
-    source: str  # "ytmusic" | "lrclib" | "syncedlyrics"
+    source: str  # "ytmusic" | "lrclib" | "netease" | "whisper"
     confidence: Confidence
     video_id: Optional[str] = None
     agreement: Optional[Agreement] = None
@@ -105,7 +106,8 @@ class LyricsResult:
 def _norm(text: str) -> str:
     """Compare lines across sources: ignore case, punctuation, spacing and Chinese script."""
     text = _t2s(unicodedata.normalize("NFKC", text).lower())
-    return re.sub(r"[\W_]+", "", text)
+    # The converter leaves 著 alone, but it is 着 in Simplified and in many Taiwanese sheets too.
+    return re.sub(r"[\W_]+", "", text.replace("著", "着"))
 
 
 def parse_lrc(lrc: str) -> Lines:
@@ -250,9 +252,14 @@ def find_lyrics(
     video_id = recording.video_id if recording else None
     ytm_lines = fetch_ytmusic_lines(video_id) if video_id else None
 
+    length = round(duration_s) if duration_s else None
+    variants = providers.title_variants(title)
     lrclib_text = None
-    for name in names:
-        lrclib_text = _fetch_lrclib(title, name, album, round(duration_s) if duration_s else None)
+    for variant in variants:
+        for name in names:
+            lrclib_text = _fetch_lrclib(variant, name, album, length)
+            if lrclib_text:
+                break
         if lrclib_text:
             break
     lrclib_lines = parse_lrc(lrclib_text) if lrclib_text else None
@@ -273,11 +280,14 @@ def find_lyrics(
         confidence: Confidence = "synced" if duration_s else "approximate"
         return _finish(LyricsResult(lrclib_text, "lrclib", confidence, video_id))
 
-    for name in names or [""]:
-        fallback = search_synced_lyrics(f"{title} {name}".strip())
-        if fallback and parse_lrc(fallback):
-            return _finish(LyricsResult(fallback, "syncedlyrics", "approximate", video_id,
-                                        notes=["Found by free-text search; may be a different version"]))
+    entry = providers.find_entry(title, names, duration_s, fold=_norm,
+                                 same_artist=_same_artist, other_script=_artist_in_other_script)
+    if entry and entry.synced and parse_lrc(entry.synced):
+        note = f"Matched on {entry.source} by title, artist and length"
+        if entry.loose_artist:
+            note += f" (artist is written differently: {entry.artists[0]})"
+        return _finish(LyricsResult(entry.synced, entry.source, "approximate" if entry.loose_artist else "synced",
+                                    video_id, notes=[note]))
     return None
 
 
@@ -300,11 +310,18 @@ def find_plain_lyrics(
     text, source = None, ""
     if video_id:
         text, source = fetch_ytmusic_plain(video_id), "ytmusic"
-    for name in _names(artist):
-        if text:
-            break
-        record = fetch_lrclib_record(title, name, album, round(duration_s) if duration_s else None)
-        text, source = (record or {}).get("plainLyrics"), "lrclib"
+    names = [n for n in _names(artist) if n]
+    for variant in providers.title_variants(title):
+        for name in names:
+            if text:
+                break
+            record = fetch_lrclib_record(variant, name, album, round(duration_s) if duration_s else None)
+            text, source = (record or {}).get("plainLyrics"), "lrclib"
+    if not text:
+        entry = providers.find_entry(title, names, duration_s, fold=_norm, same_artist=_same_artist,
+                                     other_script=_artist_in_other_script, want="plain")
+        if entry:
+            text, source = entry.plain or None, entry.source
     if not text or not text.strip():
         return None
     text = text.strip()
@@ -396,6 +413,8 @@ def verify_against_audio(track_id: str, vocal_path: str) -> Optional[audio_check
     lrc_path = Path(LYRICS_DIR, f"{track_id}.lrc")
     if not meta or meta.get("edited") or "audio_check" in meta or not lrc_path.exists():
         return None
+    if meta.get("source") == "whisper":
+        return None  # its timing was measured from this audio: agreeing with itself proves nothing
 
     lrc = lrc_path.read_text(encoding="utf-8")
     check = audio_check.check_file(vocal_path, [t for t, _ in parse_lrc(lrc)])
@@ -551,3 +570,27 @@ def _shift_words(words: dict, offset_s: float) -> dict:
         _cs(int(k) / 100 + offset_s): [[round(s + offset_s, 2), round(e + offset_s, 2), t] for s, e, t in v]
         for k, v in words.items()
     }
+
+
+# --- lyrics heard from the audio ------------------------------------------------
+
+def add_heard_lyrics(track_id: str, vocal_path: str, video_id: Optional[str]) -> int:
+    """
+    Last resort: transcribe the vocal stem into a timed sheet (with word timing). Does nothing
+    when the track already has timed or plain lyrics. Returns the number of lines saved.
+    """
+    meta = read_meta(track_id)
+    if Path(LYRICS_DIR, f"{track_id}.lrc").exists() or meta.get("plain"):
+        return 0
+    heard = transcribe.transcribe_vocals(vocal_path)
+    if not heard:
+        return 0
+    lines: Lines = [(line.start, line.text) for line in heard]
+    result = LyricsResult(format_lrc(lines), "whisper", "approximate", video_id,
+                          notes=["No provider has this song; transcribed from the audio, so words may be wrong"])
+    save_result(track_id, result)
+    saved = read_meta(track_id)
+    saved["words"] = {_cs(line.start): [[s, e, t] for s, e, t in line.words] for line in heard if line.words}
+    saved["word_source"] = "whisper"
+    write_meta(track_id, saved)
+    return len(lines)

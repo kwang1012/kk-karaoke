@@ -231,3 +231,76 @@ def test_two_latin_names_that_differ_are_a_different_artist(ytm):
 def test_a_named_match_beats_an_unnamed_one(ytm):
     ytm(_ytm_hit("other", "Superwoman", 313, "曹格"), _ytm_hit("named", "Superwoman", 316, "Gary Chaw"))
     assert ls.resolve_recording("Superwoman", ["Gary Chaw"], 313).video_id == "named"
+
+
+# --- the same artist under another name (Nine Chen / 陳零九) ---------------------------
+
+from services import lyrics_sources as _ls  # noqa: E402
+
+CHEN_SONG = {"videoId": "MjRb5vgodZE", "title": "刪了", "duration_seconds": 252,
+             "artists": [{"name": "陳零九"}]}
+
+
+def test_aliases_include_the_other_script_name_of_the_same_song(ytm):
+    ytm(CHEN_SONG, _ytm_hit("other", "不見了", 349, "陳零九"))
+    rec = _ls.Recording("pRD2fU9nMoI", "刪了", "Nine Chen", 254)
+    assert _ls.artist_aliases("刪了", ["Nine Chen"], 254, rec) == ["Nine Chen", "陳零九"]
+
+
+def test_aliases_ignore_other_songs_and_other_artists(ytm):
+    ytm(_ytm_hit("a", "不見了", 254, "陳零九"), _ytm_hit("b", "刪了", 254, "Someone Else"),
+        _ytm_hit("c", "刪了", 400, "陳零九"))
+    assert _ls.artist_aliases("刪了", ["Nine Chen"], 254, None) == ["Nine Chen"]
+
+
+def test_aliases_survive_an_outage(monkeypatch):
+    class Down:
+        def search(self, *a, **k):
+            raise RuntimeError("down")
+    monkeypatch.setattr(_ls, "_client", lambda: Down())
+    assert _ls.artist_aliases("x", ["A"], 200, _ls.Recording("v", "x", "B", 200)) == ["A", "B"]
+
+
+def test_lyrics_are_found_under_the_second_name(monkeypatch):
+    seen = []
+    monkeypatch.setattr(_ls, "fetch_ytmusic_lines", lambda v: None)
+    monkeypatch.setattr(_ls, "_fetch_lrclib", lambda t, name, *a: seen.append(("lrclib", name)) or None)
+    monkeypatch.setattr(_ls, "search_synced_lyrics",
+                        lambda q: "\n".join(f"[00:{i:02d}.00]line {i}" for i in range(5)) if "陳零九" in q else None)
+    r = _ls.find_lyrics("刪了", ["Nine Chen", "陳零九"], None, 254, _ls.Recording("v", "刪了", "Nine Chen", 254))
+    assert r.source == "syncedlyrics" and [n for _, n in seen] == ["Nine Chen", "陳零九"]
+
+
+def test_a_single_name_still_works(monkeypatch):
+    monkeypatch.setattr(_ls, "fetch_ytmusic_lines", lambda v: [(1.0, "hi")])
+    monkeypatch.setattr(_ls, "_fetch_lrclib", lambda *a: None)
+    assert _ls.find_lyrics("S", "A", None, 200, _ls.Recording("v", "S", "A", 200)).source == "ytmusic"
+
+
+def test_plain_lyrics_are_searched_under_every_name(monkeypatch):
+    monkeypatch.setattr(_ls, "fetch_ytmusic_plain", lambda v: None)
+    monkeypatch.setattr(_ls, "fetch_lrclib_record",
+                        lambda t, name, *a: {"plainLyrics": "words"} if name == "陳零九" else None)
+    assert _ls.find_plain_lyrics("刪了", ["Nine Chen", "陳零九"], None, 254, None).text == "words"
+
+
+def test_video_length_is_read_from_youtube_music(monkeypatch):
+    class C:
+        def get_watch_playlist(self, vid, limit=None):
+            return {"tracks": [{"length": "4:12"}]}
+    monkeypatch.setattr(_ls, "_client", lambda: C())
+    assert _ls.video_duration_s("v") == 252
+
+
+def test_video_length_unknown_is_none(monkeypatch):
+    class C:
+        def get_watch_playlist(self, vid, limit=None):
+            raise RuntimeError("down")
+    monkeypatch.setattr(_ls, "_client", lambda: C())
+    assert _ls.video_duration_s("v") is None
+
+
+def test_a_pinned_youtube_track_without_a_length_asks_youtube_music(pipeline, monkeypatch):
+    monkeypatch.setattr(pr, "video_duration_s", lambda v: 254)
+    pr._process_track(Track(id="VIDEO123456", name="S", artists=[], video_id="VIDEO123456"))
+    assert pipeline["spotify"] == 0 and pipeline["download"][0][1]["target_duration_s"] == 254

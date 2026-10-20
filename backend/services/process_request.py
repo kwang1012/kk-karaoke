@@ -13,7 +13,7 @@ from managers.websocket import WebSocketManager
 from services.downloader import download_audio
 from services.spotify import getTrackDurationMs
 from services.library import save_track
-from services.lyrics_sources import Recording, add_word_timing, find_lyrics, find_plain_lyrics, read_meta, resolve_recording, save_plain, save_result, verify_against_audio, write_meta
+from services.lyrics_sources import Recording, add_word_timing, artist_aliases, find_lyrics, find_plain_lyrics, read_meta, resolve_recording, save_plain, save_result, verify_against_audio, video_duration_s, write_meta
 from services.voice_remover import separate_vocals
 from config import REDIS_HOST, REDIS_PORT
 from managers import r2
@@ -95,9 +95,14 @@ def _process_track(track: Track):
     title = track.name
     artist = track.artists[0].name if track.artists else ""
     duration_ms = track.duration_ms
-    if not duration_ms and not track.video_id:
-        # Tracks queued before durations were carried through: ask Spotify, never guess.
-        duration_ms = getTrackDurationMs(track.id)
+    known_video = track.video_id or read_meta(track.id).get("video_id")
+    if not duration_ms:
+        # Tracks queued before durations were carried through: ask the catalog they came from.
+        if known_video:
+            seconds = video_duration_s(known_video)
+            duration_ms = seconds * 1000 if seconds else None
+        else:
+            duration_ms = getTrackDurationMs(track.id)
     duration_s = duration_ms / 1000 if duration_ms else None
 
     # One recording drives both the lyrics and the audio, so they describe the same take.
@@ -118,15 +123,16 @@ def _process_track(track: Track):
         _publish_status(track, "downloading_lyrics")
         album_name = track.album.get("name") if track.album else None
         try:
-            result = find_lyrics(title, artist, album_name, duration_s, recording)
+            names = artist_aliases(title, [a.name for a in track.artists], duration_s, recording)
+            result = find_lyrics(title, names, album_name, duration_s, recording)
             if result:
                 save_result(track.id, result)
                 print(f"Lyrics for {track.id}: {result.source} ({result.confidence})")
-                words = add_word_timing(track.id, title, [a.name for a in track.artists], duration_s)
+                words = add_word_timing(track.id, title, names, duration_s)
                 if words:
                     print(f"Word timing for {track.id}: {words} lines")
             else:
-                plain = find_plain_lyrics(title, artist, album_name, duration_s, recording)
+                plain = find_plain_lyrics(title, names, album_name, duration_s, recording)
                 if plain:
                     save_plain(track.id, plain)
                 print(f"No timed lyrics found for {track.id}" + (" (kept the words only)" if plain else ""))

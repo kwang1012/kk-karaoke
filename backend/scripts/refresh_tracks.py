@@ -6,6 +6,7 @@ separate free-text searches and may not be the same song, or even the right one.
 
   uv run python scripts/refresh_tracks.py <track_id> [<track_id> ...]
   uv run python scripts/refresh_tracks.py --inline <track_id>   # run here instead of on the worker
+  uv run python scripts/refresh_tracks.py --lyrics-only <track_id>   # keep the audio, find lyrics again
 
 The track's name and artists come from the queue data the app stored when it was added.
 """
@@ -20,6 +21,7 @@ from managers import r2  # noqa: E402
 from managers.db import get_redis  # noqa: E402
 from models.track import Track  # noqa: E402
 from redis_keys import RedisKeys  # noqa: E402
+from services.lyrics_sources import read_meta, write_meta  # noqa: E402
 from utils import LYRICS_DIR, MIDI_DIR, NO_VOCALS_DIR, RAW_AUDIO_DIR, VOCALS_DIR  # noqa: E402
 
 
@@ -44,10 +46,22 @@ def discard(track_id: str) -> None:
     r2.delete_track(track_id)
 
 
+def discard_lyrics(track_id: str) -> None:
+    """Forget only the lyrics (and what was learned about them); the audio and recording stay."""
+    meta = read_meta(track_id)
+    Path(LYRICS_DIR, f"{track_id}.lrc").unlink(missing_ok=True)
+    Path(LYRICS_DIR, f"{track_id}.meta.json").unlink(missing_ok=True)
+    if meta.get("video_id"):
+        write_meta(track_id, {"video_id": meta["video_id"]})  # keep which recording this is
+    r2.delete_path("lyrics", f"{track_id}.lrc")
+    r2.delete_path("lyrics-meta", f"{track_id}.meta.json")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("track_ids", nargs="+")
     ap.add_argument("--inline", action="store_true", help="process here instead of queueing")
+    ap.add_argument("--lyrics-only", action="store_true", help="keep the audio; only look for lyrics again")
     args = ap.parse_args()
 
     for track_id in args.track_ids:
@@ -57,8 +71,8 @@ def main() -> None:
             continue
         names = ", ".join(a.name for a in track.artists)
         print(f"{track_id}: {track.name} - {names}")
-        discard(track_id)
-        if args.inline:
+        (discard_lyrics if args.lyrics_only else discard)(track_id)
+        if args.inline or args.lyrics_only:  # nothing heavy to queue: do it here
             from services.process_request import _process_track
             _process_track(track)
         else:

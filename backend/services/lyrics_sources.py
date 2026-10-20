@@ -213,6 +213,51 @@ def resolve_recording(
     return unnamed[0] if unnamed else None
 
 
+def video_duration_s(video_id: str) -> Optional[int]:
+    """A recording's length from YouTube Music, for tracks queued without one."""
+    try:
+        length = _client().get_watch_playlist(video_id, limit=1)["tracks"][0].get("length") or ""
+        seconds = 0
+        for part in length.split(":"):
+            seconds = seconds * 60 + int(part)
+        return seconds or None
+    except Exception as e:  # noqa: BLE001
+        log.warning("YT Music length lookup failed for %s: %r", video_id, e)
+        return None
+
+
+def artist_aliases(
+    title: str, artists: list[str], duration_s: Optional[float], recording: Optional[Recording]
+) -> list[str]:
+    """
+    Every name this song's artist goes by. Lyric sites index "陳零九", while a music video
+    channel or Spotify may call the same artist "Nine Chen", and a search under the wrong
+    one finds nothing. Names come from the recording itself and from the YouTube Music song
+    with the same title and length.
+    """
+    names = [*artists]
+    if recording and recording.artist:
+        names.append(recording.artist)
+    if artists:
+        try:
+            hits = _client().search(f"{artists[0]} {title}", filter="songs", limit=5)
+        except Exception as e:  # noqa: BLE001
+            log.warning("YT Music alias lookup failed for %r: %r", title, e)
+            hits = []
+        want = _norm(title)
+        for hit in hits:
+            have = _norm(hit.get("title") or "")
+            if want not in have and have not in want:
+                continue
+            got = hit.get("duration_seconds")
+            if duration_s and got and abs(got - duration_s) > MAX_DURATION_DIFF_S:
+                continue
+            hit_names = [a["name"] for a in hit.get("artists") or [] if a.get("name")]
+            if _same_artist(artists, hit_names) or _artist_in_other_script(artists, hit_names):
+                names += hit_names
+    return [n for n in dict.fromkeys(n.strip() for n in names) if n]
+
+
 def fetch_ytmusic_lines(video_id: str) -> Optional[Lines]:
     try:
         browse_id = _client().get_watch_playlist(video_id).get("lyrics")
@@ -231,21 +276,27 @@ def fetch_ytmusic_lines(video_id: str) -> Optional[Lines]:
 
 # --- ladder ---------------------------------------------------------------------
 
+def _names(artist: "str | list[str]") -> list[str]:
+    return [artist] if isinstance(artist, str) else list(artist)
+
+
 def find_lyrics(
     title: str,
-    artist: str,
+    artist: "str | list[str]",
     album: Optional[str],
     duration_s: Optional[float],
     recording: Optional[Recording],
 ) -> Optional[LyricsResult]:
     """Walk the ladder. Returns None when no source has timed lyrics."""
+    names = [n for n in _names(artist) if n]
     video_id = recording.video_id if recording else None
     ytm_lines = fetch_ytmusic_lines(video_id) if video_id else None
 
-    lrclib_text = (
-        _fetch_lrclib(title, artist, album, round(duration_s) if duration_s else None)
-        if artist else None
-    )
+    lrclib_text = None
+    for name in names:
+        lrclib_text = _fetch_lrclib(title, name, album, round(duration_s) if duration_s else None)
+        if lrclib_text:
+            break
     lrclib_lines = parse_lrc(lrclib_text) if lrclib_text else None
 
     if ytm_lines:
@@ -264,10 +315,11 @@ def find_lyrics(
         confidence: Confidence = "synced" if duration_s else "approximate"
         return _finish(LyricsResult(lrclib_text, "lrclib", confidence, video_id))
 
-    fallback = search_synced_lyrics(f"{title} {artist}".strip())
-    if fallback and parse_lrc(fallback):
-        return _finish(LyricsResult(fallback, "syncedlyrics", "approximate", video_id,
-                                    notes=["Found by free-text search; may be a different version"]))
+    for name in names or [""]:
+        fallback = search_synced_lyrics(f"{title} {name}".strip())
+        if fallback and parse_lrc(fallback):
+            return _finish(LyricsResult(fallback, "syncedlyrics", "approximate", video_id,
+                                        notes=["Found by free-text search; may be a different version"]))
     return None
 
 
@@ -280,7 +332,7 @@ class PlainLyrics:
 
 def find_plain_lyrics(
     title: str,
-    artist: str,
+    artist: "str | list[str]",
     album: Optional[str],
     duration_s: Optional[float],
     recording: Optional[Recording],
@@ -290,8 +342,10 @@ def find_plain_lyrics(
     text, source = None, ""
     if video_id:
         text, source = fetch_ytmusic_plain(video_id), "ytmusic"
-    if not text and artist:
-        record = fetch_lrclib_record(title, artist, album, round(duration_s) if duration_s else None)
+    for name in _names(artist):
+        if text:
+            break
+        record = fetch_lrclib_record(title, name, album, round(duration_s) if duration_s else None)
         text, source = (record or {}).get("plainLyrics"), "lrclib"
     if not text or not text.strip():
         return None

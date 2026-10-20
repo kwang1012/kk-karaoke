@@ -90,6 +90,16 @@ def upload_track(track_id: str) -> None:
             upload_path(prefix, path)
 
 
+def delete_path(prefix: str, name: str) -> None:
+    """Remove one stored file, so a sync cannot bring back what was thrown away."""
+    if not enabled():
+        return
+    try:
+        _s3().delete_object(Bucket=R2_BUCKET, Key=_key(prefix, name))
+    except Exception as e:
+        print(f"R2 delete failed for {prefix}/{name}: {e!r}")
+
+
 def delete_track(track_id: str) -> None:
     """Remove a track's stored files, so a sync cannot bring back what was thrown away."""
     if not enabled():

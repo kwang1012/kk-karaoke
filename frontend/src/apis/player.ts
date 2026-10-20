@@ -28,6 +28,7 @@ export const fetchLyrics = async (songId: string) => {
       useTrackStore.getState().setLyricsDelay(songId, data.delay ?? 0);
       useTrackStore.getState().setLyricsConfidence(songId, data.confidence ?? null);
       useTrackStore.getState().setPlainLyrics(songId, data.plain ?? null);
+      useTrackStore.getState().setLyricsVideoId(songId, data.videoId ?? null);
       return data.lyrics;
     })
     .catch((error) => {

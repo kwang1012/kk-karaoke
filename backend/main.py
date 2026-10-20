@@ -12,6 +12,7 @@ from models.track import Track
 from services.process_request import is_ready, send_process_request
 from managers.db import get_db
 from interfaces.queue import RedisQueueInterface
+from services.catalog import search_tracks
 from services.spotify import getCollectionTracks, getTopCategories, searchSpotify
 from managers.websocket import WebSocketManager
 from middlewares.format import FormatReponseMiddleware
@@ -118,7 +119,13 @@ def get_random_tracks():
 
 @app.get("/search")
 def search(q: str):
-    searchResults = searchSpotify(q)
+    # Albums, artists and playlists still come from Spotify; tracks come from YouTube Music,
+    # because a track is only useful as the recording we can actually play.
+    searchResults = searchSpotify(q) or {"results": {}}
+    tracks = search_tracks(q)
+    if tracks:
+        searchResults = {**searchResults, "results": {
+            **searchResults.get("results", {}), "tracks": {"items": tracks}}}
     return JSONResponse(content=searchResults, status_code=200)
 
 
@@ -135,6 +142,7 @@ async def download_track(
     trimmed_track = Track(
         id=track.id, name=track.name,
         artists=track.artists, album=track.album,
+        duration_ms=track.duration_ms, video_id=track.video_id, kind=track.kind,
     )
     redis_interface.redis.sadd(
         RedisKeys.TRACK_DATA_SET,

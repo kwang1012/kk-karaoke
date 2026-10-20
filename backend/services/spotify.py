@@ -199,6 +199,23 @@ def getCollectionTracks(collection_type: str, collection_id: str):
 
 
 @refresh_token
+def _get_track(track_id: str):
+    return _client.get(f"https://api.spotify.com/v1/tracks/{track_id}",
+                       headers={"Authorization": manager.get_token()})
+
+
+def getTrackDurationMs(track_id: str) -> int | None:
+    """A Spotify track's length, for tracks that were queued without one."""
+    try:
+        response = _get_track(track_id)
+        if response.status_code == 200:
+            return response.json().get("duration_ms")
+    except Exception as e:
+        print(f"Spotify duration lookup failed for {track_id}: {e!r}")
+    return None
+
+
+@refresh_token
 def _search(keyword: str):
     access_token = manager.get_token()
     response = _client.get("https://api.spotify.com/v1/search", headers={

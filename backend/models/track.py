@@ -1,5 +1,6 @@
 from typing import Annotated, Any, Optional
-from pydantic import BaseModel, StringConstraints
+from pydantic import BaseModel, ConfigDict, StringConstraints
+from pydantic.alias_generators import to_camel
 
 from models.user import User
 
@@ -16,6 +17,10 @@ class Artist(BaseModel):
 
 
 class Track(BaseModel):
+    # Responses are camelCased on the way out (middlewares/format.py), so the client posts
+    # `durationMs` back. Without the alias those fields were silently dropped.
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
     id: TrackId
     name: str
     artists: list[Artist]
@@ -25,6 +30,11 @@ class Track(BaseModel):
     ordered_by: Optional[User] = None
     status: Optional[str] = None
     progress: Optional[float] = None
+    # The YouTube recording this track is, when known (a YouTube Music result is one by
+    # definition; a Spotify track gets one resolved when it is processed).
+    video_id: Optional[TrackId] = None
+    # "song" (studio audio) or "video" (music video, live, upload) for YouTube results.
+    kind: Optional[str] = None
 
 
 class LyricsDelay(BaseModel):

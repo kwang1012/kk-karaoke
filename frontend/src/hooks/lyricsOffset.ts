@@ -10,6 +10,7 @@ import { useDebouncedCallback } from 'src/hooks/debounce';
 export function useLyricsOffset() {
   const { currentTrack } = usePlayer();
   const lyricsDelay = useTrackStore((state) => state.lyricsDelays[currentTrack?.id || ''] || 0);
+  const videoId = useTrackStore((state) => currentTrack?.videoId || state.lyricsVideoIds[currentTrack?.id || ''] || null);
   const setLyricsDelay = useTrackStore((state) => state.setLyricsDelay);
   const approximate = useTrackStore((state) => state.lyricsConfidence[currentTrack?.id || ''] === 'approximate');
   const saveDelay = useDebouncedCallback((id: string, delay: number) => {
@@ -21,5 +22,11 @@ export function useLyricsOffset() {
     setLyricsDelay(currentTrack.id, -ahead);
     saveDelay(currentTrack.id, -ahead);
   };
-  return { ahead: -lyricsDelay, setAhead, approximate, disabled: !currentTrack };
+  return {
+    ahead: -lyricsDelay,
+    setAhead,
+    approximate,
+    videoUrl: videoId ? `https://www.youtube.com/watch?v=${videoId}` : null,
+    disabled: !currentTrack,
+  };
 }

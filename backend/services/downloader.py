@@ -1,6 +1,8 @@
 import yt_dlp
 import os
 import re
+import subprocess
+from pathlib import Path
 import syncedlyrics
 import httpx
 import opencc
@@ -40,19 +42,34 @@ def _search_youtube(query: str, limit: int = 5) -> list:
     return results
 
 
-def _best_match(results: list, target_duration_s: float) -> dict:
-    """Pick the result whose duration is closest to the Spotify track."""
-    best = None
-    best_diff = float("inf")
+# Anything shorter is a clip, a short or a preview, not the song.
+MIN_TRACK_S = 60
+
+
+def length_tolerance(target_s: float) -> float:
+    """How far a recording may differ from the expected length before it is another cut."""
+    return max(10.0, 0.08 * target_s)
+
+
+def _best_match(results: list, target_duration_s: float | None) -> dict | None:
+    """
+    The result that can be this song: full length and, when we know the song's length,
+    close to it. None when nothing qualifies -- wrong audio is worse than no audio.
+    """
+    usable = []
     for r in results:
-        dur = r.get("duration") or 0
-        if dur == 0:
+        dur = r.get("duration")
+        if dur is None:
+            if target_duration_s is None:
+                usable.append((0.0, r))
             continue
-        diff = abs(dur - target_duration_s)
-        if diff < best_diff:
-            best_diff = diff
-            best = r
-    return best or results[0]
+        if dur < MIN_TRACK_S:
+            continue
+        if target_duration_s is None:
+            usable.append((0.0, r))
+        elif abs(dur - target_duration_s) <= length_tolerance(target_duration_s):
+            usable.append((abs(dur - target_duration_s), r))
+    return min(usable, key=lambda p: p[0])[1] if usable else None
 
 
 def download_audio(
@@ -74,6 +91,29 @@ def download_audio(
     else:
         url = _search_best_url(search_term, target_duration_s)
     _download(sid, search_term, url)
+    _verify_length(Path(RAW_AUDIO_DIR, sid + ".mp3"), target_duration_s)
+
+
+def _audio_seconds(path: Path) -> float | None:
+    try:
+        out = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(path)],
+            capture_output=True, text=True, timeout=30)
+        return float(out.stdout.strip())
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return None
+
+
+def _verify_length(path: Path, expected_s: float | None) -> None:
+    """Last line of defence: what we downloaded must be as long as the song."""
+    actual = _audio_seconds(path)
+    if actual is None:
+        return  # cannot measure; do not block on it
+    if actual < MIN_TRACK_S or (expected_s and abs(actual - expected_s) > length_tolerance(expected_s)):
+        path.unlink(missing_ok=True)
+        raise RuntimeError(
+            f"Downloaded audio is {actual:.0f}s but the song is "
+            f"{f'{expected_s:.0f}s' if expected_s else 'a full track'}; discarded it")
 
 
 def _search_best_url(search_term: str, target_duration_s: float | None) -> str:
@@ -88,11 +128,11 @@ def _search_best_url(search_term: str, target_duration_s: float | None) -> str:
     if not results:
         raise RuntimeError(f"No YouTube results found for '{search_term}'")
 
-    # Pick best match by duration if we have a target
-    if target_duration_s and any(r.get("duration") for r in results):
-        chosen = _best_match(results, target_duration_s)
-    else:
-        chosen = results[0]
+    chosen = _best_match(results, target_duration_s)
+    if chosen is None:
+        raise RuntimeError(
+            f"No full-length YouTube match for '{search_term}'"
+            + (f" near {target_duration_s:.0f}s" if target_duration_s else ""))
 
     print(f"Downloading audio: {chosen['title']} (duration: {chosen.get('duration', '?')}s)")
     return chosen["url"]

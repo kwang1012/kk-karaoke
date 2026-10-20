@@ -125,7 +125,7 @@ export default function SearchView() {
     } catch {}
   };
   const [scrollTop, setScrollTop] = useState(0);
-  const tracks = results.tracks?.items?.filter((item: any) => !!item)?.slice(0, mobile ? 10 : 4) || [];
+  const tracks = results.tracks?.items?.filter((item: any) => !!item)?.slice(0, mobile ? 10 : 8) || [];
   const albums = results.albums?.items?.filter((item: any) => !!item)?.slice(0, 4) || [];
   const playlists = results.playlists?.items?.filter((item: any) => !!item)?.slice(0, 4) || [];
   //   const artists = results.artists?.items.slice(0, 4) || [];

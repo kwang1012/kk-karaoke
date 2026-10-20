@@ -88,6 +88,17 @@ def upload_track(track_id: str) -> None:
             upload_path(prefix, path)
 
 
+def delete_track(track_id: str) -> None:
+    """Remove a track's stored files, so a sync cannot bring back what was thrown away."""
+    if not enabled():
+        return
+    for prefix, _, ext in KINDS:
+        try:
+            _s3().delete_object(Bucket=R2_BUCKET, Key=_key(prefix, f"{track_id}{ext}"))
+        except Exception as e:
+            print(f"R2 delete failed for {prefix}/{track_id}{ext}: {e!r}")
+
+
 def _download(prefix: str, directory: str, name: str) -> bool:
     dest = Path(directory, name)
     # Unique temp name: the API and a worker sharing a directory may sync at the same time.

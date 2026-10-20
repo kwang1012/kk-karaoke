@@ -56,6 +56,7 @@ def get_lyrics(
             # Words without timing: no lines to highlight, so the client shows them as text.
             return JSONResponse(content={
                 "lyrics": [], "content": "", "plain": plain, "delay": 0, "confidence": "unsynced",
+                "video_id": read_meta(track_id).get("video_id"),
             })
         return JSONResponse(status_code=404, content={"error": "Lyrics not found"})
     try:
@@ -106,6 +107,7 @@ def get_lyrics(
         if not romanized_exists and any(line is not None for line in romanized_lines):
             redis_interface.store_romanized_lyrics(track_id, romanized_lines)
 
+        meta = read_meta(track_id)
         return JSONResponse(
             # The delay is returned, not baked into the times: clients apply it themselves
             # (so adjusting it live doesn't need a refetch and can't be applied twice).
@@ -114,7 +116,9 @@ def get_lyrics(
                 "content": "".join(raw_lines),
                 "delay": delay or 0,
                 # How far to trust the timing; null for lyrics fetched before this was recorded.
-                "confidence": read_meta(track_id).get("confidence"),
+                "confidence": meta.get("confidence"),
+                # The recording these lyrics were timed against, so the client can offer its video.
+                "video_id": meta.get("video_id"),
             },
             status_code=200,
         )

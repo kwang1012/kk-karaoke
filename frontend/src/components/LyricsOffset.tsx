@@ -1,4 +1,4 @@
-import { Minus, Plus, RotateCcw, Timer, TriangleAlert } from 'lucide-react';
+import { ExternalLink, Minus, Plus, RotateCcw, Timer, TriangleAlert } from 'lucide-react';
 import { IconButton } from 'src/components/ui/button';
 import { Tooltip } from 'src/components/ui/tooltip';
 import { useT } from 'src/i18n';
@@ -14,11 +14,14 @@ export default function LyricsOffset({
   value,
   onChange,
   approximate = false,
+  videoUrl = null,
 }: {
   value: number;
   onChange: (value: number) => void;
   /** The timing came from a free-text search, so it may be for another version of the song. */
   approximate?: boolean;
+  /** The recording these lyrics belong to, to check them against by eye. */
+  videoUrl?: string | null;
 }) {
   const t = useT();
   const set = (next: number) => onChange(Math.round(Math.max(-LIMIT, Math.min(LIMIT, next)) * 10) / 10);
@@ -55,6 +58,19 @@ export default function LyricsOffset({
           <RotateCcw className="size-3.5" />
         </IconButton>
       </Tooltip>
+      {videoUrl && (
+        <Tooltip title={t('lyrics.originalVideo')} side="top">
+          <a
+            href={videoUrl}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={t('lyrics.originalVideo')}
+            className="ml-1 flex size-8 items-center justify-center rounded-full hover:bg-white/15"
+          >
+            <ExternalLink className="size-4" />
+          </a>
+        </Tooltip>
+      )}
     </div>
   );
 }

@@ -9,7 +9,7 @@ import { useLyricsOffset } from 'src/hooks/lyricsOffset';
 
 export default function MobileLyricsView() {
   const { currentTrack } = usePlayer();
-  const { ahead, setAhead, approximate, disabled } = useLyricsOffset();
+  const { ahead, setAhead, approximate, videoUrl, disabled } = useLyricsOffset();
   const [color, setColor] = useState<string>(DEFAULT_COLOR);
   const [bgColor, setBgColor] = useState<string>(DEFAULT_BG_COLOR);
   const mode = useThemeMode();
@@ -36,7 +36,7 @@ export default function MobileLyricsView() {
         <MobileLyrics color={color} bgColor={bgColor} />
         {!disabled && (
           <div className="absolute right-3 bottom-3 z-10">
-            <LyricsOffset value={ahead} onChange={setAhead} approximate={approximate} />
+            <LyricsOffset value={ahead} onChange={setAhead} approximate={approximate} videoUrl={videoUrl} />
           </div>
         )}
       </div>

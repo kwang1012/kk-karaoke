@@ -199,9 +199,8 @@ class SyncedAudioPlayer {
     this.vocalGain.gain.setValueAtTime(vocalVolume, this.context.currentTime);
   }
 
-  setSemitone(semitone: number) {
-    throw new Error('Not implemented');
-  }
+  /** Plain playback cannot change the key; see ShiftedAudioPlayer. */
+  setSemitone(_semitone: number) {}
 
   /** Browsers keep the context suspended until a user gesture; call this from one (e.g. a key press). */
   resume() {

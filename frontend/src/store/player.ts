@@ -95,7 +95,7 @@ export const usePlayerStore = create<PlayerStore>()(
       retryLoad: () => set((state) => ({ loadAttempt: state.loadAttempt + 1, loadError: false, lastSongId: null })),
       playing: false,
       setPlaying: (playing: boolean) => set({ playing }),
-      enabledPitchShift: false,
+      enabledPitchShift: true,
       hostPitchShift: false,
       setHostPitchShift: (hostPitchShift: boolean) => set({ hostPitchShift }),
       guideLevel: 0,
@@ -246,6 +246,12 @@ export const usePlayerStore = create<PlayerStore>()(
     }),
     {
       name: 'player-storage', // unique name
+      version: 1,
+      // Key shifting used to be opt-in; it is now on by default, so drop the old "off" that was only the default
+      migrate: (persisted, version) => {
+        const state = (persisted ?? {}) as Partial<PlayerStore>;
+        return version < 1 ? { ...state, enabledPitchShift: true } : state;
+      },
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         volume: state.volume,

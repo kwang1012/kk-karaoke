@@ -180,13 +180,10 @@ export const Player = () => {
   });
 
   useEffect(() => {
-    let playerCls: typeof SyncedAudioPlayer;
-    if (enabledPitchShift) playerCls = ShiftedAudioPlayer;
-    else playerCls = SyncedAudioPlayer;
-
-    setSyncedPlayer(new playerCls());
-
-    console.log(`Initializing ${playerCls.name}`);
+    const player = enabledPitchShift ? new ShiftedAudioPlayer() : new SyncedAudioPlayer();
+    console.log(`Initializing ${player.constructor.name}`);
+    setSyncedPlayer(player);
+    return () => player.destroy();
   }, []);
 
   useEffect(() => {
@@ -196,6 +193,11 @@ export const Player = () => {
     if (index !== -1 && index !== queueIdx) {
       setQueueIdx(index);
     }
+  // The key belongs to the session, not to the loaded song: (re)apply it whenever the player or key changes
+  useEffect(() => {
+    syncedPlayer?.setSemitone(semitone);
+  }, [syncedPlayer, semitone]);
+
   }, [index, tracks]);
 
   // =============== useEffect ===============

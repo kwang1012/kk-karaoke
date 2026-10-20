@@ -196,7 +196,7 @@ export const en = {
   'settings.languageHint': 'The language of the app. Song titles and lyrics are not translated.',
   'settings.audio': 'Audio',
   'settings.keyShift': 'Key shift',
-  'settings.keyShiftHint': "Change the song's key. Seeking may be slower while this is enabled.",
+  'settings.keyShiftHint': "Change the song's key.",
   'settings.quality': 'Separation quality',
   'settings.qualityHint': 'Recommended: High',
   'settings.quality.low': 'Low (Fast)',

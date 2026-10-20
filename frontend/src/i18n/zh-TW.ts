@@ -184,7 +184,7 @@ export const zhTW: Record<TranslationKey, string> = {
   'settings.languageHint': '介面語言。歌名與歌詞不會被翻譯。',
   'settings.audio': '音訊',
   'settings.keyShift': '變調',
-  'settings.keyShiftHint': '調整歌曲的 Key。啟用後拖曳進度可能會稍慢。',
+  'settings.keyShiftHint': '調整歌曲的 Key。',
   'settings.quality': '人聲分離品質',
   'settings.qualityHint': '建議：高',
   'settings.quality.low': '低（快速）',

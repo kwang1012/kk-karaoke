@@ -53,7 +53,7 @@ function PlaylistCard({
   );
 }
 
-const SECTIONS: { keyword: string; label: TranslationKey; name: TranslationKey }[] = [
+export const SECTIONS: { keyword: string; label: TranslationKey; name: TranslationKey }[] = [
   { keyword: 'chinese', label: 'home.lang.chinese', name: 'home.section.chinese' },
   { keyword: 'korean', label: 'home.lang.korean', name: 'home.section.korean' },
   { keyword: 'english', label: 'home.lang.english', name: 'home.section.english' },

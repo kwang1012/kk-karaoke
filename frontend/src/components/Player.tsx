@@ -50,6 +50,8 @@ export const Player = () => {
     decreaseSemitone,
     semitone,
     setSemitone,
+    guideLevel,
+    setGuideLevel,
     setHostPitchShift,
     seek,
     next,
@@ -105,6 +107,7 @@ export const Player = () => {
           if (typeof data.volume === 'number' && data.volume !== volume) setVolume(data.volume, true);
           if (typeof data.vocalOn === 'boolean' && data.vocalOn !== vocalOn) toggleVocal(true);
           if (typeof data.semitone === 'number' && data.semitone !== semitone) setSemitone(data.semitone);
+          if (typeof data.guideLevel === 'number' && data.guideLevel !== guideLevel) setGuideLevel(data.guideLevel, true);
         }
         // A guest has no audio of its own, so the owner's duration is the only reliable one.
         if (typeof data.duration === 'number' && data.duration > 0 && data.duration !== duration) setDuration(data.duration);
@@ -132,6 +135,9 @@ export const Player = () => {
             break;
           case 'toggleVocal':
             toggleVocal(true);
+            break;
+          case 'setGuideLevel':
+            if (typeof data.level === 'number') setGuideLevel(data.level, true);
             break;
           case 'setVolume':
             setVolume(data.volume, true);
@@ -165,6 +171,7 @@ export const Player = () => {
       if (typeof room.volume === 'number') setVolume(room.volume, true);
       if (typeof room.vocalOn === 'boolean' && room.vocalOn !== vocalOn) toggleVocal(true);
       if (typeof room.semitone === 'number') setSemitone(room.semitone);
+      if (typeof room.guideLevel === 'number') setGuideLevel(room.guideLevel, true);
       if (room.duration > 0) setDuration(room.duration);
       if (typeof room.pitchShift === 'boolean') setHostPitchShift(room.pitchShift);
     });
@@ -222,6 +229,7 @@ export const Player = () => {
               queueIdx,
               volume,
               vocalOn,
+              guideLevel,
               semitone,
               duration,
               pitchShift: enabledPitchShift,
@@ -236,7 +244,7 @@ export const Player = () => {
     }, 200);
 
     return () => clearInterval(interval);
-  }, [playing, duration, seeking, vocalOn, volume, queueIdx, semitone, enabledPitchShift]);
+  }, [playing, duration, seeking, vocalOn, volume, queueIdx, semitone, enabledPitchShift, guideLevel]);
 
   // Guests learn the length (and whether the key can be changed) from the owner. The periodic
   // update only runs while playing, so announce them as soon as they are known: a remote that
@@ -254,6 +262,7 @@ export const Player = () => {
         queueIdx,
         volume,
         vocalOn,
+        guideLevel,
         semitone,
         duration,
         pitchShift: enabledPitchShift,

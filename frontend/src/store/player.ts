@@ -377,9 +377,17 @@ export const usePlayer = () => {
   // Vocal gain: full when the vocal is on, otherwise only the guide level (0 = completely removed).
   const vocalVolume = (masterVolume: number, on: boolean) => (on ? masterVolume : masterVolume * guideLevel);
 
-  const changeGuideLevel = (level: number) => {
+  const changeGuideLevel = (level: number, isCallback: boolean = false) => {
     setGuideLevel(level);
     if (isOwner && syncedPlayer && !vocalOn) syncedPlayer.setVolume(volume, volume * level);
+    if (isCallback) return;
+    sendMessage({
+      type: 'jam',
+      action: 'control',
+      op: 'setGuideLevel',
+      roomId: activeRoomId,
+      data: { level },
+    });
   };
 
   const toggleVocal = (isCallback: boolean = false) => {

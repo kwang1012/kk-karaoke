@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { Check, ListMusic, LogOut, Mic, MicOff, Minus, Music, Pause, Play, Plus, Search, SkipBack, SkipForward, Volume1, Volume2 } from 'lucide-react';
+import { Check, ChevronLeft, ListMusic, LogOut, Mic, MicOff, Minus, Music, Pause, Play, Plus, Search, SkipBack, SkipForward, Volume1, Volume2 } from 'lucide-react';
 import placeholder from 'src/assets/placeholder.png';
 import AppScrollbar from 'src/components/Scrollbar';
 import Queue from 'src/components/Queue';
@@ -13,7 +14,9 @@ import { CircularProgress } from 'src/components/ui/progress';
 import { useDebounce, useDebouncedCallback } from 'src/hooks/debounce';
 import { useT } from 'src/i18n';
 import { cn } from 'src/lib/utils';
-import { Track } from 'src/models/spotify';
+import { Collection, Track } from 'src/models/spotify';
+import { SECTIONS, topCategoriesQuery } from 'src/pages/browse';
+import { useTrackStore } from 'src/store';
 import { usePlayer, usePlayerStore } from 'src/store/player';
 import { useJam, useRoomStore } from 'src/store/room';
 import { useWebSocketStore } from 'src/store/ws';
@@ -33,7 +36,7 @@ const SLIDER = 'h-8 [&_[data-slot=thumb]]:size-5 [&_[data-slot=thumb]]:opacity-1
 function NowPlaying({ onAdd }: { onAdd: () => void }) {
   const t = useT();
   const p = usePlayer();
-  const { currentTrack, playing, loading, progress, duration, seeking, vocalOn, volume, semitone, hostPitchShift } = p;
+  const { currentTrack, playing, loading, progress, duration, seeking, vocalOn, guideLevel, volume, semitone, hostPitchShift } = p;
   const [dragValue, setDragValue] = useState(0);
   const image = currentTrack?.album?.images?.[0]?.url;
 
@@ -143,6 +146,24 @@ function NowPlaying({ onAdd }: { onAdd: () => void }) {
         )}
       </div>
 
+      {/* how much of the original vocal stays in karaoke mode; moot while the full vocal is on */}
+      <div className={cn('rounded-2xl border bg-card px-4 py-2 transition-opacity', vocalOn && 'opacity-50')}>
+        <div className="flex items-baseline justify-between text-sm">
+          <span id="remote-guide" className="font-medium">
+            {t('player.guide')}
+          </span>
+          <span className="text-muted-foreground tabular-nums">{Math.round(guideLevel * 100)}%</span>
+        </div>
+        <AppSlider
+          className={SLIDER}
+          min={0}
+          max={100}
+          value={guideLevel * 100}
+          onChange={(_, value) => typeof value === 'number' && p.setGuideLevel(value / 100)}
+          aria-labelledby="remote-guide"
+        />
+      </div>
+
       <div className="flex items-center gap-3 text-muted-foreground">
         <Volume1 className="size-5 shrink-0" />
         <AppSlider
@@ -207,6 +228,88 @@ function AddRow({ track, onAdd, onInsert }: { track: Track; onAdd: (track: Track
   );
 }
 
+type AddHandlers = { onAdd: (track: Track) => void; onInsert: (track: Track) => void };
+
+const SHOWN_AT_FIRST = 40;
+
+/** Songs that are already processed: they start the moment they are queued. */
+function ReadyList({ onAdd, onInsert }: AddHandlers) {
+  const t = useT();
+  const readyTracks = useTrackStore((state) => state.readyTracks);
+  const [shown, setShown] = useState(SHOWN_AT_FIRST);
+  const seen = new Set<string>();
+  const list = Array.from(readyTracks)
+    .filter((track) => !seen.has(track.id) && !!seen.add(track.id))
+    .sort((a, b) => (b.timeAdded ?? 0) - (a.timeAdded ?? 0)); // newest first
+  if (list.length === 0) return <p className="px-6 pt-6 text-center text-sm text-muted-foreground">{t('library.empty')}</p>;
+  return (
+    <div className="px-4">
+      <p className="px-1 pb-1 text-xs text-muted-foreground">{t('home.readyHint')}</p>
+      {list.slice(0, shown).map((track) => (
+        <AddRow key={track.id} track={track} onAdd={onAdd} onInsert={onInsert} />
+      ))}
+      {list.length > shown && (
+        <Button variant="ghost" className="mt-2 w-full" onClick={() => setShown(shown + SHOWN_AT_FIRST)}>
+          {t('remote.showMore', { count: list.length - shown })}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/** The home page's playlists, a row per language. */
+function Playlists({ onOpen }: { onOpen: (collection: Collection) => void }) {
+  const t = useT();
+  const { data: categories, isLoading } = useQuery(topCategoriesQuery);
+  if (isLoading) return <p className="px-6 pt-6 text-center text-sm text-muted-foreground">{t('remote.loading')}</p>;
+  return (
+    <>
+      {SECTIONS.map((section) => {
+        const collections = categories?.[section.keyword] || [];
+        if (collections.length === 0) return null;
+        return (
+          <section key={section.keyword} className="mt-4">
+            <h3 className="mb-2 px-4 text-sm font-semibold">{t(section.name)}</h3>
+            <div className="no-scrollbar flex gap-3 overflow-x-auto px-4">
+              {collections.map((collection) => (
+                <button key={collection.id} className="w-32 shrink-0 text-left" onClick={() => onOpen(collection)}>
+                  <img referrerPolicy="no-referrer" src={collection.images?.[0]?.url || placeholder} alt="" className="aspect-square w-full rounded-lg object-cover shadow-md" />
+                  <span className="mt-1.5 line-clamp-2 text-xs font-medium">{collection.name}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        );
+      })}
+    </>
+  );
+}
+
+function PlaylistTracks({ collection, onBack, onAdd, onInsert }: AddHandlers & { collection: Collection; onBack: () => void }) {
+  const t = useT();
+  // same key and shape as the playlist page, so a playlist opened on either is cached for both
+  const { data, isLoading } = useQuery<{ tracks: Track[] }>({
+    queryKey: ['playlist', collection.id],
+    queryFn: () => api.get(`/playlist/${collection.id}/tracks`).then(({ data }) => data),
+  });
+  const tracks = data?.tracks ?? [];
+  return (
+    <div className="px-4">
+      <button className="-ml-1 flex items-center gap-1 py-2 text-sm font-medium text-muted-foreground" onClick={onBack}>
+        <ChevronLeft className="size-4" /> {t('nav.back')}
+      </button>
+      <h2 className="mb-2 text-lg font-semibold tracking-tight">{collection.name}</h2>
+      {isLoading ? (
+        <p className="pt-4 text-center text-sm text-muted-foreground">{t('remote.loading')}</p>
+      ) : tracks.length === 0 ? (
+        <p className="pt-4 text-center text-sm text-muted-foreground">{t('remote.noResults')}</p>
+      ) : (
+        tracks.map((track) => <AddRow key={track.id} track={track} onAdd={onAdd} onInsert={onInsert} />)
+      )}
+    </div>
+  );
+}
+
 function AddSongs() {
   const t = useT();
   const addSongToQueue = usePlayerStore((state) => state.addSongToQueue);
@@ -217,6 +320,9 @@ function AddSongs() {
   const query = useDebounce(input.trim(), 350);
   const [results, setResults] = useState<Track[]>([]);
   const [searching, setSearching] = useState(false);
+  // with nothing typed: the processed songs, or the playlists (and one of those, opened)
+  const [browse, setBrowse] = useState<'ready' | 'playlists'>('ready');
+  const [playlist, setPlaylist] = useState<Collection | null>(null);
 
   useEffect(() => {
     if (!query) {
@@ -260,16 +366,43 @@ function AddSongs() {
           />
         </div>
       </div>
+      {!query && !playlist && (
+        <div className="flex gap-2 px-4 pb-2">
+          {(['ready', 'playlists'] as const).map((id) => (
+            <button
+              key={id}
+              aria-pressed={browse === id}
+              onClick={() => setBrowse(id)}
+              className={cn(
+                'rounded-full border px-4 py-1.5 text-sm font-medium transition-colors',
+                browse === id ? 'border-transparent bg-foreground text-background' : 'text-muted-foreground'
+              )}
+            >
+              {id === 'ready' ? t('home.ready') : t('search.playlists')}
+            </button>
+          ))}
+        </div>
+      )}
       <AppScrollbar className="min-h-0 flex-1">
-        <div className="px-4 pb-6">
+        <div className="pb-6">
           {!query ? (
-            <p className="px-2 pt-6 text-center text-sm text-muted-foreground">{t('remote.searchHint')}</p>
+            playlist ? (
+              <PlaylistTracks collection={playlist} onBack={() => setPlaylist(null)} onAdd={onAdd} onInsert={onInsert} />
+            ) : browse === 'ready' ? (
+              <ReadyList onAdd={onAdd} onInsert={onInsert} />
+            ) : (
+              <Playlists onOpen={setPlaylist} />
+            )
           ) : searching && results.length === 0 ? (
-            <p className="px-2 pt-6 text-center text-sm text-muted-foreground">{t('remote.searching')}</p>
+            <p className="px-6 pt-6 text-center text-sm text-muted-foreground">{t('remote.searching')}</p>
           ) : results.length === 0 ? (
-            <p className="px-2 pt-6 text-center text-sm text-muted-foreground">{t('remote.noResults')}</p>
+            <p className="px-6 pt-6 text-center text-sm text-muted-foreground">{t('remote.noResults')}</p>
           ) : (
-            results.map((track) => <AddRow key={track.id} track={track} onAdd={onAdd} onInsert={onInsert} />)
+            <div className="px-4">
+              {results.map((track) => (
+                <AddRow key={track.id} track={track} onAdd={onAdd} onInsert={onInsert} />
+              ))}
+            </div>
           )}
         </div>
       </AppScrollbar>

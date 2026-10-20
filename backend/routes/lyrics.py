@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from models.track import LyricsDelay
 from models.requests import UpdateLyricsRequest
 from managers import r2
-from services.lyrics_sources import read_meta
+from services.lyrics_sources import read_meta, write_meta
 from utils import LYRICS_DIR, get_lyrics_path
 import re
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -134,4 +134,9 @@ def update_lyrics(track_id: str, data: UpdateLyricsRequest):
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(data.content)
     r2.upload_path("lyrics", file_path)
+    # Hand-edited lyrics are not ours to re-time automatically.
+    meta = read_meta(track_id)
+    if meta:
+        write_meta(track_id, {**meta, "edited": True})
+        r2.upload_path("lyrics-meta", os.path.join(LYRICS_DIR, f"{track_id}.meta.json"))
     return JSONResponse(content={"message": "Lyrics updated successfully"})

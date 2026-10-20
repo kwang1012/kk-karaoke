@@ -28,6 +28,8 @@ from utils import LYRICS_DIR, MIDI_DIR, NO_VOCALS_DIR, VOCALS_DIR
 # (R2 key prefix, local directory, file extension). Raw downloads are scratch space, not kept.
 KINDS = (
     ("lyrics", LYRICS_DIR, ".lrc"),
+    # How far to trust each sheet's timing (and which recording it was timed against).
+    ("lyrics-meta", LYRICS_DIR, ".meta.json"),
     ("vocal", VOCALS_DIR, ".mp3"),
     ("instrumental", NO_VOCALS_DIR, ".mp3"),
     ("midi", MIDI_DIR, ".mid"),

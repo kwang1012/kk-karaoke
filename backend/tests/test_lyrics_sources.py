@@ -209,3 +209,65 @@ def test_save_and_read_meta(tmp_path, monkeypatch):
     meta = ls.read_meta("t1")
     assert meta["confidence"] == "verified" and meta["video_id"] == "vid" and "lrc" not in meta
     assert ls.read_meta("missing") == {}
+
+
+# --- check against the audio -------------------------------------------------------
+
+def _check(status, offset=0.0):
+    from services.audio_check import AudioCheck
+    return AudioCheck(status, offset, 7.0, 0.95, 20)
+
+
+@pytest.fixture
+def saved(tmp_path, monkeypatch):
+    monkeypatch.setattr(ls, "LYRICS_DIR", str(tmp_path))
+    ls.save_result("t", ls.LyricsResult("[ar:x]\n[00:10.00]one\n[01:05.50]two", "lrclib", "approximate", "v"))
+    return tmp_path
+
+
+def run_check(monkeypatch, check):
+    monkeypatch.setattr(ls.audio_check, "check_file", lambda path, starts: check)
+    return ls.verify_against_audio("t", "stem.mp3")
+
+
+def test_shift_lrc_moves_only_timestamps():
+    assert ls.shift_lrc("[ar:x]\n[00:10.00]a\n[01:05.50]b", 2.5) == "[ar:x]\n[00:12.50]a\n[01:08.00]b"
+    assert ls.shift_lrc("[00:01.00]a", -5) == "[00:00.00]a"
+
+
+def test_confirmed_upgrades_to_verified(saved, monkeypatch):
+    run_check(monkeypatch, _check("confirmed"))
+    assert ls.read_meta("t")["confidence"] == "verified"
+    assert "[00:10.00]one" in (saved / "t.lrc").read_text()
+
+
+def test_corrected_shifts_the_sheet(saved, monkeypatch):
+    run_check(monkeypatch, _check("corrected", 2.0))
+    assert "[00:12.00]one" in (saved / "t.lrc").read_text()
+    meta = ls.read_meta("t")
+    assert meta["confidence"] == "synced" and meta["audio_check"]["offset_s"] == 2.0
+
+
+def test_mismatch_downgrades_without_touching_the_sheet(saved, monkeypatch):
+    before = (saved / "t.lrc").read_text()
+    run_check(monkeypatch, _check("mismatch"))
+    assert ls.read_meta("t")["confidence"] == "approximate" and (saved / "t.lrc").read_text() == before
+
+
+def test_inconclusive_changes_nothing_but_is_recorded(saved, monkeypatch):
+    run_check(monkeypatch, _check("inconclusive"))
+    meta = ls.read_meta("t")
+    assert meta["confidence"] == "approximate" and meta["audio_check"]["status"] == "inconclusive"
+
+
+def test_only_checked_once(saved, monkeypatch):
+    run_check(monkeypatch, _check("corrected", 2.0))
+    assert run_check(monkeypatch, _check("corrected", 2.0)) is None
+    assert "[00:12.00]one" in (saved / "t.lrc").read_text()  # not shifted twice
+
+
+def test_hand_edited_and_legacy_lyrics_are_left_alone(saved, monkeypatch):
+    ls.write_meta("t", {**ls.read_meta("t"), "edited": True})
+    assert run_check(monkeypatch, _check("corrected", 2.0)) is None
+    (saved / "t.meta.json").unlink()
+    assert run_check(monkeypatch, _check("corrected", 2.0)) is None

@@ -11,7 +11,7 @@ from utils import NO_VOCALS_DIR, LYRICS_DIR, VOCALS_DIR, RAW_AUDIO_DIR
 from models.track import Artist, Track
 from managers.websocket import WebSocketManager
 from services.downloader import download_audio
-from services.lyrics_sources import find_lyrics, read_meta, resolve_recording, save_result
+from services.lyrics_sources import find_lyrics, read_meta, resolve_recording, save_result, verify_against_audio
 from services.voice_remover import separate_vocals
 from config import REDIS_HOST, REDIS_PORT
 from managers import r2
@@ -132,6 +132,15 @@ def _process_track(track: Track):
 
     if not is_ready(track):
         raise RuntimeError("Separation finished but output files are missing")
+
+    # The vocal stem is the one thing that is certainly this recording's audio: use it
+    # to confirm the lyric timing, or to move it when the whole sheet is off.
+    try:
+        check = verify_against_audio(track.id, str(Path(VOCALS_DIR, f"{track.id}.mp3")))
+        if check:
+            print(f"Audio check for {track.id}: {check.status} (offset {check.offset_s:+.2f}s, z={check.z:.1f})")
+    except Exception as e:
+        print(f"Audio check failed for {track.id}: {e!r}")
 
     Path(RAW_AUDIO_DIR, f"{track.id}.mp3").unlink(missing_ok=True)
     r2.upload_track(track.id)

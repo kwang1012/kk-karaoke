@@ -27,6 +27,7 @@ from typing import Literal, Optional
 import opencc
 from ytmusicapi import YTMusic
 
+from services import audio_check
 from services.downloader import (
     _convert_lrc_to_traditional,
     _fetch_lrclib,
@@ -262,6 +263,10 @@ def save_result(track_id: str, result: LyricsResult) -> None:
     Path(LYRICS_DIR, f"{track_id}.lrc").write_text(result.lrc, encoding="utf-8")
     meta = asdict(result)
     meta.pop("lrc")
+    write_meta(track_id, meta)
+
+
+def write_meta(track_id: str, meta: dict) -> None:
     _meta_path(track_id).write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
 
 
@@ -271,3 +276,42 @@ def read_meta(track_id: str) -> dict:
         return json.loads(_meta_path(track_id).read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
+
+
+# --- check against the audio ----------------------------------------------------
+
+def shift_lrc(lrc: str, offset_s: float) -> str:
+    """Move every timestamp by `offset_s`, leaving headers and text alone."""
+    def move(m: re.Match) -> str:
+        t = max(0.0, int(m.group(1)) * 60 + float(m.group(2)) + offset_s)
+        return f"[{int(t // 60):02d}:{t % 60:05.2f}]"
+    return re.sub(r"\[(\d+):(\d+(?:\.\d+)?)\]", move, lrc)
+
+
+def verify_against_audio(track_id: str, vocal_path: str) -> Optional[audio_check.AudioCheck]:
+    """
+    Measure the saved lyrics against the vocal stem, then record what we learned.
+
+    Only lyrics the ladder fetched are touched (they have a sidecar), and only once:
+    a sheet someone has edited by hand, or that already went through this, is theirs.
+    """
+    meta = read_meta(track_id)
+    lrc_path = Path(LYRICS_DIR, f"{track_id}.lrc")
+    if not meta or meta.get("edited") or "audio_check" in meta or not lrc_path.exists():
+        return None
+
+    lrc = lrc_path.read_text(encoding="utf-8")
+    check = audio_check.check_file(vocal_path, [t for t, _ in parse_lrc(lrc)])
+    if check is None:
+        return None
+
+    meta["audio_check"] = asdict(check)
+    if check.status == "confirmed":
+        meta["confidence"] = "verified"
+    elif check.status == "corrected":
+        lrc_path.write_text(shift_lrc(lrc, check.offset_s), encoding="utf-8")
+        meta["confidence"] = "synced"
+    elif check.status == "mismatch":
+        meta["confidence"] = "approximate"
+    write_meta(track_id, meta)
+    return check

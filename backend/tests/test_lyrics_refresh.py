@@ -144,3 +144,23 @@ def test_the_worker_task_needs_a_known_track(monkeypatch):
 
 def test_summary_of_nothing(env):
     assert ls.lyrics_summary("nothing")["has_lyrics"] is False
+
+
+# --- saving ---------------------------------------------------------------------------
+
+def test_timing_plain_words_makes_them_synced_and_drops_the_plain_copy(env, client):
+    ls.save_plain("t1", ls.PlainLyrics("one\ntwo", "lrclib", VID))
+    assert ls.read_meta("t1")["confidence"] == "unsynced"
+    r = client.post("/api/lyrics/t1/update", json={"content": "[00:01.00]one\n[00:02.00]two"})
+    assert r.status_code == 200
+    meta = ls.read_meta("t1")
+    assert meta["confidence"] == "synced" and meta["edited"] is True and "plain" not in meta
+    assert meta["video_id"] == VID and meta["source"] == "lrclib"  # where it came from is kept
+    info = client.get("/api/lyrics/t1/info").json()
+    assert info["hasLyrics"] is True and info["hasPlain"] is False
+
+
+def test_saving_over_lyrics_that_were_already_timed_keeps_their_confidence(env, client):
+    save("t1", "verified")
+    client.post("/api/lyrics/t1/update", json={"content": "[00:01.00]hi"})
+    assert ls.read_meta("t1")["confidence"] == "verified"

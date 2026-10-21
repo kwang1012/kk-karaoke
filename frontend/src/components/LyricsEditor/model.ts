@@ -3,7 +3,14 @@
  * editor does to lyrics is a function from rows to rows, so it can be tested without a browser.
  */
 
-export type Row = { id: number; time: number | null; text: string };
+/** One word of a line with its own time, from aligning the lyrics to the audio. */
+export type AlignedWord = { start: number; end: number; text: string };
+
+/**
+ * A lyric line. `words` and `guess` come from aligning to the audio and describe this exact time and
+ * text, so any edit to either drops them (see setTime, setText).
+ */
+export type Row = { id: number; time: number | null; text: string; words?: AlignedWord[]; guess?: boolean };
 export type Parsed = { rows: Row[]; headers: string[] };
 
 let lastId = 0;
@@ -107,18 +114,39 @@ export function problems(rows: Row[]): Problems {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
+/** The row without what only held for its old time or text. */
+const forgetAlignment = (r: Row): Row => {
+  const { words: _words, guess: _guess, ...rest } = r;
+  return rest;
+};
+
 export const setTime = (rows: Row[], i: number, time: number | null): Row[] =>
-  rows.map((r, j) => (j === i ? { ...r, time: time === null ? null : round2(Math.max(0, time)) } : r));
+  rows.map((r, j) => {
+    if (j !== i) return r;
+    const next = time === null ? null : round2(Math.max(0, time));
+    return next === r.time ? r : { ...forgetAlignment(r), time: next };
+  });
 
 export const setText = (rows: Row[], i: number, text: string): Row[] =>
-  rows.map((r, j) => (j === i ? { ...r, text } : r));
+  rows.map((r, j) => (j === i && text !== r.text ? { ...forgetAlignment(r), text } : r));
 
 export const nudge = (rows: Row[], i: number, delta: number): Row[] =>
-  rows.map((r, j) => (j === i && r.time !== null ? { ...r, time: round2(Math.max(0, r.time + delta)) } : r));
+  rows.map((r, j) =>
+    j === i && r.time !== null ? { ...forgetAlignment(r), time: round2(Math.max(0, r.time + delta)) } : r
+  );
 
-/** Move every timed line by `delta` seconds (never before zero). */
+/** Move every timed line by `delta` seconds (never before zero). Words move with their line. */
 export const shiftAll = (rows: Row[], delta: number): Row[] =>
-  rows.map((r) => (r.time === null ? r : { ...r, time: round2(Math.max(0, r.time + delta)) }));
+  rows.map((r) => {
+    if (r.time === null) return r;
+    const time = round2(Math.max(0, r.time + delta));
+    const moved = round2(time - r.time); // less than `delta` when the line was held at zero
+    return {
+      ...r,
+      time,
+      ...(r.words ? { words: r.words.map((w) => ({ ...w, start: round2(w.start + moved), end: round2(w.end + moved) })) } : {}),
+    };
+  });
 
 export function insertAfter(rows: Row[], i: number, row: Row = newRow()): Row[] {
   return [...rows.slice(0, i + 1), row, ...rows.slice(i + 1)];
@@ -130,8 +158,16 @@ export const removeAt = (rows: Row[], i: number): Row[] => rows.filter((_, j) =>
 export const splitPlain = (text: string): Row[] =>
   text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((l) => newRow(l));
 
-export const mapText = (rows: Row[], fn: (text: string) => string): Row[] => rows.map((r) => ({ ...r, text: fn(r.text) }));
+export const mapText = (rows: Row[], fn: (text: string) => string): Row[] =>
+  rows.map((r) => {
+    const text = fn(r.text);
+    return text === r.text ? r : { ...forgetAlignment(r), text };
+  });
 
 /** Same lines, same times: used to tell whether anything was changed. */
 export const sameRows = (a: Row[], b: Row[]): boolean =>
   a.length === b.length && a.every((r, i) => r.time === b[i].time && r.text === b[i].text);
+
+/** What alignment each row carries, as one string: edits that change only this still make the lyrics unsaved. */
+export const alignmentSignature = (rows: Row[]): string =>
+  JSON.stringify(rows.filter((r) => r.words || r.guess).map((r) => [r.time, !!r.guess, r.words ?? null]));

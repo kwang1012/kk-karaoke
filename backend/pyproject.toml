@@ -112,4 +112,5 @@ dependencies = [
     "wrapt==1.17.2",
     "yt-dlp>=2026.8.19",
     "ytmusicapi>=1.12.3",
+    "zhconv>=1.4.3",
 ]

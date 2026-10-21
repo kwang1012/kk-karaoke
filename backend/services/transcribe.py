@@ -48,6 +48,30 @@ def _load_model():
     return _model
 
 
+def heard_words(path: str) -> Optional[tuple[list[tuple[float, float, str]], str]]:
+    """
+    Every word heard in the vocal stem, as (start_s, end_s, text) in the order sung, and the
+    language. The text is the model's own (not converted to Traditional): this is a clock for
+    aligning a sheet to, never shown. None when nothing was heard or transcription failed.
+    """
+    if not os.path.exists(path):
+        return None
+    try:
+        segments, info = _load_model().transcribe(path, beam_size=5, vad_filter=True, word_timestamps=True)
+        segments = list(segments)
+    except Exception as e:  # noqa: BLE001 - the caller reports it
+        log.warning("Transcription failed for %s: %r", path, e)
+        return None
+
+    words = [
+        (round(w.start, 3), round(w.end, 3), w.word.strip())
+        for seg in segments
+        if seg.no_speech_prob <= MAX_NO_SPEECH and seg.avg_logprob >= MIN_LOGPROB
+        for w in (seg.words or []) if w.word.strip()
+    ]
+    return (words, getattr(info, "language", "") or "") if words else None
+
+
 def transcribe_vocals(path: str) -> Optional[list[HeardLine]]:
     """Timed lines heard in the vocal stem, or None when there is too little to call lyrics."""
     if not os.path.exists(path):

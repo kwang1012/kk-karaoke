@@ -1,13 +1,15 @@
 import {
-  ArrowDownUp, ClipboardPaste, Languages, Loader2, LocateFixed, Minus, Plus, Redo2, RefreshCw, Undo2,
+  ArrowDownUp, AudioLines, ClipboardPaste, Languages, Loader2, LocateFixed, Minus, Plus, Redo2, RefreshCw, Undo2,
 } from 'lucide-react';
 import * as OpenCC from 'opencc-js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import AlignPreview from 'src/components/LyricsEditor/AlignPreview';
+import { alignedPayload, applyProposal, attachSaved, type Proposal } from 'src/components/LyricsEditor/alignment';
 import ConfirmDialog from 'src/components/LyricsEditor/ConfirmDialog';
 import type { LyricsInfo } from 'src/components/LyricsEditor/info';
 import LineRow, { type RowActions } from 'src/components/LyricsEditor/LineRow';
 import {
-  activeIndex, formatLrc, insertAfter, mapText, newRow, nudge, parseLrc, problems, removeAt, setText,
+  activeIndex, alignmentSignature, formatLrc, insertAfter, mapText, newRow, nudge, parseLrc, problems, removeAt, setText,
   setTime, shiftAll, sortRows, splitPlain, type Row,
 } from 'src/components/LyricsEditor/model';
 import type { PlayerHandle } from 'src/components/LyricsEditor/Player';
@@ -33,6 +35,9 @@ const POLL_MS = 1500;
 const SLOW_AFTER_MS = 30_000;
 const STUCK_AFTER_MS = 120_000;
 const GIVE_UP_AFTER_MS = 10 * 60_000;
+// Aligning listens to the whole song the first time, which takes longer than a search.
+const ALIGN_SLOW_AFTER_MS = 30_000;
+const ALIGN_STUCK_AFTER_MS = 150_000;
 
 const errorText = (err: unknown) =>
   (err as { response?: { data?: { message?: string; error?: string } }; message?: string })?.response?.data?.message ||
@@ -67,6 +72,13 @@ export default function LyricsEditor({
   const [confirmRefresh, setConfirmRefresh] = useState(false);
   const [pasteOpen, setPasteOpen] = useState(false);
   const [pasteText, setPasteText] = useState('');
+  const [baselineSig, setBaselineSig] = useState('[]');
+  const [proposal, setProposal] = useState<Proposal | null>(null);
+  const [aligning, setAligning] = useState(false);
+  // Whether the editor is tracking alignment: the lyrics were aligned before, or are now. Only then
+  // does a save tell the server about each line's words, so it never drops what it knows nothing of.
+  const [alignKnown, setAlignKnown] = useState(false);
+  const [alignScore, setAlignScore] = useState<number | null>(null);
 
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
@@ -76,6 +88,7 @@ export default function LyricsEditor({
   const listRef = useRef<HTMLDivElement | null>(null);
   const pendingFocus = useRef<number | null>(null);
   const poller = useRef<ReturnType<typeof setInterval> | null>(null);
+  const alignPoller = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const say = useCallback((kind: Note['kind'], text: string) => setNote({ kind, text }), []);
   useEffect(() => {
@@ -97,8 +110,17 @@ export default function LyricsEditor({
     const loaded: LyricsInfo | null = details.status === 'fulfilled' ? details.value.data : null;
     const parsed = parseLrc(content);
     // Words without timing open ready to be timed, instead of as an empty editor.
-    const initial = parsed.rows.length === 0 && loaded?.plain ? splitPlain(loaded.plain) : parsed.rows;
+    const tracked = !!loaded && (loaded.wordSource === 'aligned' || !!loaded.aligned);
+    const initial =
+      parsed.rows.length === 0 && loaded?.plain
+        ? splitPlain(loaded.plain)
+        : tracked && lyrics.status === 'fulfilled'
+          ? attachSaved(parsed.rows, lyrics.value.data.lyrics ?? [])
+          : parsed.rows;
     reset(initial);
+    setAlignKnown(tracked);
+    setAlignScore(loaded?.aligned?.score ?? null);
+    setBaselineSig(alignmentSignature(initial));
     setHeaders(parsed.headers);
     setBaseline(formatLrc(initial, parsed.headers));
     setRawText(formatLrc(initial, parsed.headers));
@@ -112,10 +134,14 @@ export default function LyricsEditor({
     setView('lines');
     setShift(0);
     if (poller.current) clearInterval(poller.current);
+    if (alignPoller.current) clearInterval(alignPoller.current);
     setRefreshing(false);
+    setAligning(false);
+    setProposal(null);
     load();
     return () => {
       if (poller.current) clearInterval(poller.current);
+      if (alignPoller.current) clearInterval(alignPoller.current);
     };
   }, [load]);
 
@@ -123,7 +149,7 @@ export default function LyricsEditor({
 
   const current = view === 'raw' ? parseLrc(rawText) : { rows, headers };
   const serialized = view === 'raw' ? rawText : formatLrc(rows, headers);
-  const dirty = !loading && serialized !== baseline;
+  const dirty = !loading && (serialized !== baseline || (view === 'lines' && alignmentSignature(rows) !== baselineSig));
   const issues = useMemo(() => problems(current.rows), [current.rows]);
   const active = useMemo(() => activeIndex(rows, progress), [rows, progress]);
   const untimedOnly = rows.length > 0 && rows.every((r) => r.time === null);
@@ -216,9 +242,12 @@ export default function LyricsEditor({
     }
     const content = formatLrc(toSave, head, true);
     try {
-      await api.post(`/lyrics/${track.id}/update`, { content });
+      const aligned = alignKnown && view === 'lines' ? alignedPayload(toSave, alignScore) : undefined;
+      await api.post(`/lyrics/${track.id}/update`, { content, ...(aligned ? { aligned } : {}) });
       const sorted = parseLrc(content);
-      reset(sorted.rows);
+      const restored = aligned ? attachSaved(sorted.rows, aligned.lines) : sorted.rows;
+      reset(restored);
+      setBaselineSig(alignmentSignature(restored));
       setHeaders(sorted.headers);
       setBaseline(formatLrc(sorted.rows, sorted.headers));
       setRawText(content);
@@ -229,13 +258,10 @@ export default function LyricsEditor({
       console.error(err);
       say('error', t('editor.failed'));
     }
-  }, [view, rawText, headers, track.id, reset, say, t, onChanged]);
+  }, [view, rawText, headers, track.id, reset, say, t, onChanged, alignKnown, alignScore]);
 
   const revert = () => {
-    const parsed = parseLrc(baseline);
-    reset(parsed.rows);
-    setHeaders(parsed.headers);
-    setRawText(baseline);
+    load(); // what was last loaded or saved, including its alignment
   };
 
   // ---- searching again ----------------------------------------------------------------
@@ -300,6 +326,68 @@ export default function LyricsEditor({
   };
 
   const askRefresh = () => (info?.edited || dirty ? setConfirmRefresh(true) : startRefresh(false));
+
+  // ---- aligning to the audio ----------------------------------------------------------
+
+  const pollAlign = useCallback(
+    (task: string) => {
+      const started = Date.now();
+      if (alignPoller.current) clearInterval(alignPoller.current);
+      alignPoller.current = setInterval(async () => {
+        const waited = Date.now() - started;
+        try {
+          const { data } = await api.get(`/lyrics/align/${task}`);
+          if (data.state === 'done') {
+            clearInterval(alignPoller.current!);
+            setAligning(false);
+            setNote(null);
+            setProposal(data.result);
+            return;
+          }
+          if (data.state === 'failed') {
+            clearInterval(alignPoller.current!);
+            setAligning(false);
+            say('error', t('editor.alignFailed', { error: String(data.error).replace(/^\w*Error: |^NothingHeard: /, '') }));
+            return;
+          }
+        } catch {
+          /* a missed poll is not a failure: try again */
+        }
+        if (waited > GIVE_UP_AFTER_MS) {
+          clearInterval(alignPoller.current!);
+          setAligning(false);
+        } else if (waited > ALIGN_STUCK_AFTER_MS) say('warn', t('editor.alignStuck'));
+        else if (waited > ALIGN_SLOW_AFTER_MS) say('warn', t('editor.alignSlow'));
+      }, POLL_MS);
+    },
+    [say, t]
+  );
+
+  const startAlign = async () => {
+    setNote(null);
+    try {
+      const lines = rowsRef.current.map((r) => ({ time: r.time, text: r.text }));
+      const { data } = await api.post(`/lyrics/${track.id}/align`, { lines });
+      setAligning(true);
+      pollAlign(data.task);
+    } catch (err) {
+      say('error', t('editor.alignFailed', { error: errorText(err) }));
+    }
+  };
+
+  const acceptAlignment = () => {
+    const next = proposal ? applyProposal(rowsRef.current, proposal) : null;
+    if (!proposal || !next) {
+      setProposal(null);
+      say('warn', t('editor.alignStale'));
+      return;
+    }
+    commit(next); // one undoable step
+    setAlignKnown(true);
+    setAlignScore(proposal.score);
+    setProposal(null);
+    say('ok', t('editor.alignApplied'));
+  };
 
   // ---- the toolbar's other actions ----------------------------------------------------
 
@@ -386,9 +474,19 @@ export default function LyricsEditor({
         <div className="flex shrink-0 items-center gap-2">
           {dirty && <span className="text-sm text-amber-600 dark:text-amber-400">{t('editor.unsaved')}</span>}
           <Tooltip title={t('editor.refreshTip')} side="bottom">
-            <Button variant="outline" disabled={!track.id || loading || refreshing} onClick={askRefresh}>
+            <Button variant="outline" disabled={!track.id || loading || refreshing || aligning} onClick={askRefresh}>
               {refreshing ? <Loader2 className="animate-spin" /> : <RefreshCw />}
               {refreshing ? t('editor.refreshing') : t('editor.refresh')}
+            </Button>
+          </Tooltip>
+          <Tooltip title={t('editor.alignTip')} side="bottom">
+            <Button
+              variant="outline"
+              disabled={!track.id || loading || refreshing || aligning || view !== 'lines' || !rows.some((r) => r.text.trim())}
+              onClick={startAlign}
+            >
+              {aligning ? <Loader2 className="animate-spin" /> : <AudioLines />}
+              {aligning ? t('editor.aligning') : t('editor.align')}
             </Button>
           </Tooltip>
           {dirty && <Button variant="outline" onClick={revert}>{t('editor.cancelChanges')}</Button>}
@@ -480,6 +578,8 @@ export default function LyricsEditor({
           </div>
         )}
       </div>
+
+      <AlignPreview proposal={proposal} rows={rows} onAccept={acceptAlignment} onDiscard={() => setProposal(null)} />
 
       <ConfirmDialog
         open={confirmRefresh}

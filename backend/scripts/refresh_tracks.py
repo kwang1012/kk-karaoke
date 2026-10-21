@@ -44,6 +44,7 @@ def stored_track(track_id: str) -> Track | None:
 def discard(track_id: str) -> None:
     for directory, name in (
         (LYRICS_DIR, f"{track_id}.lrc"), (LYRICS_DIR, f"{track_id}.meta.json"),
+        (LYRICS_DIR, f"{track_id}.words.json"),
         (VOCALS_DIR, f"{track_id}.mp3"), (NO_VOCALS_DIR, f"{track_id}.mp3"),
         (MIDI_DIR, f"{track_id}.mid"), (RAW_AUDIO_DIR, f"{track_id}.mp3"),
     ):

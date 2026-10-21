@@ -2,11 +2,11 @@ import os
 from typing import Union
 from fastapi import APIRouter, Depends
 from models.track import LyricsDelay
-from models.requests import UpdateLyricsRequest
+from models.requests import AlignRequest, UpdateLyricsRequest
 from managers import r2
 from pathlib import Path
 from services import library
-from services.lyrics_sources import lyrics_summary, read_meta, words_for_line, write_meta
+from services.lyrics_sources import is_guess, lyrics_summary, read_meta, set_aligned, words_for_line, write_meta
 from services.process_request import celery
 from utils import LYRICS_DIR, get_lyrics_path
 import re
@@ -67,9 +67,8 @@ _TASK_STATES = {"PENDING": "pending", "STARTED": "running", "RETRY": "running",
                 "SUCCESS": "done", "FAILURE": "failed"}
 
 
-@router.get("/refresh/{task_id}")
-def refresh_status(task_id: str):
-    """Where a refresh stands. `pending` covers both queued and running: the worker reports only the end."""
+def _task_status(task_id: str):
+    """Where a worker task stands. `pending` covers both queued and running: the worker reports only the end."""
     result = celery.AsyncResult(task_id)
     body: dict = {"state": _TASK_STATES.get(result.state, "pending")}
     if result.state == "SUCCESS":
@@ -77,6 +76,17 @@ def refresh_status(task_id: str):
     elif result.state == "FAILURE":
         body["error"] = str(result.result)
     return JSONResponse(content=body)
+
+
+@router.get("/refresh/{task_id}")
+def refresh_status(task_id: str):
+    return _task_status(task_id)
+
+
+@router.get("/align/{task_id}")
+def align_status(task_id: str):
+    """A finished alignment's result is the proposal: `lines` (time, text, anchored, confidence, words) and `score`."""
+    return _task_status(task_id)
 
 
 @router.get("/{track_id}/info")
@@ -97,6 +107,21 @@ def refresh_lyrics(track_id: str, force: bool = False):
         return JSONResponse(status_code=409, content={
             "error": "edited", "message": "These lyrics were edited by hand. Refreshing replaces your edits."})
     task = celery.send_task("refresh_lyrics", args=[track_id])
+    return JSONResponse(content={"task": task.id})
+
+
+@router.post("/{track_id}/align")
+def align_lyrics(track_id: str, data: AlignRequest):
+    """
+    Propose times for the lines in the request (the editor's, saved or not) from the track's vocals,
+    on the worker (the first time it has to listen to the whole song). Nothing saved is touched:
+    the caller shows the proposal and sends it back through /update if the user accepts it.
+    """
+    if library.load_track(track_id) is None:
+        return JSONResponse(status_code=404, content={"error": "Unknown track"})
+    if not any(line.text.strip() for line in data.lines):
+        return JSONResponse(status_code=400, content={"error": "empty", "message": "There are no words to align."})
+    task = celery.send_task("align_lyrics", args=[track_id, [[line.time, line.text] for line in data.lines]])
     return JSONResponse(content={"task": task.id})
 
 
@@ -164,6 +189,8 @@ def get_lyrics(
                     "romanized": romanized,
                     # Per-word timing when we have a verified one; absent otherwise.
                     "words": words_for_line(meta, timestamp),
+                    # Placed by guesswork when the sheet was aligned to the audio.
+                    **({"guess": True} if is_guess(meta, timestamp) else {}),
                 })
         if not romanized_exists and any(line is not None for line in romanized_lines):
             redis_interface.store_romanized_lyrics(track_id, romanized_lines)
@@ -206,7 +233,18 @@ def update_lyrics(track_id: str, data: UpdateLyricsRequest):
     r2.upload_path("lyrics", file_path)
     # Hand-edited lyrics are not ours to re-time automatically.
     meta = read_meta(track_id)
-    if meta:
+    if meta.get("confidence") == "unsynced":
+        # The words had no timing and now have it: they are no longer "unsynced", and the plain copy
+        # (kept only for lyrics nobody had timed) is redundant.
+        meta = {**{k: v for k, v in meta.items() if k != "plain"}, "confidence": "synced"}
+    if data.aligned is not None:
+        meta = set_aligned(
+            {**meta, "edited": True}, data.aligned.score,
+            [(line.time, [(w.start, w.end, w.text) for w in line.words], line.guess) for line in data.aligned.lines],
+        )
+        write_meta(track_id, meta)
+    elif meta:
         write_meta(track_id, {**meta, "edited": True})
+    if meta:
         r2.upload_path("lyrics-meta", os.path.join(LYRICS_DIR, f"{track_id}.meta.json"))
     return JSONResponse(content={"message": "Lyrics updated successfully"})

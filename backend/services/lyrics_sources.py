@@ -555,7 +555,9 @@ def add_word_timing(track_id: str, title: str, artists: list[str], duration_s: O
 def words_for_line(meta: dict, start_s: float) -> Optional[list[dict]]:
     """The words of the line that starts at `start_s`, if we have them."""
     words = meta.get("words") or {}
-    if meta.get("edited") or not words:
+    # A hand edit puts the sheet out of step with a provider's words, but not with words that were
+    # aligned to this very sheet: the editor only keeps those for lines it left alone.
+    if (meta.get("edited") and meta.get("word_source") != ALIGNED) or not words:
         return None
     cs = int(round(start_s * 100))
     for key in (cs, cs - 1, cs + 1, cs - 2, cs + 2):
@@ -563,6 +565,35 @@ def words_for_line(meta: dict, start_s: float) -> Optional[list[dict]]:
         if found:
             return [{"start": s, "end": e, "text": t} for s, e, t in found]
     return None
+
+
+def is_guess(meta: dict, start_s: float) -> bool:
+    """Whether the line that starts at `start_s` was placed by guesswork when the sheet was aligned."""
+    guessed = (meta.get("aligned") or {}).get("guessed") or []
+    return int(round(start_s * 100)) in guessed
+
+
+# Word timing measured by aligning the sheet to the vocals (rather than taken from a provider).
+ALIGNED = "aligned"
+
+
+def set_aligned(meta: dict, score: Optional[float], lines: list[tuple[float, list[tuple[float, float, str]], bool]]) -> dict:
+    """
+    `meta` with the result of an accepted alignment recorded: each line's (start, words, guess).
+    Words are kept per line, keyed like a provider's, under their own source so that the hand-edit
+    flag that disables a provider's words leaves them alone. No lines clears it again.
+    """
+    out = {k: v for k, v in meta.items() if k != "aligned"}
+    words = {_cs(t): [list(w) for w in ws] for t, ws, _ in lines if ws}
+    guessed = sorted({int(_cs(t)) for t, _, guess in lines if guess})
+    if words:
+        out["words"], out["word_source"] = words, ALIGNED
+    elif out.get("word_source") == ALIGNED:
+        out.pop("words", None)
+        out.pop("word_source", None)
+    if words or guessed:
+        out["aligned"] = {"score": score, "guessed": guessed}
+    return out
 
 
 def _shift_words(words: dict, offset_s: float) -> dict:
@@ -624,5 +655,6 @@ def lyrics_summary(track_id: str) -> dict:
         "source": meta.get("source"), "confidence": meta.get("confidence"), "notes": meta.get("notes") or [],
         "edited": bool(meta.get("edited")), "has_words": bool(meta.get("words")),
         "word_source": meta.get("word_source"), "audio_check": meta.get("audio_check"),
+        "aligned": meta.get("aligned") and {"score": meta["aligned"].get("score"), "guessed": len(meta["aligned"].get("guessed") or [])},
         "video_id": meta.get("video_id"),
     }

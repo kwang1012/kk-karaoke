@@ -30,6 +30,8 @@ KINDS = (
     ("lyrics", LYRICS_DIR, ".lrc"),
     # How far to trust each sheet's timing (and which recording it was timed against).
     ("lyrics-meta", LYRICS_DIR, ".meta.json"),
+    # What was heard in the vocals, word by word: kept so that aligning a sheet twice listens once.
+    ("lyrics-words", LYRICS_DIR, ".words.json"),
     ("vocal", VOCALS_DIR, ".mp3"),
     ("instrumental", NO_VOCALS_DIR, ".mp3"),
     ("midi", MIDI_DIR, ".mid"),

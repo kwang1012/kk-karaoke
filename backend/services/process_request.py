@@ -12,7 +12,7 @@ from utils import NO_VOCALS_DIR, LYRICS_DIR, VOCALS_DIR, RAW_AUDIO_DIR
 from models.track import Artist, Track, is_video_id
 from managers.websocket import WebSocketManager
 from services.downloader import download_audio
-from services import library
+from services import library, lyrics_align
 from services.library import save_track
 from services.lyrics_sources import Recording, add_heard_lyrics, add_word_timing, artist_aliases, discard_lyrics, find_lyrics, find_plain_lyrics, lyrics_summary, read_meta, save_plain, save_result, verify_against_audio, video_duration_s, write_meta
 from services.voice_remover import separate_vocals
@@ -218,6 +218,18 @@ def refresh_lyrics(track_id: str) -> dict:
     if saved is None:
         raise RuntimeError(f"Unknown track {track_id}")
     return refresh_lyrics_for(saved)
+
+
+@celery.task(name="align_lyrics")
+def align_lyrics(track_id: str, sheet: list) -> dict:
+    """
+    Where a sheet's lines fall in a track's vocals: a proposal for the caller, nothing saved. `sheet`
+    is [time or None, text] per line. The first alignment of a song listens to all of it (and keeps
+    what it heard); later ones only fit text to that.
+    """
+    if library.load_track(track_id) is None:
+        raise RuntimeError(f"Unknown track {track_id}")
+    return lyrics_align.align_track(track_id, [(time, text) for time, text in sheet])
 
 
 if __name__ == "__main__":

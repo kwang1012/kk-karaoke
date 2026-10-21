@@ -14,6 +14,8 @@ export type LyricsInfo = {
   wordSource: string | null;
   audioCheck: { status: 'confirmed' | 'corrected' | 'mismatch' | 'inconclusive'; offsetS: number } | null;
   videoId: string | null;
+  /** Set when the lyrics were aligned to the audio: the score and how many lines are guesses. */
+  aligned: { score: number | null; guessed: number } | null;
 };
 
 /** The track-list status of one track (GET /lyrics/status). */

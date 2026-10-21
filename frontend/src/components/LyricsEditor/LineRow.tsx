@@ -1,5 +1,5 @@
 import { memo, useState } from 'react';
-import { Clock3, CornerDownRight, Minus, Play, Plus, TriangleAlert, Trash2 } from 'lucide-react';
+import { CircleHelp, Clock3, CornerDownRight, Minus, Play, Plus, TriangleAlert, Trash2 } from 'lucide-react';
 import { IconButton } from 'src/components/ui/button';
 import { Tooltip } from 'src/components/ui/tooltip';
 import { cn } from 'src/lib/utils';
@@ -81,9 +81,14 @@ function LineRow({ row, index, active, selected, outOfOrder, actions }: Props) {
           className={cn(
             'h-8 w-full rounded-md border bg-background px-2 text-sm tabular-nums outline-none focus:border-ring focus:ring-2 focus:ring-ring/30',
             untimed && 'border-dashed border-amber-500/70 placeholder:text-amber-600/70',
-            outOfOrder && 'border-amber-500/70'
+            (outOfOrder || row.guess) && 'border-amber-500/70'
           )}
         />
+        {row.guess && !outOfOrder && (
+          <Tooltip title={t('editor.alignGuess')} side="top">
+            <CircleHelp className="pointer-events-auto absolute top-1/2 -right-5 size-4 -translate-y-1/2 text-amber-500" aria-label={t('editor.alignGuess')} />
+          </Tooltip>
+        )}
         {outOfOrder && (
           <Tooltip title={t('editor.outOfOrder')} side="top">
             <TriangleAlert className="pointer-events-auto absolute top-1/2 -right-5 size-4 -translate-y-1/2 text-amber-500" aria-label={t('editor.outOfOrder')} />

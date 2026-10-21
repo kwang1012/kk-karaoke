@@ -281,6 +281,7 @@ dependencies = [
     { name = "wrapt" },
     { name = "yt-dlp" },
     { name = "ytmusicapi" },
+    { name = "zhconv" },
 ]
 
 [package.metadata]
@@ -392,6 +393,7 @@ requires-dist = [
     { name = "wrapt", specifier = "==1.17.2" },
     { name = "yt-dlp", specifier = ">=2026.8.19" },
     { name = "ytmusicapi", specifier = ">=1.12.3" },
+    { name = "zhconv", specifier = ">=1.4.3" },
 ]
 
 [[package]]
@@ -3059,3 +3061,9 @@ sdist = { url = "https://files.pythonhosted.org/packages/4a/0d/a536a685d8b021ff9
 wheels = [
     { url = "https://files.pythonhosted.org/packages/29/ad/6d471ea9d81e1f59a4d01badda21e7f3f508b94ed171c677b6547b292f73/ytmusicapi-1.12.3-py3-none-any.whl", hash = "sha256:f65db840907a43ca23b29bd563951a1e390fbe2089d7aa4ddbe2043824b2acd9", size = 111241, upload-time = "2026-09-16T15:04:43.883Z" },
 ]
+
+[[package]]
+name = "zhconv"
+version = "1.4.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/25/47/c8ae2d5d4025e253211ff3d8c163f457db1da94976cb582337a5ab76cb87/zhconv-1.4.3.tar.gz", hash = "sha256:ad42d9057ca0605f8e41d62b67ca797f879f58193ee6840562c51459b2698c45", size = 211571, upload-time = "2021-10-31T05:59:44.096Z" }

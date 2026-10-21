@@ -1,86 +1,6 @@
-import { Vibrant } from 'node-vibrant/browser';
 import { Track } from 'src/models/spotify';
-
-type Swatch = NonNullable<Awaited<ReturnType<Vibrant['getPalette']>>['Vibrant']>;
-
-const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
-
-/** Swatch -> '#rrggbb' after shifting its HSL lightness by `delta` (-1..1). */
-function shiftLightness(swatch: Swatch, delta = 0): string {
-  const [h, s, l0] = swatch.hsl;
-  const l = clamp01(l0 + delta);
-  const a = s * Math.min(l, 1 - l);
-  const channel = (n: number) => {
-    const k = (n + h * 12) % 12;
-    const c = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
-    return Math.round(c * 255)
-      .toString(16)
-      .padStart(2, '0');
-  };
-  return `#${channel(0)}${channel(8)}${channel(4)}`;
-}
-
-/** Perceived brightness, 0 (black) to 1 (white). */
-const brightness = ({ rgb: [r, g, b] }: Swatch) => (r * 299 + g * 587 + b * 114) / 1000 / 255;
-
-export const DEFAULT_COLOR = '#d3d3d3';
-export const DEFAULT_BG_COLOR = '#3a3a3a';
-export const DEFULT_LIGHT_COLOR = '#f5bacc';
-export function getAvgRGB(src: string, light = false): Promise<any> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.setAttribute('crossOrigin', '');
-    img.src = src;
-    img.onload = () => {
-      const vibrant = new Vibrant(img);
-      vibrant.getPalette().then((palette) => {
-        const swatch = palette.Vibrant;
-        if (!swatch) {
-          resolve(light ? DEFULT_LIGHT_COLOR : DEFAULT_COLOR);
-          return;
-        }
-        const luminance = brightness(swatch);
-        resolve(light && luminance < 0.8 ? shiftLightness(swatch, 0.8 - luminance) : swatch.hex);
-      });
-    };
-  });
-}
-
-export function getLyricsRGB(src: string, light = false): Promise<any> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.setAttribute('crossOrigin', '');
-    img.src = src;
-    img.onload = () => {
-      const vibrant = new Vibrant(img);
-      vibrant.getPalette().then((palette) => {
-        const base = light ? palette.LightVibrant : palette.DarkVibrant;
-        if (!base) {
-          resolve({ lyrics: DEFAULT_COLOR, background: DEFAULT_BG_COLOR });
-          return;
-        }
-        const luminance = brightness(base);
-
-        let bgColor = base.hex;
-        let textColor: string;
-        if (!light) {
-          textColor = shiftLightness(base, 0.5);
-          if (luminance < 0.2) {
-            bgColor = shiftLightness(base, 0.1);
-            textColor = shiftLightness(base, 0.6);
-          }
-        } else {
-          textColor = shiftLightness(base, -0.5);
-          if (luminance > 0.8) {
-            bgColor = shiftLightness(base, -0.1);
-            textColor = shiftLightness(base, -0.6);
-          }
-        }
-        resolve({ lyrics: textColor, background: bgColor });
-      });
-    };
-  });
-}
+import { getBackendAddress } from './backend';
+export { DEFAULT_COLOR, DEFAULT_BG_COLOR, DEFULT_LIGHT_COLOR, getAvgRGB, getLyricsRGB } from './coverColors';
 
 export function getUniqueId(track: Track) {
   return `${track.id}-${track.timeAdded}`;
@@ -135,7 +55,7 @@ export const PRESET_AVATARS: string[] = AVATAR_IDS.map((id) => `/avatars/${id}.s
 
 export const isLoopbackHost = (hostname: string) => ['localhost', '127.0.0.1', '[::1]'].includes(hostname);
 
-export function getSchemesForAddress(address: string = import.meta.env.VITE_API_ADDR): {
+export function getSchemesForAddress(address: string | undefined = getBackendAddress()): {
   http: string;
   ws: string;
   address: string;

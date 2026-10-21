@@ -1,10 +1,11 @@
 import { memo, useState } from 'react';
-import { CircleHelp, Clock3, CornerDownRight, Minus, Play, Plus, TriangleAlert, Trash2 } from 'lucide-react';
+import { AudioLines, CircleHelp, Clock3, CornerDownRight, Minus, Play, Plus, TriangleAlert, Trash2 } from 'lucide-react';
 import { IconButton } from 'src/components/ui/button';
 import { Tooltip } from 'src/components/ui/tooltip';
 import { cn } from 'src/lib/utils';
 import { useT } from 'src/i18n';
-import { formatTime, parseTime, type Row } from './model';
+import { formatTime, parseTime, type AlignedWord, type Row } from './model';
+import WordEditor from './WordEditor';
 
 export type RowActions = {
   select: (index: number) => void;
@@ -16,8 +17,14 @@ export type RowActions = {
   insertBelow: (index: number) => void;
   remove: (index: number) => void;
   focusNext: (index: number) => void;
+  setWords: (index: number, words: AlignedWord[]) => void;
+  renameWord: (index: number, word: number, text: string) => void;
+  now: () => number;
+  playAt: (time: number) => void;
   register: (id: number, el: HTMLDivElement | null) => void;
 };
+
+const composing = (e: React.KeyboardEvent) => e.nativeEvent.isComposing || e.keyCode === 229;
 
 type Props = { row: Row; index: number; active: boolean; selected: boolean; outOfOrder: boolean; actions: RowActions };
 
@@ -26,6 +33,7 @@ function LineRow({ row, index, active, selected, outOfOrder, actions }: Props) {
   const t = useT();
   // While the time is being typed it is text; it becomes a time when the field is left.
   const [draft, setDraft] = useState<string | null>(null);
+  const [wordsOpen, setWordsOpen] = useState(false);
   const untimed = row.time === null;
 
   const finishTime = () => {
@@ -56,7 +64,7 @@ function LineRow({ row, index, active, selected, outOfOrder, actions }: Props) {
         actions.select(index);
       }}
       className={cn(
-        'group grid grid-cols-[2rem_6.75rem_1fr_auto] items-center gap-2 rounded-lg border px-2 py-1 transition-colors',
+        'group grid grid-cols-[2rem_6.75rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-2 py-1 transition-colors',
         active ? 'border-primary/40 bg-primary/10' : 'border-transparent hover:bg-accent/60',
         selected && 'ring-1 ring-primary/60'
       )}
@@ -75,6 +83,7 @@ function LineRow({ row, index, active, selected, outOfOrder, actions }: Props) {
           onChange={(e) => setDraft(e.target.value)}
           onBlur={finishTime}
           onKeyDown={(e) => {
+            if (composing(e)) return;
             if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
             if (e.key === 'Escape') setDraft(null);
           }}
@@ -104,6 +113,8 @@ function LineRow({ row, index, active, selected, outOfOrder, actions }: Props) {
         onFocus={() => actions.select(index)}
         onChange={(e) => actions.setText(index, e.target.value)}
         onKeyDown={(e) => {
+          // Enter while an IME is composing only confirms the candidate; it must not move or stamp the line.
+          if (composing(e)) return;
           if (e.key === 'Enter') {
             e.preventDefault();
             if (e.metaKey || e.ctrlKey) actions.stamp(index);
@@ -113,6 +124,7 @@ function LineRow({ row, index, active, selected, outOfOrder, actions }: Props) {
         className="h-8 min-w-0 rounded-md border border-transparent bg-transparent px-2 text-base outline-none hover:border-border focus:border-ring focus:bg-background focus:ring-2 focus:ring-ring/30"
       />
       <div className={cn('flex items-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100', selected && 'opacity-100')}>
+        {row.words?.length ? small(t('editor.word.toggle'), () => setWordsOpen((open) => !open), <AudioLines className={cn('size-4', wordsOpen && 'text-primary')} />) : null}
         {small(t('editor.stampNow'), () => actions.stamp(index), <Clock3 className="size-4" />, 'text-primary hover:text-primary')}
         {small(t('editor.playFromHere'), () => actions.playFrom(index), <Play className="size-4" />)}
         {small(t('editor.earlier'), () => actions.nudge(index, -0.1), <Minus className="size-4" />)}
@@ -120,6 +132,9 @@ function LineRow({ row, index, active, selected, outOfOrder, actions }: Props) {
         {small(t('editor.insertBelow'), () => actions.insertBelow(index), <CornerDownRight className="size-4" />)}
         {small(t('editor.deleteLine'), () => actions.remove(index), <Trash2 className="size-4" />, 'hover:text-destructive')}
       </div>
+      {wordsOpen && row.words?.length ? (
+        <WordEditor words={row.words} onChange={(words) => actions.setWords(index, words)} onRename={(k, text) => actions.renameWord(index, k, text)} now={actions.now} playAt={actions.playAt} />
+      ) : null}
     </div>
   );
 }

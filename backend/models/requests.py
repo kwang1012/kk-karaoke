@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -34,11 +34,19 @@ class AlignedLyrics(CamelModel):
     lines: list[AlignedLine] = Field(default_factory=list, max_length=2000)
 
 
+class CandidateOrigin(CamelModel):
+    source: str = Field(max_length=40)
+    confidence: Literal["verified", "synced", "approximate", "unsynced"] = "approximate"
+    notes: list[str] = Field(default_factory=list, max_length=10)
+
+
 class UpdateLyricsRequest(CamelModel):
     # An .lrc file is a few KB; cap it so the endpoint can't be used to fill the disk.
     content: str = Field(max_length=200_000)
     # Absent: the client knows nothing of alignment, leave whatever is stored alone.
     aligned: Optional[AlignedLyrics] = None
+    # Set when the sheet was chosen from the candidates list: where it came from, for the record.
+    origin: Optional[CandidateOrigin] = None
 
 
 class SheetLine(CamelModel):

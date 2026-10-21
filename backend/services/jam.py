@@ -24,6 +24,10 @@ def _state_patch(room_id: str, message: dict) -> dict | None:
         return {"volume": data["volume"]}
     if op == "setGuideLevel" and "level" in data:
         return {"guideLevel": data["level"]}
+    if op == "setShowVideo" and "value" in data:
+        return {"showVideo": bool(data["value"])}
+    if op == "setShowMelody" and "value" in data:
+        return {"showMelody": bool(data["value"])}
     if op == "toggleVocal":
         return {"vocalOn": not interface.get_jam_state(room_id).vocal_on}
     return None
@@ -36,13 +40,13 @@ def handle_message(message):
     if message.get("type") != "jam":
         print("Not a jam message, ignoring.")
         return
+    if message.get("action") == "pitch":
+        return  # what a phone hears, many times a second: relayed to the room, never stored
     room_id = message.get("roomId")
     if not room_id:
         print("No roomId found in the message.")
         return
     op = message.get("op")
-    if op:
-        print("Received jam op:", op)
     patch = _state_patch(room_id, message)
     if patch:
         # a one-off update (the owner announcing a new song's length) must not be throttled away

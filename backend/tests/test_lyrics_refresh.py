@@ -19,7 +19,10 @@ def env(tmp_path, monkeypatch):
     for mod in (ls, route, pr):
         monkeypatch.setattr(mod, "LYRICS_DIR", str(tmp_path))
     monkeypatch.setattr(pr, "VOCALS_DIR", str(tmp_path))
+    monkeypatch.setattr("utils.LYRICS_DIR", str(tmp_path))  # get_lyrics_path must not see the real storage
     monkeypatch.setattr("managers.r2.enabled", lambda: False)  # a test must never touch the bucket
+    ext = {"vocal": ".mp3", "instrumental": ".mp3", "lyrics": ".lrc"}
+    monkeypatch.setattr("managers.r2.local", lambda prefix, tid: tmp_path / f"{tid}{ext[prefix]}")
     return tmp_path
 
 

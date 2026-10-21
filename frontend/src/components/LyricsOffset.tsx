@@ -1,5 +1,5 @@
 import { Minus, Plus, RotateCcw, Timer, TriangleAlert, Video, VideoOff } from 'lucide-react';
-import { useSettingStore } from 'src/store/setting';
+import { useVideoMode } from 'src/hooks/videoMode';
 import { IconButton } from 'src/components/ui/button';
 import { Tooltip } from 'src/components/ui/tooltip';
 import { useT } from 'src/i18n';
@@ -25,8 +25,7 @@ export default function LyricsOffset({
   hasVideo?: boolean;
 }) {
   const t = useT();
-  const showVideo = useSettingStore((state) => state.showVideo);
-  const setShowVideo = useSettingStore((state) => state.setShowVideo);
+  const { showVideo, setShowVideo } = useVideoMode();
   const set = (next: number) => onChange(Math.round(Math.max(-LIMIT, Math.min(LIMIT, next)) * 10) / 10);
   const label = `${value > 0 ? '+' : ''}${value.toFixed(1)}s`;
   return (

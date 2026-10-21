@@ -1,3 +1,4 @@
+import { usePageTitle } from 'src/hooks/documentTitle';
 import { LibraryBig, Search, X } from 'lucide-react';
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { Virtuoso } from 'react-virtuoso';
@@ -34,9 +35,7 @@ export default function LibraryView() {
   const deferredQuery = useDeferredValue(query);
   const [sort, setSort] = useState<Sort>('recent');
 
-  useEffect(() => {
-    document.title = `KKaraoke - ${t('library.title')}`;
-  }, [t]);
+  usePageTitle(t('library.title'));
 
   const all = useMemo(() => {
     const seen = new Set<string>();

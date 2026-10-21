@@ -148,6 +148,91 @@ export const shiftAll = (rows: Row[], delta: number): Row[] =>
     };
   });
 
+const MIN_WORD_S = 0.05;
+
+/**
+ * One word's start and/or end changed by hand. Only that word moves: a time before zero is held
+ * at zero, and an end at or before the start is pushed just past it.
+ */
+export function editWord(words: AlignedWord[], k: number, change: { start?: number; end?: number }): AlignedWord[] {
+  return words.map((w, j) => {
+    if (j !== k) return w;
+    const start = round2(Math.max(0, change.start ?? w.start));
+    let end = round2(Math.max(0, change.end ?? w.end));
+    if (end <= start) end = round2(start + MIN_WORD_S);
+    return { ...w, start, end };
+  });
+}
+
+/**
+ * One word's text changed by hand. It keeps its time and the spacing around it. A word's text includes its
+ * punctuation ("Hello," is one word), so that is edited with it. Typing a space splits it in two (or more),
+ * which share the old time by length.
+ * Returns null when there is nothing left of the word (an empty word is not a correction).
+ */
+export function renameWord(words: AlignedWord[], k: number, text: string): AlignedWord[] | null {
+  const word = words[k];
+  const core = text.trim();
+  if (!word || !core) return null;
+  const lead = word.text.match(/^\s*/)![0];
+  const trail = word.text.match(/\s*$/)![0];
+  if (core === word.text.trim()) return words;
+
+  const parts = core.split(/\s+/);
+  if (parts.length === 1) return words.map((w, j) => (j === k ? { ...w, text: lead + core + trail } : w));
+
+  // several words now: the time is shared in proportion to how much was typed for each
+  const lengths = parts.map((p) => Math.max(1, [...p].length));
+  const total = lengths.reduce((a, b) => a + b, 0);
+  let spent = 0;
+  const pieces = parts.map((part, n) => {
+    const start = n === 0 ? word.start : round2(word.start + ((word.end - word.start) * spent) / total);
+    spent += lengths[n];
+    const end = n === parts.length - 1 ? word.end : round2(word.start + ((word.end - word.start) * spent) / total);
+    const last = n === parts.length - 1;
+    return { start, end, text: (n === 0 ? lead : '') + part + (last ? trail : ' ') };
+  });
+  return [...words.slice(0, k), ...pieces, ...words.slice(k + 1)];
+}
+
+/**
+ * The row with one of its words renamed (see `renameWord`) and its text following. The line's own time and
+ * the other words' timing stay, which is the point: changing the text of the line instead forgets them all.
+ */
+export function renameWordInRow(rows: Row[], i: number, k: number, text: string): Row[] {
+  const row = rows[i];
+  const renamed = row?.words ? renameWord(row.words, k, text) : null;
+  if (!row || !row.words || !renamed || renamed === row.words) return rows;
+  const before = row.words.map((w) => w.text).join('');
+  const after = renamed.map((w) => w.text).join('');
+  // the line's text is the words put back together; if it has drifted from them, only the word's own letters change
+  const oldCore = row.words[k].text.trim();
+  const newCore = text.trim();
+  const lineText = before.trim() === row.text.trim() ? after.trim() : row.text.replace(oldCore, newCore);
+  return rows.map((r, j) => (j === i ? { ...r, words: renamed, text: lineText } : r));
+}
+
+/** Slide one word earlier or later, keeping its length. */
+export const nudgeWord = (words: AlignedWord[], k: number, delta: number): AlignedWord[] => {
+  const w = words[k];
+  if (!w) return words;
+  const start = round2(Math.max(0, w.start + delta));
+  return editWord(words, k, { start, end: round2(start + (w.end - w.start)) });
+};
+
+/** The words that start before the word above them: a mistake to point out, not to refuse. */
+export const wordsOutOfOrder = (words: AlignedWord[]): Set<number> => {
+  const bad = new Set<number>();
+  words.forEach((w, k) => {
+    if (k > 0 && w.start < words[k - 1].start) bad.add(k);
+  });
+  return bad;
+};
+
+/** The row with its words replaced by hand. The line's own time and text stay as they are. */
+export const setWords = (rows: Row[], i: number, words: AlignedWord[]): Row[] =>
+  rows.map((r, j) => (j === i ? { ...r, words } : r));
+
 export function insertAfter(rows: Row[], i: number, row: Row = newRow()): Row[] {
   return [...rows.slice(0, i + 1), row, ...rows.slice(i + 1)];
 }

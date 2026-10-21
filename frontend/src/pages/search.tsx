@@ -1,3 +1,4 @@
+import { usePageTitle } from 'src/hooks/documentTitle';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from 'src/components/ui/skeleton';
@@ -187,9 +188,7 @@ export default function SearchView() {
   const playlists = results?.playlists?.items?.filter((item: any) => !!item)?.slice(0, 4) || [];
   //   const artists = results.artists?.items.slice(0, 4) || [];
 
-  useEffect(() => {
-    document.title = `KKaraoke - Search`;
-  }, []);
+  usePageTitle(t('search.title'), searchValue.trim());
 
   // remember a search once it has produced results
   useEffect(() => {

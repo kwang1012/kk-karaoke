@@ -1,23 +1,41 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTvMode } from 'src/hooks/tvMode';
+import { Button } from 'src/components/ui/button';
+import { useLyricsColors } from 'src/hooks/lyricsColors';
+import { usePageTitle } from 'src/hooks/documentTitle';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import QRCode from 'react-qr-code';
-import { FastForward, Pause, Play, Rewind, SkipBack, SkipForward, Volume1, Volume2, VolumeX } from 'lucide-react';
+import placeholderImage from 'src/assets/placeholder.png';
+import { FastForward, LogOut, Mic, MicOff, Music2, Pause, Play, Rewind, SkipBack, SkipForward, Timer, Video, VideoOff, Volume1, Volume2, VolumeX } from 'lucide-react';
 import Logo from 'src/components/Logo';
+import AirPlaySetup from 'src/components/AirPlaySetup';
+import { useIdle } from 'src/hooks/idle';
+import PitchRoll from 'src/components/PitchRoll';
 import PlainLyrics from 'src/components/PlainLyrics';
 import Queue from 'src/components/Queue';
-import WordLine from 'src/components/WordLine';
+import VideoBackdrop from 'src/components/VideoBackdrop';
+import TvLyrics from 'src/components/TvLyrics';
 import { useInvite } from 'src/hooks/invite';
+import { useLyricsOffset } from 'src/hooks/lyricsOffset';
+import { useRemoteMessageQueue } from 'src/hooks/queue';
 import { useT } from 'src/i18n';
 import { cn } from 'src/lib/utils';
-import { usePlayer } from 'src/store/player';
+import { usePlayer, usePlayerStore } from 'src/store/player';
 import { useTrackStore } from 'src/store';
-import { useActiveRoomId, useRoomStore } from 'src/store/room';
+import { useSettingStore } from 'src/store/setting';
+import { useActiveRoomId, useJam, useRoomStore } from 'src/store/room';
+import { takeOverPlayback, usePlayerTabStore } from 'src/store/playerTab';
 import { useWebSocketStore } from 'src/store/ws';
-import { DEFAULT_BG_COLOR, DEFAULT_COLOR, PRESET_AVATARS, getLyricsRGB, uuid } from 'src/utils';
+import { PRESET_AVATARS, uuid } from 'src/utils';
 import { api } from 'src/utils/api';
 
 const SEEK_STEP_S = 5;
 const VOLUME_STEP = 0.1;
+
+function formatTime(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
+  return `${Math.floor(seconds / 60)}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`;
+}
 
 /**
  * The TV has to own a room (it plays the audio) and needs no sign-in: make a profile if there is
@@ -26,6 +44,8 @@ const VOLUME_STEP = 0.1;
 function useTvRoom() {
   useEffect(() => {
     const room = useRoomStore.getState();
+    // Changing the view must keep a joined room and its queue.
+    if (room.joinedRoom && room.joinedRoom !== room.roomId) return;
     if (!room.nickname) room.setNickname('TV');
     if (!room.avatar) room.setAvatar(PRESET_AVATARS[0]);
     if (!room.roomId) room.setRoomId(uuid());
@@ -37,6 +57,7 @@ function useTvRoom() {
       api
         .post('room/create', { id })
         .then(({ data }) => {
+          if (stopped) return;
           const state = useRoomStore.getState();
           state.setCode(data.code);
           // also leaves any room this device had joined: a TV follows nobody
@@ -81,15 +102,15 @@ function useWakeLock(enabled: boolean) {
   }, [enabled]);
 }
 
-/** A short-lived message in the middle of the screen, for feedback on remote keys. */
+/** A short-lived message in the middle of the screen, for feedback on controls. */
 function useFlash() {
   const [flash, setFlash] = useState<{ key: number; icon: React.ReactNode; text: string } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const show = (icon: React.ReactNode, text: string) => {
+  const show = useCallback((icon: React.ReactNode, text: string) => {
     setFlash((prev) => ({ key: (prev?.key ?? 0) + 1, icon, text }));
     clearTimeout(timer.current);
-    timer.current = setTimeout(() => setFlash(null), 1200);
-  };
+    timer.current = setTimeout(() => setFlash(null), 1800);
+  }, []);
   useEffect(() => () => clearTimeout(timer.current), []);
   return [flash, show] as const;
 }
@@ -113,8 +134,10 @@ function JoinCard({ url, code, large }: { url: string; code?: string; large?: bo
 
 export default function TvView() {
   const t = useT();
+  const { exitTv } = useTvMode();
   useTvRoom();
   const p = usePlayer();
+  const { isOwner } = useJam();
   const { currentTrack, queue, queueIdx, playing, loading, loadProgress, loadError, lastSongId, progress, duration, lyrics } = p;
   const activeRoomId = useActiveRoomId();
   const { joinURL, code } = useInvite();
@@ -122,29 +145,129 @@ export default function TvView() {
   const queryClient = useQueryClient();
   const lyricsDelay = useTrackStore((state) => state.lyricsDelays[currentTrack?.id || ''] || 0);
   const plain = useTrackStore((state) => state.plainLyrics[currentTrack?.id || '']);
-  const [started, setStarted] = useState(false);
+  const [started, setStarted] = useState(() => !!usePlayerStore.getState().syncedPlayer?.isAudioReady && usePlayerTabStore.getState().isPlayerTab);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    // A fresh tab needs a gesture; switching views in an unlocked tab keeps playback.
+    if (!started) {
+      usePlayerStore.getState().setPlaybackReady(false);
+      usePlayerStore.getState().setPlaying(false);
+    }
+    return () => {
+      mounted.current = false;
+      usePlayerStore.getState().setPlaybackReady(true);
+    };
+  }, []);
   const [flash, showFlash] = useFlash();
+  const armed = useRef(!started || !currentTrack);
+  useRemoteMessageQueue('jam', {
+    onAddItem: (message) => {
+      // A pause during the first download cancels automatic playback too.
+      if (message.roomId === activeRoomId && message.action === 'control' && message.op === 'pause') {
+        armed.current = false;
+      }
+    },
+  });
+  const { videoId } = useLyricsOffset();
+  // Same as the normal lyrics view: the video takes the place of the lyrics, and the setting is shared
+  const showVideo = useSettingStore((state) => state.showVideo);
+  const showMelody = useSettingStore((state) => state.showMelody);
+  const overVideo = showVideo && !!videoId;
   const hasRoom = activeRoomId !== 'default';
 
+  // Observe applied settings so phone controls get the same feedback as TV keys.
+  // Keep a baseline on mount and when the song changes, rather than flashing saved sync offsets.
+  const { volume, guideLevel, semitone, vocalOn } = p;
+  const trackId = currentTrack?.id;
+  const previousRequest = useRef(p.playRequested);
+  const pendingPlaybackFeedback = useRef<boolean | null>(null);
   useEffect(() => {
-    document.title = 'KKaraoke - TV';
-  }, []);
+    // Audio also stops briefly for loading, seeking and ownership changes. Only a
+    // changed play/pause request should produce feedback, once that request takes effect.
+    if (p.playRequested !== previousRequest.current) {
+      pendingPlaybackFeedback.current = p.playRequested;
+      previousRequest.current = p.playRequested;
+    }
+    const requested = pendingPlaybackFeedback.current;
+    if (!started || !trackId || loading || requested === null || playing !== requested) return;
+    pendingPlaybackFeedback.current = null;
+    showFlash(requested ? <Play className="size-full" /> : <Pause className="size-full" />, t(requested ? 'tv.playing' : 'tv.paused'));
+  }, [p.playRequested, playing, loading, started, trackId, showFlash, t]);
+
+  const previousSettings = useRef({ volume, guideLevel, semitone, vocalOn, showVideo, showMelody, lyricsDelay, trackId });
+  useEffect(() => {
+    const previous = previousSettings.current;
+    previousSettings.current = { volume, guideLevel, semitone, vocalOn, showVideo, showMelody, lyricsDelay, trackId };
+    if (volume !== previous.volume) {
+      const Icon = volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
+      showFlash(<Icon className="size-full" />, `${t('remote.volume')} ${Math.round(volume * 100)}%`);
+    }
+    if (guideLevel !== previous.guideLevel) {
+      showFlash(<Mic className="size-full" />, `${t('player.guide')} ${Math.round(guideLevel * 100)}%`);
+    }
+    if (semitone !== previous.semitone) {
+      showFlash(<Music2 className="size-full" />, `${t('remote.key')} ${semitone > 0 ? '+' : ''}${semitone}`);
+    }
+    if (vocalOn !== previous.vocalOn) {
+      showFlash(vocalOn ? <Mic className="size-full" /> : <MicOff className="size-full" />, t(vocalOn ? 'remote.vocals' : 'remote.karaoke'));
+    }
+    if (showVideo !== previous.showVideo) {
+      showFlash(showVideo ? <Video className="size-full" /> : <VideoOff className="size-full" />, t(showVideo ? 'tv.videoOn' : 'tv.videoOff'));
+    }
+    if (showMelody !== previous.showMelody) {
+      showFlash(<Music2 className="size-full" />, t(showMelody ? 'tv.melodyOn' : 'tv.melodyOff'));
+    }
+    if (trackId === previous.trackId && lyricsDelay !== previous.lyricsDelay) {
+      const ahead = -lyricsDelay;
+      showFlash(<Timer className="size-full" />, `${t('lyrics.sync')} ${ahead > 0 ? '+' : ''}${ahead.toFixed(1)}s`);
+    }
+  }, [volume, guideLevel, semitone, vocalOn, showVideo, showMelody, lyricsDelay, trackId, showFlash, t]);
+
+  usePageTitle(t('tv.title'), currentTrack);
 
   // ---- starting: the first key press unlocks audio and fullscreen -----------------------
-  const start = () => {
-    setStarted(true);
-    p.syncedPlayer?.resume();
+  const start = useCallback(() => {
+    // The keyboard listener is mounted once; read the player created after that mount.
+    const player = usePlayerStore.getState().syncedPlayer;
+    if (!player) return;
+    if (!usePlayerTabStore.getState().isPlayerTab) takeOverPlayback();
+    player.resume().then(() => {
+      if (!mounted.current || usePlayerStore.getState().syncedPlayer !== player || !player.isAudioReady) return;
+      usePlayerStore.getState().setPlaybackReady(true);
+      setStarted(true);
+    }).catch(() => {});
     document.documentElement.requestFullscreen?.().catch(() => {});
-  };
+  }, []);
   useWakeLock(started);
+  const controlsIdle = useIdle(3000, started);
 
   // ---- remote keys ------------------------------------------------------------------------
   // Always call the latest player functions without re-binding the listener on every tick.
-  const latest = useRef({ p, started });
-  latest.current = { p, started };
+  const latest = useRef({ p, started, showVideo });
+  latest.current = { p, started, showVideo };
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      const { p, started } = latest.current;
+      if (document.querySelector('[role="dialog"]')) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        void exitTv();
+        return;
+      }
+      if (event.defaultPrevented || (event.target instanceof Element && event.target.closest('button, a, input, textarea, select, [role="dialog"]'))) return;
+      // A held OK key must not start playback and then immediately toggle it off.
+      if (event.repeat) {
+        event.preventDefault();
+        return;
+      }
+      if (event.key.toLowerCase() === 'f' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        event.preventDefault();
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen?.().catch(() => {});
+        }
+        return;
+      }
+      const { p, started, showVideo } = latest.current;
       const confirm = event.key === 'Enter' || event.key === ' ';
       if (!started) {
         if (confirm) {
@@ -160,10 +283,8 @@ export default function TvView() {
           if (!p.currentTrack) break;
           if (p.playing) {
             p.pause();
-            showFlash(<Pause className="size-full" />, t('tv.paused'));
           } else {
             p.play();
-            showFlash(<Play className="size-full" />, t('tv.playing'));
           }
           break;
         case 'ArrowRight':
@@ -178,8 +299,6 @@ export default function TvView() {
         case 'ArrowDown': {
           const next = Math.min(1, Math.max(0, p.volume + (event.key === 'ArrowUp' ? VOLUME_STEP : -VOLUME_STEP)));
           p.setVolume(next);
-          const Icon = next === 0 ? VolumeX : next < 0.5 ? Volume1 : Volume2;
-          showFlash(<Icon className="size-full" />, `${Math.round(next * 100)}%`);
           break;
         }
         case 'MediaTrackNext':
@@ -192,6 +311,12 @@ export default function TvView() {
           p.previous();
           showFlash(<SkipBack className="size-full" />, t('remote.previous'));
           break;
+        case 'v':
+        case 'V': {
+          const next = !showVideo;
+          useSettingStore.getState().setShowVideo(next);
+          break;
+        }
         default:
           return;
       }
@@ -199,30 +324,33 @@ export default function TvView() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [exitTv]);
 
   // A click or tap starts it too (a mouse, or a TV browser's pointer).
   useEffect(() => {
     if (started) return;
-    const onClick = () => start();
+    const onClick = (event: MouseEvent) => {
+      if (document.querySelector('[role="dialog"]')) return;
+      if (event.target instanceof Element && event.target.closest('button, a, [role="dialog"], [data-airplay-setup]')) return;
+      start();
+    };
     window.addEventListener('click', onClick);
     return () => window.removeEventListener('click', onClick);
   }, [started, p.syncedPlayer]);
 
   // ---- the first song of an empty queue starts by itself ----------------------------------
   // Whoever adds a song from their phone should hear it, not have to walk over and press play.
-  const armed = useRef(true);
   useEffect(() => {
     if (!currentTrack) {
       armed.current = true;
       return;
     }
-    if (!started || !armed.current) return;
+    if (!started || !isOwner || !armed.current) return;
     // loaded: the load starts (lastSongId) and ends (loading) before there is anything to play
     if (lastSongId !== currentTrack.id || loading || loadError) return;
     armed.current = false;
     if (!playing) p.play();
-  }, [started, currentTrack?.id, lastSongId, loading, loadError]);
+  }, [started, isOwner, currentTrack?.id, lastSongId, loading, loadError]);
 
   // ---- coming back from a dropped connection ---------------------------------------------
   // Queue changes only arrive as live messages, so any that were sent while the socket was
@@ -245,35 +373,16 @@ export default function TvView() {
   );
 
   const image = currentTrack?.album?.images?.[0]?.url;
-  const [color, setColor] = useState<string>(DEFAULT_COLOR);
-  const [bgColor, setBgColor] = useState<string>(DEFAULT_BG_COLOR);
-  useEffect(() => {
-    if (!image) {
-      setColor(DEFAULT_COLOR);
-      setBgColor(DEFAULT_BG_COLOR);
-      return;
-    }
-    getLyricsRGB(image, false)
-      .then(({ lyrics, background }) => {
-        setColor(lyrics);
-        setBgColor(background);
-      })
-      .catch((error) => console.error('Error fetching average RGB:', error));
-  }, [image]);
+  const { background: bgColor } = useLyricsColors(image);
 
   const upNext = queue.slice(queueIdx + 1, queueIdx + 4);
   const showJoin = hasRoom && !!joinURL;
 
-  const line = (i: number, className: string) => {
-    const item = syncedLyrics[i];
-    if (!item) return <div className={className}>&nbsp;</div>;
-    return <div className={className}>{item.text === '' ? '♪' : item.text}</div>;
-  };
-
   return (
     <div className="fixed inset-0 overflow-hidden text-white select-none cursor-none" style={{ backgroundColor: bgColor }}>
-      {image && <img referrerPolicy="no-referrer" src={image} alt="" className="absolute inset-0 size-full scale-110 object-cover opacity-30 blur-3xl" />}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/60" />
+      {videoId && <VideoBackdrop videoId={videoId} visible={overVideo} />}
+      {image && !overVideo && <img referrerPolicy="no-referrer" src={image} alt="" className="absolute inset-0 size-full scale-110 object-cover opacity-30 blur-3xl" />}
+      <div className={cn('absolute inset-0 bg-gradient-to-b', overVideo ? 'from-black/55 via-black/10 to-black/80' : 'from-black/30 via-transparent to-black/60')} />
 
       {!currentTrack ? (
         // nothing queued: the screen's job is to get people to add songs
@@ -286,7 +395,7 @@ export default function TvView() {
           {showJoin && <JoinCard url={joinURL} code={code} large />}
         </div>
       ) : (
-        <div className="relative flex size-full flex-col px-[5vw] pt-[3vw] pb-[2.5vw]">
+        <div className={cn('relative flex size-full flex-col px-[5vw] pt-[3vw] pb-[2.5vw]', overVideo && 'drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]')}>
           <header className="flex items-start justify-between gap-[3vw]">
             <div className="min-w-0">
               <h1 className="truncate text-[2.6vw] leading-tight font-bold">{currentTrack.name}</h1>
@@ -301,23 +410,15 @@ export default function TvView() {
           </header>
 
           <main className="flex min-h-0 flex-1 flex-col items-center justify-center text-center">
-            {syncedLyrics.length > 0 ? (
-              <div className="w-full">
-                {line(lineIndex - 1, 'mb-[1.6vw] truncate text-[2.8vw] font-semibold text-white/35')}
-                <div className="min-h-[8vw] text-[5.6vw] leading-tight font-extrabold">
-                  {lineIndex < 0 ? (
-                    '♪'
-                  ) : syncedLyrics[lineIndex].words?.length ? (
-                    <WordLine words={syncedLyrics[lineIndex].words!} delay={lyricsDelay} progress={progress} dimColor="rgba(255,255,255,0.55)" />
-                  ) : syncedLyrics[lineIndex].text === '' ? (
-                    '♪'
-                  ) : (
-                    syncedLyrics[lineIndex].text
-                  )}
-                </div>
-                {line(lineIndex + 1, 'mt-[1.6vw] truncate text-[3.2vw] font-semibold text-white/60')}
-                {line(lineIndex + 2, 'mt-[0.8vw] truncate text-[2.8vw] font-semibold text-white/35')}
-              </div>
+            {/* the song's notes, and whoever sings into a phone, scored */}
+            <PitchRoll tv className="mb-[1.5vw] w-full shrink-0" />
+            {loadError || loading || lastSongId !== currentTrack.id ? (
+              <p role="status" className="rounded-[1vw] bg-black/50 px-[2vw] py-[1vw] text-[2.6vw] font-semibold text-white/90 backdrop-blur">
+                {loadError ? t('tv.loadFailed') : t('tv.loading')}
+                {loading && loadProgress !== null && ` ${Math.round(loadProgress * 100)}%`}
+              </p>
+            ) : overVideo ? null : syncedLyrics.length > 0 ? (
+              <TvLyrics key={currentTrack.id} lyrics={syncedLyrics} lineIndex={lineIndex} delay={lyricsDelay} progress={progress} seeking={p.seeking} />
             ) : plain ? (
               <PlainLyrics text={plain} className="max-h-full overflow-hidden text-[2.4vw]" />
             ) : (
@@ -329,6 +430,10 @@ export default function TvView() {
           </main>
 
           <footer>
+            <div className="mb-[0.5vw] flex justify-between text-[1.4vw] font-medium text-white/70 tabular-nums">
+              <span>{formatTime(progress)}</span>
+              <span>{formatTime(duration)}</span>
+            </div>
             <div className="mb-[1.6vw] h-[0.45vw] overflow-hidden rounded-full bg-white/20">
               <div className="h-full rounded-full bg-white/90 transition-[width] duration-200 ease-linear" style={{ width: `${duration ? Math.min(100, (progress / duration) * 100) : 0}%` }} />
             </div>
@@ -338,7 +443,10 @@ export default function TvView() {
                 <div className="flex gap-[1.2vw]">
                   {upNext.map((track) => (
                     <div key={`${track.id}-${track.timeAdded}`} className="flex min-w-0 max-w-[20vw] items-center gap-[0.7vw] rounded-full bg-black/40 py-[0.35vw] pr-[1.2vw] pl-[0.35vw] backdrop-blur">
-                      {track.orderedBy && <img src={track.orderedBy.avatar} alt="" className="size-[2.6vw] shrink-0 rounded-full" />}
+                      <div className="relative size-[2.6vw] shrink-0">
+                        <img referrerPolicy="no-referrer" src={track.album?.images?.[0]?.url || placeholderImage} alt="" className="size-full rounded-full object-cover" />
+                        {track.orderedBy && <img src={track.orderedBy.avatar} alt={track.orderedBy.name} className="absolute -right-[0.2vw] -bottom-[0.2vw] size-[1.2vw] rounded-full border-[0.12vw] border-black/80 object-cover" />}
+                      </div>
                       <span className="truncate text-[1.35vw] font-medium">{track.name}</span>
                     </div>
                   ))}
@@ -350,9 +458,16 @@ export default function TvView() {
         </div>
       )}
 
+      {started && currentTrack && !p.playRequested && !playing && !loading && !loadError && lastSongId === currentTrack.id && (
+        <div role="status" className="pointer-events-none absolute top-[3vw] left-1/2 flex -translate-x-1/2 items-center gap-[0.7vw] rounded-full bg-black/60 px-[1.6vw] py-[0.7vw] text-[1.6vw] font-semibold backdrop-blur">
+          <Pause aria-hidden="true" className="size-[1.8vw]" />
+          {t('tv.paused')}
+        </div>
+      )}
+
       {flash && (
         <div key={flash.key} className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="flex animate-in fade-in zoom-in-95 flex-col items-center gap-[1vw] rounded-[2vw] bg-black/60 px-[4vw] py-[2.5vw] backdrop-blur">
+          <div role="status" aria-live="polite" aria-atomic="true" className="flex animate-in fade-in zoom-in-95 flex-col items-center gap-[1vw] rounded-[2vw] bg-black/60 px-[4vw] py-[2.5vw] backdrop-blur">
             <div className="size-[7vw]">{flash.icon}</div>
             <span className="text-[2.4vw] font-semibold tabular-nums">{flash.text}</span>
           </div>
@@ -365,11 +480,24 @@ export default function TvView() {
 
       {!started && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-[2vw] bg-black/80 backdrop-blur-md">
-          <Logo className="size-[9vw]" />
+          {currentTrack ? (
+            <div className="flex max-w-[80vw] flex-col items-center gap-[1vw] text-center">
+              {image && <img referrerPolicy="no-referrer" src={image} alt="" className="size-[12vw] rounded-[1vw] object-cover" />}
+              <h2 className="max-w-full truncate text-[3vw] font-bold">{currentTrack.name}</h2>
+              <p className="max-w-full truncate text-[1.8vw] text-white/75">{currentTrack.artists.map((artist) => artist.name).join(', ')}</p>
+            </div>
+          ) : <Logo className="size-[9vw]" />}
           <p className="text-[3.2vw] font-bold">{t('tv.start')}</p>
           <p className="text-[1.6vw] text-white/60">{t('tv.startHint')}</p>
         </div>
       )}
+
+      <div data-airplay-setup className={cn('absolute top-3 right-3 z-20 flex cursor-auto items-center gap-2 transition-opacity focus-within:opacity-100', controlsIdle && 'pointer-events-none opacity-0 focus-within:pointer-events-auto')}>
+        <AirPlaySetup tv />
+        <Button variant="outline" size="sm" onClick={() => void exitTv()}>
+          <LogOut aria-hidden="true" /> {t('tv.exit')}
+        </Button>
+      </div>
 
       {/* owns the websocket queue listener, so it has to stay mounted even though it is not shown */}
       <Queue hidden />

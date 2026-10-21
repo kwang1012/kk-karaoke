@@ -57,6 +57,8 @@ class RedisJamInterface:
         state.volume = jam_state.get("volume", state.volume)
         state.vocal_on = jam_state.get("vocalOn", state.vocal_on)
         state.guide_level = jam_state.get("guideLevel", state.guide_level)
+        state.show_video = jam_state.get("showVideo", state.show_video)
+        state.show_melody = jam_state.get("showMelody", state.show_melody)
         state.semitone = jam_state.get("semitone", state.semitone)
         state.duration = jam_state.get("duration", state.duration)
         state.pitch_shift = jam_state.get("pitchShift", state.pitch_shift)

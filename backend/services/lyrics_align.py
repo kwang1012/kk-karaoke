@@ -41,6 +41,7 @@ def words_path(track_id: str) -> Path:
 
 
 def _read_cache(track_id: str, vocal_size: int) -> Optional[Heard]:
+    r2.refresh("lyrics-words", track_id)
     try:
         data = json.loads(words_path(track_id).read_text(encoding="utf-8"))
         # A different model hears different words, and a different stem is a different recording.
@@ -108,4 +109,45 @@ def align_sheet(sheet: Sequence[tuple[Optional[float], str]], heard: Heard) -> d
 
 
 def align_track(track_id: str, sheet: Sequence[tuple[Optional[float], str]]) -> dict:
-    return align_sheet(sheet, listen(track_id, os.path.join(VOCALS_DIR, f"{track_id}.mp3")))
+    return align_sheet(sheet, listen(track_id, str(r2.local("vocal", track_id))))
+
+
+# A sheet is timed without asking only when the audio vouches for most of it.
+AUTO_MIN_SCORE = 0.6
+
+
+def time_plain_words(track_id: str) -> int:
+    """
+    A song with only its words (no provider has them timed) gets its lines placed on the vocals, so it
+    can be sung to. Kept only when the audio confirms most of the words and no block is missing; the
+    result is "approximate", and the editor shows which lines were guessed. Returns the lines saved
+    (0: nothing to time, nothing heard, or not convincing enough).
+    """
+    from services.lyrics_sources import ALIGNED, format_lrc, read_meta, save_result, set_aligned, write_meta, LyricsResult
+
+    meta = read_meta(track_id)
+    plain = meta.get("plain")
+    if not plain or meta.get("edited") or r2.exists("lyrics", track_id):
+        return 0
+    sentences = [line.strip() for line in plain.splitlines() if line.strip()]
+    try:
+        proposal = align_track(track_id, [(None, line) for line in sentences])
+    except NothingHeard as e:
+        log.info("Not timing the words of %s: %s", track_id, e)
+        return 0
+    if proposal["score"] < AUTO_MIN_SCORE or proposal["review"]["kind"] in ("verify", "structure", "retrieve"):
+        log.info("Not timing the words of %s: score %.2f, %s", track_id, proposal["score"], proposal["review"])
+        return 0
+    lines = proposal["lines"]
+    lrc = format_lrc([(line["time"], line["text"]) for line in lines])
+    guessed = sum(1 for line in lines if not line["anchored"])
+    note = f"Timed by listening to the vocals ({round(proposal['score'] * 100)}% of the words found)"
+    if guessed:
+        note += f"; {guessed} lines could not be found and are guesses"
+    save_result(track_id, LyricsResult(lrc, meta.get("source") or "aligned", "approximate", meta.get("video_id"), notes=[note]))
+    saved = {k: v for k, v in read_meta(track_id).items() if k != "plain"}
+    write_meta(track_id, set_aligned(
+        saved, proposal["score"],
+        [(line["time"], [(w["start"], w["end"], w["text"]) for w in line["words"]], not line["anchored"]) for line in lines],
+    ))
+    return len(lines)

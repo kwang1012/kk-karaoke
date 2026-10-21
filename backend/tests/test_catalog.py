@@ -153,3 +153,29 @@ def test_cover_sizes_are_normalised_for_both_google_url_forms():
                           ("https://i.ytimg.com/vi/x/hq.jpg?sqp=-abc&rs=def", "rs=def")):
         url = catalog._image([{"url": raw, "width": 100, "height": 100}])[0]["url"]
         assert url.endswith(expected), url
+
+
+@pytest.mark.parametrize("text", [
+    "https://www.youtube.com/watch?v=uG44DZMMDtw&list=RDuG44DZMMDtw&start_radio=1",
+    "https://music.youtube.com/watch?v=uG44DZMMDtw",
+    "https://youtu.be/uG44DZMMDtw?t=3",
+    "youtube.com/shorts/uG44DZMMDtw",
+])
+def test_a_youtube_link_names_its_video_and_ignores_the_mix(text):
+    assert catalog.video_id_from_url(text) == "uG44DZMMDtw"
+
+
+@pytest.mark.parametrize("text", ["周杰倫", "https://example.com/watch?v=uG44DZMMDtw", "https://www.youtube.com/playlist?list=PLabc"])
+def test_other_text_is_not_a_video_link(text):
+    assert catalog.video_id_from_url(text) is None
+
+
+def test_a_pasted_link_searches_as_that_one_video(monkeypatch):
+    class Client:
+        def get_song(self, video_id):
+            return {"videoDetails": {"title": "舞台串燒", "author": "某頻道", "lengthSeconds": "731",
+                                     "thumbnail": {"thumbnails": [{"url": "https://i.ytimg.com/vi/x/hq.jpg", "width": 480, "height": 360}]}}}
+
+    monkeypatch.setattr(catalog, "_ytm", lambda: Client())
+    [track] = catalog.search_tracks("https://youtu.be/uG44DZMMDtw")
+    assert (track["id"], track["kind"], track["duration_ms"]) == ("uG44DZMMDtw", "video", 731000)

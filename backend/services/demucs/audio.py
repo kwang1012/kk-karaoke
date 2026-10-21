@@ -108,7 +108,9 @@ class AudioFile:
             query_duration = float((target_size + 1) / (samplerate or self.samplerate()))
 
         with temp_filenames(len(streams)) as filenames:
-            command = ['ffmpeg', '-y']
+            # Workers run in background process groups. FFmpeg's default stdin polling
+            # can send SIGTTIN to the whole group and suspend Celery along with it.
+            command = ['ffmpeg', '-nostdin', '-y']
             command += ['-loglevel', 'panic']
             if seek_time:
                 command += ['-ss', str(seek_time)]
@@ -123,7 +125,7 @@ class AudioFile:
                     command += ['-ar', str(samplerate)]
                 command += [filename]
 
-            sp.run(command, check=True)
+            sp.run(command, check=True, stdin=sp.DEVNULL)
             wavs = []
             for filename in filenames:
                 wav = np.fromfile(filename, dtype=np.float32)

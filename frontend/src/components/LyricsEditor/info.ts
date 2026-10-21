@@ -12,6 +12,8 @@ export type LyricsInfo = {
   edited: boolean;
   hasWords: boolean;
   wordSource: string | null;
+  /** Whose words they were before an edit filed them as aligned (a provider's name). */
+  wordOrigin?: string | null;
   audioCheck: { status: 'confirmed' | 'corrected' | 'mismatch' | 'inconclusive'; offsetS: number } | null;
   videoId: string | null;
   /** Set when the lyrics were aligned to the audio: the score and how many lines are guesses. */

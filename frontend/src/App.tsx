@@ -1,6 +1,6 @@
-import React, { Suspense, lazy, useEffect } from 'react';
+import React, { Suspense, lazy, useEffect, useRef } from 'react';
 import { useSettingStore } from 'src/store/setting';
-import { Route, Routes, HashRouter, BrowserRouter, Navigate } from 'react-router-dom';
+import { Route, Routes, HashRouter, BrowserRouter, Navigate, useLocation, useParams } from 'react-router-dom';
 import Layout from './layouts/Layout';
 import LyricsView from './pages/lyrics';
 import BrowseView, { MainView, topCategoriesQuery } from './pages/browse';
@@ -21,8 +21,13 @@ import 'src/styles/globals.css';
 import Player from './components/Player';
 import { api } from './utils/api';
 import LyricsEditView from './pages/lyrics-edit';
+import AdminLayout from './pages/admin/AdminLayout';
+import AdminSongs from './pages/admin/songs';
+import AdminWorker from './pages/admin/worker';
+import AdminStorage from './pages/admin/storage';
 import MobileLyricsView from './pages/mobile-lyrics';
 import { useLanguageStore } from 'src/i18n';
+import BackendGate from './components/BackendGate';
 
 // lazily loaded components
 const JoinView = lazy(() => import('./pages/join'));
@@ -49,6 +54,22 @@ const Providers = ({ children }: { children: React.ReactNode }) => (
 
 const isElectron = navigator.userAgent.toLowerCase().includes('electron');
 const Router = isElectron ? HashRouter : BrowserRouter;
+/**
+ * The room's shared player. The lyrics editor is a tool for one person, with a player of its own:
+ * it must neither start the room's player in that tab nor take its place as the room's player tab.
+ */
+const RoomPlayer = () => {
+  const { pathname } = useLocation();
+  if (pathname.startsWith('/admin') || pathname.startsWith('/lyrics/edit')) return null;
+  return <Player />;
+};
+
+/** The editor used to live at /lyrics/edit; links and bookmarks to it still work. */
+const OldEditorRedirect = () => {
+  const { trackId } = useParams();
+  return <Navigate to={trackId ? `/admin/lyrics/${trackId}` : '/admin/lyrics'} replace />;
+};
+
 const AppRouters = () => {
   const isLoggedIn = useIsLoggedIn();
   const mobile = useBreakpointDown('md');
@@ -67,15 +88,25 @@ const AppRouters = () => {
             <Route path="play" element={<PlayView />} />
           </Route>
         </Route>
-        <Route path="/lyrics/edit/:trackId?" element={<LyricsEditView />} />
+        <Route path="/lyrics/edit/:trackId?" element={<OldEditorRedirect />} />
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<AdminSongs />} />
+          <Route path="lyrics/:trackId?" element={<LyricsEditView />} />
+          <Route path="worker" element={<AdminWorker />} />
+          <Route path="storage" element={<AdminStorage />} />
+        </Route>
         <Route path="join" element={<JoinView />} />
         <Route path="tv" element={<TvView />} />
         <Route path="remote" element={isLoggedIn ? <RemoteView /> : <Navigate to="/join" replace />} />
       </Routes>
       </Suspense>
+      <RoomPlayer />
     </Router>
   );
 };
+
+/** How often to double-check, while songs are processing, that no "ready" notice was lost. */
+const SAFETY_NET_MS = 30_000;
 
 function App() {
   const language = useLanguageStore((state) => state.language);
@@ -90,23 +121,34 @@ function App() {
   const avatar = useRoomStore((state) => state.avatar);
   const nickName = useRoomStore((state) => state.nickname);
   const getReadyTracks = useTrackStore((state) => state.getReadyTracks);
+  const syncProcessing = useTrackStore((state) => state.syncProcessing);
   const sendMessage = useWebSocketStore((state) => state.sendMessage);
   const connected = useWebSocketStore((state) => state.connected);
 
-  // Status updates only arrive as live websocket messages, so a "ready" that lands while the
-  // socket is down (or the tab is asleep) is never replayed and a card stays on "separating".
-  // Re-check which tracks are ready whenever the socket (re)connects, and poll while any track
-  // is still processing.
+  // Status updates arrive as live websocket messages ("ready" included), so nothing polls while the socket is up.
+  // A "ready" that lands while the socket is down or the tab is asleep is never replayed, so ask about the tracks
+  // still processing (just those) when the socket is back and when the tab wakes, with a slow check as a safety net.
   const processing = useTrackStore((state) =>
     Object.values(state.songStatus).some((s) => s !== 'ready' && s !== 'error')
   );
+  const libraryRequested = useRef(false);
   useEffect(() => {
-    getReadyTracks();
+    if (!libraryRequested.current) {
+      libraryRequested.current = true;
+      getReadyTracks();
+    } else if (connected) {
+      syncProcessing();
+    }
   }, [connected]);
   useEffect(() => {
     if (!processing) return;
-    const timer = setInterval(getReadyTracks, 5000);
-    return () => clearInterval(timer);
+    const onVisible = () => document.visibilityState === 'visible' && syncProcessing();
+    document.addEventListener('visibilitychange', onVisible);
+    const timer = setInterval(onVisible, SAFETY_NET_MS);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      clearInterval(timer);
+    };
   }, [processing]);
 
   useEffect(() => {
@@ -183,8 +225,9 @@ function App() {
   return (
     // <div key={refreshKey} className="h-full w-full">
     <Providers>
-      <AppRouters />
-      <Player />
+      <BackendGate>
+        <AppRouters />
+      </BackendGate>
     </Providers>
     // </div>
   );

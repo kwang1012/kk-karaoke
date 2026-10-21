@@ -1,77 +1,56 @@
-"""The library is rebuilt from storage, so wiping Redis must not lose any titles."""
-import pytest
-
+"""The shared catalog remains complete when Redis and local cache are empty."""
+from managers import catalog, r2
 from services import library
 
-
-def _remembered(track_id: str, name: str) -> dict:
-    """What Redis still holds about a track that was queued."""
-    return {
-        "id": track_id, "name": name, "duration_ms": 1000,
-        "artists": [{"id": "a1", "uri": "", "name": "Artist"}],
-        "album": {"id": "al", "name": "Album", "images": [{"url": "u"}], "release_date": "2020", "extra": "dropped"},
-    }
-
-
-@pytest.fixture
-def storage(tmp_path, monkeypatch):
-    dirs = {name: tmp_path / name for name in ("vocal", "instrumental", "tracks")}
-    for d in dirs.values():
-        d.mkdir()
-    monkeypatch.setattr(library, "VOCALS_DIR", str(dirs["vocal"]))
-    monkeypatch.setattr(library, "NO_VOCALS_DIR", str(dirs["instrumental"]))
-    monkeypatch.setattr(library, "TRACKS_DIR", str(dirs["tracks"]))
-    monkeypatch.setattr(library, "_redis_sources", lambda wanted: {})  # Redis wiped
-    monkeypatch.setattr("managers.r2.enabled", lambda: False)
-    return dirs
-
-
-def _process(storage, track_id: str):
-    (storage["vocal"] / f"{track_id}.mp3").touch()
-    (storage["instrumental"] / f"{track_id}.mp3").touch()
-
-
-ID_A = "A" * 11  # YouTube video ids are 11 characters
+ID_A = "A" * 11
 ID_B = "B" * 11
 OLD_ID = "1lqWsPvpHKjbhX59QBUoVc"
 
 
-def test_only_songs_with_both_stems_are_processed(storage):
-    _process(storage, ID_A)
-    (storage["vocal"] / f"{ID_B}.mp3").touch()  # vocal only: not ready
+def remember(song_id):
+    library.save_track({"id": song_id, "name": f"Song {song_id[0]}", "artists": [],
+                        "album": {"name": "Album", "extra": "dropped"}})
+
+
+def stem(song_id, kind):
+    path = r2._path(kind, song_id)
+    path.write_bytes(b"stem")
+    assert r2.upload_path(kind, path)
+
+
+def test_only_songs_with_both_committed_stems_are_processed():
+    stem(ID_A, "vocal")
+    stem(ID_A, "instrumental")
+    stem(ID_B, "vocal")
     assert set(library.processed_ids()) == {ID_A}
 
 
-def test_tracks_from_before_youtube_are_not_in_the_library(storage):
-    _process(storage, ID_A)
-    _process(storage, OLD_ID)
-    assert set(library.processed_ids()) == {ID_A}
-    assert (storage["vocal"] / f"{OLD_ID}.mp3").exists()  # hidden, not deleted
+def test_old_catalog_ids_are_hidden_without_deleting_their_records():
+    for song_id in (ID_A, OLD_ID):
+        remember(song_id)
+        stem(song_id, "vocal")
+        stem(song_id, "instrumental")
+    assert [t["id"] for t in library.build_library()["tracks"]] == [ID_A]
+    assert catalog.song(OLD_ID)
 
 
-def test_startup_sync_rebuilds_metadata_from_what_redis_remembers(storage, monkeypatch):
-    _process(storage, ID_A)
-    _process(storage, ID_B)
-    asked = []
-    monkeypatch.setattr(library, "_redis_sources",
-                        lambda wanted: asked.append(set(wanted)) or {i: _remembered(i, f"Song {i[0]}") for i in wanted})
-
-    assert library.sync_metadata() == {"processed": 2, "filled": 2, "unknown": 0}
-    assert asked == [{ID_A, ID_B}]
-    # persisted: a second start needs no lookups
-    assert library.sync_metadata()["filled"] == 0 and len(asked) == 1
-
+def test_titles_survive_cache_eviction_and_redis_loss():
+    remember(ID_A)
+    stem(ID_A, "vocal")
+    stem(ID_A, "instrumental")
+    r2._path("vocal", ID_A).unlink()
+    r2._path("instrumental", ID_A).unlink()
     out = library.build_library()
-    assert out["total"] == 2 and out["unresolved"] == 0
-    assert {t["name"] for t in out["tracks"]} == {"Song A", "Song B"}
+    assert out["total"] == 1 and out["unresolved"] == 0
+    assert out["tracks"][0]["name"] == "Song A"
     assert "extra" not in out["tracks"][0]["album"]
 
 
-def test_tracks_nothing_remembers_are_counted_but_not_listed(storage):
-    _process(storage, ID_A)  # Redis wiped (see the fixture), and no other source exists
-    out = library.build_library()
-    assert out["tracks"] == [] and out["unresolved"] == 1 and out["total"] == 1
+def test_unresolved_legacy_records_are_counted_but_not_listed():
+    stem(ID_A, "vocal")
+    stem(ID_A, "instrumental")
+    assert library.build_library() == {"tracks": [], "total": 1, "unresolved": 1}
 
 
-def test_save_track_never_raises(storage):
-    assert library.save_track({"id": "x"}) is None  # missing name
+def test_invalid_metadata_is_not_saved():
+    assert library.save_track({"id": "x"}) is None

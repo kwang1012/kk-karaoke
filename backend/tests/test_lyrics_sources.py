@@ -209,12 +209,14 @@ def _check(status, offset=0.0):
 @pytest.fixture
 def saved(tmp_path, monkeypatch):
     monkeypatch.setattr(ls, "LYRICS_DIR", str(tmp_path))
+    monkeypatch.setattr(ls.r2, "KINDS", tuple((kind, str(tmp_path) if kind.startswith("lyrics") else directory, ext)
+                                            for kind, directory, ext in ls.r2.KINDS))
     ls.save_result("t", ls.LyricsResult("[ar:x]\n[00:10.00]one\n[01:05.50]two", "lrclib", "approximate", "v"))
     return tmp_path
 
 
 def run_check(monkeypatch, check):
-    monkeypatch.setattr(ls.audio_check, "check_file", lambda path, starts: check)
+    monkeypatch.setattr(ls.audio_check, "check_file", lambda path, starts, *wide: check)
     return ls.verify_against_audio("t", "stem.mp3")
 
 
@@ -266,6 +268,7 @@ def test_hand_edited_and_legacy_lyrics_are_left_alone(saved, monkeypatch):
 @pytest.fixture
 def plain_sources(monkeypatch):
     def install(ytm=None, lrclib=None):
+        monkeypatch.setattr(ls.providers, "lyrics_ovh_plain", lambda *a: None)
         monkeypatch.setattr(ls, "fetch_ytmusic_plain", lambda vid: ytm)
         monkeypatch.setattr(ls, "fetch_lrclib_record",
                             lambda *a, **k: {"plainLyrics": lrclib} if lrclib else None)
@@ -423,3 +426,99 @@ def test_extra_lines_in_the_word_source_are_skipped():
         t = 10 + i * 10
         word_lines.append(wt.WordLine(t, [(t, t + 1, f"歌詞第{i}行很長")]))
     assert len(ls.match_words(sheet, word_lines)) == 6
+
+
+# --- a video's studio counterpart --------------------------------------------------------
+
+def _song(video_id, title, seconds, artist="BABYMONSTER"):
+    return {"videoId": video_id, "title": title, "duration_seconds": seconds, "artists": [{"name": artist}]}
+
+
+@pytest.fixture
+def siblings(monkeypatch):
+    """YouTube Music with a studio song that has timed lyrics, and no lyrics for the video itself."""
+    def install(*songs, timed=("STUDIO12345",)):
+        monkeypatch.setattr(ls, "_client", lambda: type("C", (), {"search": lambda self, *a, **k: list(songs)})())
+        monkeypatch.setattr(ls, "fetch_ytmusic_lines", lambda vid: A if vid in timed else None)
+        monkeypatch.setattr(ls, "_fetch_lrclib", lambda *a, **k: None)
+        monkeypatch.setattr(ls.providers, "find_entry", lambda *a, **k: None)
+    return install
+
+
+MV = ls.Recording("VIDEO123456", "PSYCHO", "BABYMONSTER", 204)
+
+
+def test_a_video_without_lyrics_uses_its_studio_recordings(siblings):
+    siblings(_song("STUDIO12345", "PSYCHO", 196))
+    r = ls.find_lyrics("PSYCHO", ["BABYMONSTER"], None, 204, MV)
+    assert (r.source, r.confidence, r.video_id) == ("ytmusic", "approximate", "VIDEO123456")
+    assert "3:16" in r.notes[0] and "3:24" in r.notes[0]  # both lengths are said
+
+
+def test_a_studio_recording_a_different_length_away_is_another_cut(siblings):
+    siblings(_song("STUDIO12345", "PSYCHO", 120))  # 84s shorter: a different edit
+    assert ls.find_lyrics("PSYCHO", ["BABYMONSTER"], None, 204, MV) is None
+
+
+def test_a_song_whose_title_is_inside_this_ones_is_another_song(siblings):
+    mv = ls.Recording("VIDEO123456", "怪情歌", "林宥嘉", 252)
+    siblings(_song("STUDIO12345", "情歌", 237, artist="en"))  # same length ballpark, artist in another script
+    assert ls.find_lyrics("怪情歌", ["林宥嘉"], None, 252, mv) is None
+
+
+def test_a_video_with_a_long_intro_still_borrows_the_studio_timing_and_says_so(siblings):
+    siblings(_song("STUDIO12345", "PSYCHO", 168))  # 36s shorter: the video opens with an intro
+    r = ls.find_lyrics("PSYCHO", ["BABYMONSTER"], None, 204, MV)
+    assert r.confidence == "approximate" and r.timed_for == "STUDIO12345"
+
+
+def test_the_audio_check_looks_further_for_a_sheet_timed_for_another_recording(saved, monkeypatch):
+    seen = []
+    monkeypatch.setattr(ls.audio_check, "check_file", lambda path, starts, *wide: seen.append(wide))
+    ls.write_meta("t", {**ls.read_meta("t"), "timed_for": "STUDIO12345"})
+    ls.verify_against_audio("t", "stem.mp3")
+    assert seen == [(ls.SIBLING_SEARCH_S, ls.audio_check.MIN_Z_WIDE)]
+
+
+def test_a_song_by_someone_else_or_with_another_title_is_not_the_counterpart(siblings):
+    siblings(_song("STUDIO12345", "PSYCHO", 196, artist="Red Velvet"), _song("OTHER123456", "DRIP", 200))
+    assert ls.find_lyrics("PSYCHO", ["BABYMONSTER"], None, 204, MV) is None
+
+
+def test_the_counterpart_may_name_the_artist_in_another_script(siblings):
+    siblings(_song("STUDIO12345", "第三人稱", 287, artist="蔡依林"))
+    r = ls.find_lyrics("第三人稱 - The Third Person and I", ["Jolin Tsai"], None, 291,
+                       ls.Recording("VIDEO123456", "第三人稱", "Jolin Tsai", 291))
+    assert r and r.source == "ytmusic"
+
+
+def test_a_counterpart_without_timed_lyrics_is_skipped_for_the_next(siblings):
+    siblings(_song("NOTIMED1234", "PSYCHO", 196), _song("STUDIO12345", "PSYCHO", 197))
+    assert ls.find_lyrics("PSYCHO", ["BABYMONSTER"], None, 204, MV).confidence == "approximate"
+
+
+def test_the_video_itself_is_never_its_own_counterpart(siblings):
+    siblings(_song("VIDEO123456", "PSYCHO", 204), timed=("VIDEO123456",))
+    # fetch_ytmusic_lines would answer for it, but it was already asked about first and had none
+    assert ls.sibling_songs("PSYCHO", ["BABYMONSTER"], 204, "VIDEO123456") == []
+
+
+def test_exact_lyrics_for_the_recording_win_over_a_counterpart(monkeypatch, siblings):
+    siblings(_song("STUDIO12345", "PSYCHO", 196))
+    monkeypatch.setattr(ls, "fetch_ytmusic_lines", lambda vid: A if vid == "VIDEO123456" else [(1.0, "other")])
+    assert ls.find_lyrics("PSYCHO", ["BABYMONSTER"], None, 204, MV).confidence == "synced"
+
+
+def test_without_a_recording_there_is_no_counterpart_to_look_for(siblings):
+    siblings(_song("STUDIO12345", "PSYCHO", 196))
+    assert ls.find_lyrics("PSYCHO", ["BABYMONSTER"], None, 204, None) is None
+
+
+def test_provider_words_kept_through_an_edit_are_filed_as_aligned_but_remember_whose_they_were():
+    meta = {"words": {"100": [[1.0, 1.5, "a"]]}, "word_source": "kugou"}
+    out = ls.set_aligned(meta, None, [(1.0, [(1.0, 1.5, "a")], False)])
+    assert (out["word_source"], out["word_origin"]) == ("aligned", "kugou")
+    again = ls.set_aligned(out, None, [(1.0, [(1.0, 1.4, "a")], False)])
+    assert again["word_origin"] == "kugou"  # a second save does not forget it
+    cleared = ls.set_aligned(again, None, [])
+    assert "words" not in cleared and "word_origin" not in cleared

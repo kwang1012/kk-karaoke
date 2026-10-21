@@ -1,6 +1,7 @@
 import { api } from 'src/utils/api';
 import { useActiveRoomId, useJam, useRoomStore } from 'src/store/room';
 import { useShareOrigin } from 'src/hooks/shareOrigin';
+import { getChosenBackendAddress } from 'src/utils/backend';
 
 /** Everything needed to invite people: whether a room is open, its join link and code, and how to open one. */
 export function useInvite() {
@@ -15,7 +16,9 @@ export function useInvite() {
   const hosting = !!roomId && joinedRoom === roomId;
   const inRoom = hosting || isInJam;
   const origin = useShareOrigin();
-  const joinURL = `${origin}/join?room=${activeRoomId}`;
+  // A guest's browser doesn't know this site's backend (it may be a tunnel address), so the link carries it.
+  const backend = getChosenBackendAddress();
+  const joinURL = `${origin}/join?room=${activeRoomId}${backend ? `&backend=${encodeURIComponent(backend)}` : ''}`;
 
   const startRoom = async () => {
     if (!roomId) return;

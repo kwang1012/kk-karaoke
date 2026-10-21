@@ -36,6 +36,7 @@ from services.downloader import (
     _has_simplified_chinese,
     fetch_lrclib_record,
 )
+from managers import r2
 from utils import LYRICS_DIR
 
 log = logging.getLogger(__name__)
@@ -99,6 +100,11 @@ class LyricsResult:
     video_id: Optional[str] = None
     agreement: Optional[Agreement] = None
     notes: list[str] = field(default_factory=list)
+    # The video whose lyrics these were timed for, when that is not the recording they are used with
+    # (a music video borrowing its studio song's lyrics): the timing may be a whole intro off.
+    timed_for: Optional[str] = None
+    # Per-word timing that came with the sheet (a provider that times every word), keyed like meta["words"].
+    word_map: Optional[dict] = None
 
 
 # --- text helpers ---------------------------------------------------------------
@@ -173,6 +179,53 @@ def _artist_in_other_script(wanted: list[str], got: list[str]) -> bool:
     return bool(wanted and got) and all(_is_cjk(w) != _is_cjk(g) for w in wanted for g in got)
 
 
+# A music video runs longer than the studio cut it was made from (an intro, an outro, some talking)
+# but sings the same song; this is how far apart the two may be.
+SIBLING_MAX_DIFF_S = 45
+# How far the audio check looks for the offset of a sheet that was timed for another recording.
+SIBLING_SEARCH_S = SIBLING_MAX_DIFF_S + 15
+
+
+def _mmss(seconds: Optional[float]) -> str:
+    return "?" if not seconds else f"{int(seconds) // 60}:{int(seconds) % 60:02d}"
+
+
+def sibling_songs(
+    title: str, artists: list[str], duration_s: Optional[float], video_id: Optional[str],
+    *, max_diff: float = SIBLING_MAX_DIFF_S, limit: int = 6,
+) -> list[Recording]:
+    """
+    Other YouTube Music songs that are this song: the studio recording of a music video, whose lyrics
+    YouTube Music has timed even though it has none for the video. Same title, same artist (in any
+    script), and a length near this one's.
+    """
+    if not artists:
+        return []
+    try:
+        hits = _client().search(f"{artists[0]} {title}", filter="songs", limit=limit)
+    except Exception as e:  # noqa: BLE001
+        log.warning("YT Music sibling lookup failed for %r: %r", title, e)
+        return []
+    wanted = providers.title_variants(title)
+    wanted_folded = {_norm(w) for w in wanted} - {""}
+    found: list[Recording] = []
+    for hit in hits[:limit]:
+        vid = hit.get("videoId")
+        if not vid or vid == video_id or not providers._title_fits(wanted, hit.get("title") or "", _norm):
+            continue
+        # Containment is fine for a provider search, but a sibling is the same song: "情歌" is not "怪情歌".
+        if _norm(hit.get("title") or "") not in wanted_folded:
+            continue
+        names = [a["name"] for a in hit.get("artists") or [] if a.get("name")]
+        if not (_same_artist(artists, names) or _artist_in_other_script(artists, names)):
+            continue
+        got = hit.get("duration_seconds")
+        if duration_s and got and abs(got - duration_s) > max_diff:
+            continue
+        found.append(Recording(vid, hit.get("title") or "", names[0] if names else "", got))
+    return found
+
+
 def video_duration_s(video_id: str) -> Optional[int]:
     """A recording's length from YouTube Music, for tracks queued without one."""
     try:
@@ -240,6 +293,33 @@ def _names(artist: "str | list[str]") -> list[str]:
     return [artist] if isinstance(artist, str) else list(artist)
 
 
+def _is_header(text: str, title: str, names: list[str]) -> bool:
+    """Providers open a sheet with a "title - artist" line that is not sung."""
+    folded = _norm(text)
+    return bool(_norm(title)) and _norm(title) in folded and any(_norm(n) and _norm(n) in folded for n in names)
+
+
+def _word_result(entry: "providers.Entry", video_id: Optional[str], title: str = "",
+                 names: Optional[list[str]] = None) -> LyricsResult:
+    """A sheet made from a word-timed entry, keeping its words in the sheet's own script."""
+    wl = [l for l in entry.word_lines or [] if l.text.strip()]
+    if wl and _is_header(wl[0].text, title, names or []):
+        wl = wl[1:]
+    result = _finish(LyricsResult(
+        format_lrc([(l.start, l.text.strip()) for l in wl]), entry.source, "synced", video_id,
+        notes=[f"Timed word by word by {entry.source}"]))
+    # The saved sheet rounds each line to a centisecond; its words are filed under that same time.
+    by_time = {_cs(parse_lrc(format_lrc([(l.start, "x")]))[0][0]): l for l in wl}
+    words: dict[str, Words] = {}
+    for start, text in parse_lrc(result.lrc):
+        line = by_time.get(_cs(start))
+        pieces = split_by_words(text, [w[2] for w in line.words]) if line else None
+        if line and pieces:
+            words[_cs(start)] = [(round(s, 2), round(e, 2), piece) for (s, e, _), piece in zip(line.words, pieces)]
+    result.word_map = words or None
+    return result
+
+
 def find_lyrics(
     title: str,
     artist: "str | list[str]",
@@ -250,6 +330,13 @@ def find_lyrics(
     """Walk the ladder. Returns None when no source has timed lyrics."""
     names = [n for n in _names(artist) if n]
     video_id = recording.video_id if recording else None
+
+    # The finest sync first: a provider that times every word, if it has this recording.
+    word_entry = providers.find_word_entry(title, names, duration_s, fold=_norm, same_artist=_same_artist,
+                                           other_script=_artist_in_other_script, video_id=video_id)
+    if word_entry:
+        return _word_result(word_entry, video_id, title, names)
+
     ytm_lines = fetch_ytmusic_lines(video_id) if video_id else None
 
     length = round(duration_s) if duration_s else None
@@ -262,6 +349,9 @@ def find_lyrics(
                 break
         if lrclib_text:
             break
+    if lrclib_text and providers.is_romanized_korean(lrclib_text):
+        log.info("LRCLib has %r as romanized Korean; looking for the Hangul", title)
+        lrclib_text = None
     lrclib_lines = parse_lrc(lrclib_text) if lrclib_text else None
 
     if ytm_lines:
@@ -288,6 +378,16 @@ def find_lyrics(
             note += f" (artist is written differently: {entry.artists[0]})"
         return _finish(LyricsResult(entry.synced, entry.source, "approximate" if entry.loose_artist else "synced",
                                     video_id, notes=[note]))
+
+    # A music video has no timed lyrics of its own, but its studio recording usually does.
+    for sibling in sibling_songs(title, names, duration_s, video_id) if recording else []:
+        lines = fetch_ytmusic_lines(sibling.video_id)
+        if lines:
+            return _finish(LyricsResult(
+                format_lrc(lines), "ytmusic", "approximate", video_id,
+                notes=[f"Timed for the studio recording ({_mmss(sibling.duration_s)}); this one is "
+                       f"{_mmss(duration_s)}, so the timing may be offset"],
+                timed_for=sibling.video_id))
     return None
 
 
@@ -317,12 +417,16 @@ def find_plain_lyrics(
                 break
             record = fetch_lrclib_record(variant, name, album, round(duration_s) if duration_s else None)
             text, source = (record or {}).get("plainLyrics"), "lrclib"
+            if text and providers.is_romanized_korean(text):
+                text = None
     if not text:
         entry = providers.find_entry(title, names, duration_s, fold=_norm, same_artist=_same_artist,
                                      other_script=_artist_in_other_script, want="plain")
         if entry:
             text, source = entry.plain or None, entry.source
-    if not text or not text.strip():
+    if not text:
+        text, source = providers.lyrics_ovh_plain(title, names), "ovh"
+    if not text or not text.strip() or providers.is_romanized_korean(text):
         return None
     text = text.strip()
     if _has_simplified_chinese(text):
@@ -366,14 +470,21 @@ def _meta_path(track_id: str) -> Path:
 
 
 def save_result(track_id: str, result: LyricsResult) -> None:
-    Path(LYRICS_DIR, f"{track_id}.lrc").write_text(result.lrc, encoding="utf-8")
+    path = Path(LYRICS_DIR, f"{track_id}.lrc")
+    path.write_text(result.lrc, encoding="utf-8")
+    r2.upload_path("lyrics", path)
     meta = asdict(result)
     meta.pop("lrc")
+    word_map = meta.pop("word_map", None)
+    if word_map:
+        meta["words"] = word_map
+        meta["word_source"] = result.source
     write_meta(track_id, meta)
 
 
 def write_meta(track_id: str, meta: dict) -> None:
     _meta_path(track_id).write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+    r2.upload_path("lyrics-meta", _meta_path(track_id))
 
 
 def save_plain(track_id: str, plain: PlainLyrics) -> None:
@@ -384,12 +495,12 @@ def save_plain(track_id: str, plain: PlainLyrics) -> None:
     })
 
 
-def read_meta(track_id: str) -> dict:
-    """Sidecar for a track's lyrics; empty for tracks fetched before the ladder existed."""
-    try:
-        return json.loads(_meta_path(track_id).read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {}
+def read_meta(track_id: str, fresh: bool = True) -> dict:
+    """Sidecar for a track's lyrics; empty for tracks fetched before the ladder existed.
+    `fresh=False` when the caller has just refreshed every sidecar (a list)."""
+    from managers import catalog
+    asset = catalog.asset(track_id, "lyrics-meta")
+    return asset["metadata"] if asset and asset["state"] in ("ready", "pending") else {}
 
 
 # --- check against the audio ----------------------------------------------------
@@ -410,14 +521,15 @@ def verify_against_audio(track_id: str, vocal_path: str) -> Optional[audio_check
     a sheet someone has edited by hand, or that already went through this, is theirs.
     """
     meta = read_meta(track_id)
-    lrc_path = Path(LYRICS_DIR, f"{track_id}.lrc")
+    lrc_path = r2.local("lyrics", track_id)
     if not meta or meta.get("edited") or "audio_check" in meta or not lrc_path.exists():
         return None
     if meta.get("source") == "whisper":
         return None  # its timing was measured from this audio: agreeing with itself proves nothing
 
     lrc = lrc_path.read_text(encoding="utf-8")
-    check = audio_check.check_file(vocal_path, [t for t, _ in parse_lrc(lrc)])
+    check = audio_check.check_file(vocal_path, [t for t, _ in parse_lrc(lrc)],
+                                   *((SIBLING_SEARCH_S, audio_check.MIN_Z_WIDE) if meta.get("timed_for") else ()))
     if check is None:
         return None
 
@@ -426,6 +538,7 @@ def verify_against_audio(track_id: str, vocal_path: str) -> Optional[audio_check
         meta["confidence"] = "verified"
     elif check.status == "corrected":
         lrc_path.write_text(shift_lrc(lrc, check.offset_s), encoding="utf-8")
+        r2.upload_path("lyrics", lrc_path)
         if meta.get("words"):
             meta["words"] = _shift_words(meta["words"], check.offset_s)
         meta["confidence"] = "synced"
@@ -534,7 +647,7 @@ def match_words(sheet: Lines, word_lines: list[word_timing.WordLine]) -> dict[st
 def add_word_timing(track_id: str, title: str, artists: list[str], duration_s: Optional[float]) -> int:
     """Attach NetEase's word timings to the saved sheet. Returns how many lines got words."""
     meta = read_meta(track_id)
-    lrc_path = Path(LYRICS_DIR, f"{track_id}.lrc")
+    lrc_path = r2.local("lyrics", track_id)
     if not meta or meta.get("edited") or "words" in meta or not lrc_path.exists():
         return 0
     sheet = parse_lrc(lrc_path.read_text(encoding="utf-8"))
@@ -587,10 +700,16 @@ def set_aligned(meta: dict, score: Optional[float], lines: list[tuple[float, lis
     words = {_cs(t): [list(w) for w in ws] for t, ws, _ in lines if ws}
     guessed = sorted({int(_cs(t)) for t, _, guess in lines if guess})
     if words:
+        # Words that came from a provider and survived an edit on the lines left alone are filed as
+        # aligned (they are tied to this exact sheet now), but remember whose they were.
+        previous = out.get("word_source")
+        if previous and previous != ALIGNED:
+            out["word_origin"] = previous
         out["words"], out["word_source"] = words, ALIGNED
     elif out.get("word_source") == ALIGNED:
         out.pop("words", None)
         out.pop("word_source", None)
+        out.pop("word_origin", None)
     if words or guessed:
         out["aligned"] = {"score": score, "guessed": guessed}
     return out
@@ -611,7 +730,7 @@ def add_heard_lyrics(track_id: str, vocal_path: str, video_id: Optional[str]) ->
     when the track already has timed or plain lyrics. Returns the number of lines saved.
     """
     meta = read_meta(track_id)
-    if Path(LYRICS_DIR, f"{track_id}.lrc").exists() or meta.get("plain"):
+    if r2.exists("lyrics", track_id) or meta.get("plain"):
         return 0
     heard = transcribe.transcribe_vocals(vocal_path)
     if not heard:
@@ -639,22 +758,23 @@ def discard_lyrics(track_id: str) -> None:
     video_id = read_meta(track_id).get("video_id")
     Path(LYRICS_DIR, f"{track_id}.lrc").unlink(missing_ok=True)
     _meta_path(track_id).unlink(missing_ok=True)
-    if video_id:
-        write_meta(track_id, {"video_id": video_id})
     r2.delete_path("lyrics", f"{track_id}.lrc")
     r2.delete_path("lyrics-meta", f"{track_id}.meta.json")
+    if video_id:
+        write_meta(track_id, {"video_id": video_id})
 
 
 def lyrics_summary(track_id: str) -> dict:
     """What a track's lyrics are, in a few fields: for a client that wants to say what it found."""
     meta = read_meta(track_id)
-    lrc = Path(LYRICS_DIR, f"{track_id}.lrc")
-    lines = len(parse_lrc(lrc.read_text(encoding="utf-8"))) if lrc.exists() else 0
+    from managers import catalog
+    asset = catalog.asset(track_id, "lyrics")
+    lines = asset["metadata"].get("lines", 0) if asset and asset["state"] == "ready" else 0
     return {
         "has_lyrics": lines > 0, "lines": lines, "has_plain": bool(meta.get("plain")),
         "source": meta.get("source"), "confidence": meta.get("confidence"), "notes": meta.get("notes") or [],
         "edited": bool(meta.get("edited")), "has_words": bool(meta.get("words")),
-        "word_source": meta.get("word_source"), "audio_check": meta.get("audio_check"),
+        "word_source": meta.get("word_source"), "word_origin": meta.get("word_origin"), "audio_check": meta.get("audio_check"),
         "aligned": meta.get("aligned") and {"score": meta["aligned"].get("score"), "guessed": len(meta["aligned"].get("guessed") or [])},
         "video_id": meta.get("video_id"),
     }

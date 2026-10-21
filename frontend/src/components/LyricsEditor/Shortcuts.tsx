@@ -9,6 +9,7 @@ const MOD = isMac ? '⌘' : 'Ctrl';
 const SHORTCUTS: { keys: string[]; label: TranslationKey }[] = [
   { keys: ['Space'], label: 'editor.help.play' },
   { keys: ['Enter'], label: 'editor.help.stamp' },
+  { keys: [`${MOD} Enter`], label: 'editor.help.stampInLine' },
   { keys: ['↑', '↓'], label: 'editor.help.move' },
   { keys: ['[', ']'], label: 'editor.help.nudge' },
   { keys: ['Delete'], label: 'editor.help.delete' },

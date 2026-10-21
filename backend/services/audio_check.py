@@ -37,6 +37,9 @@ CONFIRM_S = 0.3
 CORRECT_S = 0.5
 # How many standard deviations the best offset must stand above the others.
 MIN_Z = 5.0
+# Looking over a wider range (a sheet timed for another recording) finds more chance peaks, so the
+# best one is also compared against how many starts it explains (MIN_HIT), at a slightly lower bar.
+MIN_Z_WIDE = 4.5
 # Share of line starts that must sit on a real onset (not just near a faint one).
 MIN_HIT = 0.3
 HIT_DB = 6.0
@@ -93,10 +96,10 @@ def _smooth(x: np.ndarray, radius: int) -> np.ndarray:
     return np.max([padded[i:i + len(x)] for i in range(2 * radius + 1)], axis=0)
 
 
-def fit_offset(onsets: np.ndarray, starts: Sequence[float]) -> tuple[float, float, float]:
+def fit_offset(onsets: np.ndarray, starts: Sequence[float], search_s: float = SEARCH_S) -> tuple[float, float, float]:
     """Best uniform shift of `starts` onto `onsets`: (offset_s, z, share of starts on an onset)."""
     near = _smooth(onsets, round(TOLERANCE_S / HOP_S))
-    offsets = np.arange(-SEARCH_S, SEARCH_S + STEP_S / 2, STEP_S)
+    offsets = np.arange(-search_s, search_s + STEP_S / 2, STEP_S)
     times = np.asarray(starts, dtype=np.float64)
     scores = np.empty(len(offsets))
     for i, d in enumerate(offsets):
@@ -129,16 +132,16 @@ def sung_fraction(env_db: np.ndarray, starts: Sequence[float], offset_s: float) 
     return hits / max(1, len(starts))
 
 
-def check_timing(env_db: np.ndarray, starts: Sequence[float]) -> AudioCheck:
+def check_timing(env_db: np.ndarray, starts: Sequence[float], search_s: float = SEARCH_S, min_z: float = MIN_Z) -> AudioCheck:
     n = len(starts)
     if n < MIN_LINES or len(env_db) == 0:
         return AudioCheck("inconclusive", 0.0, 0.0, 0.0, n)
-    offset, z, hit = fit_offset(onset_strength(env_db), starts)
+    offset, z, hit = fit_offset(onset_strength(env_db), starts, search_s)
     sung = sung_fraction(env_db, starts, offset)
     if sung < MIN_SUNG:
         # Most lines fall where nobody is singing, wherever we slide them: wrong lyrics.
         return AudioCheck("mismatch", 0.0, z, sung, n)
-    if z < MIN_Z or hit < MIN_HIT:
+    if z < min_z or hit < MIN_HIT:
         return AudioCheck("inconclusive", 0.0, z, sung, n)
     if abs(offset) <= CONFIRM_S:
         return AudioCheck("confirmed", 0.0, z, sung, n)
@@ -147,9 +150,9 @@ def check_timing(env_db: np.ndarray, starts: Sequence[float]) -> AudioCheck:
     return AudioCheck("inconclusive", 0.0, z, sung, n)
 
 
-def check_file(vocal_path: str, starts: Sequence[float]) -> Optional[AudioCheck]:
+def check_file(vocal_path: str, starts: Sequence[float], search_s: float = SEARCH_S, min_z: float = MIN_Z) -> Optional[AudioCheck]:
     """Convenience wrapper; None when the stem cannot be decoded."""
     try:
-        return check_timing(load_envelope(vocal_path), starts)
+        return check_timing(load_envelope(vocal_path), starts, search_s, min_z)
     except (subprocess.CalledProcessError, FileNotFoundError):
         return None

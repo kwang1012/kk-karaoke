@@ -1,66 +1,31 @@
+import base64
 import json
-import os
-from celery.result import AsyncResult
+import threading
+import time
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional, Union
 
-from celery import Celery
 from celery.signals import worker_ready
-import redis
+
 from utils import NO_VOCALS_DIR, LYRICS_DIR, VOCALS_DIR, RAW_AUDIO_DIR
 from models.track import Artist, Track, is_video_id
 from managers.websocket import WebSocketManager
 from services.downloader import download_audio
-from services import library, lyrics_align
+from services import admin, candidates, library, lyrics_align
 from services.library import save_track
 from services.lyrics_sources import Recording, add_heard_lyrics, add_word_timing, artist_aliases, discard_lyrics, find_lyrics, find_plain_lyrics, lyrics_summary, read_meta, save_plain, save_result, verify_against_audio, video_duration_s, write_meta
+from services.pitcher import extract_melody
 from services.voice_remover import separate_vocals
-from config import REDIS_HOST, REDIS_PORT
 from managers import r2
+from services.tasks import celery, is_ready, send_process_request, request_melody, record_progress, r
 
 ws_manager = WebSocketManager()
 
-redis_uri = f"redis://{REDIS_HOST}:{REDIS_PORT}/1"
-celery = Celery("worker", broker=redis_uri, backend=redis_uri)
-celery.conf.update(
-    # Songs take minutes; don't let one worker reserve tasks it can't start yet.
-    worker_prefetch_multiplier=1,
-    broker_connection_retry_on_startup=True,
-)
-
-r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT)
-
-
-@worker_ready.connect
-def _sync_r2_on_worker_start(**_):
-    """Bring local storage in line with R2, so a fresh worker doesn't redo finished tracks."""
-    try:
-        r2.sync()
-    except Exception as e:
-        print(f"R2 sync failed: {e!r}")
-
-
-def is_ready(track: Track) -> bool:
-    """
-    Check if the track is ready for processing.
-    A track is considered ready if it has lyrics, audio, and non-vocals available.
-    """
-    # lyrics_exist = Path(LYRICS_DIR, f"{track.id}.lrc").exists()
-    vocals_exist = Path(VOCALS_DIR, f"{track.id}.mp3").exists()
-    non_vocals_exist = Path(NO_VOCALS_DIR, f"{track.id}.mp3").exists()
-
-    return vocals_exist and non_vocals_exist
-
-
-def send_process_request(track: Track) -> AsyncResult:
-    """
-    Send a request to process a track. This will download lyrics, audio, and separate vocals if needed.
-    """
-    return celery.send_task("process_request", args=[track.model_dump()])
-
 
 def _publish_status(track: Track, status: str, **extra):
+    record_progress(status, **extra)
     r.publish(track.id, json.dumps({
         "type": "notify",
         "data": {
@@ -72,17 +37,34 @@ def _publish_status(track: Track, status: str, **extra):
     }))
 
 
-@celery.task(name="process_request")
+@celery.task(name="process_request", autoretry_for=(r2.PendingUploadError,), retry_backoff=True, max_retries=5)
 def process_request(track: Union[dict[str, Any], Track]):
     if isinstance(track, dict):
         track = Track(**track)
     try:
         _process_track(track)
+    except r2.UploadCancelledError:
+        return None
+    except r2.PendingUploadError:
+        _publish_status(track, "submitted", message="Waiting for storage upload")
+        raise
     except Exception as e:
         print(f"Processing failed for track {track.id} ({track.name}): {e!r}")
         # Drop a half-downloaded raw file so a retry starts clean.
         Path(RAW_AUDIO_DIR, f"{track.id}.mp3").unlink(missing_ok=True)
         _publish_status(track, "error", message=str(e))
+        admin.record_failure(track.id, "process", str(e))
+        raise
+
+
+@celery.task(name="extract_melody")
+def extract_melody_task(track_id: str):
+    """The melody of a song that was processed before melodies existed (or whose file was lost)."""
+    try:
+        extract_melody(track_id)
+    except Exception as e:
+        print(f"Melody extraction failed for track {track_id}: {e!r}")
+        admin.record_failure(track_id, "melody", str(e))
         raise
 
 
@@ -142,7 +124,7 @@ def _find_lyrics(track: Track, who: _Identity) -> None:
 
 def _listen_and_verify(track: Track, who: _Identity) -> None:
     """With the vocal stem on disk: transcribe when nothing has the song, then check the timing."""
-    vocal = str(Path(VOCALS_DIR, f"{track.id}.mp3"))
+    vocal = str(r2.local("vocal", track.id))
     # Nothing verified has these lyrics: listen to the vocals instead of showing nothing (or another song's).
     try:
         heard = add_heard_lyrics(track.id, vocal, who.video_id)
@@ -150,6 +132,14 @@ def _listen_and_verify(track: Track, who: _Identity) -> None:
             print(f"Transcribed {heard} lines for {track.id}")
     except Exception as e:
         print(f"Transcription failed for {track.id}: {e!r}")
+
+    # Only the words exist: place them on the singing so the song can be sung along to.
+    try:
+        timed = lyrics_align.time_plain_words(track.id)
+        if timed:
+            print(f"Timed {timed} lines of plain lyrics for {track.id}")
+    except Exception as e:
+        print(f"Timing the words failed for {track.id}: {e!r}")
 
     # The vocal stem is the one thing that is certainly this recording's audio: use it
     # to confirm the lyric timing, or to move it when the whole sheet is off.
@@ -164,9 +154,9 @@ def _listen_and_verify(track: Track, who: _Identity) -> None:
 def _process_track(track: Track):
     print("Processing request for track:", track.name)
     search_term = f"{track.name} {' '.join(map(lambda artist: artist.name, track.artists))}"
-    lyrics_exist = Path(LYRICS_DIR, f"{track.id}.lrc").exists() or bool(read_meta(track.id).get("plain"))
-    vocals_exist = Path(VOCALS_DIR, f"{track.id}.mp3").exists()
-    non_vocals_exist = Path(NO_VOCALS_DIR, f"{track.id}.mp3").exists()
+    lyrics_exist = r2.local("lyrics", track.id).exists() or bool(read_meta(track.id).get("plain"))
+    vocals_exist = r2.local("vocal", track.id).exists()
+    non_vocals_exist = r2.local("instrumental", track.id).exists()
 
     who = _identify(track)
 
@@ -176,7 +166,8 @@ def _process_track(track: Track):
 
     if not vocals_exist or not non_vocals_exist:
         _publish_status(track, "downloading_audio")
-        download_audio(track.id, search_term, target_duration_s=who.duration_s, video_id=who.video_id, title=who.title)
+        if not _take_prefetched(track.id):
+            download_audio(track.id, search_term, target_duration_s=who.duration_s, video_id=who.video_id, title=who.title)
 
         _publish_status(track, "separating")
 
@@ -186,14 +177,24 @@ def _process_track(track: Track):
             """
             _publish_status(track, "separating", value=progress, total=total)
         separate_vocals(track.id, on_progress=on_progress)
+        r2.upload_track(track.id)
+
+    # Retry durable pending bytes before trusting the shared readiness manifest.
+    if r2.retry_pending(track.id, force=True):
+        raise r2.PendingUploadError(f"Uploads are still pending for {track.id}")
 
     if not is_ready(track):
         raise RuntimeError("Separation finished but output files are missing")
 
     _listen_and_verify(track, who)
 
+    try:
+        extract_melody(track.id)
+    except Exception as e:  # the piano roll and score are extras: a song without them still plays
+        print(f"Melody extraction failed for {track.id}: {e!r}")
+
     Path(RAW_AUDIO_DIR, f"{track.id}.mp3").unlink(missing_ok=True)
-    save_track(track)  # before the upload, which pushes it to R2 with the stems
+    save_track(track)
     r2.upload_track(track.id)
     _publish_status(track, "ready")
 
@@ -206,7 +207,7 @@ def refresh_lyrics_for(track: Track) -> dict:
     who = _identify(track)
     discard_lyrics(track.id)
     _find_lyrics(track, who)
-    if Path(VOCALS_DIR, f"{track.id}.mp3").exists():
+    if r2.local("vocal", track.id).exists():
         _listen_and_verify(track, who)
     r2.upload_track(track.id)
     return lyrics_summary(track.id)
@@ -220,6 +221,20 @@ def refresh_lyrics(track_id: str) -> dict:
     return refresh_lyrics_for(saved)
 
 
+@celery.task(name="find_candidates")
+def find_candidates(track_id: str) -> list:
+    """Every lyric sheet that could be this track's, each checked against its vocals when it has them. Nothing is saved."""
+    track = library.load_track(track_id)
+    if track is None:
+        raise RuntimeError(f"Unknown track {track_id}")
+    who = _identify(track)
+    names = [a.name for a in track.artists if a.name] or ([who.artist] if who.artist else [])
+    vocals = r2.local("vocal", track.id)
+    return candidates.gather(who.title, names, who.duration_s, who.recording,
+                             vocal_path=str(vocals) if vocals.exists() else None,
+                             album=track.album.get("name") if track.album else None)
+
+
 @celery.task(name="align_lyrics")
 def align_lyrics(track_id: str, sheet: list) -> dict:
     """
@@ -230,6 +245,98 @@ def align_lyrics(track_id: str, sheet: list) -> dict:
     if library.load_track(track_id) is None:
         raise RuntimeError(f"Unknown track {track_id}")
     return lyrics_align.align_track(track_id, [(time, text) for time, text in sheet])
+
+
+# --- downloading ahead -----------------------------------------------------------
+#
+# Separation is the slow, heavy step and runs one song at a time. Downloading is neither, so while a
+# song is being separated, the audio of the songs waiting behind it is fetched in parallel; by the
+# time their turn comes the file is there. This runs inside the worker (the solo pool leaves the
+# process free for threads), so there is nothing extra to start.
+
+PREFETCH_POLL_S = 5
+PREFETCH_LOOKAHEAD = 4   # how many waiting songs to fetch for
+PREFETCH_DOWNLOADS = 3   # at once: YouTube rate-limits a client that opens many
+PREFETCH_WAIT_S = 15 * 60
+
+_prefetch_pool = ThreadPoolExecutor(PREFETCH_DOWNLOADS, thread_name_prefix="prefetch")
+_prefetching: dict[str, Future] = {}
+_prefetch_lock = threading.Lock()
+
+
+def queued_tracks(limit: int) -> list[dict]:
+    """The songs waiting for this worker, next first, read from the broker without touching the messages."""
+    from services.worker_status import broker
+
+    found = []
+    for raw in broker.lrange("celery", 0, limit * 4 - 1):
+        try:
+            message = json.loads(raw)
+            if message.get("headers", {}).get("task") != "process_request":
+                continue
+            args = json.loads(base64.b64decode(message["body"]))[0]
+            if args and isinstance(args[0], dict):
+                found.append(args[0])
+        except (ValueError, KeyError, TypeError, IndexError):
+            continue
+        if len(found) >= limit:
+            break
+    return found
+
+
+def _fetch_ahead(track: Track) -> None:
+    who = _identify(track)
+    search_term = f"{track.name} {' '.join(a.name for a in track.artists)}"
+    download_audio(track.id, search_term, target_duration_s=who.duration_s, video_id=who.video_id, title=who.title)
+
+
+def prefetch_once() -> int:
+    """Start fetching for waiting songs that are not fetched or being fetched. Returns how many were started."""
+    started = 0
+    for data in queued_tracks(PREFETCH_LOOKAHEAD):
+        try:
+            track = Track(**data)
+        except Exception:
+            continue
+        with _prefetch_lock:
+            if track.id in _prefetching:
+                continue
+            if Path(RAW_AUDIO_DIR, f"{track.id}.mp3").exists() or Path(VOCALS_DIR, f"{track.id}.mp3").exists():
+                continue
+            _prefetching[track.id] = _prefetch_pool.submit(_fetch_ahead, track)
+            started += 1
+    return started
+
+
+def _take_prefetched(track_id: str) -> bool:
+    """
+    Whether this song's audio was fetched ahead (waiting for the fetch if it is still going). False
+    means nothing usable is there and the caller should download. A fetch that failed is not reported
+    here: the caller's own download fails the same way, as the song's error.
+    """
+    with _prefetch_lock:
+        future = _prefetching.pop(track_id, None)
+    if future is None:
+        return False
+    try:
+        future.result(timeout=PREFETCH_WAIT_S)
+    except Exception as e:
+        print(f"Fetching ahead failed for {track_id}: {e!r}")
+        return False
+    return Path(RAW_AUDIO_DIR, f"{track_id}.mp3").exists()
+
+
+@worker_ready.connect
+def _start_prefetching(**_):
+    def loop():
+        while True:
+            try:
+                prefetch_once()
+            except Exception as e:
+                print(f"Fetching ahead paused: {e!r}")
+            time.sleep(PREFETCH_POLL_S)
+
+    threading.Thread(target=loop, name="prefetcher", daemon=True).start()
 
 
 if __name__ == "__main__":

@@ -34,7 +34,9 @@ def get_instrumental_path(filename: str) -> str | None:
     Returns:
         str: The full path to the song file.
     """
-    path = Path(NO_VOCALS_DIR, f"{filename}.mp3")
+    from managers import r2
+
+    path = r2.local("instrumental", filename)
     if path.exists():
         return str(path)
     else:
@@ -51,7 +53,9 @@ def get_vocal_path(filename: str) -> str | None:
     Returns:
         str: The full path to the song file.
     """
-    path = Path(VOCALS_DIR, f"{filename}.mp3")
+    from managers import r2
+
+    path = r2.local("vocal", filename)
     if path.exists():
         return str(path)
     else:
@@ -67,7 +71,9 @@ def get_midi_path(filename: str) -> str | None:
     Returns:
         str: The full path to the MIDI file.
     """
-    path = Path(MIDI_DIR, f"{filename}.mid")
+    from managers import r2
+
+    path = r2.local("midi", filename)
     if path.exists():
         return str(path)
     else:
@@ -99,6 +105,9 @@ def get_lyrics_path(filename: str) -> str | None:
     Returns:
         str: The full path to the lyrics file.
     """
+    from managers import r2  # imported here: r2 itself imports this module's directories
+
+    r2.refresh("lyrics", filename)
     path = Path(LYRICS_DIR, f"{filename}.lrc")
 
     if path.exists():

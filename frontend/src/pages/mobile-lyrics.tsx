@@ -1,45 +1,39 @@
+import { usePageTitle } from 'src/hooks/documentTitle';
+import { useT } from 'src/i18n';
+import { useLyricsColors } from 'src/hooks/lyricsColors';
 import MobileLyrics from 'src/components/MobileLyrics';
 import { useThemeMode } from 'src/hooks/theme';
 import MobileAudioController from 'src/components/MobileAudioController';
-import { useState, useEffect } from 'react';
-import { DEFAULT_COLOR, DEFAULT_BG_COLOR, getLyricsRGB } from 'src/utils';
 import { usePlayer } from 'src/store/player';
 import LyricsOffset from 'src/components/LyricsOffset';
 import { useLyricsOffset } from 'src/hooks/lyricsOffset';
+import PitchRoll from 'src/components/PitchRoll';
+import SingingButtons from 'src/components/SingingButtons';
 import VideoBackdrop from 'src/components/VideoBackdrop';
-import { useSettingStore } from 'src/store/setting';
+import { useVideoMode } from 'src/hooks/videoMode';
 
 export default function MobileLyricsView() {
   const { currentTrack } = usePlayer();
+  const t = useT();
+  usePageTitle(t('nav.lyrics'), currentTrack);
   const { ahead, setAhead, approximate, videoId, disabled } = useLyricsOffset();
-  const showVideo = useSettingStore((state) => state.showVideo);
+  const { showVideo } = useVideoMode();
   const overVideo = showVideo && !!videoId;
-  const [color, setColor] = useState<string>(DEFAULT_COLOR);
-  const [bgColor, setBgColor] = useState<string>(DEFAULT_BG_COLOR);
   const mode = useThemeMode();
   const image = currentTrack?.album?.images?.[0]?.url;
 
-  useEffect(() => {
-    if (!image) {
-      setColor(DEFAULT_COLOR);
-      setBgColor(DEFAULT_BG_COLOR);
-      return;
-    }
-    getLyricsRGB(image, mode === 'light')
-      .then(({ lyrics, background }) => {
-        setColor(lyrics);
-        setBgColor(background);
-      })
-      .catch((error) => {
-        console.error('Error fetching average RGB:', error);
-      });
-  }, [image, mode]);
+  const { lyrics: color, background: bgColor } = useLyricsColors(image, mode === 'light');
   return (
     <div className="grid h-full w-full grid-cols-1 grid-rows-[1fr_auto] items-center justify-center overflow-hidden" style={{ backgroundColor: bgColor }}>
       <div className="relative h-full min-h-0">
-        {overVideo && videoId && <VideoBackdrop videoId={videoId} />}
-        <div className="relative h-full">
-          <MobileLyrics color={overVideo ? '#fff' : color} bgColor={overVideo ? 'transparent' : bgColor} />
+        {videoId && <VideoBackdrop videoId={videoId} visible={overVideo} />}
+        {!overVideo && (
+          <div className="relative h-full">
+            <MobileLyrics color={color} bgColor={bgColor} />
+          </div>
+        )}
+        <div className="absolute bottom-3 left-3 z-10 flex gap-2">
+          <SingingButtons />
         </div>
         {!disabled && (
           <div className="absolute right-3 bottom-3 z-10">
@@ -48,6 +42,7 @@ export default function MobileLyricsView() {
         )}
       </div>
       <div className="px-6 pb-3">
+        <PitchRoll className="mb-3" />
         <MobileAudioController />
       </div>
     </div>

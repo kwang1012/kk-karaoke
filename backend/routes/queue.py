@@ -9,10 +9,22 @@ from managers.db import get_db
 from models.track import Track, is_retired_track_id
 from models.requests import ReorderRequest, UpdateQueueIdxRequest
 from redis_keys import RedisKeys
-from services.process_request import send_process_request, is_ready
+from services.tasks import send_process_request, is_ready
+from managers import catalog
+from services.queue_order import QueueOrder
 
 router = APIRouter()
 ws_manager = WebSocketManager()
+
+# Someone who has not set up a name has no room to join: the shared "default" queue reaches every open tab.
+SHARED_ROOM = "default"
+
+
+async def _to_room(room_id: str, data: dict):
+    if room_id == SHARED_ROOM:
+        await ws_manager.broadcast(data)
+    else:
+        await ws_manager.multicast(room_id, data)
 
 
 def create_track_progress_callback(
@@ -33,7 +45,7 @@ def create_track_progress_callback(
                 else:
                     track.progress = 0
                 redis_interface.update_track_status(room_id, track)
-        asyncio.run_coroutine_threadsafe(ws_manager.broadcast(message_data), loop)
+        asyncio.run_coroutine_threadsafe(_to_room(room_id, message_data), loop)
 
     return callback
 
@@ -50,10 +62,11 @@ def resume_pending_tracks(loop: asyncio.AbstractEventLoop) -> int:
     r = get_db()
     redis_interface = RedisQueueInterface(r)
     submitted: set[str] = set()
+    ready = catalog.ready_ids()
     for key in r.scan_iter("room:*:queue"):
         room_id = key.split(":")[1]
         for track in redis_interface.get_queue(room_id):
-            if is_ready(track):
+            if track.id in ready:
                 continue
             callback = create_track_progress_callback(track, room_id, redis_interface, loop)
             redis_interface.subscribe_to_channel(track.id, callback)
@@ -73,7 +86,7 @@ async def _add_and_process_track(
     if is_retired_track_id(track.id):
         return JSONResponse(
             status_code=400, content={"error": "This song is from an older version; search for it again"})
-    is_track_ready = is_ready(track)
+    is_track_ready = await asyncio.to_thread(is_ready, track)
     track.status = "ready" if is_track_ready else "submitted"
 
     if add_fn == "add":
@@ -84,7 +97,8 @@ async def _add_and_process_track(
         )
     else:
         idx = redis_interface.add_track_to_next(room_id, track)
-        await ws_manager.broadcast(
+        await _to_room(
+            room_id,
             {"type": "queue", "data": {"action": "inserted", "track": track.model_dump(), "index": idx}},
         )
 
@@ -95,7 +109,7 @@ async def _add_and_process_track(
     callback = create_track_progress_callback(track, room_id, redis_interface, loop)
     redis_interface.subscribe_to_channel(track.id, callback)
 
-    task = send_process_request(track)
+    task = await asyncio.to_thread(send_process_request, track)
     return JSONResponse(content={"is_ready": False, "task": task.id}, status_code=200)
 
 
@@ -116,6 +130,21 @@ async def reorder_queue_endpoint(
     return JSONResponse(content={"message": "Queue reordered"}, status_code=200)
 
 
+@router.post("/{room_id}/arrange/{mode}")
+async def arrange_queue_endpoint(
+    room_id: str,
+    mode: QueueOrder,
+    redis_interface: RedisQueueInterface = Depends(lambda: RedisQueueInterface(get_db())),
+):
+    try:
+        tracks = redis_interface.arrange_queue(room_id, mode)
+    except redis.WatchError:
+        raise HTTPException(status_code=409, detail="Queue is busy; try again")
+    data = {"action": "arranged", "room_id": room_id, "tracks": [t.model_dump() for t in tracks]}
+    await ws_manager.multicast(room_id, {"type": "queue", "data": data})
+    return {"tracks": tracks}
+
+
 @router.post("/{room_id}/add")
 async def add_to_queue_endpoint(
     room_id: str,
@@ -132,8 +161,10 @@ async def get_room_tracks(
 ):
     tracks = redis_interface.get_queue(room_id)
     current_idx = redis_interface.get_current_idx(room_id)
+    pending = [t.id for t in tracks if t.status != "ready"]
+    ready = await asyncio.to_thread(catalog.ready_among, pending) if pending else set()
     for track in tracks:
-        if track.status != "ready" and is_ready(track):
+        if track.status != "ready" and track.id in ready:
             track.status = "ready"
             track.progress = None
     return {"tracks": tracks, "index": current_idx}
@@ -146,8 +177,8 @@ async def remove_from_queue_endpoint(
     redis_interface: RedisQueueInterface = Depends(lambda: RedisQueueInterface(get_db())),
 ):
     res = redis_interface.remove_track_from_queue(room_id, track)
-    await ws_manager.broadcast(
-        {"type": "queue", "data": {"action": "removed", "track": track.model_dump()}}
+    await _to_room(
+        room_id, {"type": "queue", "data": {"action": "removed", "track": track.model_dump()}}
     )
     return JSONResponse(content={"track": res}, status_code=200)
 
@@ -158,8 +189,8 @@ async def clear_queue_endpoint(
     redis_interface: RedisQueueInterface = Depends(lambda: RedisQueueInterface(get_db())),
 ):
     redis_interface.clear_queue(room_id)
-    await ws_manager.broadcast(
-        {"type": "queue", "data": {"action": "cleared", "room_id": room_id}}
+    await _to_room(
+        room_id, {"type": "queue", "data": {"action": "cleared", "room_id": room_id}}
     )
     return JSONResponse(content={"message": f"Queue for room {room_id} cleared"}, status_code=200)
 

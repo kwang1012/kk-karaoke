@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import AirPlaySetup from './AirPlaySetup';
+import { useNavigate } from 'react-router-dom';
 import { Button } from 'src/components/ui/button';
 import { Input } from 'src/components/ui/input';
 import AppSelect from 'src/components/Select';
@@ -9,7 +11,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { usePlayerStore } from 'src/store/player';
 import { useSettingStore } from 'src/store/setting';
 import { useRoomStore } from 'src/store/room';
+import { asDetail } from 'src/melodyDetail';
 import { PRESET_AVATARS } from 'src/utils';
+import AppSlider from 'src/components/Slider';
+import { canChooseOutput, canUseMic, useInputDevices, useOutputDevices } from 'src/hooks/audioDevices';
 import { LANGUAGES, useLanguageStore, useT, type Language } from 'src/i18n';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -35,6 +40,7 @@ function Row({ title, description, children }: { title: string; description?: st
 
 export default function SettingsDialog() {
   const t = useT();
+  const navigate = useNavigate();
   const language = useLanguageStore((state) => state.language);
   const setLanguage = useLanguageStore((state) => state.setLanguage);
   const open = useSettingStore((state) => state.settingsOpen);
@@ -47,6 +53,24 @@ export default function SettingsDialog() {
   const wordHighlight = useSettingStore((state) => state.wordHighlight);
   const setWordHighlight = useSettingStore((state) => state.setWordHighlight);
   const setShowTranslatinon = useSettingStore((state) => state.setShowTranslatinon);
+  const outputDeviceId = useSettingStore((state) => state.outputDeviceId);
+  const setOutputDeviceId = useSettingStore((state) => state.setOutputDeviceId);
+  const outputDevices = useOutputDevices(open);
+  const inputDevices = useInputDevices(open);
+  const micOn = useSettingStore((state) => state.micOn);
+  const setMicOn = useSettingStore((state) => state.setMicOn);
+  const micMonitor = useSettingStore((state) => state.micMonitor);
+  const setMicMonitor = useSettingStore((state) => state.setMicMonitor);
+  const melodyDetail = useSettingStore((state) => asDetail(state.melodyDetail));
+  const setMelodyDetail = useSettingStore((state) => state.setMelodyDetail);
+  const showMelody = useSettingStore((state) => state.showMelody);
+  const setShowMelody = useSettingStore((state) => state.setShowMelody);
+  const inputDeviceId = useSettingStore((state) => state.inputDeviceId);
+  const setInputDeviceId = useSettingStore((state) => state.setInputDeviceId);
+  const micVolume = useSettingStore((state) => state.micVolume);
+  const setMicVolume = useSettingStore((state) => state.setMicVolume);
+  const micReverb = useSettingStore((state) => state.micReverb);
+  const setMicReverb = useSettingStore((state) => state.setMicReverb);
   const nickName = useRoomStore((state) => state.nickname);
   const setNickname = useRoomStore((state) => state.setNickname);
   const avatar = useRoomStore((state) => state.avatar);
@@ -82,11 +106,26 @@ export default function SettingsDialog() {
         </Section>
 
         <Section title={t('settings.audio')}>
+          <Row title="AirPlay" description={t('airplay.description')}>
+            <AirPlaySetup onOpenTv={() => setOpen(false)} />
+          </Row>
           <Row
             title={t('settings.keyShift')}
             description={t('settings.keyShiftHint')}
           >
             <AppSwitch checked={enabledPitchShift} onCheckedChange={onChangePitchShift} />
+          </Row>
+          <Row
+            title={t('settings.outputDevice')}
+            description={canChooseOutput ? t('settings.outputDeviceHint') : t('settings.outputDeviceUnsupported')}
+          >
+            <AppSelect
+              disabled={!canChooseOutput}
+              value={outputDevices.some((d) => d.value === outputDeviceId) ? outputDeviceId : 'default'}
+              onValueChange={(value) => setOutputDeviceId(value === 'default' ? '' : value)}
+              options={[{ value: 'default', label: t('settings.outputDeviceDefault') }, ...outputDevices]}
+              className="w-[200px]"
+            />
           </Row>
           <Row title={t('settings.quality')} description={t('settings.qualityHint')}>
             <AppSelect
@@ -102,12 +141,50 @@ export default function SettingsDialog() {
           </Row>
         </Section>
 
+        <Section title={t('settings.microphone')}>
+          <Row title={t('settings.micOn')} description={canUseMic ? t('settings.micOnHint') : t('settings.micOnUnavailable')}>
+            <AppSwitch checked={micOn} disabled={!canUseMic} onCheckedChange={setMicOn} />
+          </Row>
+          <Row title={t('settings.micMonitor')} description={t('settings.micMonitorHint')}>
+            <AppSwitch checked={micMonitor} disabled={!micOn} onCheckedChange={setMicMonitor} />
+          </Row>
+          <Row title={t('settings.inputDevice')} description={t('settings.inputDeviceHint')}>
+            <AppSelect
+              value={inputDevices.some((d) => d.value === inputDeviceId) ? inputDeviceId : 'default'}
+              onValueChange={(value) => setInputDeviceId(value === 'default' ? '' : value)}
+              options={[{ value: 'default', label: t('settings.outputDeviceDefault') }, ...inputDevices]}
+              className="w-[200px]"
+            />
+          </Row>
+          <Row title={t('settings.micVolume')}>
+            <AppSlider className="w-[200px]" value={micVolume * 100} onChange={(_, v) => setMicVolume((v as number) / 100)} />
+          </Row>
+          <Row title={t('settings.micReverb')}>
+            <AppSlider className="w-[200px]" value={micReverb * 100} onChange={(_, v) => setMicReverb((v as number) / 100)} />
+          </Row>
+        </Section>
+
         <Section title={t('settings.lyrics')}>
           <Row
             title={t('settings.romanization')}
             description={t('settings.romanizationHint')}
           >
             <AppSwitch checked={showTranslatinon} onCheckedChange={setShowTranslatinon} />
+          </Row>
+          <Row title={t('settings.showMelody')} description={t('settings.showMelodyHint')}>
+            <AppSwitch checked={showMelody} onCheckedChange={setShowMelody} />
+          </Row>
+          <Row title={t('settings.melodyDetail')} description={t('settings.melodyDetailHint')}>
+            <div className="flex w-[200px] items-center gap-2 text-xs text-muted-foreground">
+              <span>{t('melody.detail.smooth')}</span>
+              <AppSlider
+                className="flex-1"
+                value={melodyDetail * 100}
+                aria-label={t('settings.melodyDetail')}
+                onChange={(_, value) => setMelodyDetail((value as number) / 100)}
+              />
+              <span>{t('melody.detail.detailed')}</span>
+            </div>
           </Row>
           <Row title={t('settings.wordHighlight')} description={t('settings.wordHighlightHint')}>
             <AppSwitch checked={wordHighlight} onCheckedChange={setWordHighlight} />
@@ -117,6 +194,21 @@ export default function SettingsDialog() {
         <Section title={t('settings.appearance')}>
           <Row title={t('settings.darkMode')} description={theme === 'dark' ? t('settings.darkHint') : t('settings.lightHint')}>
             <AppSwitch checked={theme === 'dark'} onCheckedChange={() => toggleTheme()} />
+          </Row>
+        </Section>
+
+        <Section title={t('settings.admin')}>
+          <Row title={t('settings.admin')} description={t('settings.adminHint')}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setOpen(false);
+                navigate('/admin');
+              }}
+            >
+              {t('settings.adminOpen')}
+            </Button>
           </Row>
         </Section>
 
@@ -148,19 +240,7 @@ export default function SettingsDialog() {
             </Button>
           </Row>
           <Row title={t('settings.avatar')} description={t('settings.avatarHint')}>
-            {editAvatar ? (
-              <>
-                <AvatarPicker
-                  className="flex items-center gap-2"
-                  itemClassName="size-9"
-                  avatars={PRESET_AVATARS}
-                  value={localAvatar}
-                  onChange={setLocalAvatar}
-                />
-              </>
-            ) : (
-              localAvatar && <img src={localAvatar} className="mr-3 size-9 rounded-full" alt="avatar" />
-            )}
+            {!editAvatar && localAvatar && <img src={localAvatar} className="mr-3 size-9 rounded-full" alt="avatar" />}
             <Button
               variant="outline"
               size="sm"
@@ -174,6 +254,14 @@ export default function SettingsDialog() {
               {editAvatar ? t('common.save') : t('common.edit')}
             </Button>
           </Row>
+          {editAvatar && (
+            <AvatarPicker
+              className="grid grid-cols-6 gap-3 px-5 py-4 sm:grid-cols-9"
+              avatars={PRESET_AVATARS}
+              value={localAvatar}
+              onChange={setLocalAvatar}
+            />
+          )}
         </Section>
         </AppScrollbar>
       </DialogContent>

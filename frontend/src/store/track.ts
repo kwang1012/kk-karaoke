@@ -25,7 +25,12 @@ export interface TrackStore {
   setSongProgress: (songId: string, progress: number) => void; // Set the progress of a track in the queue
   removeSongProgress: (songId: string) => void; // Remove the progress of a track in the queue
   getReadyTracks: () => Promise<void>; // Fetch the list of ready tracks from the API and update the state
+  syncProcessing: () => Promise<void>; // Ask which still-processing tracks are ready now (cheap), refetching the library if any
 }
+
+/** The tracks a "ready" notice may have been missed for. */
+export const processingIds = (songStatus: Record<string, SongStatus>) =>
+  Object.keys(songStatus).filter((id) => songStatus[id] !== 'ready' && songStatus[id] !== 'error');
 export const useTrackStore = create<TrackStore>((set, get) => ({
   // lyrics delay
   readyTracks: new Set(), // List of tracks that are ready to be played
@@ -88,6 +93,19 @@ export const useTrackStore = create<TrackStore>((set, get) => ({
     set({
       songProgress: rest,
     });
+  },
+  syncProcessing: async () => {
+    const ids = processingIds(get().songStatus);
+    if (!ids.length) return;
+    try {
+      const { data } = await api.get('/library/ready', { params: { ids: ids.join(',') } });
+      const ready: string[] = data.ready ?? [];
+      if (!ready.length) return;
+      set((state) => ({ songStatus: { ...state.songStatus, ...Object.fromEntries(ready.map((id) => [id, 'ready' as const])) } }));
+      await get().getReadyTracks();
+    } catch (err) {
+      console.error(err); // a missed poll is retried by the next one
+    }
   },
   getReadyTracks: () => {
     set({ readyError: false });

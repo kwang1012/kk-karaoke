@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { DEFAULT_MELODY_DETAIL } from 'src/melodyDetail';
 
 export interface SettingState {
   // settings
@@ -7,7 +8,23 @@ export interface SettingState {
   refresh: () => void; // Function to refresh the settings
   wordHighlight: boolean; // Fill the current line word by word when word timing exists
   setWordHighlight: (wordHighlight: boolean) => void;
-  showVideo: boolean; // Play the recording's video behind the lyrics
+  outputDeviceId: string; // Chosen audio output device; '' follows the system default
+  setOutputDeviceId: (outputDeviceId: string) => void;
+  micOn: boolean; // The microphone is open (for the score and the pitch display); never persisted, so a reload cannot open it unasked
+  micMonitor: boolean; // Play the microphone through the speakers; never persisted either
+  setMicMonitor: (micMonitor: boolean) => void;
+  melodyDetail: number; // 0..1: from few long notes to everything the melody finder heard
+  setMelodyDetail: (melodyDetail: number) => void;
+  showMelody: boolean; // Show the song's melody as a piano roll over the lyrics
+  setShowMelody: (showMelody: boolean) => void;
+  setMicOn: (micOn: boolean) => void;
+  inputDeviceId: string; // Chosen microphone; '' follows the system default
+  setInputDeviceId: (inputDeviceId: string) => void;
+  micVolume: number; // 0..1
+  setMicVolume: (micVolume: number) => void;
+  micReverb: number; // 0..1
+  setMicReverb: (micReverb: number) => void;
+  showVideo: boolean; // Show the recording's video instead of the lyrics
   setShowVideo: (showVideo: boolean) => void;
   showTranslatinon: boolean; // Whether to show translation
   setShowTranslatinon: (showTranslatinon: boolean) => void; // Set show translation
@@ -44,6 +61,22 @@ export const useSettingStore = create<SettingState>()(
       refresh: () => set((state) => ({ refreshKey: state.refreshKey + 1 })), // Function to refresh the settings
       wordHighlight: true,
       setWordHighlight: (wordHighlight: boolean) => set({ wordHighlight }),
+      outputDeviceId: '',
+      setOutputDeviceId: (outputDeviceId: string) => set({ outputDeviceId }),
+      micOn: false,
+      micMonitor: false,
+      setMicMonitor: (micMonitor: boolean) => set({ micMonitor }),
+      melodyDetail: DEFAULT_MELODY_DETAIL,
+      setMelodyDetail: (melodyDetail: number) => set({ melodyDetail }),
+      showMelody: false,
+      setShowMelody: (showMelody: boolean) => set({ showMelody }),
+      setMicOn: (micOn: boolean) => set({ micOn }),
+      inputDeviceId: '',
+      setInputDeviceId: (inputDeviceId: string) => set({ inputDeviceId }),
+      micVolume: 0.8,
+      setMicVolume: (micVolume: number) => set({ micVolume }),
+      micReverb: 0.25,
+      setMicReverb: (micReverb: number) => set({ micReverb }),
       showVideo: false,
       setShowVideo: (showVideo: boolean) => set({ showVideo }),
       showTranslatinon: false, // Whether to show translation
@@ -93,6 +126,12 @@ export const useSettingStore = create<SettingState>()(
         theme: state.theme,
         queueOpen: state.queueOpen,
         wordHighlight: state.wordHighlight,
+        outputDeviceId: state.outputDeviceId,
+        inputDeviceId: state.inputDeviceId,
+        micVolume: state.micVolume,
+        micReverb: state.micReverb,
+        showMelody: state.showMelody,
+        melodyDetail: state.melodyDetail,
         showVideo: state.showVideo,
         showTranslatinon: state.showTranslatinon,
         refreshKey: state.refreshKey,

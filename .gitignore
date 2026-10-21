@@ -19,3 +19,11 @@ build/
 dist/
 # Local Cloudflare tool cache (holds account details)
 .wrangler/
+.local-worker.log
+.local-worker.pid
+
+# Durable outgoing uploads; contains generated asset bytes and retry records.
+backend/data/
+.local-tunnel.log
+.local-api.log
+.local-frontend.log

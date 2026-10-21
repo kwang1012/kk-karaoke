@@ -9,3 +9,4 @@ backend/storage
 
 # Ignore backend environment variables
 backend/.env
+backend/data

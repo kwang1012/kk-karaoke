@@ -4,10 +4,10 @@ from fastapi import APIRouter, Depends
 from models.track import LyricsDelay
 from models.requests import AlignRequest, UpdateLyricsRequest
 from managers import r2
-from pathlib import Path
 from services import library
 from services.lyrics_sources import is_guess, lyrics_summary, read_meta, set_aligned, words_for_line, write_meta
-from services.process_request import celery
+from services.tasks import celery
+from managers import catalog
 from utils import LYRICS_DIR, get_lyrics_path
 import re
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -48,13 +48,14 @@ async def update_delay(
 @router.get("/status")
 def lyrics_status():
     """What every track's lyrics are, in one call: for a list that wants to show which need attention."""
-    ids = {p.name.split(".")[0] for p in Path(LYRICS_DIR).iterdir()
-           if p.is_file() and (p.suffix == ".lrc" or p.name.endswith(".meta.json"))}
     out = {}
-    for track_id in sorted(ids):
-        meta = read_meta(track_id)
-        out[track_id] = {
-            "has_lyrics": Path(LYRICS_DIR, f"{track_id}.lrc").exists(),
+    for record in catalog.records():
+        assets = record["assets"]
+        if not any(k in assets and assets[k]["state"] in ("ready", "pending") for k in ("lyrics", "lyrics-meta")):
+            continue
+        meta = assets.get("lyrics-meta", {}).get("metadata", {})
+        out[record["id"]] = {
+            "has_lyrics": assets.get("lyrics", {}).get("state") == "ready",
             "has_plain": bool(meta.get("plain")),
             "confidence": meta.get("confidence"),
             "source": meta.get("source"),
@@ -69,7 +70,17 @@ _TASK_STATES = {"PENDING": "pending", "STARTED": "running", "RETRY": "running",
 
 def _task_status(task_id: str):
     """Where a worker task stands. `pending` covers both queued and running: the worker reports only the end."""
-    result = celery.AsyncResult(task_id)
+    job = catalog.job(task_id)
+    if job:
+        import json
+        body = {"state": {"queued": "pending", "running": "running", "retry": "running",
+                          "completed": "done", "failed": "failed", "cancelled": "failed"}[job["state"]]}
+        if job.get("result") is not None:
+            body["result"] = json.loads(job["result"])
+        if job.get("error"):
+            body["error"] = job["error"]
+        return JSONResponse(content=body)
+    result = celery.AsyncResult(task_id)  # tasks queued before the catalog migration
     body: dict = {"state": _TASK_STATES.get(result.state, "pending")}
     if result.state == "SUCCESS":
         body["result"] = result.result
@@ -86,6 +97,12 @@ def refresh_status(task_id: str):
 @router.get("/align/{task_id}")
 def align_status(task_id: str):
     """A finished alignment's result is the proposal: `lines` (time, text, anchored, confidence, words) and `score`."""
+    return _task_status(task_id)
+
+
+@router.get("/candidates/{task_id}")
+def candidates_status(task_id: str):
+    """A finished search's result is the list of candidates, best fit first."""
     return _task_status(task_id)
 
 
@@ -107,6 +124,15 @@ def refresh_lyrics(track_id: str, force: bool = False):
         return JSONResponse(status_code=409, content={
             "error": "edited", "message": "These lyrics were edited by hand. Refreshing replaces your edits."})
     task = celery.send_task("refresh_lyrics", args=[track_id])
+    return JSONResponse(content={"task": task.id})
+
+
+@router.post("/{track_id}/candidates")
+def find_candidates(track_id: str):
+    """Look for every lyric sheet that could be this track's, on the worker. Nothing is saved or replaced."""
+    if library.load_track(track_id) is None:
+        return JSONResponse(status_code=404, content={"error": "Unknown track"})
+    task = celery.send_task("find_candidates", args=[track_id])
     return JSONResponse(content={"task": task.id})
 
 
@@ -133,17 +159,17 @@ def get_lyrics(
     ),
 ):
     file_path = get_lyrics_path(track_id)
+    meta = read_meta(track_id)  # one catalog round trip, whichever branch needs it
     if not file_path:
-        plain = read_meta(track_id).get("plain")
+        plain = meta.get("plain")
         if plain:
             # Words without timing: no lines to highlight, so the client shows them as text.
             return JSONResponse(content={
                 "lyrics": [], "content": "", "plain": plain, "delay": 0, "confidence": "unsynced",
-                "video_id": read_meta(track_id).get("video_id"),
+                "video_id": meta.get("video_id"),
             })
         return JSONResponse(status_code=404, content={"error": "Lyrics not found"})
     try:
-        meta = read_meta(track_id)
         romanized_exists = redis_interface.check_romanized_lyrics(track_id)
         if romanized_exists:
             romanized_lines: list[Union[str, None]] = (
@@ -237,6 +263,12 @@ def update_lyrics(track_id: str, data: UpdateLyricsRequest):
         # The words had no timing and now have it: they are no longer "unsynced", and the plain copy
         # (kept only for lyrics nobody had timed) is redundant.
         meta = {**{k: v for k, v in meta.items() if k != "plain"}, "confidence": "synced"}
+    if data.origin is not None:
+        # A person chose this sheet: it is theirs now, and it no longer carries what the last one knew.
+        meta = {k: v for k, v in meta.items() if k not in ("words", "word_source", "word_origin", "aligned", "audio_check", "plain", "notes")}
+        meta = {**meta, "source": data.origin.source, "confidence": data.origin.confidence, "edited": True,
+                "notes": data.origin.notes}
+        write_meta(track_id, meta)
     if data.aligned is not None:
         meta = set_aligned(
             {**meta, "edited": True}, data.aligned.score,

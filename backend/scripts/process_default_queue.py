@@ -2,7 +2,7 @@ import asyncio
 from celery.result import AsyncResult
 from models.track import Track
 from services.catalog import collection_tracks, top_categories
-from services.process_request import send_process_request
+from services.tasks import send_process_request
 
 
 async def main():

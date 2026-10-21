@@ -19,6 +19,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Optional
+from urllib.parse import parse_qs, urlparse
 
 from ytmusicapi import YTMusic
 
@@ -76,7 +77,14 @@ def to_track(hit: dict[str, Any], kind: str) -> Optional[dict[str, Any]]:
 
 
 def search_tracks(query: str) -> list[dict[str, Any]]:
-    """Songs first, then videos, without repeats. Empty when YouTube Music is unavailable."""
+    """Songs first, then videos, without repeats. Empty when YouTube Music is unavailable.
+
+    A pasted YouTube link finds that exact video instead.
+    """
+    video_id = video_id_from_url(query)
+    if video_id:
+        track = track_from_video_id(video_id)
+        return [track] if track else []
     by_kind: dict[str, list[dict[str, Any]]] = {"song": [], "video": []}
     seen: set[str] = set()
     for kind, filter_, limit in (("song", "songs", SONG_LIMIT), ("video", "videos", VIDEO_LIMIT)):
@@ -94,6 +102,44 @@ def search_tracks(query: str) -> list[dict[str, Any]]:
     # Studio songs lead, but a few videos sit near the top: a list that only shows its first
     # handful would otherwise never reveal that a video version exists.
     return songs[:LEAD_SONGS] + videos[:LEAD_VIDEOS] + songs[LEAD_SONGS:] + videos[LEAD_VIDEOS:]
+
+
+_YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"}
+_VIDEO_ID = re.compile(r"^[A-Za-z0-9_-]{11}$")
+
+
+def video_id_from_url(text: str) -> Optional[str]:
+    """The video a pasted YouTube link points at. A playlist or mix riding along is ignored."""
+    parsed = urlparse(text.strip() if re.match(r"\s*https?://", text) else f"https://{text.strip()}")
+    if (parsed.hostname or "").lower() not in _YOUTUBE_HOSTS:
+        return None
+    if parsed.hostname.lower() == "youtu.be":
+        candidate = parsed.path.lstrip("/").split("/")[0]
+    elif parsed.path == "/watch":
+        candidate = (parse_qs(parsed.query).get("v") or [""])[0]
+    else:  # /shorts/<id>, /live/<id>, /embed/<id>
+        parts = [p for p in parsed.path.split("/") if p]
+        candidate = parts[1] if len(parts) > 1 and parts[0] in ("shorts", "live", "embed") else ""
+    return candidate if _VIDEO_ID.match(candidate) else None
+
+
+def track_from_video_id(video_id: str) -> Optional[dict[str, Any]]:
+    """Any YouTube video as a track (a performance, a medley, an upload), for ordering by link."""
+    try:
+        details = _ytm().get_song(video_id).get("videoDetails") or {}
+    except Exception as e:  # noqa: BLE001 - unofficial API; an unknown or private video lands here
+        log.warning("YT Music lookup of %s failed: %r", video_id, e)
+        return None
+    if not details.get("title"):
+        return None
+    seconds = int(details["lengthSeconds"]) if str(details.get("lengthSeconds", "")).isdigit() else None
+    return to_track({
+        "videoId": video_id,
+        "title": details["title"],
+        "artists": [{"name": details["author"]}] if details.get("author") else [],
+        "duration_seconds": seconds,
+        "thumbnails": (details.get("thumbnail") or {}).get("thumbnails") or [],
+    }, "video")
 
 
 # --- collections: albums, playlists, home shelves --------------------------------------

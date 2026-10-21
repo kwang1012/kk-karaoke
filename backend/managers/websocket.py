@@ -1,4 +1,5 @@
 import asyncio
+from redis.exceptions import RedisError
 import threading
 import uuid
 from fastapi import WebSocket, WebSocketDisconnect
@@ -102,7 +103,7 @@ class WebSocketManager:
         user = None
         room_id = None
         try:
-            while True:
+            while websocket.client_state == WebSocketState.CONNECTED:
                 msg = await websocket.receive_json()
                 msg_type = msg.get("type")
                 if not msg_type:
@@ -112,7 +113,12 @@ class WebSocketManager:
                     user = User(**msg.get("data", {}))
                     await self.handle_join_message(websocket, room_id, user)
                 elif msg_type == "jam":
-                    await self.handle_jam_message(websocket, msg)
+                    try:
+                        await self.handle_jam_message(websocket, msg)
+                    except RedisError as e:
+                        # The jam state could not be saved: skip this message, keep the connection. (Letting it
+                        # escape reaches the app's HTTP error handler, which cannot answer a websocket.)
+                        print(f"Jam message dropped, Redis unavailable: {e!r}")
         except WebSocketDisconnect:
             pass
         finally:

@@ -2,6 +2,7 @@ import { Button } from 'src/components/ui/button';
 import MobileAudioController from './MobileAudioController';
 import AppScrollbar from './Scrollbar';
 import TrackQueue from './TrackQueue';
+import QueueOrderControls from './QueueOrderControls';
 import { useState, useRef, useMemo, useEffect } from 'react';
 import { useQueue, usePlayerStore } from 'src/store/player';
 import { getUniqueId } from 'src/utils';
@@ -48,6 +49,12 @@ export default function MobilePlayer({ color }: { color?: string }) {
           <span className="text-xl ml-2 text-white">{currentTrack?.name || t('common.notPlaying')}</span>
         </div>
         <div className="w-full px-6 pt-5 text-white">
+          {tracks.length > 0 && (
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h2 className="text-lg font-semibold">{t('queue.nextUp')}</h2>
+              <QueueOrderControls />
+            </div>
+          )}
           {tracks.length ? (
             <TrackQueue tracks={tracks} />
           ) : (

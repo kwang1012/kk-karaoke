@@ -114,3 +114,13 @@ dependencies = [
     "ytmusicapi>=1.12.3",
     "zhconv>=1.4.3",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+# Tests import the backend's own modules (`import main`, `from services ...`) by their top-level names.
+pythonpath = ["."]
+testpaths = ["tests"]

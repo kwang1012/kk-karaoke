@@ -1,24 +1,30 @@
-import { useEffect, useMemo, useState } from 'react';
+import { usePageTitle } from 'src/hooks/documentTitle';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { Check, ChevronLeft, ListMusic, LogOut, Mic, MicOff, Minus, Music, Pause, Play, Plus, Search, SkipBack, SkipForward, Volume1, Volume2 } from 'lucide-react';
+import { Captions, Check, ChevronLeft, ListMusic, LogOut, Mic, MicOff, Minus, Music, Pause, Play, Plus, RotateCcw, Search, SkipBack, SkipForward, Video, Volume2 } from 'lucide-react';
 import placeholder from 'src/assets/placeholder.png';
 import AppScrollbar from 'src/components/Scrollbar';
 import Queue from 'src/components/Queue';
 import AppSlider from 'src/components/Slider';
 import SongCard from 'src/components/SongCard';
 import TrackQueue from 'src/components/TrackQueue';
-import { Avatar, AvatarImage } from 'src/components/ui/avatar';
+import QueueOrderControls from 'src/components/QueueOrderControls';
 import { Button, IconButton } from 'src/components/ui/button';
 import { CircularProgress } from 'src/components/ui/progress';
 import { useDebounce, useDebouncedCallback } from 'src/hooks/debounce';
+import { useLyricsOffset } from 'src/hooks/lyricsOffset';
+import { canUseMic } from 'src/hooks/audioDevices';
+import { useMelodyMode } from 'src/hooks/melodyMode';
+import { useVideoMode } from 'src/hooks/videoMode';
 import { useT } from 'src/i18n';
 import { cn } from 'src/lib/utils';
 import { Collection, Track } from 'src/models/spotify';
 import { SECTIONS, topCategoriesQuery } from 'src/pages/browse';
 import { useTrackStore } from 'src/store';
-import { usePlayer, usePlayerStore } from 'src/store/player';
-import { useJam, useRoomStore } from 'src/store/room';
+import { usePlayer, usePlayerStore, useQueue } from 'src/store/player';
+import { useActiveRoomId, useJam, useRoomStore } from 'src/store/room';
+import { useSettingStore } from 'src/store/setting';
 import { useWebSocketStore } from 'src/store/ws';
 import { getUniqueId } from 'src/utils';
 import { api } from 'src/utils/api';
@@ -36,7 +42,7 @@ const SLIDER = 'h-8 [&_[data-slot=thumb]]:size-5 [&_[data-slot=thumb]]:opacity-1
 function NowPlaying({ onAdd }: { onAdd: () => void }) {
   const t = useT();
   const p = usePlayer();
-  const { currentTrack, playing, loading, progress, duration, seeking, vocalOn, guideLevel, volume, semitone, hostPitchShift } = p;
+  const { currentTrack, playing, loading, progress, duration, seeking, vocalOn, volume } = p;
   const [dragValue, setDragValue] = useState(0);
   const image = currentTrack?.album?.images?.[0]?.url;
 
@@ -57,128 +63,301 @@ function NowPlaying({ onAdd }: { onAdd: () => void }) {
 
   const shown = seeking ? dragValue : progress;
   return (
-    <div className="mx-auto flex h-full w-full max-w-md flex-col justify-center gap-5 px-6 py-4">
-      <img referrerPolicy="no-referrer" src={image || placeholder} alt="" className="mx-auto aspect-square w-full max-w-[18rem] min-h-0 rounded-2xl object-cover shadow-app" />
-      <div className="min-w-0 text-center">
-        <h2 className="truncate text-xl font-bold tracking-tight">{currentTrack.name}</h2>
-        <p className="truncate text-sm text-muted-foreground">{currentTrack.artists.map((artist) => artist.name).join(', ')}</p>
-        {currentTrack.orderedBy && (
-          <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Avatar className="size-5">
-              <AvatarImage src={currentTrack.orderedBy.avatar} alt="" />
-            </Avatar>
-            {t('remote.addedBy', { name: currentTrack.orderedBy.name })}
-          </p>
-        )}
-      </div>
-
-      <div>
-        <AppSlider
-          className={SLIDER}
-          min={0}
-          max={duration || 1}
-          value={Math.min(shown, duration || 1)}
-          onChange={(_, value) => {
-            if (typeof value !== 'number') return;
-            p.setSeeking(true);
-            setDragValue(value);
-          }}
-          onChangeCommitted={(_, value) => {
-            if (typeof value === 'number') p.seek(value);
-            p.setSeeking(false);
-          }}
-          aria-labelledby="remote-progress"
-        />
-        <div id="remote-progress" className="mt-1 flex justify-between text-xs text-muted-foreground tabular-nums">
-          <span>{formatTime(shown)}</span>
-          <span>{formatTime(duration)}</span>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-center gap-6">
-        <IconButton size="large" aria-label={t('remote.previous')} onClick={() => p.previous()}>
-          <SkipBack className="size-7 fill-current" />
-        </IconButton>
-        <button
-          aria-label={playing ? t('remote.pause') : t('remote.play')}
-          disabled={loading}
-          onClick={() => (playing ? p.pause() : p.play())}
-          className="flex size-20 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-app transition-transform active:scale-95 disabled:opacity-60"
-        >
-          {loading ? (
-            <CircularProgress size={36} className="text-primary-foreground" />
-          ) : playing ? (
-            <Pause className="size-9 fill-current" />
-          ) : (
-            <Play className="size-9 translate-x-0.5 fill-current" />
-          )}
-        </button>
-        <IconButton size="large" aria-label={t('remote.next')} onClick={() => p.next()}>
-          <SkipForward className="size-7 fill-current" />
-        </IconButton>
-      </div>
-
-      <div className={cn('grid gap-3', hostPitchShift ? 'grid-cols-2' : 'grid-cols-1')}>
-        <button
-          aria-pressed={vocalOn}
-          onClick={() => p.toggleVocal()}
-          className={cn(
-            'flex h-14 items-center justify-center gap-2 rounded-2xl border text-sm font-medium transition-colors active:scale-[0.98]',
-            vocalOn ? 'border-primary/40 bg-primary/12 text-primary' : 'bg-card text-muted-foreground'
-          )}
-        >
-          {vocalOn ? <Mic className="size-5" /> : <MicOff className="size-5" />}
-          {t('remote.vocals')}
-        </button>
-        {hostPitchShift && (
-          <div className="flex h-14 items-center justify-between rounded-2xl border bg-card px-2">
-            <IconButton aria-label={`${t('remote.key')} −`} disabled={semitone <= -12} onClick={() => p.decreaseSemitone()}>
-              <Minus className="size-5" />
-            </IconButton>
-            <div className="text-center leading-tight">
-              <div className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">{t('remote.key')}</div>
-              <div className="text-base font-semibold tabular-nums">{semitone > 0 ? `+${semitone}` : semitone}</div>
-            </div>
-            <IconButton aria-label={`${t('remote.key')} +`} disabled={semitone >= 12} onClick={() => p.increaseSemitone()}>
-              <Plus className="size-5" />
-            </IconButton>
+    <AppScrollbar className="h-full">
+      <div className="mx-auto flex min-h-full w-full max-w-md flex-col gap-1 px-4 py-2">
+        <div className="flex min-w-0 items-center gap-3 pb-1">
+          <img referrerPolicy="no-referrer" src={image || placeholder} alt="" className="size-12 shrink-0 rounded-lg object-cover" />
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-semibold">{currentTrack.name}</h2>
+            <p className="truncate text-sm text-muted-foreground">{currentTrack.artists.map((artist) => artist.name).join(', ')}</p>
+            {currentTrack.orderedBy && <p className="truncate text-xs text-muted-foreground">{t('remote.addedBy', { name: currentTrack.orderedBy.name })}</p>}
           </div>
-        )}
-      </div>
-
-      {/* how much of the original vocal stays in karaoke mode; moot while the full vocal is on */}
-      <div className={cn('rounded-2xl border bg-card px-4 py-2 transition-opacity', vocalOn && 'opacity-50')}>
-        <div className="flex items-baseline justify-between text-sm">
-          <span id="remote-guide" className="font-medium">
-            {t('player.guide')}
-          </span>
-          <span className="text-muted-foreground tabular-nums">{Math.round(guideLevel * 100)}%</span>
         </div>
-        <AppSlider
-          className={SLIDER}
-          min={0}
-          max={100}
-          value={guideLevel * 100}
-          onChange={(_, value) => typeof value === 'number' && p.setGuideLevel(value / 100)}
-          aria-labelledby="remote-guide"
-        />
-      </div>
 
-      <div className="flex items-center gap-3 text-muted-foreground">
-        <Volume1 className="size-5 shrink-0" />
-        <AppSlider
-          className={SLIDER}
-          min={0}
-          max={100}
-          value={volume * 100}
-          onChange={(_, value) => typeof value === 'number' && p.setVolume(value / 100)}
-          aria-labelledby="remote-volume"
+        <div>
+          <AppSlider
+            className={SLIDER}
+            min={0}
+            max={duration || 1}
+            value={Math.min(shown, duration || 1)}
+            onChange={(_, value) => {
+              if (typeof value !== 'number') return;
+              p.setSeeking(true);
+              setDragValue(value);
+            }}
+            onChangeCommitted={(_, value) => {
+              if (typeof value === 'number') p.seek(value);
+              p.setSeeking(false);
+            }}
+            aria-labelledby="remote-progress"
+          />
+          <div id="remote-progress" className="flex justify-between text-xs text-muted-foreground tabular-nums">
+            <span>{formatTime(shown)}</span>
+            <span>{formatTime(duration)}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-center gap-8 py-1">
+          <IconButton size="large" className="size-14 bg-secondary" aria-label={t('remote.previous')} onClick={() => p.previous()}>
+            <SkipBack className="size-7 fill-current" />
+          </IconButton>
+          <button
+            aria-label={playing ? t('remote.pause') : t('remote.play')}
+            disabled={loading}
+            onClick={() => (playing ? p.pause() : p.play())}
+            className="flex size-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-app transition-transform active:scale-95 disabled:opacity-60"
+          >
+            {loading ? (
+              <CircularProgress size={36} className="text-primary-foreground" />
+            ) : playing ? (
+              <Pause className="size-9 fill-current" />
+            ) : (
+              <Play className="size-9 translate-x-0.5 fill-current" />
+            )}
+          </button>
+          <IconButton size="large" className="size-14 bg-secondary" aria-label={t('remote.next')} onClick={() => p.next()}>
+            <SkipForward className="size-7 fill-current" />
+          </IconButton>
+        </div>
+
+        <Segmented
+          label={t('remote.vocals')}
+          value={vocalOn ? 'original' : 'karaoke'}
+          onChange={(mode) => (mode === 'original') !== vocalOn && p.toggleVocal()}
+          options={[
+            { id: 'karaoke', label: t('remote.karaoke'), icon: <MicOff className="size-4" /> },
+            { id: 'original', label: t('remote.vocals'), icon: <Mic className="size-4" /> },
+          ]}
         />
-        <Volume2 className="size-5 shrink-0" />
-        <span id="remote-volume" className="sr-only">
-          {t('remote.volume')}
-        </span>
+
+        <RemoteLevel label={t('remote.volume')} value={volume} onChange={p.setVolume} icon={<Volume2 className="size-4" />} />
+        <RemoteAdjustments />
       </div>
+    </AppScrollbar>
+  );
+}
+
+/** Two or three labelled choices, one of which is always selected. */
+function Segmented<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: { id: T; label: string; icon?: React.ReactNode }[];
+  value: T;
+  onChange: (id: T) => void;
+}) {
+  return (
+    <div role="group" aria-label={label} className="grid auto-cols-fr grid-flow-col rounded-2xl border bg-card p-1">
+      {options.map((option) => (
+        <button
+          key={option.id}
+          aria-pressed={value === option.id}
+          onClick={() => onChange(option.id)}
+          className={cn(
+            'flex h-11 items-center justify-center gap-2 rounded-xl text-sm font-medium transition-colors',
+            value === option.id ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground'
+          )}
+        >
+          {option.icon}
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** A value changed in small steps: − value +, with an optional reset. */
+function Stepper({
+  label,
+  hint,
+  value,
+  onMinus,
+  onPlus,
+  minusLabel,
+  plusLabel,
+  minusDisabled,
+  plusDisabled,
+  onReset,
+  resetDisabled,
+}: {
+  label: string;
+  hint?: string;
+  value: string;
+  onMinus: () => void;
+  onPlus: () => void;
+  minusLabel: string;
+  plusLabel: string;
+  minusDisabled?: boolean;
+  plusDisabled?: boolean;
+  onReset?: () => void;
+  resetDisabled?: boolean;
+}) {
+  const t = useT();
+  return (
+    <div className="rounded-xl border bg-card px-3 py-1">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-medium">{label}</span>
+        <div className="flex items-center">
+          <IconButton className="size-11" aria-label={minusLabel} disabled={minusDisabled} onClick={onMinus}>
+            <Minus className="size-5" />
+          </IconButton>
+          <span className="w-16 text-center text-base font-semibold tabular-nums">{value}</span>
+          <IconButton className="size-11" aria-label={plusLabel} disabled={plusDisabled} onClick={onPlus}>
+            <Plus className="size-5" />
+          </IconButton>
+          {onReset && (
+            <IconButton className="size-11" aria-label={t('common.reset')} disabled={resetDisabled} onClick={onReset}>
+              <RotateCcw className="size-4" />
+            </IconButton>
+          )}
+        </div>
+      </div>
+      {hint && <p className="sr-only">{hint}</p>}
+    </div>
+  );
+}
+
+/** How often the pitch heard by this phone's microphone is sent to the room. */
+const PITCH_EVERY_MS = 50;
+
+/** While the microphone is on, tell the room what is being sung (the TV draws and scores it). */
+function usePitchBroadcast() {
+  const micOn = useSettingStore((state) => state.micOn);
+  const roomId = useActiveRoomId();
+  useEffect(() => {
+    if (!micOn || roomId === 'default') return;
+    const timer = setInterval(() => {
+      const { connected, sendMessage } = useWebSocketStore.getState();
+      const hz = usePlayerStore.getState().syncedPlayer?.getMicPitch();
+      if (!connected || !hz) return; // silence is just the absence of a message
+      sendMessage({ type: 'jam', action: 'pitch', roomId, data: { hz: Math.round(hz * 10) / 10 } });
+    }, PITCH_EVERY_MS);
+    return () => clearInterval(timer);
+  }, [micOn, roomId]);
+}
+
+/** Show the melody on the TV, and sing into this phone to be scored there. */
+function SingingControls() {
+  const t = useT();
+  const { showMelody, setShowMelody } = useMelodyMode();
+  const micOn = useSettingStore((state) => state.micOn);
+  const setMicOn = useSettingStore((state) => state.setMicOn);
+  usePitchBroadcast();
+  // leaving the remote must not leave the microphone open
+  useEffect(() => () => useSettingStore.getState().setMicOn(false), []);
+  return (
+    <>
+      <Segmented
+        label={t('remote.melody')}
+        value={showMelody ? 'show' : 'hide'}
+        onChange={(mode) => setShowMelody(mode === 'show')}
+        options={[
+          { id: 'hide', label: t('remote.melodyHide') },
+          { id: 'show', label: t('remote.melodyShow'), icon: <Music className="size-4" /> },
+        ]}
+      />
+      {canUseMic ? (
+        <>
+          <Segmented
+            label={t('remote.sing')}
+            value={micOn ? 'on' : 'off'}
+            onChange={(mode) => setMicOn(mode === 'on')}
+            options={[
+              { id: 'off', label: t('remote.singOff'), icon: <MicOff className="size-4" /> },
+              { id: 'on', label: t('remote.singOn'), icon: <Mic className="size-4" /> },
+            ]}
+          />
+          <p className="px-1 text-xs text-muted-foreground">{t('remote.singHint')}</p>
+        </>
+      ) : (
+        <p className="px-1 text-xs text-muted-foreground">{t('remote.micUnavailable')}</p>
+      )}
+    </>
+  );
+}
+
+const SYNC_STEP = 0.1;
+const SYNC_LIMIT = 30;
+
+/** Direct controls kept together on the remote's main screen. */
+function RemoteAdjustments() {
+  const t = useT();
+  const p = usePlayer();
+  const { vocalOn, guideLevel, semitone, hostPitchShift } = p;
+  const { ahead, setAhead, approximate, videoId } = useLyricsOffset();
+  const { showVideo, setShowVideo } = useVideoMode();
+  const setSync = (next: number) => setAhead(Math.round(Math.max(-SYNC_LIMIT, Math.min(SYNC_LIMIT, next)) * 10) / 10);
+  return (
+    <div className="space-y-1">
+      <RemoteLevel
+        label={t('player.guide')}
+        value={guideLevel}
+        onChange={p.setGuideLevel}
+        icon={<Mic className="size-4" />}
+        hint={vocalOn ? t('remote.guideOnly') : t('player.guideHint')}
+      />
+      {hostPitchShift && (
+        <Stepper
+          label={t('remote.key')}
+          value={semitone > 0 ? `+${semitone}` : `${semitone}`}
+          minusLabel={`${t('remote.key')} −`}
+          plusLabel={`${t('remote.key')} +`}
+          minusDisabled={semitone <= -12}
+          plusDisabled={semitone >= 12}
+          onMinus={() => p.decreaseSemitone()}
+          onPlus={() => p.increaseSemitone()}
+        />
+      )}
+      <Stepper
+        label={t('lyrics.sync')}
+        hint={approximate ? t('lyrics.approximate') : t('remote.syncHint')}
+        value={`${ahead > 0 ? '+' : ''}${ahead.toFixed(1)}s`}
+        minusLabel={t('lyrics.later')}
+        plusLabel={t('lyrics.earlier')}
+        onMinus={() => setSync(ahead - SYNC_STEP)}
+        onPlus={() => setSync(ahead + SYNC_STEP)}
+        onReset={() => setSync(0)}
+        resetDisabled={ahead === 0}
+      />
+      {videoId && (
+        <Segmented
+          label={t('remote.lyrics')}
+          value={showVideo ? 'video' : 'lyrics'}
+          onChange={(mode) => setShowVideo(mode === 'video')}
+          options={[
+            { id: 'lyrics', label: t('nav.lyrics'), icon: <Captions className="size-4" /> },
+            { id: 'video', label: t('remote.video'), icon: <Video className="size-4" /> },
+          ]}
+        />
+      )}
+      <SingingControls />
+    </div>
+  );
+}
+
+function RemoteLevel({ label, value, onChange, icon, hint }: {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+  icon: React.ReactNode;
+  hint?: string;
+}) {
+  return (
+    <div className="grid grid-cols-[6.5rem_minmax(0,1fr)_2.5rem] items-center gap-2 rounded-xl border bg-card px-3 py-1">
+      <span className="flex items-center gap-2 text-xs font-medium" title={hint}>{icon}{label}</span>
+      <AppSlider
+        className={cn(SLIDER, 'h-11')}
+        min={0}
+        max={100}
+        value={value * 100}
+        onChange={(_, next) => typeof next === 'number' && onChange(next / 100)}
+        aria-label={label}
+        aria-description={hint}
+      />
+      <span className="text-right text-xs text-muted-foreground tabular-nums">{Math.round(value * 100)}%</span>
     </div>
   );
 }
@@ -194,7 +373,10 @@ function UpNext() {
   return (
     <AppScrollbar className="h-full">
       <div className="px-4 pt-4 pb-6">
-        <h2 className="mb-2 text-lg font-semibold tracking-tight">{t('remote.upNext')}</h2>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold tracking-tight">{t('remote.upNext')}</h2>
+          {tracks.length > 0 && <QueueOrderControls />}
+        </div>
         {tracks.length ? <TrackQueue tracks={tracks} /> : <p className="text-sm text-muted-foreground">{t('remote.queueEmpty')}</p>}
       </div>
     </AppScrollbar>
@@ -420,14 +602,16 @@ export default function RemoteView() {
   const navigate = useNavigate();
   const { isInJam } = useJam();
   const connected = useWebSocketStore((state) => state.connected);
+  // not connected yet is just the page starting; "reconnecting" means it was, and dropped
+  const wasConnected = useRef(false);
+  if (connected) wasConnected.current = true;
   const code = useRoomStore((state) => state.code);
   const leaveRoom = useRoomStore((state) => state.leaveRoom);
   const queueLength = usePlayerStore((state) => Math.max(0, state.queue.length - state.queueIdx - 1));
   const [tab, setTab] = useState<Tab>('now');
 
-  useEffect(() => {
-    document.title = 'KKaraoke - Remote';
-  }, []);
+  const { currentTrack } = useQueue();
+  usePageTitle(t('remote.title'), currentTrack);
 
   // Not someone else's room (or no longer): there is nothing to steer, so show the full app.
   if (!isInJam) return <Navigate to="/" replace />;
@@ -442,7 +626,7 @@ export default function RemoteView() {
       <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
         <div className="min-w-0 flex-1">
           {code && <div className="truncate text-sm font-semibold tracking-wide">{t('remote.room', { code })}</div>}
-          {!connected && <div className="text-xs text-destructive">{t('remote.reconnecting')}</div>}
+          {!connected && wasConnected.current && <div className="text-xs text-destructive">{t('remote.reconnecting')}</div>}
         </div>
         <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
           {t('remote.fullApp')}

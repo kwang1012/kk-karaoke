@@ -19,7 +19,7 @@ function Chip({ tone, icon, children }: { tone: 'good' | 'warn' | 'muted'; icon:
   );
 }
 
-const SOURCES = ['ytmusic', 'lrclib', 'netease', 'whisper', 'aligned'];
+const SOURCES = ['ytmusic', 'lrclib', 'netease', 'qq', 'kugou', 'kuwo', 'spicy', 'binimum', 'unison', 'ovh', 'whisper', 'aligned'];
 
 /** Where the lyrics came from and how far to trust them, in a line of chips, with notes below. */
 export default function Provenance({ info, dirty, untimedOnly }: { info: LyricsInfo; dirty: boolean; untimedOnly: boolean }) {
@@ -28,6 +28,9 @@ export default function Provenance({ info, dirty, untimedOnly }: { info: LyricsI
   const confidence = info.confidence;
   const check = info.audioCheck;
   const whisper = info.source === 'whisper';
+  // Words kept through an edit are filed as aligned, but they are still the provider's.
+  const wordSourceKey = info.wordSource === 'aligned' && info.wordOrigin ? info.wordOrigin : info.wordSource;
+  const wordSourceLabel = wordSourceKey && SOURCES.includes(wordSourceKey) ? t(`editor.source.${wordSourceKey}` as TranslationKey) : '';
 
   return (
     <div className="flex flex-col gap-2">
@@ -51,7 +54,7 @@ export default function Provenance({ info, dirty, untimedOnly }: { info: LyricsI
         )}
         {info.hasWords && (!info.edited || info.wordSource === 'aligned') && (
           <Chip tone="good" icon={<Sparkles />}>
-            {t('editor.words', { source: info.wordSource && SOURCES.includes(info.wordSource) ? t(`editor.source.${info.wordSource}` as TranslationKey) : '' })}
+            {t('editor.words', { source: wordSourceLabel })}
           </Chip>
         )}
         {info.aligned && (
@@ -64,11 +67,11 @@ export default function Provenance({ info, dirty, untimedOnly }: { info: LyricsI
         )}
         {info.edited && <Chip tone="muted" icon={<PenLine />}>{t('editor.editedByYou')}</Chip>}
       </div>
-      {(whisper || info.notes.length > 0 || (info.hasWords && !info.edited && info.wordSource !== 'aligned' && dirty)) && (
+      {(whisper || info.notes.length > 0 || (info.hasWords && dirty)) && (
         <ul className="flex flex-col gap-0.5 text-xs text-muted-foreground">
           {whisper && <li>{t('editor.whisperNote')}</li>}
           {info.notes.filter((n) => !whisper || !n.startsWith('No provider')).map((n) => <li key={n}>{n}</li>)}
-          {info.hasWords && !info.edited && info.wordSource !== 'aligned' && dirty && <li className="text-amber-700 dark:text-amber-400">{t('editor.wordsLost')}</li>}
+          {info.hasWords && dirty && <li className="text-amber-700 dark:text-amber-400">{t('editor.wordsLost')}</li>}
         </ul>
       )}
     </div>

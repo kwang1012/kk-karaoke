@@ -120,6 +120,7 @@ class ShiftedAudioPlayer extends SyncedAudioPlayer {
   private host: ShiftHost | null = null;
   private hostReady: Promise<ShiftHost>;
   private semitone = 0;
+  private shiftLoadVersion = 0;
   /** The buffers the host currently holds, so reloading a cached track does not copy them again. */
   private hosted: [AudioBuffer, AudioBuffer] | null = null;
 
@@ -149,13 +150,16 @@ class ShiftedAudioPlayer extends SyncedAudioPlayer {
   }
 
   async load(track: Track, onProgress?: (fraction: number | null) => void) {
-    if (this.isLoading) return;
+    const version = ++this.shiftLoadVersion;
     const host = await this.hostReady;
-    await super.load(track, onProgress);
+    if (version !== this.shiftLoadVersion) return false;
+    const loaded = await super.load(track, onProgress);
+    if (!loaded || version !== this.shiftLoadVersion) return false;
     if (this.hosted?.[0] !== this.instrumentalBuffer || this.hosted?.[1] !== this.vocalBuffer) {
       host.load(this.instrumentalBuffer, this.vocalBuffer, this.semitone);
       this.hosted = [this.instrumentalBuffer, this.vocalBuffer];
     }
+    return true;
   }
 
   protected createSources(offset: number) {
@@ -164,7 +168,6 @@ class ShiftedAudioPlayer extends SyncedAudioPlayer {
 
   play() {
     if (this.isPlaying || this.isLoading || !this.host || !this.hosted) return;
-    this.context.resume();
     super.play();
   }
 
@@ -180,6 +183,7 @@ class ShiftedAudioPlayer extends SyncedAudioPlayer {
   }
 
   destroy() {
+    ++this.shiftLoadVersion;
     this.host?.disconnect();
     this.host = null;
     this.hosted = null;

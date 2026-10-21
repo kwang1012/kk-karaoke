@@ -145,7 +145,7 @@ const LyricsEditorPlayer = forwardRef<
     onPlayingChange?.(playing);
   }, [playing]);
   return (
-    <div className="w-full flex items-end mt-4">
+    <div className="w-full flex items-end mt-4" data-stamp-player>
       <div className="flex items-center justify-stat">
         <IconButton className="p-0 hover:bg-transparent" onClick={handlePlayPause} tabIndex={-1}>
           {playing ? (

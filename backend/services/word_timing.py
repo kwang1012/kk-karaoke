@@ -22,7 +22,7 @@ MAX_DURATION_DIFF_S = 3
 
 # Production credits are listed as lyric lines ("作词 : ...") with made-up timestamps.
 _CREDIT = re.compile(
-    r"^\s*(?:作[词詞曲]|[编編]曲|[编編]寫|制作人?|製作人?|监制|監製|混音|母[带帶]|录音|錄音|和声|和聲|"
+    r"^\s*(?:作[词詞曲]|[词詞曲](?=\s*[:：])|[编編]曲|[编編]寫|制作人?|製作人?|监制|監製|混音|母[带帶]|录音|錄音|和声|和聲|"
     r"[吉贝貝]他|贝斯|貝斯|鼓|弦乐|弦樂|企划|企劃|出品|发行|發行|OP|SP|"
     r"lyrics?|lyricist|compos\w*|produc\w*|arrang\w*|mix\w*|master\w*|guitar|bass|drums|"
     r"piano|strings|backing vocals?|vocals?|recording\w*|written by|words by|music by)"

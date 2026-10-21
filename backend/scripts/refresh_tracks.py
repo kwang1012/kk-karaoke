@@ -17,13 +17,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from managers import r2  # noqa: E402
 from managers.db import get_redis  # noqa: E402
 from models.track import Track  # noqa: E402
 from redis_keys import RedisKeys  # noqa: E402
-from services import library  # noqa: E402
+from services import admin, library  # noqa: E402
 from services.lyrics_sources import discard_lyrics  # noqa: E402
-from utils import LYRICS_DIR, MIDI_DIR, NO_VOCALS_DIR, RAW_AUDIO_DIR, VOCALS_DIR  # noqa: E402
 
 
 def stored_track(track_id: str) -> Track | None:
@@ -41,17 +39,6 @@ def stored_track(track_id: str) -> Track | None:
     return None
 
 
-def discard(track_id: str) -> None:
-    for directory, name in (
-        (LYRICS_DIR, f"{track_id}.lrc"), (LYRICS_DIR, f"{track_id}.meta.json"),
-        (LYRICS_DIR, f"{track_id}.words.json"),
-        (VOCALS_DIR, f"{track_id}.mp3"), (NO_VOCALS_DIR, f"{track_id}.mp3"),
-        (MIDI_DIR, f"{track_id}.mid"), (RAW_AUDIO_DIR, f"{track_id}.mp3"),
-    ):
-        Path(directory, name).unlink(missing_ok=True)
-    r2.delete_track(track_id)
-
-
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("track_ids", nargs="+")
@@ -66,12 +53,12 @@ def main() -> None:
             continue
         names = ", ".join(a.name for a in track.artists)
         print(f"{track_id}: {track.name} - {names}")
-        (discard_lyrics if args.lyrics_only else discard)(track_id)
+        (discard_lyrics if args.lyrics_only else admin.discard_files)(track_id)
         if args.inline or args.lyrics_only:  # nothing heavy to queue: do it here
             from services.process_request import _process_track
             _process_track(track)
         else:
-            from services.process_request import send_process_request
+            from services.tasks import send_process_request
             send_process_request(track)
             print("  queued")
 

@@ -3,6 +3,10 @@
   "private": true,
   "scripts": {
     "dev": "./dev.sh",
+    "docker:up": "./docker.sh up",
+    "docker:local": "./docker.sh up local",
+    "docker:down": "./docker.sh down",
+    "docker:status": "./docker.sh status",
     "install:all": "cd frontend && yarn install && cd ../backend && uv sync",
     "build": "cd frontend && yarn build",
     "typecheck": "cd frontend && yarn typecheck",

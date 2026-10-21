@@ -1,3 +1,5 @@
+import { usePageTitle } from 'src/hooks/documentTitle';
+import { useT } from 'src/i18n';
 import { useQueue } from 'src/store/player';
 import { useEffect, useState } from 'react';
 import { useBreakpointDown } from 'src/hooks/media';
@@ -7,6 +9,8 @@ import MobilePlayer from 'src/components/MobilePlayer';
 
 export default function PlayView() {
   const { currentTrack } = useQueue();
+  const t = useT();
+  usePageTitle(t('nav.queue'), currentTrack);
   const [color, setColor] = useState<string>(DEFAULT_BG_COLOR);
   const image = currentTrack?.album?.images?.[0]?.url;
   const mobile = useBreakpointDown('md');

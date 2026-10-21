@@ -1,4 +1,5 @@
-import { ChevronLeft, ChevronRight, LibraryBig, Moon, Settings, Sun, UserPlus } from 'lucide-react';
+import { useTvMode } from 'src/hooks/tvMode';
+import { ChevronLeft, ChevronRight, LibraryBig, Moon, Settings, Sun, Tv, UserPlus } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from 'src/lib/utils';
 import Logo from './Logo';
@@ -17,6 +18,7 @@ const isElectron = navigator.userAgent.toLowerCase().includes('electron');
 
 export default function TopBar() {
   const t = useT();
+  const { enterTv } = useTvMode();
   const navigate = useNavigate();
   const onLibrary = useLocation().pathname.startsWith('/library');
   const { isTop, isBottom } = useHistoryBoundaries();
@@ -81,23 +83,22 @@ export default function TopBar() {
       </div>
 
       <div className="flex items-center justify-end gap-1">
-        {participants.length > 0 && (
-          <AvatarGroup className="mr-1">
-            {participants.slice(0, 4).map((participant) => (
-              <Tooltip key={participant.id} title={participant.name} side="bottom">
-                <Avatar className="size-8 bg-secondary">
-                  <AvatarImage alt={participant.name} src={participant.avatar} />
-                  <AvatarFallback>{participant.name.slice(0, 1)}</AvatarFallback>
-                </Avatar>
-              </Tooltip>
-            ))}
-            {participants.length > 4 && (
-              <Avatar className="size-8 bg-secondary text-xs">
-                <AvatarFallback>+{participants.length - 4}</AvatarFallback>
+        {/* Reserve room for four avatars and the overflow count so joins don't move search. */}
+        <AvatarGroup className="mr-1 w-32 shrink-0 justify-end">
+          {participants.slice(0, 4).map((participant) => (
+            <Tooltip key={participant.id} title={participant.name} side="bottom">
+              <Avatar className="size-8 bg-secondary">
+                <AvatarImage alt={participant.name} src={participant.avatar} />
+                <AvatarFallback>{participant.name.slice(0, 1)}</AvatarFallback>
               </Avatar>
-            )}
-          </AvatarGroup>
-        )}
+            </Tooltip>
+          ))}
+          {participants.length > 4 && (
+            <Avatar className="size-8 bg-secondary text-xs">
+              <AvatarFallback>+{participants.length - 4}</AvatarFallback>
+            </Avatar>
+          )}
+        </AvatarGroup>
         <Button variant="outline" size="sm" onClick={() => setInviteOpen(true)}>
           <UserPlus /> {t('invite.button')}
         </Button>
@@ -106,6 +107,11 @@ export default function TopBar() {
             {t('nav.leaveRoom')}
           </Button>
         )}
+        <Tooltip title={t('tv.enter')} side="bottom">
+          <IconButton aria-label={t('tv.enter')} onClick={enterTv}>
+            <Tv className="size-5" />
+          </IconButton>
+        </Tooltip>
         <Tooltip title={t('nav.settings')} side="bottom">
           <IconButton aria-label={t('nav.settings')} onClick={() => setSettingsOpen(true)}>
             <Settings className="size-5" />

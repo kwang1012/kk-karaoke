@@ -1,3 +1,4 @@
+import { usePageTitle } from 'src/hooks/documentTitle';
 import { useBreakpointDown } from 'src/hooks/media';
 import { useState, useMemo, useEffect } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
@@ -50,6 +51,7 @@ export default function PlaylistView() {
     queryFn: () => fetchTracks(collectionType, id || ''),
   });
   const collection = data?.collection || initCollection;
+  usePageTitle(t(collectionType === 'album' ? 'playlist.type.album' : 'playlist.type.playlist'), collection.name);
   const tracks = data?.tracks || [];
   const [color, setColor] = useState<string>(DEFAULT_BG_COLOR);
   const collectionImage = collection.images?.[0]?.url || placeholder;

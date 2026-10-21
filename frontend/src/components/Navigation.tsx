@@ -1,4 +1,5 @@
-import { Home, LibraryBig, ListMusic, MicVocal, Search } from 'lucide-react';
+import { useTvMode } from 'src/hooks/tvMode';
+import { Home, LibraryBig, ListMusic, MicVocal, Search, Tv } from 'lucide-react';
 import { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from 'src/lib/utils';
@@ -10,10 +11,12 @@ const items: { label: TranslationKey; path: string; icon: typeof Home }[] = [
   { label: 'nav.library', path: '/library', icon: LibraryBig },
   { label: 'nav.queue', path: '/play', icon: ListMusic },
   { label: 'nav.lyrics', path: '/lyrics', icon: MicVocal },
+  { label: 'tv.title', path: '/tv', icon: Tv },
 ];
 
 export default function AppNavigation() {
   const t = useT();
+  const { enterTv } = useTvMode();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -35,7 +38,7 @@ export default function AppNavigation() {
             'flex min-w-14 max-w-28 flex-1 flex-col items-center justify-center gap-0.5 px-3 text-muted-foreground transition-colors',
             selectedIndex === index && 'text-primary'
           )}
-          onClick={() => location.pathname !== path && navigate(path)}
+          onClick={() => path === '/tv' ? enterTv() : location.pathname !== path && navigate(path)}
         >
           <Icon className="size-6" />
           <span className="text-[11px] font-medium">{t(label)}</span>

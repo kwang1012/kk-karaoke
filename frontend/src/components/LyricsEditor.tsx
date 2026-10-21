@@ -1,16 +1,18 @@
 import {
-  ArrowDownUp, AudioLines, ClipboardPaste, Languages, Loader2, LocateFixed, Minus, Plus, Redo2, RefreshCw, Undo2,
+  ArrowDownUp, AudioLines, ClipboardPaste, ListMusic, Languages, Loader2, LocateFixed, Minus, Plus, Redo2, RefreshCw, Undo2,
 } from 'lucide-react';
 import * as OpenCC from 'opencc-js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AlignPreview from 'src/components/LyricsEditor/AlignPreview';
 import { alignedPayload, applyProposal, attachSaved, type Proposal } from 'src/components/LyricsEditor/alignment';
+import CandidatesDialog from 'src/components/LyricsEditor/CandidatesDialog';
+import { originOf, type Candidate } from 'src/components/LyricsEditor/candidates';
 import ConfirmDialog from 'src/components/LyricsEditor/ConfirmDialog';
 import type { LyricsInfo } from 'src/components/LyricsEditor/info';
 import LineRow, { type RowActions } from 'src/components/LyricsEditor/LineRow';
 import {
   activeIndex, alignmentSignature, formatLrc, insertAfter, mapText, newRow, nudge, parseLrc, problems, removeAt, setText,
-  setTime, shiftAll, sortRows, splitPlain, type Row,
+  renameWordInRow, setTime, setWords, shiftAll, sortRows, splitPlain, type Row,
 } from 'src/components/LyricsEditor/model';
 import type { PlayerHandle } from 'src/components/LyricsEditor/Player';
 import Provenance from 'src/components/LyricsEditor/Provenance';
@@ -25,6 +27,7 @@ import { useT, type TranslationKey } from 'src/i18n';
 import { cn } from 'src/lib/utils';
 import { Track } from 'src/models/spotify';
 import { api } from 'src/utils/api';
+import { errorText } from 'src/utils/errors';
 
 const converter = OpenCC.Converter({ from: 'cn', to: 'tw' });
 
@@ -38,12 +41,6 @@ const GIVE_UP_AFTER_MS = 10 * 60_000;
 // Aligning listens to the whole song the first time, which takes longer than a search.
 const ALIGN_SLOW_AFTER_MS = 30_000;
 const ALIGN_STUCK_AFTER_MS = 150_000;
-
-const errorText = (err: unknown) =>
-  (err as { response?: { data?: { message?: string; error?: string } }; message?: string })?.response?.data?.message ||
-  (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||
-  (err as { message?: string })?.message ||
-  'error';
 
 export default function LyricsEditor({
   track, progress = 0, playing = false, playerRef, onDirtyChange, onChanged,
@@ -79,11 +76,18 @@ export default function LyricsEditor({
   // does a save tell the server about each line's words, so it never drops what it knows nothing of.
   const [alignKnown, setAlignKnown] = useState(false);
   const [alignScore, setAlignScore] = useState<number | null>(null);
+  const [chooseOpen, setChooseOpen] = useState(false);
+  // The sheet in the editor was picked from the candidates list: a save records where it came from.
+  const [origin, setOrigin] = useState<ReturnType<typeof originOf> | null>(null);
 
+  const selectedRef = useRef(0);
+  selectedRef.current = selected;
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
   const progressRef = useRef(progress);
   progressRef.current = progress;
+  const playingRef = useRef(playing);
+  playingRef.current = playing;
   const rowEls = useRef(new Map<number, HTMLDivElement>());
   const listRef = useRef<HTMLDivElement | null>(null);
   const pendingFocus = useRef<number | null>(null);
@@ -110,7 +114,8 @@ export default function LyricsEditor({
     const loaded: LyricsInfo | null = details.status === 'fulfilled' ? details.value.data : null;
     const parsed = parseLrc(content);
     // Words without timing open ready to be timed, instead of as an empty editor.
-    const tracked = !!loaded && (loaded.wordSource === 'aligned' || !!loaded.aligned);
+    // A provider's words are kept for the lines left alone, the same as aligned ones.
+    const tracked = !!loaded && (loaded.hasWords || !!loaded.aligned);
     const initial =
       parsed.rows.length === 0 && loaded?.plain
         ? splitPlain(loaded.plain)
@@ -120,6 +125,7 @@ export default function LyricsEditor({
     reset(initial);
     setAlignKnown(tracked);
     setAlignScore(loaded?.aligned?.score ?? null);
+    setOrigin(null);
     setBaselineSig(alignmentSignature(initial));
     setHeaders(parsed.headers);
     setBaseline(formatLrc(initial, parsed.headers));
@@ -214,7 +220,16 @@ export default function LyricsEditor({
         commit((r) => removeAt(r, i));
         setSelected(Math.max(0, Math.min(i, rowsRef.current.length - 2)));
       },
+      setWords: (i, words) => commit((r) => setWords(r, i, words), `words-${rowsRef.current[i]?.id}`),
+      renameWord: (i, k, text) => commit((r) => renameWordInRow(r, i, k, text)),
+      now: () => playerRef?.current?.getTime() ?? progressRef.current,
+      playAt: (time) => {
+        playerRef?.current?.seek(time);
+        playerRef?.current?.play();
+      },
       focusNext: (i) => {
+        // While the song plays, Enter is for timing: it stamps the line as it is sung instead of just moving on.
+        if (playingRef.current && rowsRef.current[i]) stampAt(i);
         const next = rowsRef.current[i + 1];
         if (next) {
           document.querySelector<HTMLInputElement>(`[data-row-text="${next.id}"]`)?.focus();
@@ -232,6 +247,23 @@ export default function LyricsEditor({
     [commit, stampAt, playerRef]
   );
 
+  // Enter times the selected line wherever the focus is, except in a field (where it edits) or on
+  // a control of its own that Enter would activate: the play button keeps focus after it is pressed.
+  useEffect(() => {
+    if (view !== 'lines') return;
+    const onEnter = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || e.defaultPrevented) return;
+      const el = e.target as HTMLElement | null;
+      if (el?.closest('input, textarea, select, [role="dialog"], [role="menu"], a')) return;
+      if (el?.closest('button') && !el.closest('[data-stamp-player]')) return;
+      if (document.querySelector('[role="dialog"]')) return;
+      e.preventDefault();
+      stampAt(selectedRef.current);
+    };
+    window.addEventListener('keydown', onEnter);
+    return () => window.removeEventListener('keydown', onEnter);
+  }, [view, stampAt]);
+
   // ---- saving -------------------------------------------------------------------------
 
   const save = useCallback(async () => {
@@ -243,7 +275,8 @@ export default function LyricsEditor({
     const content = formatLrc(toSave, head, true);
     try {
       const aligned = alignKnown && view === 'lines' ? alignedPayload(toSave, alignScore) : undefined;
-      await api.post(`/lyrics/${track.id}/update`, { content, ...(aligned ? { aligned } : {}) });
+      await api.post(`/lyrics/${track.id}/update`, { content, ...(aligned ? { aligned } : {}), ...(origin ? { origin } : {}) });
+      setOrigin(null);
       const sorted = parseLrc(content);
       const restored = aligned ? attachSaved(sorted.rows, aligned.lines) : sorted.rows;
       reset(restored);
@@ -258,7 +291,7 @@ export default function LyricsEditor({
       console.error(err);
       say('error', t('editor.failed'));
     }
-  }, [view, rawText, headers, track.id, reset, say, t, onChanged, alignKnown, alignScore]);
+  }, [view, rawText, headers, track.id, reset, say, t, onChanged, alignKnown, alignScore, origin]);
 
   const revert = () => {
     load(); // what was last loaded or saved, including its alignment
@@ -326,6 +359,23 @@ export default function LyricsEditor({
   };
 
   const askRefresh = () => (info?.edited || dirty ? setConfirmRefresh(true) : startRefresh(false));
+
+  // ---- choosing from everything that was found -------------------------------------
+
+  const choose = (c: Candidate) => {
+    const parsed = c.lrc ? parseLrc(c.lrc) : { rows: splitPlain(c.plain ?? ''), headers: [] as string[] };
+    // The audio found the whole sheet to be a fixed distance off: start it where the singing is.
+    const offset = c.audio?.status === 'corrected' ? c.audio.offsetS : 0;
+    commit(offset ? shiftAll(parsed.rows, offset) : parsed.rows);
+    setHeaders(parsed.headers);
+    setView('lines');
+    setSelected(0);
+    setAlignKnown(false);
+    setAlignScore(null);
+    setOrigin(originOf(c));
+    setChooseOpen(false);
+    say('warn', t('editor.candidates.chosen', { count: c.lines, source: t(`editor.source.${c.source}` as TranslationKey) }));
+  };
 
   // ---- aligning to the audio ----------------------------------------------------------
 
@@ -479,6 +529,12 @@ export default function LyricsEditor({
               {refreshing ? t('editor.refreshing') : t('editor.refresh')}
             </Button>
           </Tooltip>
+          <Tooltip title={t('editor.chooseTip')} side="bottom">
+            <Button variant="outline" disabled={!track.id || loading || refreshing || aligning} onClick={() => setChooseOpen(true)}>
+              <ListMusic />
+              {t('editor.choose')}
+            </Button>
+          </Tooltip>
           <Tooltip title={t('editor.alignTip')} side="bottom">
             <Button
               variant="outline"
@@ -549,6 +605,7 @@ export default function LyricsEditor({
             <p className="max-w-sm text-sm text-muted-foreground">{t('editor.empty.body')}</p>
             <div className="mt-1 flex gap-2">
               <Button disabled={refreshing || !track.id} onClick={askRefresh}>{refreshing ? <Loader2 className="animate-spin" /> : <RefreshCw />}{t('editor.refresh')}</Button>
+              <Button variant="outline" disabled={!track.id} onClick={() => setChooseOpen(true)}><ListMusic />{t('editor.choose')}</Button>
               <Button variant="outline" onClick={() => setPasteOpen(true)}><ClipboardPaste />{t('editor.paste')}</Button>
             </div>
           </div>
@@ -564,7 +621,7 @@ export default function LyricsEditor({
           <div
             ref={listRef}
             tabIndex={0}
-            className="h-full overflow-y-auto p-2 pr-8 outline-none [scrollbar-width:thin]"
+            className="h-full overflow-y-auto p-2 pr-8 outline-none scrollbar-thin"
             onMouseDown={() => listRef.current?.focus({ preventScroll: true })}
           >
             {rows.map((row, i) => (
@@ -578,6 +635,8 @@ export default function LyricsEditor({
           </div>
         )}
       </div>
+
+      <CandidatesDialog open={chooseOpen} trackId={track.id} replacing={dirty} onChoose={choose} onClose={() => setChooseOpen(false)} />
 
       <AlignPreview proposal={proposal} rows={rows} onAccept={acceptAlignment} onDiscard={() => setProposal(null)} />
 

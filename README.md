@@ -38,6 +38,19 @@
 
 ## Setup
 
+### AirPlay on a TV
+
+Open **AirPlay setup** in Settings or TV mode for instructions. To show the lyrics,
+TV screen, and audio together, use **Control Center → Screen Mirroring** on a Mac,
+iPhone, or iPad, then choose an AirPlay-compatible TV or Apple TV on the same Wi-Fi.
+Open `/tv`, tap the start screen to enable audio, and press **F** on a Mac for fullscreen.
+Keep the page open and the device awake. Use the system default audio output in
+KKaraoke; if needed, select the TV as the sound output in Control Center.
+
+This uses Apple's system screen mirroring. The website cannot open that picker or
+detect the connection, and does not stream the rendered lyrics through a media
+AirPlay picker. Wireless latency may require adjusting lyrics sync.
+
 ### 1. Create your settings file
 
 KKaraoke finds songs, albums and playlists on YouTube Music, which needs no account or API key.
@@ -46,7 +59,7 @@ KKaraoke finds songs, albums and playlists on YouTube Music, which needs no acco
 cp backend/.env.example backend/.env
 ```
 
-Everything in it is optional.
+Configure the shared Cloudflare D1 catalog below before starting the API or worker. R2 is required when API and workers use separate disks.
 
 ### 2. Run it
 
@@ -69,6 +82,15 @@ For an NVIDIA GPU (needs the NVIDIA Container Toolkit on the host), add the GPU 
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+```
+
+**One-line start/stop.**
+
+```bash
+./docker.sh up          # worker in Docker (add `gpu` for NVIDIA)
+./docker.sh up local    # worker on your Mac (Apple GPU); log in .local-worker.log
+./docker.sh down        # stop everything
+./docker.sh status      # containers + where the worker runs
 ```
 
 **Processing speed.** Removing the vocals from a 4-minute song takes roughly 5 minutes on a
@@ -115,26 +137,58 @@ running (via Docker, or a local `redis-server`), as long as `REDIS_HOST` is loca
 `REDIS_AUTOSTART=0` to disable that, and `CORS_ORIGINS` to restrict which origins may call the
 API (see `backend/.env.example`).
 
-### Cloudflare R2 storage
+### Shared catalog and file storage
 
-Set `R2_ENDPOINT_URL`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` and `R2_BUCKET` in
-`backend/.env` (see `backend/.env.example`) to keep all processed data (lyrics, vocal and
-instrumental stems, pitch MIDI) in an R2 bucket. `backend/storage` stays the local working copy;
-R2 is the source of truth:
+**Cloudflare D1 is the catalog.** Every API and worker uses the same `CLOUDFLARE_ACCOUNT_ID`,
+`CLOUDFLARE_API_TOKEN`, and `D1_DATABASE_ID` in `backend/.env`. Create a custom Cloudflare API
+token with **Account → D1 → Edit**, scoped to your account (this is separate from R2 access keys).
+The token stays on the backend; it is never sent to the browser.
 
-- when the API or a worker starts, it syncs: files in R2 that are missing on disk are downloaded,
-  and files on disk that R2 lacks are uploaded (so an existing `storage/` migrates on first start);
-  the API finishes this before resuming queued tracks, so already-processed songs aren't redone;
-- new files are uploaded as soon as they are produced, and lyrics edits are written through.
+Initialize the database once, before starting the services:
 
-Without these variables nothing changes and everything stays on local disk. The sync never
-overwrites a file that exists on both sides, and R2 being unreachable only logs an error.
+```bash
+cd backend
+uv run python scripts/catalog_db.py setup  # creates/reuses karaoke-catalog if no database UUID is configured
+uv run python scripts/catalog_db.py import --skip-redis  # one-time import of existing R2/disk manifests
+uv run python scripts/catalog_db.py status
+```
+
+`setup` writes the selected database ID to `.env`; share that configuration with every API and
+worker. `init` applies the schema to an already configured database. Import is repeatable and
+preserves existing manifests and deletion tombstones. It reads small legacy metadata files but
+never downloads audio. Omit `--skip-redis` to recover additional old song titles from Redis.
+
+D1 stores song metadata, asset availability/versions/sizes, lyric provenance and line counts,
+and durable job status/progress/results. Playback readiness requires published vocal and
+instrumental assets; lyrics and melody are independent. Lists and status checks query D1,
+without inspecting cached files, listing the bucket, or downloading audio.
+
+**R2 stores bytes.** Configure `R2_ENDPOINT_URL`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`
+and `R2_BUCKET`. New files use immutable content-addressed R2 keys. A manifest becomes ready only
+after its upload succeeds. Reads use the manifest version to validate the local copy and fetch
+on a cache miss; a rebuild therefore invalidates old melody/audio copies on every machine.
+Without R2, file storage is local and API/worker must share that disk, while the catalog still uses D1.
+
+`backend/storage` (`STORAGE_DIR`) is disposable cache when using R2. Keep **`backend/data`
+(`DATA_DIR`) durable**: it holds snapshots and retry journals for uploads not yet published.
+Compose mounts both directories separately. On different machines, each worker must retain its
+own outbox until its pending uploads complete. Startup does not sync the bucket. Background
+maintenance retries outgoing uploads and dispatches unfinished D1 jobs; Redis remains the broker
+and live room state, rather than the durable processing record.
 
 From the repo root, start Redis (if needed), the API, the worker and the frontend with one command:
 
 ```bash
 npm run dev      # or ./dev.sh   (first time: npm run install:all)
 ```
+
+Worker output is written to `.local-worker.log` (`tail -f .local-worker.log` to follow it).
+
+The admin worker page reads Redis snapshots. Each solo worker publishes a heartbeat every five
+seconds and updates its task snapshot when tasks change; snapshots expire after 20 seconds.
+Restart workers after upgrading to enable this publisher. The page does not send Celery control
+requests, so a busy worker can still report its status.
+Ctrl+C stops the services, allowing up to five seconds for shutdown before forcing remaining jobs to exit.
 
 Or run each piece yourself in three terminals:
 
@@ -176,6 +230,18 @@ uv run python -m scripts.process_default_queue
 ```
 
 ---
+
+## Hosting the frontend on Cloudflare Pages
+
+The frontend is static, so it can be hosted on Cloudflare Pages (root directory `frontend`, build command
+`yarn build`, output directory `build`; see `frontend/wrangler.toml`). The backend (API, Redis, worker) stays
+on your machine. Until the site can reach one, it shows setup steps instead of the app:
+
+1. `docker compose up --build`
+2. `cloudflared tunnel --url http://localhost:8080` prints a public `https://…trycloudflare.com` address
+3. Paste that address on the setup page (or open the site with `?backend=<address>`).
+
+It is kept in the browser's local storage. The API's `GET /api/health` reports whether Redis and a worker are up.
 
 ## About
 

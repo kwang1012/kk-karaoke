@@ -5,6 +5,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# All API/worker instances use the same Cloudflare D1 catalog. Never fall back to a local DB.
+CLOUDFLARE_ACCOUNT_ID = os.getenv("CLOUDFLARE_ACCOUNT_ID", "")
+CLOUDFLARE_API_TOKEN = os.getenv("CLOUDFLARE_API_TOKEN", "")
+D1_DATABASE_ID = os.getenv("D1_DATABASE_ID", "")
+# Durable outgoing uploads, separate from the disposable storage cache.
+DATA_DIR = os.getenv("DATA_DIR", "data")
+
 # Redis
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
@@ -30,3 +37,11 @@ R2_ACCESS_KEY_ID = os.getenv("R2_ACCESS_KEY_ID", "")
 R2_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY", "")
 R2_BUCKET = os.getenv("R2_BUCKET", "")
 R2_SYNC_WORKERS = int(os.getenv("R2_SYNC_WORKERS", "8"))
+# How much audio the local disk may hold as a cache of R2; the least recently played goes first. 0: no limit.
+R2_CACHE_MAX_BYTES = int(float(os.getenv("R2_CACHE_MAX_GB", "5")) * 1024**3)
+
+# Spicy Lyrics (word-by-word lyrics), looked up through Spotify's search. Both are optional:
+# without them that provider is skipped. Keys: https://developers.spicylyrics.org, https://developer.spotify.com
+SPICY_SECRET_KEY = os.getenv("SPICY_SECRET_KEY", "")
+SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID", "")
+SPOTIFY_SECRET = os.getenv("SPOTIFY_SECRET", "")

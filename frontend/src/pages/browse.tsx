@@ -1,3 +1,4 @@
+import { usePageTitle } from 'src/hooks/documentTitle';
 import React, { useMemo, useState } from 'react';
 import { api } from 'src/utils/api';
 import placeholder from 'src/assets/placeholder.png';
@@ -89,6 +90,7 @@ const greetingKey = (): TranslationKey => {
 
 export function MainView() {
   const t = useT();
+  usePageTitle(t('nav.browse'));
   const { data: categories, isLoading } = useQuery(topCategoriesQuery);
 
   const navigate = useNavigate();

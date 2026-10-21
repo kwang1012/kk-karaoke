@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { seekSync } from 'src/seekSync';
 
 import {
   downloadTrack,
@@ -31,6 +32,10 @@ type PlayerStore = {
   retryLoad: () => void;
   playing: boolean;
   setPlaying: (playing: boolean) => void;
+  playRequested: boolean;
+  setPlayRequested: (requested: boolean) => void;
+  playbackReady: boolean;
+  setPlaybackReady: (ready: boolean) => void;
   semitone: number;
   setSemitone: (semitone: number) => void;
   progress: number;
@@ -42,6 +47,10 @@ type PlayerStore = {
   enabledPitchShift: boolean; // Whether pitch shift is enabled
   hostPitchShift: boolean; // Whether the room's owner can change the key (known to guests only)
   setHostPitchShift: (enabled: boolean) => void;
+  hostShowVideo: boolean; // Whether the owner's screen shows the video instead of the lyrics (known to guests only)
+  setHostShowVideo: (showVideo: boolean) => void;
+  hostShowMelody: boolean; // Whether the owner's screen draws the melody (known to guests only)
+  setHostShowMelody: (showMelody: boolean) => void;
   setEnabledPitchShift: (enabled: boolean) => void; // Set pitch shift enabled state
   guideLevel: number; // 0..1: how much of the original vocal stays audible in karaoke mode
   setGuideLevel: (level: number) => void;
@@ -95,9 +104,17 @@ export const usePlayerStore = create<PlayerStore>()(
       retryLoad: () => set((state) => ({ loadAttempt: state.loadAttempt + 1, loadError: false, lastSongId: null })),
       playing: false,
       setPlaying: (playing: boolean) => set({ playing }),
+      playRequested: false,
+      setPlayRequested: (playRequested: boolean) => set({ playRequested }),
+      playbackReady: true,
+      setPlaybackReady: (playbackReady: boolean) => set({ playbackReady }),
       enabledPitchShift: true,
       hostPitchShift: false,
       setHostPitchShift: (hostPitchShift: boolean) => set({ hostPitchShift }),
+      hostShowVideo: false,
+      hostShowMelody: false,
+      setHostShowMelody: (hostShowMelody: boolean) => set({ hostShowMelody }),
+      setHostShowVideo: (hostShowVideo: boolean) => set({ hostShowVideo }),
       guideLevel: 0,
       setGuideLevel: (guideLevel: number) => set({ guideLevel }),
       vocalOn: false,
@@ -345,14 +362,21 @@ export const usePlayer = () => {
 
   // when is Callback is true, this function is called when receving the socket message
   const playAudio = (isCallback: boolean = false) => {
-    if (loading) return;
-    if (!currentTrack || !syncedPlayer) return;
+    const state = usePlayerStore.getState();
+    const player = state.syncedPlayer;
+    if (!state.queue[state.queueIdx] || !player) return;
 
+    state.setPlayRequested(true);
     if (isOwner) {
-      syncedPlayer.setVolume(volume, vocalVolume(volume, vocalOn));
-      syncedPlayer.play();
+      if (state.playbackReady && !state.loading) {
+        player.setVolume(state.volume, state.vocalOn ? state.volume : state.volume * state.guideLevel);
+        player.play();
+      }
+      // A scheduled source in a suspended AudioContext is not audible playback.
+      setPlaying(state.playbackReady && !state.loading && player.isRunning);
+    } else {
+      setPlaying(true);
     }
-    setPlaying(true);
 
     if (isCallback) return;
     sendMessage({
@@ -364,6 +388,7 @@ export const usePlayer = () => {
   };
 
   const pauseAudio = (isCallback: boolean = false) => {
+    usePlayerStore.getState().setPlayRequested(false);
     if (isOwner && syncedPlayer) {
       syncedPlayer.pause();
     }
@@ -454,6 +479,7 @@ export const usePlayer = () => {
       roomId: activeRoomId,
       data: {
         seekTime: time,
+        seekRequestId: isOwner ? undefined : seekSync.begin(activeRoomId),
       },
     });
   };

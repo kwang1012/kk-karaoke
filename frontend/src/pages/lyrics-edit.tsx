@@ -1,3 +1,4 @@
+import { usePageTitle } from 'src/hooks/documentTitle';
 import { Home, Search, X } from 'lucide-react';
 import { IconButton } from 'src/components/ui/button';
 import { Input } from 'src/components/ui/input';
@@ -15,6 +16,9 @@ import { useT } from 'src/i18n';
 import { api } from 'src/utils/api';
 
 type Filter = 'all' | 'attention';
+
+/** Where this page lives in the admin area; the song is the last part of the path. */
+const BASE = '/admin/lyrics';
 
 export default function LyricsEditView() {
   const t = useT();
@@ -66,9 +70,11 @@ export default function LyricsEditView() {
     timeAdded: Date.now(),
   };
 
+  usePageTitle(`${t('editor.pageTitle')} - ${t('admin.title')}`, track.id ? track : undefined);
+
   useEffect(() => {
     if (!trackId && uniqueTracks.length > 0) {
-      navigate(`/lyrics/edit/${uniqueTracks[0].id}`, { replace: true });
+      navigate(`${BASE}/${uniqueTracks[0].id}`, { replace: true });
     }
   }, [trackId, uniqueTracks[0]]);
 
@@ -78,17 +84,14 @@ export default function LyricsEditView() {
   const open = (id: string) => {
     if (id === trackId) return;
     if (dirty) setPendingTrack(id);
-    else navigate(`/lyrics/edit/${id}`);
+    else navigate(`${BASE}/${id}`);
   };
 
   return (
     <div className="grid h-full w-full grid-cols-[auto_1fr] gap-3 bg-background p-3">
-      <div className="grid h-full w-[300px] grid-rows-[auto_auto_1fr] gap-2 overflow-hidden rounded-2xl border bg-card">
+      <div className="grid h-full w-75 grid-rows-[auto_auto_1fr] gap-2 overflow-hidden rounded-2xl border bg-card">
         <div className="p-4">
           <h1 className="font-bold text-2xl">
-            <IconButton onClick={() => navigate('/')}>
-              <Home className="size-6" />
-            </IconButton>
             {t('nav.lyrics')}
           </h1>
           <div className="relative mt-4">
@@ -178,7 +181,7 @@ export default function LyricsEditView() {
           const id = pendingTrack;
           setPendingTrack(null);
           setDirty(false);
-          if (id) navigate(`/lyrics/edit/${id}`);
+          if (id) navigate(`${BASE}/${id}`);
         }}
         onCancel={() => setPendingTrack(null)}
       >

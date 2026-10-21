@@ -1,4 +1,19 @@
-import { ListMusic, Mic, Mic2, MicOff, Minus, Pause, PencilLine, Play, Plus, SkipBack, SkipForward, Volume1, Volume2, VolumeX } from 'lucide-react';
+import {
+  ListMusic,
+  Mic,
+  Mic2,
+  MicOff,
+  Minus,
+  Pause,
+  PencilLine,
+  Play,
+  Plus,
+  SkipBack,
+  SkipForward,
+  Volume1,
+  Volume2,
+  VolumeX,
+} from 'lucide-react';
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import AppSlider from './Slider';
@@ -43,7 +58,7 @@ export default function AudioController() {
   return (
     <div className="grid h-full w-full grid-cols-[1fr_minmax(320px,560px)_1fr] items-center gap-4 rounded-2xl border bg-card/80 px-4 shadow-app backdrop-blur-xl">
       {/* Current track */}
-      <SongCard disableHover className="min-w-0 !px-0" track={currentTrack} />
+      <SongCard disableHover className="min-w-0 px-0!" track={currentTrack} />
 
       {/* Transport + seek */}
       <div className="flex flex-col items-center gap-1">
@@ -62,7 +77,7 @@ export default function AudioController() {
                 'relative flex size-10 items-center justify-center rounded-full transition-all',
                 loading
                   ? 'cursor-not-allowed bg-muted text-muted-foreground opacity-60'
-                  : 'bg-primary text-primary-foreground shadow-lg shadow-primary/30 hover:scale-105 active:scale-95'
+                  : 'bg-primary text-primary-foreground shadow-lg shadow-primary/30 hover:scale-105 active:scale-95',
               )}
             >
               {playing && !loading ? (
@@ -93,7 +108,7 @@ export default function AudioController() {
                   <div
                     className={cn(
                       'h-full rounded-full bg-primary transition-[width] duration-300',
-                      loadProgress === null && 'w-1/3 animate-[loading-slide_1.2s_ease-in-out_infinite]'
+                      loadProgress === null && 'w-1/3 animate-[loading-slide_1.2s_ease-in-out_infinite]',
                     )}
                     style={loadProgress === null ? undefined : { width: `${Math.max(4, loadProgress * 100)}%` }}
                   />
@@ -132,12 +147,24 @@ export default function AudioController() {
 
       {/* Karaoke controls */}
       <div className="flex items-center justify-end gap-1">
+        {!isFullScreen && (
+        <Tooltip title={onStage ? t('player.leaveLyricsView') : t('player.lyricsView')} side="top">
+          <IconButton
+            aria-label={t('player.lyricsView')}
+            aria-pressed={onStage}
+            className={cn(onStage && 'text-primary')}
+            onClick={() => navigate(onStage ? '/' : '/lyrics')}
+          >
+            <Mic2 className="size-5" />
+          </IconButton>
+        </Tooltip>
+        )}
         <Tooltip title={vocalOn ? t('player.vocalOff') : t('player.vocalOn')} side="top">
           <button
             onClick={() => toggleVocal()}
             className={cn(
               'flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium whitespace-nowrap transition-colors',
-              vocalOn ? 'border-transparent bg-accent text-foreground' : 'border-primary/40 bg-primary/15 text-primary'
+              vocalOn ? 'border-transparent bg-accent text-foreground' : 'border-primary/40 bg-primary/15 text-primary',
             )}
           >
             {vocalOn ? <Mic className="size-4" /> : <MicOff className="size-4" />}
@@ -183,36 +210,24 @@ export default function AudioController() {
             aria-labelledby="volume-slider"
           />
         </div>
-        {!isFullScreen && (
-        <Tooltip title={onStage ? t('player.leaveLyricsView') : t('player.lyricsView')} side="top">
-          <IconButton
-            aria-label={t('player.lyricsView')}
-            aria-pressed={onStage}
-            className={cn(onStage && 'text-primary')}
-            onClick={() => navigate(onStage ? '/' : '/lyrics')}
-          >
-            <Mic2 className="size-5" />
-          </IconButton>
-        </Tooltip>
-        )}
-        {currentTrack?.id && (
+        {/* {currentTrack?.id && (
           <Tooltip title={t('player.editLyrics')} side="top">
-            <IconButton aria-label={t('player.editLyrics')} onClick={() => window.open(`/lyrics/edit/${currentTrack.id}`, '_blank')}>
+            <IconButton aria-label={t('player.editLyrics')} onClick={() => window.open(`/admin/lyrics/${currentTrack.id}`, '_blank')}>
               <PencilLine className="size-5" />
             </IconButton>
           </Tooltip>
-        )}
+        )} */}
         {!isFullScreen && (
-        <Tooltip title={queueOpen ? t('player.hideQueue') : t('player.showQueue')} side="top">
-          <IconButton
-            aria-label={queueOpen ? t('player.hideQueue') : t('player.showQueue')}
-            aria-pressed={queueOpen}
-            className={cn(queueOpen && 'text-primary')}
-            onClick={toggleQueue}
-          >
-            <ListMusic className="size-5" />
-          </IconButton>
-        </Tooltip>
+          <Tooltip title={queueOpen ? t('player.hideQueue') : t('player.showQueue')} side="top">
+            <IconButton
+              aria-label={queueOpen ? t('player.hideQueue') : t('player.showQueue')}
+              aria-pressed={queueOpen}
+              className={cn(queueOpen && 'text-primary')}
+              onClick={toggleQueue}
+            >
+              <ListMusic className="size-5" />
+            </IconButton>
+          </Tooltip>
         )}
       </div>
     </div>

@@ -4,7 +4,7 @@ import {
   alignedPayload, applyProposal, attachSaved, attachSeparators, changedCount, hasAlignment, proposalDiff,
   type Proposal, type ProposedLine,
 } from './alignment.ts';
-import { mapText, newRow, nudge, setText, setTime, shiftAll, alignmentSignature, type Row } from './model.ts';
+import { mapText, newRow, nudge, setText, setTime, shiftAll, alignmentSignature, renameWordInRow, formatLrc, type Row } from './model.ts';
 
 const w = (text: string, start: number, end = start + 0.3) => ({ text, start, end });
 const line = (text: string, time: number, anchored = true, words = [] as ReturnType<typeof w>[]): ProposedLine =>
@@ -130,4 +130,16 @@ test('alignment alone makes lyrics unsaved, and nothing else does', () => {
   assert.notEqual(alignmentSignature(plain), alignmentSignature(aligned));
   assert.equal(alignmentSignature(plain), alignmentSignature([newRow('different text', 1)]));
   assert.ok(hasAlignment(aligned) && !hasAlignment(plain));
+});
+
+
+test('a word corrected by hand is saved with its timing, and the lyrics file agrees with it', () => {
+  const rows: Row[] = [{ id: 1, time: 26.48, text: '你還在嗎？', words: [w('你', 26.48, 26.69), w('還', 26.69, 27), w('在', 27, 27.57), w('嗎？', 27.57, 28.02)] }];
+  const fixed = renameWordInRow(rows, 0, 1, '遠');
+  assert.equal(formatLrc(fixed).trim(), '[00:26.48]你遠在嗎？');
+  assert.deepEqual(alignedPayload(fixed, 0.9).lines[0].words.map((x) => [x.text, x.start, x.end]), [
+    ['你', 26.48, 26.69], ['遠', 26.69, 27], ['在', 27, 27.57], ['嗎？', 27.57, 28.02],
+  ]);
+  // while changing the line's text instead drops the words, so only the line would be saved
+  assert.deepEqual(alignedPayload(setText(rows, 0, '你遠在嗎？'), 0.9).lines, []);
 });

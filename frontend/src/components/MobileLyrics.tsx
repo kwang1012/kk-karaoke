@@ -55,10 +55,7 @@ export default function MobileLyrics({ color, bgColor }: { color?: string; bgCol
     });
   }, [currentLine, lineRefs.current]);
 
-  useEffect(() => {
-    if (!currentTrack) return;
-    document.title = `${currentTrack.name}．${currentTrack.artists.map((artist) => artist.name).join('、')} - Lyrics`;
-  }, [currentTrack]);
+
 
   useEffect(() => {
     const index = syncedLyrics.findIndex((line, i) => {

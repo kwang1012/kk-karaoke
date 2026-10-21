@@ -1,3 +1,4 @@
+import { usePageTitle } from 'src/hooks/documentTitle';
 import { Button } from 'src/components/ui/button';
 import { Input } from 'src/components/ui/input';
 import { cn } from 'src/lib/utils';
@@ -14,6 +15,7 @@ import { useT } from 'src/i18n';
 
 export default function JoinView() {
   const t = useT();
+  usePageTitle(t('join.pageTitle'));
   const navigate = useNavigate();
   const [nameError, setNameError] = useState(false);
   const [avatarError, setAvatarError] = useState(false);

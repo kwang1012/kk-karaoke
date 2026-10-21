@@ -92,6 +92,12 @@ def test_late_joining_remote_gets_length_and_key_from_the_server():
     assert (state.duration, state.pitch_shift, state.semitone) == (212.5, True, -2)
 
 
+def test_display_mode_is_remembered_for_late_joiners():
+    redis = FakeHashRedis()
+    RedisJamInterface(redis).create_or_update_jam_state("room-1", {"showVideo": True}, force=True)  # type: ignore[arg-type]
+    assert RedisJamInterface(redis).get_jam_state("room-1").show_video is True  # type: ignore[arg-type]
+
+
 def test_guide_level_is_remembered_for_late_joiners():
     redis = FakeHashRedis()
     RedisJamInterface(redis).create_or_update_jam_state("room-1", {"guideLevel": 0.35}, force=True)  # type: ignore[arg-type]

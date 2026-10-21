@@ -9,9 +9,10 @@ import { cn } from 'src/lib/utils';
 import { useRemoteMessageQueue } from 'src/hooks/queue';
 import { usePlayer } from 'src/store/player';
 import TrackQueue from './TrackQueue';
+import QueueOrderControls from './QueueOrderControls';
 import Jam from './Jam';
 import { getUniqueId } from 'src/utils';
-import { useRoomStore } from 'src/store/room';
+import { useActiveRoomId, useRoomStore } from 'src/store/room';
 import { useT } from 'src/i18n';
 
 /** Always mounted (even when hidden) because it owns the websocket queue listener. */
@@ -23,6 +24,7 @@ export default function Queue({ hidden }: { hidden?: boolean }) {
   const { currentTrack, queue, queueIdx } = usePlayer();
   const { addToQueue, insertToQueue, getRandomTracks, rmFromQueue, clearQueue, setQueue } = usePlayer();
   const roomId = useRoomStore((state) => state.roomId);
+  const activeRoomId = useActiveRoomId();
   const tracks = useMemo(() => {
     return queue.slice(queueIdx + 1).map((track, index) => ({
       index,
@@ -33,7 +35,9 @@ export default function Queue({ hidden }: { hidden?: boolean }) {
 
   useRemoteMessageQueue('queue', {
     onAddItem: (item: Message) => {
-      if (item.data.action === 'added') {
+      if (item.data.action === 'arranged') {
+        if (item.data.roomId === activeRoomId) setQueue(item.data.tracks);
+      } else if (item.data.action === 'added') {
         addToQueue(item.data.track);
         requestAnimationFrame(() => {
           const viewport = scrollbarRef.current;
@@ -84,7 +88,10 @@ export default function Queue({ hidden }: { hidden?: boolean }) {
           <Jam />
         </div>
 
-        <div className="mt-6 px-2 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">{t('queue.nextUp')}</div>
+        <div className="mt-6 flex items-center justify-between gap-2 px-2 pb-1">
+          <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{t('queue.nextUp')}</span>
+          {tracks.length > 0 && <QueueOrderControls />}
+        </div>
         {tracks.length ? (
           <TrackQueue tracks={tracks} />
         ) : (

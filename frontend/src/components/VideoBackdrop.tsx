@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { usePlayer } from 'src/store/player';
 import { useT } from 'src/i18n';
+import { cn } from 'src/lib/utils';
 
 declare global {
   interface Window {
@@ -36,10 +37,11 @@ function loadYouTubeApi(): Promise<any> {
 const DRIFT_S = 0.6;
 
 /**
- * The recording's own YouTube video, muted, playing behind the lyrics in step with our audio.
+ * The recording's own YouTube video, muted, in step with our audio. It loads and plays in the
+ * background even while hidden, so showing it in place of the lyrics is instant.
  * Some videos cannot be embedded; those fall back to a link.
  */
-export default function VideoBackdrop({ videoId }: { videoId: string }) {
+export default function VideoBackdrop({ videoId, visible = true }: { videoId: string; visible?: boolean }) {
   const t = useT();
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
@@ -51,8 +53,6 @@ export default function VideoBackdrop({ videoId }: { videoId: string }) {
     let cancelled = false;
     setReady(false);
     setFailed(false);
-    loadYouTubeApi()
-      .then((YT) => {
     // Every player gets its own wrapper, so tearing it down removes every trace of it. YouTube's
     // destroy() throws when it runs before the player is ready and leaves its iframe behind: with a
     // shared container a skipped song's video then stayed stacked above the next one.
@@ -61,6 +61,8 @@ export default function VideoBackdrop({ videoId }: { videoId: string }) {
     hostRef.current?.appendChild(wrapper);
     const mount = document.createElement('div');
     wrapper.appendChild(mount);
+    loadYouTubeApi()
+      .then((YT) => {
         if (cancelled) return;
         playerRef.current = new YT.Player(mount, {
           videoId,
@@ -81,9 +83,9 @@ export default function VideoBackdrop({ videoId }: { videoId: string }) {
         playerRef.current?.destroy();
       } catch {}
       playerRef.current = null;
+      wrapper.remove();
     };
   }, [videoId]);
-      wrapper.remove();
 
   useEffect(() => {
     const player = playerRef.current;
@@ -101,14 +103,14 @@ export default function VideoBackdrop({ videoId }: { videoId: string }) {
   }, [ready, playing, seeking, loading, progress]);
 
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden bg-black [container-type:size]">
-      {/* Fill the area like a cover image, whatever its shape. */}
+    // Kept mounted while hidden (not display:none, which stalls the iframe) so switching to it is instant.
+    <div className={cn('pointer-events-none absolute inset-0 overflow-hidden bg-black [container-type:size]', !visible && 'invisible')}>
+      {/* Fit the whole frame: the video may carry its own lyrics, so none of it can be cropped. */}
       <div
         ref={hostRef}
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 [&_iframe]:size-full"
-        style={{ width: 'max(100cqw, 100cqh * 16 / 9)', height: 'max(100cqh, 100cqw * 9 / 16)' }}
+        style={{ width: 'min(100cqw, 100cqh * 16 / 9)', height: 'min(100cqh, 100cqw * 9 / 16)' }}
       />
-      <div className="absolute inset-0 bg-black/60" />
       {failed && (
         <a
           href={`https://www.youtube.com/watch?v=${videoId}`}

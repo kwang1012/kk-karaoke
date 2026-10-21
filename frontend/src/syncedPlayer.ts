@@ -1,4 +1,5 @@
 import { Track } from './models/spotify';
+import MicChain from './micChain';
 import { audioUrl, fetchAudio, type Progress } from './audioCache';
 
 type Buffer = {
@@ -19,6 +20,7 @@ class SyncedAudioPlayer {
   private vocalSource?: AudioBufferSourceNode;
   private instrumentalSource?: AudioBufferSourceNode;
 
+  private mic?: MicChain;
   protected vocalGain: GainNode;
   protected instrumentalGain: GainNode;
 
@@ -27,9 +29,20 @@ class SyncedAudioPlayer {
 
   public isPlaying = false;
   public isLoading = false;
+  public onPlaybackChange?: (playing: boolean) => void;
+  private loadVersion = 0;
+
+  get isAudioReady() {
+    return this.context?.state === 'running';
+  }
+
+  get isRunning() {
+    return this.isPlaying && this.isAudioReady;
+  }
 
   constructor() {
     this.context = new AudioContext();
+    this.context.addEventListener('statechange', () => this.onPlaybackChange?.(this.isRunning));
     this.vocalGain = this.context.createGain();
     this.instrumentalGain = this.context.createGain();
 
@@ -57,6 +70,7 @@ class SyncedAudioPlayer {
     this.startOffset = 0;
     this.startTime = 0;
     this.isPlaying = false;
+    this.onPlaybackChange?.(false);
   }
 
   /** Download (or read from the cache) both stems of a track and decode them. */
@@ -109,25 +123,29 @@ class SyncedAudioPlayer {
   }
 
   async load(track: Track, onProgress?: (fraction: number | null) => void) {
-    if (this.isLoading) return;
+    const version = ++this.loadVersion;
     this.isLoading = true;
     try {
       this.stopAndCleanSources(); // ensure no overlap or memory leak
-      const { vocal, instrumental } = await this.fetchBuffers(track, onProgress);
+      const { vocal, instrumental } = await this.fetchBuffers(track, (progress) => {
+        if (version === this.loadVersion) onProgress?.(progress);
+      });
+      if (version !== this.loadVersion) return false;
       this.vocalBuffer = vocal;
       this.instrumentalBuffer = instrumental;
       this.lastTimeUsed[track.id] = Date.now();
       // Reset timing
       this.startOffset = 0;
       this.startTime = 0;
+      return true;
     } finally {
-      this.isLoading = false;
+      if (version === this.loadVersion) this.isLoading = false;
     }
   }
 
   async loadAudio(track: Track, onProgress?: (fraction: number | null) => void) {
     this.pause(); // ensure current playback stops cleanly
-    await this.load(track, onProgress);
+    return this.load(track, onProgress);
   }
 
   /** Warm the cache for an upcoming track. Never throws: playback will retry when it gets there. */
@@ -154,7 +172,11 @@ class SyncedAudioPlayer {
   }
 
   destroy() {
+    ++this.loadVersion;
+    this.onPlaybackChange = undefined;
     this.stopAndCleanSources();
+    this.mic?.destroy();
+    this.mic = undefined;
     this.vocalGain.disconnect();
     this.instrumentalGain.disconnect();
     this.vocalGain = undefined!;
@@ -171,9 +193,11 @@ class SyncedAudioPlayer {
 
   play() {
     if (this.isPlaying || this.isLoading) return;
+    void this.context.resume().catch(() => this.onPlaybackChange?.(false));
     this.createSources(this.startOffset);
     this.startTime = this.context.currentTime;
     this.isPlaying = true;
+    this.onPlaybackChange?.(this.isRunning);
   }
 
   pause() {
@@ -182,6 +206,7 @@ class SyncedAudioPlayer {
     this.instrumentalSource?.stop();
     this.startOffset += this.context.currentTime - this.startTime;
     this.isPlaying = false;
+    this.onPlaybackChange?.(false);
   }
 
   seek(time: number) {
@@ -197,6 +222,39 @@ class SyncedAudioPlayer {
   setVolume(instrumentalVolume: number, vocalVolume: number) {
     this.instrumentalGain.gain.setValueAtTime(instrumentalVolume, this.context.currentTime);
     this.vocalGain.gain.setValueAtTime(vocalVolume, this.context.currentTime);
+  }
+
+  /** Open the microphone: heard through the speakers only if `monitor`, but always listened to for pitch. `deviceId` '' is the default input; resolves false if the mic could not be opened. */
+  startMic(deviceId: string, volume: number, reverb: number, monitor: boolean): Promise<boolean> {
+    this.mic ??= new MicChain(this.context);
+    this.mic.setLevels(volume, reverb, monitor);
+    return this.mic.start(deviceId);
+  }
+
+  stopMic() {
+    this.mic?.stop();
+  }
+
+  setMicLevels(volume: number, reverb: number, monitor: boolean) {
+    this.mic?.setLevels(volume, reverb, monitor);
+  }
+
+  /** Frequency in Hz currently sung into the mic, or null for silence. */
+  getMicPitch(): number | null {
+    return this.mic?.readPitch()?.hz ?? null;
+  }
+
+  /** Route playback to an output device ('' is the system default). Resolves false where the browser cannot. */
+  async setOutputDevice(deviceId: string): Promise<boolean> {
+    const context = this.context as AudioContext & { setSinkId?: (id: string) => Promise<void> };
+    if (!context.setSinkId) return false;
+    try {
+      await context.setSinkId(deviceId);
+      return true;
+    } catch (error) {
+      console.warn('Could not switch the output device', error);
+      return false;
+    }
   }
 
   /** Plain playback cannot change the key; see ShiftedAudioPlayer. */

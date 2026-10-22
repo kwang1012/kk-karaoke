@@ -3,6 +3,9 @@ name: Deploy
 # The frontend deploys on every push to main (after CI passes on the PR).
 # The backend image is large and restarts the worker, so it is deployed by hand:
 # Actions -> Deploy -> Run workflow -> target "backend" or "all".
+#
+# Secrets (in a `production` environment): CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID for the
+# frontend; DEPLOY_SSH_KEY, DEPLOY_HOST, DEPLOY_USER for the backend.
 
 on:
   push:

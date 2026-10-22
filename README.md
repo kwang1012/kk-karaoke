@@ -1,8 +1,5 @@
-<h1 align="center">KKaraoke - The best Spotify-like karaoke web application</h1>
+<h1 align="center">KKaraoke - Karaoke for any song, in your browser</h1>
 <p align="center">
-    <a href="https://kwang1012-kkaraoke.hf.space/">
-        <img src="https://img.shields.io/badge/🤗%20Hugging%20Face-Spaces-blue" alt="Hugging Face Spaces">
-    </a>
     <a href="https://hub.docker.com/r/kwang1012/kkaraoke">
         <img src="https://img.shields.io/badge/-Docker%20Image-blue?logo=docker&labelColor=white" alt="Docker">
     </a>
@@ -15,7 +12,7 @@
     <img src="https://imgur.com/xkm7lKt.gif" />
 </p>
 
-<h3 align="start"><a href="https://kwang1012-kkaraoke.hf.space/">DEMO</a></h3>
+<h3 align="start"><a href="https://kkaraoke.app">DEMO: kkaraoke.app</a></h3>
 
 <!-- Demo video: drag an .mp4 into the GitHub editor for this file and paste the
      https://github.com/user-attachments/... link it produces on its own line here. -->
@@ -28,7 +25,6 @@
   - [Local environment](#local-environment)
   - [(Optional) Preprocess tracks](#optional-preprocess-tracks)
 - [About](#about)
-  - [Spotify Appearance](#spotify-appearance)
   - [Easy Deployment](#easy-deployment)
   - [Open-Source and Free](#open-source-and-free)
 - [FAQs](#faqs)
@@ -53,36 +49,9 @@
 | Production frontend build | `npm run build` |
 | Deploy frontend / backend / both | `./deploy.sh frontend` / `./deploy.sh backend` / `./deploy.sh` (`-n` for a dry run) |
 
-## CI/CD
-
-GitHub Actions (`.github/workflows`):
-
-- **CI** (`ci.yml`) runs on every pull request and push to `main`: backend `pytest`, frontend
-  `typecheck`, `test` and `build`.
-- **Deploy** (`deploy.yml`) publishes the frontend to Cloudflare Workers on every push to `main`.
-  The backend (API and worker, over SSH via `deploy.sh`) is deployed manually from
-  *Actions → Deploy → Run workflow*, because it restarts the worker.
-
-Repository secrets (in a `production` environment): `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`
-for the frontend; `DEPLOY_SSH_KEY`, `DEPLOY_HOST`, `DEPLOY_USER` for the backend. Server secrets
-(`backend/.env`) stay on the server.
-
 ---
 
 ## Setup
-
-### AirPlay on a TV
-
-Open **AirPlay setup** in Settings or TV mode for instructions. To show the lyrics,
-TV screen, and audio together, use **Control Center → Screen Mirroring** on a Mac,
-iPhone, or iPad, then choose an AirPlay-compatible TV or Apple TV on the same Wi-Fi.
-Open `/tv`, tap the start screen to enable audio, and press **F** on a Mac for fullscreen.
-Keep the page open and the device awake. Use the system default audio output in
-KKaraoke; if needed, select the TV as the sound output in Control Center.
-
-This uses Apple's system screen mirroring. The website cannot open that picker or
-detect the connection, and does not stream the rendered lyrics through a media
-AirPlay picker. Wireless latency may require adjusting lyrics sync.
 
 ### 1. Create your settings file
 
@@ -283,17 +252,12 @@ uv run python -m scripts.process_default_queue
 
 ---
 
-## Hosting the frontend on Cloudflare Pages
+## Hosting the frontend on Cloudflare Workers
 
-The frontend is static, so it can be hosted on Cloudflare Pages (root directory `frontend`, build command
-`yarn build`, output directory `build`; see `frontend/wrangler.toml`). The backend (API, Redis, worker) stays
-on your machine. Until the site can reach one, it shows setup steps instead of the app:
-
-1. `docker compose up --build`
-2. `cloudflared tunnel --url http://localhost:8080` prints a public `https://…trycloudflare.com` address
-3. Paste that address on the setup page (or open the site with `?backend=<address>`).
-
-It is kept in the browser's local storage. The API's `GET /api/health` reports whether Redis and a worker are up.
+The frontend is static and is served from Cloudflare Workers (see `frontend/wrangler.toml`). Build it
+with `VITE_API_ADDR=<your-api-host> yarn build` and publish with `npx wrangler deploy`, or run
+`./deploy.sh frontend`. The backend (API, Redis, worker) runs on your own machine or server; `GET /api/health`
+reports whether Redis and a worker are up. Pushes to `main` redeploy the frontend through GitHub Actions.
 
 ## About
 
@@ -301,14 +265,6 @@ Welcome to KKaraoke, your personal web application designed to redefine your mus
 Whether you're a karaoke
 enthusiast,
 KKaraoke is for you.
-
-### Spotify Appearance
-
-<img title="Spotify Appearance" src="https://imgur.com/qvdqtsc.png" width="150" ></img>
-
-<br>
-
-Spotify-like user interface to allow you to start playing your favorite songs smoothly.
 
 Engage with your favorite tunes in a whole new way!
 
@@ -321,12 +277,9 @@ Enjoy singing along with high-quality instrumentals at the comfort of your home.
 
 ### Easy Deployment
 
-With KKaraoke, you can deploy your personal KKaraoke app in the
-<a href="https://huggingface.co/spaces/fabiogra/moseca?duplicate=true">
-<img src="https://img.shields.io/badge/🤗%20Hugging%20Face-Spaces-blue"
-alt="Hugging Face Spaces"></a> or locally with
+You can run your own KKaraoke locally with
 [![Docker Call](https://img.shields.io/badge/-Docker%20Image-blue?logo=docker&labelColor=white)](https://hub.docker.com/r/kwang1012/kkaraoke)
-in just one click.
+in just one command.
 
 You can also speed up the music separation process by with GPU support.
 

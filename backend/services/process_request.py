@@ -7,7 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional, Union
 
-from celery.signals import worker_ready
+from celery import current_task
+from celery.signals import task_prerun, task_received, task_revoked, worker_ready
 
 from utils import NO_VOCALS_DIR, LYRICS_DIR, VOCALS_DIR, RAW_AUDIO_DIR
 from models.track import Artist, Track, is_video_id
@@ -163,57 +164,138 @@ def _separate(track_id: str, on_progress) -> None:
     separate_vocals(track_id, on_progress=on_progress)
 
 
+# What a song goes through before it can be sung, in the order the UI lists them. Several run at once:
+# lyrics and audio together; then, once the vocals exist, saving them, and checking/adding to the
+# lyrics and the melody. Each is "pending", "running" or "done" (or "error").
+PIPELINE_STAGES = ("lyrics", "audio", "vocals", "saving", "polishing")
+# The one status older clients know, from whichever stage is running (the later ones win).
+_STATUS_OF_STAGE = (("vocals", "separating"), ("audio", "downloading_audio"), ("lyrics", "downloading_lyrics"),
+                    ("saving", "finishing"), ("polishing", "finishing"))
+
+
+class _Pipeline:
+    """A song's stages and how long each took. Safe to update from the threads that run them."""
+
+    def __init__(self, track: Track, wanted: tuple[str, ...]):
+        self.track = track
+        self.lock = threading.Lock()
+        self.state = {name: ("pending" if name in wanted else "done") for name in PIPELINE_STAGES}
+        self.started: dict[str, float] = {}
+        self.took: dict[str, float] = {}
+        self.begun = time.monotonic()
+
+    def set(self, stage: str, state: str, **extra) -> None:
+        with self.lock:
+            now = time.monotonic()
+            if state == "running":
+                self.started.setdefault(stage, now)
+            elif stage in self.started:
+                self.took[stage] = now - self.started[stage]
+            self.state[stage] = state
+            snapshot = dict(self.state)
+            status = next((s for name, s in _STATUS_OF_STAGE if snapshot[name] == "running"), None)
+        _publish_status(self.track, status or "separating", stages=snapshot, **extra)
+
+    def stage(self, name: str):
+        """Run a block as a stage: running while inside it, done after, error if it raises."""
+        pipeline = self
+
+        class _Scope:
+            def __enter__(self):
+                pipeline.set(name, "running")
+
+            def __exit__(self, kind, exc, tb):
+                pipeline.set(name, "error" if exc else "done")
+                return False
+        return _Scope()
+
+    def summary(self) -> str:
+        parts = ", ".join(f"{n} {self.took[n]:.1f}s" for n in PIPELINE_STAGES if n in self.took)
+        return f"Timing for {self.track.id}: {parts} (wall clock {time.monotonic() - self.begun:.0f}s)"
+
+
 def _process_track(track: Track):
     print("Processing request for track:", track.name)
     search_term = f"{track.name} {' '.join(map(lambda artist: artist.name, track.artists))}"
+    _take_prefetched(track.id, "lyrics")  # a lookup that ran ahead has saved its result by now
     lyrics_exist = r2.local("lyrics", track.id).exists() or bool(read_meta(track.id).get("plain"))
     vocals_exist = r2.local("vocal", track.id).exists()
     non_vocals_exist = r2.local("instrumental", track.id).exists()
+    need_audio = not vocals_exist or not non_vocals_exist
 
     who = _identify(track)
+    wanted = tuple(name for name, needed in (("lyrics", not lyrics_exist), ("audio", need_audio),
+                                             ("vocals", need_audio), ("saving", True), ("polishing", True)) if needed)
+    pipeline = _Pipeline(track, wanted)
+    pipeline.set("lyrics", pipeline.state["lyrics"])  # announces the plan: every stage and where it stands
 
-    if not vocals_exist or not non_vocals_exist:
+    if need_audio:
         modal_separate.warm("Separator")  # start the GPU now: the audio is still to be downloaded
 
-    if not lyrics_exist:
-        _publish_status(track, "downloading_lyrics")
-        _find_lyrics(track, who)
-        if not r2.local("lyrics", track.id).exists():
-            modal_separate.warm("Transcriber")  # no timed lyrics: the vocals will be transcribed
+    # Lyrics and audio do not depend on each other: fetch both at once.
+    def get_lyrics():
+        with pipeline.stage("lyrics"):
+            _find_lyrics(track, who)
+            if not r2.local("lyrics", track.id).exists():
+                modal_separate.warm("Transcriber")  # no timed lyrics: the vocals will be transcribed
 
-    if not vocals_exist or not non_vocals_exist:
-        _publish_status(track, "downloading_audio")
-        if not _take_prefetched(track.id):
-            download_audio(track.id, search_term, target_duration_s=who.duration_s, video_id=who.video_id, title=who.title)
+    def get_audio():
+        with pipeline.stage("audio"):
+            if not _take_prefetched(track.id):
+                download_audio(track.id, search_term, target_duration_s=who.duration_s, video_id=who.video_id, title=who.title)
 
-        _publish_status(track, "separating")
+    with ThreadPoolExecutor(2, thread_name_prefix="stage") as pool:
+        jobs = []
+        if not lyrics_exist:
+            jobs.append(pool.submit(get_lyrics))
+        if need_audio:
+            jobs.append(pool.submit(get_audio))
+        for job in jobs:
+            job.result()  # a failed download fails the song; lyrics never raise (see _find_lyrics)
 
-        def on_progress(progress: float, total: float):
-            """
-            Callback function to handle progress updates during vocal separation.
-            """
-            _publish_status(track, "separating", value=progress, total=total)
-        _separate(track.id, on_progress)
-        r2.upload_track(track.id)
+    saving: Optional[Future] = None
+    job_id = current_task.request.id if current_task else None
+    stems_pool = ThreadPoolExecutor(1, thread_name_prefix="stems")
+    try:
+        if need_audio:
+            def on_progress(progress: float, total: float):
+                """Callback function to handle progress updates during vocal separation."""
+                pipeline.set("vocals", "running", value=progress, total=total)
+            with pipeline.stage("vocals"):
+                _separate(track.id, on_progress)
+
+            # The stems are safe to upload while the lyrics are checked against them and the melody is found.
+            def save_stems():
+                with pipeline.stage("saving"):
+                    r2.upload_track(track.id, job_id=job_id)
+            saving = stems_pool.submit(save_stems)
+        else:
+            pipeline.set("saving", "done")
+
+        with pipeline.stage("polishing"):
+            _listen_and_verify(track, who)
+            try:
+                extract_melody(track.id)
+            except Exception as e:  # the piano roll and score are extras: a song without them still plays
+                print(f"Melody extraction failed for {track.id}: {e!r}")
+
+        if saving is not None:
+            saving.result()
+    finally:
+        stems_pool.shutdown(wait=True)
 
     # Retry durable pending bytes before trusting the shared readiness manifest.
     if r2.retry_pending(track.id, force=True):
         raise r2.PendingUploadError(f"Uploads are still pending for {track.id}")
-
     if not is_ready(track):
         raise RuntimeError("Separation finished but output files are missing")
 
-    _listen_and_verify(track, who)
-
-    try:
-        extract_melody(track.id)
-    except Exception as e:  # the piano roll and score are extras: a song without them still plays
-        print(f"Melody extraction failed for {track.id}: {e!r}")
-
     Path(RAW_AUDIO_DIR, f"{track.id}.mp3").unlink(missing_ok=True)
     save_track(track)
-    r2.upload_track(track.id)
-    _publish_status(track, "ready")
+    with pipeline.stage("saving"):
+        r2.upload_track(track.id, job_id=job_id)
+    _publish_status(track, "ready", stages={name: "done" for name in PIPELINE_STAGES})
+    print(pipeline.summary())
 
 
 def refresh_lyrics_for(track: Track) -> dict:
@@ -273,20 +355,45 @@ def align_lyrics(track_id: str, sheet: list) -> dict:
 
 PREFETCH_POLL_S = 5
 PREFETCH_LOOKAHEAD = 4   # how many waiting songs to fetch for
-PREFETCH_DOWNLOADS = 3   # at once: YouTube rate-limits a client that opens many
+PREFETCH_DOWNLOADS = 3   # audio downloads at once: YouTube rate-limits a client that opens many
 PREFETCH_WAIT_S = 15 * 60
 
-_prefetch_pool = ThreadPoolExecutor(PREFETCH_DOWNLOADS, thread_name_prefix="prefetch")
-_prefetching: dict[str, Future] = {}
+_audio_pool = ThreadPoolExecutor(PREFETCH_DOWNLOADS, thread_name_prefix="prefetch-audio")
+_lyrics_pool = ThreadPoolExecutor(2, thread_name_prefix="prefetch-lyrics")
+# (what, track id) -> the fetch under way
+_prefetching: dict[tuple[str, str], Future] = {}
 _prefetch_lock = threading.Lock()
 
 
+# The worker takes the next message off the queue ahead of time and holds it until the current song is
+# done, so the song that runs next is not in the queue any more: it is here.
+_reserved: dict[str, dict] = {}
+
+
+@task_received.connect
+def _remember_reserved(request=None, **_):
+    if request is not None and request.name == "process_request" and request.args and isinstance(request.args[0], dict):
+        _reserved[request.id] = request.args[0]
+
+
+@task_prerun.connect
+def _forget_reserved(task_id=None, **_):
+    _reserved.pop(task_id, None)
+
+
+@task_revoked.connect
+def _forget_revoked(request=None, **_):
+    if request is not None:
+        _reserved.pop(request.id, None)
+
+
 def queued_tracks(limit: int) -> list[dict]:
-    """The songs waiting for this worker, next first, read from the broker without touching the messages."""
+    """The songs waiting for this worker, next first: the one it already holds, then the queue in the broker."""
     from services.worker_status import broker
 
-    found = []
-    for raw in broker.lrange("celery", 0, limit * 4 - 1):
+    found = list(_reserved.values())
+    # Celery pushes new messages on the left and takes the next one from the right.
+    for raw in reversed(broker.lrange("celery", -limit * 4, -1)):
         try:
             message = json.loads(raw)
             if message.get("headers", {}).get("task") != "process_request":
@@ -298,49 +405,89 @@ def queued_tracks(limit: int) -> list[dict]:
             continue
         if len(found) >= limit:
             break
-    return found
+    return found[:limit]
 
 
-def _fetch_ahead(track: Track) -> None:
+_ahead_stages: dict[str, dict[str, str]] = {}
+
+
+def _announce_ahead(track: Track, stage: str, state: str) -> None:
+    """Tell the UI what is happening to a song that is still waiting its turn."""
+    with _prefetch_lock:
+        stages = _ahead_stages.setdefault(track.id, {name: "pending" for name in PIPELINE_STAGES})
+        stages[stage] = state
+        snapshot = dict(stages)
+    running = [s for s, st in (("audio", "downloading_audio"), ("lyrics", "downloading_lyrics")) if snapshot[s] == "running"]
+    status = dict((("audio", "downloading_audio"), ("lyrics", "downloading_lyrics")))[running[0]] if running else "submitted"
+    try:
+        r.publish(track.id, json.dumps({"type": "notify", "data": {
+            "action": "progress", "track": track.model_dump(), "status": status, "stages": snapshot}}))
+    except Exception as e:
+        print(f"Could not announce {track.id}: {e!r}")
+
+
+def _fetch_audio_ahead(track: Track) -> None:
     who = _identify(track)
     search_term = f"{track.name} {' '.join(a.name for a in track.artists)}"
-    download_audio(track.id, search_term, target_duration_s=who.duration_s, video_id=who.video_id, title=who.title)
+    print(f"Fetching audio ahead for {track.id}")
+    _announce_ahead(track, "audio", "running")
+    try:
+        download_audio(track.id, search_term, target_duration_s=who.duration_s, video_id=who.video_id, title=who.title)
+    except Exception:
+        _announce_ahead(track, "audio", "pending")  # the song's own turn will try again and report the error
+        raise
+    _announce_ahead(track, "audio", "done")
+
+
+def _fetch_lyrics_ahead(track: Track) -> None:
+    if r2.local("lyrics", track.id).exists() or read_meta(track.id).get("plain"):
+        _announce_ahead(track, "lyrics", "done")
+        return
+    print(f"Looking up lyrics ahead for {track.id}")
+    _announce_ahead(track, "lyrics", "running")
+    try:
+        _find_lyrics(track, _identify(track))
+    finally:
+        _announce_ahead(track, "lyrics", "done")
 
 
 def prefetch_once() -> int:
-    """Start fetching for waiting songs that are not fetched or being fetched. Returns how many were started."""
+    """Start fetching the audio and lyrics of waiting songs that are not fetched or being fetched. Returns how many fetches were started."""
     started = 0
     for data in queued_tracks(PREFETCH_LOOKAHEAD):
         try:
             track = Track(**data)
         except Exception:
             continue
-        with _prefetch_lock:
-            if track.id in _prefetching:
-                continue
-            if Path(RAW_AUDIO_DIR, f"{track.id}.mp3").exists() or Path(VOCALS_DIR, f"{track.id}.mp3").exists():
-                continue
-            _prefetching[track.id] = _prefetch_pool.submit(_fetch_ahead, track)
-            started += 1
+        have_audio = Path(RAW_AUDIO_DIR, f"{track.id}.mp3").exists() or Path(VOCALS_DIR, f"{track.id}.mp3").exists()
+        for what, pool, fetch, needed in (
+            ("audio", _audio_pool, _fetch_audio_ahead, not have_audio),
+            ("lyrics", _lyrics_pool, _fetch_lyrics_ahead, True),
+        ):
+            with _prefetch_lock:
+                if not needed or (what, track.id) in _prefetching:
+                    continue
+                _prefetching[(what, track.id)] = pool.submit(fetch, track)
+                started += 1
     return started
 
 
-def _take_prefetched(track_id: str) -> bool:
+def _take_prefetched(track_id: str, what: str = "audio") -> bool:
     """
-    Whether this song's audio was fetched ahead (waiting for the fetch if it is still going). False
-    means nothing usable is there and the caller should download. A fetch that failed is not reported
-    here: the caller's own download fails the same way, as the song's error.
+    Whether this song's `what` ("audio" or "lyrics") was fetched ahead, waiting for the fetch if it is
+    still going. False means nothing usable is there and the caller should do it itself. A fetch that
+    failed is not reported here: the caller's own attempt fails the same way, as the song's error.
     """
     with _prefetch_lock:
-        future = _prefetching.pop(track_id, None)
+        future = _prefetching.pop((what, track_id), None)
     if future is None:
         return False
     try:
         future.result(timeout=PREFETCH_WAIT_S)
     except Exception as e:
-        print(f"Fetching ahead failed for {track_id}: {e!r}")
+        print(f"Fetching {what} ahead failed for {track_id}: {e!r}")
         return False
-    return Path(RAW_AUDIO_DIR, f"{track_id}.mp3").exists()
+    return Path(RAW_AUDIO_DIR, f"{track_id}.mp3").exists() if what == "audio" else True
 
 
 @worker_ready.connect

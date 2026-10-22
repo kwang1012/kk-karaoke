@@ -24,6 +24,7 @@ dependencies = [
     "cloudpickle==3.1.1",
     "colorama==0.4.6",
     "coloredlogs==15.0.1",
+    "cryptography>=50.0.2",
     "ctranslate2==4.4.0",
     "cutlet==0.5.0",
     "demucs==4.0.1",
@@ -111,6 +112,7 @@ dependencies = [
     "whisperx>=3.4.2",
     "wrapt==1.17.2",
     "yt-dlp>=2026.8.19",
+    "yt-dlp-ejs>=0.8.0",
     "ytmusicapi>=1.12.3",
     "zhconv>=1.4.3",
 ]

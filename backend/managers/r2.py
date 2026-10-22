@@ -10,6 +10,7 @@ import shutil
 import socket
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from threading import Lock
 
@@ -127,8 +128,8 @@ def _finish_upload(record, journal):
     return True
 
 
-def upload_path(prefix: str, path: str | os.PathLike) -> bool:
-    job_id = current_task.request.id if current_task else None
+def upload_path(prefix: str, path: str | os.PathLike, job_id=None) -> bool:
+    job_id = job_id or (current_task.request.id if current_task else None)
     _check_job(job_id)
     path = Path(path)
     data = path.read_bytes()
@@ -212,12 +213,13 @@ def retry_pending(song_id=None, force=False) -> int:
     return remaining
 
 
-def upload_track(track_id):
-    failed = []
-    for prefix, _, _ in KINDS:
-        path = _path(prefix, track_id)
-        if path.exists() and not upload_path(prefix, path):
-            failed.append(prefix)
+def upload_track(track_id, job_id=None):
+    """Upload everything a track has, all files at once (each is its own request to R2 and the catalog)."""
+    job_id = job_id or (current_task.request.id if current_task else None)  # worker threads have no current task
+    todo = [(prefix, _path(prefix, track_id)) for prefix, _, _ in KINDS if _path(prefix, track_id).exists()]
+    with ThreadPoolExecutor(max(1, min(len(todo), R2_SYNC_WORKERS))) as pool:
+        outcomes = list(pool.map(lambda item: upload_path(item[0], item[1], job_id), todo))
+    failed = [prefix for (prefix, _), ok in zip(todo, outcomes) if not ok]
     if failed:
         raise PendingUploadError(f"Uploads pending for {track_id}: {', '.join(failed)}")
 

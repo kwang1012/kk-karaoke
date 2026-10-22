@@ -16,6 +16,7 @@ import Queue from 'src/components/Queue';
 import VideoBackdrop from 'src/components/VideoBackdrop';
 import TvLyrics from 'src/components/TvLyrics';
 import { useInvite } from 'src/hooks/invite';
+import { authEnabled, openLogin, useAuthStore } from 'src/lib/auth';
 import { useLyricsOffset } from 'src/hooks/lyricsOffset';
 import { useRemoteMessageQueue } from 'src/hooks/queue';
 import { useT } from 'src/i18n';
@@ -38,11 +39,21 @@ function formatTime(seconds: number): string {
 }
 
 /**
- * The TV has to own a room (it plays the audio) and needs no sign-in: make a profile if there is
+ * The TV has to own a room (it plays the audio): make a profile if there is
  * none, and open the room, retrying until the server answers.
  */
 function useTvRoom() {
+  const authReady = useAuthStore((state) => state.ready);
+  const signedIn = useAuthStore((state) => !!state.session);
   useEffect(() => {
+    // Opening a room is for invited hosts: sign the TV in once, the browser remembers it.
+    if (authEnabled) {
+      if (!authReady) return;
+      if (!signedIn) {
+        openLogin('host');
+        return;
+      }
+    }
     const room = useRoomStore.getState();
     // Changing the view must keep a joined room and its queue.
     if (room.joinedRoom && room.joinedRoom !== room.roomId) return;
@@ -72,7 +83,7 @@ function useTvRoom() {
       stopped = true;
       clearTimeout(timer);
     };
-  }, []);
+  }, [authReady, signedIn]);
 }
 
 /** Keep the screen on while the TV page is open and showing. */

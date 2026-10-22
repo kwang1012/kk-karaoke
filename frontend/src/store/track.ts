@@ -2,7 +2,9 @@ import { Track } from 'src/models/spotify';
 import { api } from 'src/utils/api';
 import { create } from 'zustand';
 
-export type SongStatus = 'submitted' | 'downloading_lyrics' | 'downloading_audio' | 'separating' | 'ready' | 'error';
+import type { Stages } from 'src/utils/stages';
+
+export type SongStatus = 'submitted' | 'downloading_lyrics' | 'downloading_audio' | 'separating' | 'finishing' | 'ready' | 'error';
 export type LyricsConfidence = 'verified' | 'synced' | 'approximate' | 'unsynced';
 export interface TrackStore {
   readyTracks: Set<Track>; // The library: every processed track, ready to be played
@@ -21,6 +23,8 @@ export interface TrackStore {
   songStatus: Record<string, SongStatus>; // Status of each track in the queue. used for adding track to queue
   setSongStatus: (songId: string, status: SongStatus) => void; // Set the status of a track in the queue
   removeSongStatus: (songId: string) => void; // Remove the status of a track in the queue
+  songStages: Record<string, Stages>; // Where each stage of a processing track stands: several run at once
+  setSongStages: (songId: string, stages: Stages) => void;
   songProgress: Record<string, number>; // Status of each track in the queue. used for adding track to queue
   setSongProgress: (songId: string, progress: number) => void; // Set the progress of a track in the queue
   removeSongProgress: (songId: string) => void; // Remove the progress of a track in the queue
@@ -76,10 +80,14 @@ export const useTrackStore = create<TrackStore>((set, get) => ({
     })),
   removeSongStatus: (songId: string) => {
     const { [songId]: _, ...rest } = get().songStatus;
+    const { [songId]: __, ...stages } = get().songStages;
     set({
       songStatus: rest,
+      songStages: stages,
     });
   },
+  songStages: {},
+  setSongStages: (songId: string, stages: Stages) => set((state) => ({ songStages: { ...state.songStages, [songId]: stages } })),
   songProgress: {},
   setSongProgress: (songId: string, progress: number) =>
     set((state) => ({

@@ -144,7 +144,7 @@ def pipeline(tmp_path, monkeypatch):
     monkeypatch.setattr(pr, "_publish_status", lambda *a, **k: None)
     monkeypatch.setattr(pr, "save_track", lambda t: None)  # would write into the real library folder
     monkeypatch.setattr(pr, "is_ready", lambda t: True)
-    monkeypatch.setattr(pr.r2, "upload_track", lambda t: None)
+    monkeypatch.setattr(pr.r2, "upload_track", lambda t, job_id=None: None)
 
     monkeypatch.setattr(pr, "download_audio", lambda *a, **k: calls["download"].append((a, k)))
     monkeypatch.setattr(pr, "separate_vocals", lambda *a, **k: None)

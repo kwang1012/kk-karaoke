@@ -1,5 +1,6 @@
 import redis
 from fastapi import APIRouter, Depends, HTTPException
+from auth import require_host
 from models.user import User
 from interfaces.jam import RedisJamInterface
 from managers.websocket import WebSocketManager
@@ -13,11 +14,13 @@ ws_manager = WebSocketManager()
 @router.post("/create")
 async def create_room(
     room: Room,
+    host: dict = Depends(require_host),
     redis_interface: RedisJamInterface = Depends(
         lambda: RedisJamInterface(get_db())
     ),
 ):
     redis_interface.create_or_update_jam_state(room.id, {**room.model_dump(), "is_on": True})
+    redis_interface.mark_hosted(room.id, host["sub"])
     code = redis_interface.get_or_create_code(room.id)
     return {"message": f"Room {room.id} created successfully.", "code": code}
 

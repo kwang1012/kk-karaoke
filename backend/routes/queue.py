@@ -3,6 +3,8 @@ import json
 import redis
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
+from auth import optional_host
+from interfaces.jam import RedisJamInterface
 from interfaces.queue import RedisQueueInterface
 from managers.websocket import WebSocketManager
 from managers.db import get_db
@@ -81,12 +83,17 @@ async def _add_and_process_track(
     track: Track,
     redis_interface: RedisQueueInterface,
     add_fn: str,
+    host: dict | None = None,
 ) -> JSONResponse:
     """Shared logic for adding a track to the queue and starting processing."""
     if is_retired_track_id(track.id):
         return JSONResponse(
             status_code=400, content={"error": "This song is from an older version; search for it again"})
     is_track_ready = await asyncio.to_thread(is_ready, track)
+    # Processing a new song costs a GPU job: only hosts, or anyone inside a jam a host opened.
+    if not is_track_ready and not host and not RedisJamInterface(redis_interface.redis).is_hosted(room_id):
+        return JSONResponse(
+            status_code=403, content={"error": "Join a jam or sign in to add songs that are not processed yet"})
     track.status = "ready" if is_track_ready else "submitted"
 
     if add_fn == "add":
@@ -150,8 +157,9 @@ async def add_to_queue_endpoint(
     room_id: str,
     track: Track,
     redis_interface: RedisQueueInterface = Depends(lambda: RedisQueueInterface(get_db())),
+    host: dict | None = Depends(optional_host),
 ):
-    return await _add_and_process_track(room_id, track, redis_interface, "add")
+    return await _add_and_process_track(room_id, track, redis_interface, "add", host)
 
 
 @router.get("/{room_id}/tracks")
@@ -210,5 +218,6 @@ async def add_to_next_endpoint(
     room_id: str,
     track: Track,
     redis_interface: RedisQueueInterface = Depends(lambda: RedisQueueInterface(get_db())),
+    host: dict | None = Depends(optional_host),
 ):
-    return await _add_and_process_track(room_id, track, redis_interface, "add_to_next")
+    return await _add_and_process_track(room_id, track, redis_interface, "add_to_next", host)

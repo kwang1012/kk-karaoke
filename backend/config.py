@@ -31,6 +31,19 @@ WHISPER_MODEL = os.getenv("WHISPER_MODEL", "small")
 USE_MODAL = os.getenv("USE_MODAL", "").strip().lower() in ("1", "true", "yes", "on")
 MODAL_APP_NAME = os.getenv("MODAL_APP_NAME", "kkaraoke")
 
+# Host sign-in (Supabase Auth). Off by default so local development needs no account; set
+# AUTH_REQUIRED=1 in production. Hosts create jams, add songs outside a jam and use /admin.
+AUTH_REQUIRED = os.getenv("AUTH_REQUIRED", "").strip().lower() in ("1", "true", "yes", "on")
+SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
+# Only for projects still on the legacy shared secret; new projects sign with asymmetric keys (JWKS).
+SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "").strip()
+
+# yt-dlp: YouTube asks datacenter IPs to sign in. Give it a cookies.txt (Netscape format, from a
+# signed-in browser; yt-dlp rewrites it, so it must be writable) and/or a proxy URL. In the proxy URL,
+# {session} becomes a new random id per fetch, for providers that keep one IP per session id.
+YTDLP_COOKIES_FILE = os.getenv("YTDLP_COOKIES_FILE", "").strip()
+YTDLP_PROXY = os.getenv("YTDLP_PROXY", "").strip()
+
 # Jam state
 JAM_STATE_SYNC_INTERVAL = float(os.getenv("JAM_STATE_SYNC_INTERVAL", "1.0"))
 

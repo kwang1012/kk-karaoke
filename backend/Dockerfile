@@ -7,13 +7,16 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends ffmpeg build-essential curl && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# yt-dlp needs a JavaScript runtime to read YouTube's player.
+COPY --from=denoland/deno:bin /deno /usr/local/bin/deno
+
 WORKDIR /app
 
 # Install dependencies first so code changes don't invalidate this (large) layer.
 COPY pyproject.toml uv.lock ./
 # The cache mount keeps downloaded wheels (PyTorch is ~GBs) between builds.
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-install-project
+    uv sync --frozen --no-dev --no-install-project --extra modal
 
 COPY . .
 

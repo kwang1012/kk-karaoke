@@ -36,6 +36,7 @@ export default function SongCard({
   const t = useT();
   const songStatus = useTrackStore((state) => state.songStatus);
   const songProgress = useTrackStore((state) => state.songProgress);
+  const songStages = useTrackStore((state) => state.songStages);
   const hasActions = useMemo(() => !!onAdd || !!onDelete || !!onInsert, [onAdd, onDelete, onInsert]);
   // Derived from the current track (not copied into state): cards get reused for a different
   // song when a list changes, and state would keep showing the previous song's status.
@@ -96,7 +97,7 @@ export default function SongCard({
           {parsedTrack.name}
         </span>
         {processing ? (
-          <ProcessingStatus status={status} progress={progress} />
+          <ProcessingStatus status={status} progress={progress} stages={track?.id ? songStages[track.id] : undefined} />
         ) : failed ? (
           <span className="flex items-center gap-1 truncate text-xs text-destructive">
             <CircleAlert className="size-3.5 shrink-0" />

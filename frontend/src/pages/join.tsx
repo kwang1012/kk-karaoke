@@ -6,6 +6,7 @@ import AvatarPicker from 'src/components/AvatarPicker';
 import { useEffect, useState } from 'react';
 import { api } from 'src/utils/api';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { authEnabled, useLoginModal } from 'src/lib/auth';
 import { useRoomStore } from 'src/store/room';
 import { resolveRoomCode } from 'src/apis/room';
 import { useBreakpointDown } from 'src/hooks/media';
@@ -174,6 +175,13 @@ export default function JoinView() {
         <Button disabled={!nickname || !selectedAvatar} className="mt-8 w-full" size="lg" onClick={handleJoin}>
           {t('join.start')}
         </Button>
+        {authEnabled && (
+          <p className="mt-4 text-center text-sm">
+            <button type="button" className="text-muted-foreground underline-offset-4 hover:underline" onClick={() => useLoginModal.setState({ open: true, reason: 'host' })}>
+              {t('login.hostLink')}
+            </button>
+          </p>
+        )}
       </div>
     </div>
   );

@@ -27,3 +27,4 @@ backend/data/
 .local-tunnel.log
 .local-api.log
 .local-frontend.log
+backend/scripts/*.resolved.json

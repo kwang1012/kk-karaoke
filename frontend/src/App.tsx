@@ -26,8 +26,10 @@ import AdminSongs from './pages/admin/songs';
 import AdminWorker from './pages/admin/worker';
 import AdminStorage from './pages/admin/storage';
 import MobileLyricsView from './pages/mobile-lyrics';
-import { useLanguageStore } from 'src/i18n';
+import { useLanguageStore, useT } from 'src/i18n';
 import BackendGate from './components/BackendGate';
+import LoginDialog from './components/LoginDialog';
+import { authEnabled, openLogin, useAuthStore } from './lib/auth';
 
 // lazily loaded components
 const JoinView = lazy(() => import('./pages/join'));
@@ -70,6 +72,21 @@ const OldEditorRedirect = () => {
   return <Navigate to={trackId ? `/admin/lyrics/${trackId}` : '/admin/lyrics'} replace />;
 };
 
+/** Admin pages are for signed-in hosts. */
+const RequireHost = ({ children }: { children: React.ReactNode }) => {
+  const { session, ready } = useAuthStore();
+  const t = useT();
+  useEffect(() => {
+    if (ready) openLogin('host');
+  }, [ready, session]);
+  if (!authEnabled || session) return <>{children}</>;
+  return (
+    <div className="flex h-full w-full items-center justify-center p-6 text-center text-muted-foreground">
+      {t('login.reasonHost')}
+    </div>
+  );
+};
+
 const AppRouters = () => {
   const isLoggedIn = useIsLoggedIn();
   const mobile = useBreakpointDown('md');
@@ -89,7 +106,7 @@ const AppRouters = () => {
           </Route>
         </Route>
         <Route path="/lyrics/edit/:trackId?" element={<OldEditorRedirect />} />
-        <Route path="/admin" element={<AdminLayout />}>
+        <Route path="/admin" element={<RequireHost><AdminLayout /></RequireHost>}>
           <Route index element={<AdminSongs />} />
           <Route path="lyrics/:trackId?" element={<LyricsEditView />} />
           <Route path="worker" element={<AdminWorker />} />
@@ -116,6 +133,7 @@ function App() {
   const connect = useWebSocketStore((state) => state.connect);
   const setSongStatus = useTrackStore((state) => state.setSongStatus);
   const setSongProgress = useTrackStore((state) => state.setSongProgress);
+  const setSongStages = useTrackStore((state) => state.setSongStages);
   const roomId = useRoomStore((state) => state.roomId);
   const activeRoomId = useActiveRoomId();
   const avatar = useRoomStore((state) => state.avatar);
@@ -181,6 +199,7 @@ function App() {
     if (message.type === 'notify') {
       if (message.data.action === 'progress') {
         setSongStatus(message.data.track.id, message.data.status);
+        if (message.data.stages) setSongStages(message.data.track.id, message.data.stages);
         if (message.data.value) {
           setSongProgress(message.data.track.id, (100 * message.data.value) / message.data.total);
         }
@@ -227,6 +246,7 @@ function App() {
     <Providers>
       <BackendGate>
         <AppRouters />
+        <LoginDialog />
       </BackendGate>
     </Providers>
     // </div>

@@ -9,6 +9,19 @@ from services.queue_order import QueueOrder, order_queue
 import time
 
 
+def _same_entry(stored: Track, other: Track) -> bool:
+    """Whether two tracks are the same queue entry (a song can be queued more than once).
+
+    `time_added` is in nanoseconds, past what a JS number holds exactly: the browser hands back a rounded
+    value, so compare as doubles, which is how the browser read it.
+    """
+    if stored.id != other.id:
+        return False
+    if stored.time_added is None or other.time_added is None:
+        return stored.time_added == other.time_added
+    return float(stored.time_added) == float(other.time_added)
+
+
 class _ChannelListener:
     """One pub/sub connection serving every progress subscription (see `subscribe_to_channel`)."""
 
@@ -126,10 +139,7 @@ class RedisQueueInterface:
             track_data: Any = self.redis.lindex(key, i)  # type: ignore
             if track_data:
                 stored_track = Track(**json.loads(track_data))
-                if (
-                    stored_track.id == track.id
-                    and stored_track.time_added == track.time_added
-                ):
+                if _same_entry(stored_track, track):
                     self.redis.lrem(key, 1, track_data)
                     return stored_track.model_dump()
         return None
@@ -221,10 +231,7 @@ class RedisQueueInterface:
             track_data: Any = self.redis.lindex(key, i)  # type: ignore
             if track_data:
                 stored_track = Track(**json.loads(track_data))
-                if (
-                    stored_track.id == track.id
-                    and stored_track.time_added == track.time_added
-                ):
+                if _same_entry(stored_track, track):
                     stored_track.status = track.status
                     stored_track.progress = track.progress
                     self.redis.lset(

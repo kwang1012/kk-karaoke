@@ -91,6 +91,17 @@ class RedisJamInterface:
                 return code
         raise RuntimeError("Could not find a free room code")
 
+    def mark_hosted(self, room_id: str, host_id: str) -> None:
+        """Record that a signed-in host opened this room as a jam (guests may add songs to it)."""
+        self.redis.set(RedisKeys.room_host(room_id), host_id, ex=CODE_TTL_S)
+
+    def is_hosted(self, room_id: str) -> bool:
+        key = RedisKeys.room_host(room_id)
+        if not self.redis.exists(key):
+            return False
+        self.redis.expire(key, CODE_TTL_S)  # in use: keep it
+        return True
+
     def room_for_code(self, code: str) -> Optional[str]:
         room_id = self.redis.get(RedisKeys.room_code(normalize_code(code)))
         if room_id:

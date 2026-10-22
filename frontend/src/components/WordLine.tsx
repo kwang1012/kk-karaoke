@@ -1,4 +1,5 @@
 import { LyricWord } from 'src/models/spotify';
+import { wordFill } from 'src/wordFill';
 
 /**
  * The line being sung, filled in word by word. `progress` only moves every 200ms, so each
@@ -19,9 +20,7 @@ export default function WordLine({
   return (
     <>
       {words.map((word, i) => {
-        const start = word.start + delay;
-        const end = Math.max(word.end + delay, start + 0.05);
-        const sung = progress <= start ? 0 : progress >= end ? 1 : (progress - start) / (end - start);
+        const sung = wordFill(word, words[i + 1], delay, progress);
         return (
           <span
             key={i}

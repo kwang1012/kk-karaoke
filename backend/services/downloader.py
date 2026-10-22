@@ -1,3 +1,4 @@
+import secrets
 import yt_dlp
 import os
 import re
@@ -7,10 +8,23 @@ import httpx
 import opencc
 
 
+from config import YTDLP_COOKIES_FILE, YTDLP_PROXY
 from utils import RAW_AUDIO_DIR
 
 _s2t_converter = opencc.OpenCC('s2t')
 _t2s_converter = opencc.OpenCC('t2s')
+
+
+def _network_opts() -> dict:
+    """Cookies and proxy for yt-dlp, when configured."""
+    opts: dict = {}
+    if YTDLP_COOKIES_FILE and os.path.exists(YTDLP_COOKIES_FILE):
+        opts["cookiefile"] = YTDLP_COOKIES_FILE
+    if YTDLP_PROXY:
+        # YouTube ties a download link to the IP that asked for it, so a rotating proxy needs one IP per
+        # fetch: put {session} in the URL (e.g. login__sessid.{session}:password@host:port) for a fresh id each time.
+        opts["proxy"] = YTDLP_PROXY.replace("{session}", secrets.token_hex(4))
+    return opts
 
 
 def _search_youtube(query: str, limit: int = 5) -> list:
@@ -22,6 +36,7 @@ def _search_youtube(query: str, limit: int = 5) -> list:
         "extract_flat": True,
         "socket_timeout": 30,
         "retries": 3,
+        **_network_opts(),
     }) as ydl:
         info = ydl.extract_info(ytsearch, download=False)
 
@@ -145,26 +160,40 @@ def _search_best_url(search_term: str, target_duration_s: float | None, title: s
     return chosen["url"]
 
 
+# Some proxy IPs are refused by YouTube's servers (HTTP 403) or cut the transfer short; another IP works.
+DOWNLOAD_ATTEMPTS = 4
+
+
 def _download(sid: str, search_term: str, url: str) -> None:
     audio_path = os.path.join(RAW_AUDIO_DIR, sid + ".%(ext)s")
-    ydl_opts = {
-        "format": "bestaudio/best",
-        "postprocessors": [
-            {
-                "key": "FFmpegExtractAudio",
-                "preferredcodec": "mp3",
-                "preferredquality": "192",
-            }
-        ],
-        "outtmpl": audio_path,
-        "quiet": True,
-        # Don't hang forever on a stalled connection; retry transient failures.
-        "socket_timeout": 30,
-        "retries": 5,
-        "fragment_retries": 5,
-    }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
+    for attempt in range(1, DOWNLOAD_ATTEMPTS + 1):
+        ydl_opts = {
+            "format": "bestaudio/best",
+            "postprocessors": [
+                {
+                    "key": "FFmpegExtractAudio",
+                    "preferredcodec": "mp3",
+                    "preferredquality": "192",
+                }
+            ],
+            "outtmpl": audio_path,
+            "quiet": True,
+            # Don't hang forever on a stalled connection; retry transient failures.
+            "socket_timeout": 30,
+            "retries": 5,
+            "fragment_retries": 5,
+            # built per attempt: a rotating proxy gives each attempt a new IP
+            **_network_opts(),
+        }
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+            break
+        except yt_dlp.utils.DownloadError as exc:
+            # Without a proxy the next attempt would use the same IP and fail the same way.
+            if not YTDLP_PROXY or attempt == DOWNLOAD_ATTEMPTS:
+                raise
+            print(f"Download attempt {attempt} for '{search_term}' failed ({str(exc)[:80]}); trying another IP")
 
     mp3_path = os.path.join(RAW_AUDIO_DIR, sid + ".mp3")
     if not os.path.exists(mp3_path):

@@ -17,8 +17,12 @@
 
 <h3 align="start"><a href="https://kwang1012-kkaraoke.hf.space/">DEMO</a></h3>
 
+<!-- Demo video: drag an .mp4 into the GitHub editor for this file and paste the
+     https://github.com/user-attachments/... link it produces on its own line here. -->
+
 ---
 
+- [Quick commands](#quick-commands)
 - [Setup](#setup)
   - [(Recommended) Docker](#docker)
   - [Local environment](#local-environment)
@@ -33,6 +37,35 @@
   - [How does KKaraoke work?](#how-does-kkaraoke-work)
   - [How do I use KKaraoke?](#how-do-i-use-kkaraoke) -->
 - [Disclaimer](#disclaimer)
+
+---
+
+## Quick commands
+
+| Task | Command |
+| --- | --- |
+| Install everything (first time) | `npm run install:all` |
+| Run API + worker + frontend locally | `npm run dev` |
+| Run the whole stack in Docker | `docker compose up --build` (open http://localhost:8080) |
+| Stop Docker | `docker compose down` |
+| Backend tests | `npm test` (or `cd backend && uv run pytest`) |
+| Frontend typecheck / tests | `cd frontend && yarn typecheck && yarn test` |
+| Production frontend build | `npm run build` |
+| Deploy frontend / backend / both | `./deploy.sh frontend` / `./deploy.sh backend` / `./deploy.sh` (`-n` for a dry run) |
+
+## CI/CD
+
+GitHub Actions (`.github/workflows`):
+
+- **CI** (`ci.yml`) runs on every pull request and push to `main`: backend `pytest`, frontend
+  `typecheck`, `test` and `build`.
+- **Deploy** (`deploy.yml`) publishes the frontend to Cloudflare Workers on every push to `main`.
+  The backend (API and worker, over SSH via `deploy.sh`) is deployed manually from
+  *Actions → Deploy → Run workflow*, because it restarts the worker.
+
+Repository secrets (in a `production` environment): `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`
+for the frontend; `DEPLOY_SSH_KEY`, `DEPLOY_HOST`, `DEPLOY_USER` for the backend. Server secrets
+(`backend/.env`) stay on the server.
 
 ---
 

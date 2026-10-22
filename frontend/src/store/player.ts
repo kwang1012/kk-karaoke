@@ -4,6 +4,7 @@ import { seekSync } from 'src/seekSync';
 import {
   downloadTrack,
   emptyQueue,
+  fetchQueue,
   fetchRandomTracks,
   insertToQueue,
   pushToQueue,
@@ -88,6 +89,24 @@ type PlayerStore = {
   downloadSong: (track: Track) => Promise<void>;
   clearQueue: () => Promise<void>;
 };
+
+/**
+ * The server announces an added song over the websocket. When that message does not reach this tab (its
+ * socket was not in the room yet), the song would only appear after a reload: check, and fetch the queue
+ * when the song is still missing.
+ */
+function ensureQueued(roomId: string, trackId: string, countBefore: number) {
+  setTimeout(async () => {
+    const count = () => usePlayerStore.getState().queue.filter((t) => t.id === trackId).length;
+    if (count() > countBefore) return;
+    try {
+      const { tracks } = await fetchQueue(roomId);
+      if (Array.isArray(tracks) && count() <= countBefore) usePlayerStore.setState({ queue: tracks });
+    } catch {
+      // the next message or reload will bring it
+    }
+  }, 1500);
+}
 
 export const usePlayerStore = create<PlayerStore>()(
   persist(
@@ -193,6 +212,7 @@ export const usePlayerStore = create<PlayerStore>()(
         const avatar = useRoomStore.getState().avatar;
         const joinedRoomId = useRoomStore.getState().joinedRoom;
         const activeRoomId = joinedRoomId || roomId || 'default';
+        const countBefore = get().queue.filter((t) => t.id === track.id).length;
         return pushToQueue(activeRoomId, {
           ...track,
           // camelCase on purpose: tracks from the library carry `orderedBy: null`, which the server
@@ -203,9 +223,13 @@ export const usePlayerStore = create<PlayerStore>()(
             avatar: avatar ?? '',
           },
         }).then((data) => {
-          if (data.isReady) {
-            useTrackStore.getState().setSongStatus(track.id, 'ready');
+          // refused (sign-in needed) or failed: the song is not on its way
+          if (!data) {
+            useTrackStore.getState().removeSongStatus(track.id);
+            return;
           }
+          if (data.isReady) useTrackStore.getState().setSongStatus(track.id, 'ready');
+          ensureQueued(activeRoomId, track.id, countBefore);
         });
       },
       insertSongToQueue: async (track: Track) => {
@@ -215,6 +239,7 @@ export const usePlayerStore = create<PlayerStore>()(
         const avatar = useRoomStore.getState().avatar;
         const joinedRoomId = useRoomStore.getState().joinedRoom;
         const activeRoomId = joinedRoomId || roomId || 'default';
+        const countBefore = get().queue.filter((t) => t.id === track.id).length;
         insertToQueue(activeRoomId, {
           ...track,
           // camelCase on purpose: tracks from the library carry `orderedBy: null`, which the server
@@ -225,9 +250,13 @@ export const usePlayerStore = create<PlayerStore>()(
             avatar: avatar ?? '',
           },
         }).then((data) => {
-          if (data.isReady) {
-            useTrackStore.getState().setSongStatus(track.id, 'ready');
+          // refused (sign-in needed) or failed: the song is not on its way
+          if (!data) {
+            useTrackStore.getState().removeSongStatus(track.id);
+            return;
           }
+          if (data.isReady) useTrackStore.getState().setSongStatus(track.id, 'ready');
+          ensureQueued(activeRoomId, track.id, countBefore);
         });
       },
       rmSongFromQueue: async (track: Track) => {
@@ -247,6 +276,7 @@ export const usePlayerStore = create<PlayerStore>()(
       },
       downloadSong: async (track: Track) => {
         downloadTrack(track).then((data) => {
+          if (!data) return;
           // no task, is ready
           if (!data.task) {
             useTrackStore.getState().setSongStatus(track.id, 'ready');

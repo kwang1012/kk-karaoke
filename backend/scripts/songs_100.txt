@@ -1,0 +1,106 @@
+# artist - title, one per line. Lines starting with # are skipped.
+# --- Chinese ---
+周杰倫 - 晴天
+周杰倫 - 稻香
+周杰倫 - 七里香
+周杰倫 - 告白氣球
+周杰倫 - 夜曲
+周杰倫 - 青花瓷
+林俊傑 - 學不會
+林俊傑 - 修煉愛情
+林俊傑 - 江南
+林俊傑 - 曹操
+五月天 - 倔強
+五月天 - 突然好想你
+五月天 - 溫柔
+五月天 - 知足
+陳奕迅 - 十年
+陳奕迅 - 浮誇
+陳奕迅 - 富士山下
+鄧紫棋 - 光年之外
+鄧紫棋 - 泡沫
+蔡依林 - 日不落
+田馥甄 - 小幸運
+告五人 - 愛人錯過
+韋禮安 - 如果可以
+李榮浩 - 年少有為
+薛之謙 - 演員
+周興哲 - 以後別做朋友
+梁靜茹 - 勇氣
+張惠妹 - 聽海
+王力宏 - 唯一
+蕭敬騰 - 王妃
+蔡健雅 - 紅色高跟鞋
+孫燕姿 - 遇見
+S.H.E - super star
+鄧麗君 - 月亮代表我的心
+# --- K-pop ---
+BTS - Dynamite
+BTS - Spring Day
+BTS - Butter
+BLACKPINK - How You Like That
+BLACKPINK - DDU-DU DDU-DU
+BLACKPINK - Kill This Love
+IVE - After LIKE
+IVE - LOVE DIVE
+NewJeans - Ditto
+NewJeans - Hype Boy
+NewJeans - Super Shy
+aespa - Next Level
+aespa - Supernova
+TWICE - Fancy
+TWICE - Cheer Up
+TWICE - What is Love
+Red Velvet - Psycho
+Red Velvet - Russian Roulette
+Girls' Generation - Gee
+Girls' Generation - Into the New World
+EXO - Love Shot
+SEVENTEEN - Super
+Stray Kids - God's Menu
+PSY - Gangnam Style
+IU - Blueming
+IU - Good Day
+IU - Through the Night
+LE SSERAFIM - ANTIFRAGILE
+(G)I-DLE - TOMBOY
+Big Bang - Bang Bang Bang
+Taeyeon - I
+Wonder Girls - Nobody
+# --- English ---
+Ed Sheeran - Shape of You
+Ed Sheeran - Perfect
+Ed Sheeran - Thinking Out Loud
+Adele - Someone Like You
+Adele - Rolling in the Deep
+Adele - Hello
+Coldplay - Yellow
+Coldplay - Viva La Vida
+Coldplay - Fix You
+Taylor Swift - Shake It Off
+Taylor Swift - Love Story
+Taylor Swift - Blank Space
+Bruno Mars - Just the Way You Are
+Bruno Mars - Uptown Funk
+Bruno Mars - When I Was Your Man
+Queen - Bohemian Rhapsody
+Queen - Don't Stop Me Now
+The Beatles - Let It Be
+The Beatles - Hey Jude
+Maroon 5 - Sugar
+Maroon 5 - Memories
+Justin Bieber - Sorry
+Justin Bieber - Love Yourself
+Katy Perry - Firework
+Lady Gaga - Shallow
+Lady Gaga - Bad Romance
+Whitney Houston - I Wanna Dance with Somebody
+Journey - Don't Stop Believin'
+Imagine Dragons - Believer
+The Weeknd - Blinding Lights
+Dua Lipa - Levitating
+Billie Eilish - bad guy
+Sam Smith - Stay With Me
+John Legend - All of Me
+Celine Dion - My Heart Will Go On
+Oasis - Wonderwall

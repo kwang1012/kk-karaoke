@@ -1,0 +1,78 @@
+{
+  "note": "Evaluation set for lyric/audio alignment. Entries record what a song is and where it came from -- not how well it is expected to score. Predicted grades bias how results are read and go stale; the measured columns from align_eval.py describe each song's character, and baseline.json is what regressions are judged against.",
+  "songs": [
+    {
+      "id": "陳零九 繞著你降落",
+      "why": "Studio MV, Traditional-script sheet, clear lead vocal over moderate instrumentation.",
+      "video_url": "https://www.youtube.com/watch?v=1m42JeleHe4",
+      "video_title": "陳零九 Nine Chen【繞著你降落】Official MV"
+    },
+    {
+      "id": "周興哲 想念你想我",
+      "why": "Studio MV. The upload's intro runs to a different length than the sheet assumes. (Auto-resolved: duration-matching pinned a live take by coincidence, so no URL is pinned.)"
+    },
+    {
+      "id": "陳零九 刪了",
+      "why": "Studio MV. The bare title matches songs by three different artists; the sheet resolves only once the artist is read from the video title.",
+      "video_url": "https://www.youtube.com/watch?v=pRD2fU9nMoI",
+      "video_title": "陳零九 Nine Chen【刪了】Official MV"
+    },
+    {
+      "id": "告五人 醜人多作怪",
+      "why": "Studio MV, band vocal over full instrumentation. Sheet from NetEase.",
+      "video_url": "https://www.youtube.com/watch?v=pQD5CBLl7yY",
+      "video_title": "告五人 - 醜人多作怪『醜人多作怪 你最好全部從實招來』【動態歌詞Lyrics】"
+    },
+    {
+      "id": "老王樂隊 我還年輕 我還年輕",
+      "why": "Indie rock, guitar-heavy mix. The chorus repeats the title phrase many times over.",
+      "video_url": "https://www.youtube.com/watch?v=2dk31rJ4JDw",
+      "video_title": "老王樂隊 / 我還年輕我還年輕【歌詞】"
+    },
+    {
+      "id": "落日飛車 My Jinji",
+      "why": "Mandarin band with an English song title. Soft vocal mixed low under reverb-heavy guitar.",
+      "video_url": "https://www.youtube.com/watch?v=5xwFCtDc0fI",
+      "video_title": "Sunset Rollercoaster - My Jinji (Official Video), 2020"
+    },
+    {
+      "id": "deca joins 浴室",
+      "why": "Lo-fi indie. Vocal carries heavy reverb and sits close to the instrumentation in level.",
+      "video_url": "https://www.youtube.com/watch?v=AKJnNeAFI3w",
+      "video_title": "浴室"
+    },
+    {
+      "id": "Elephant Gym Wings",
+      "why": "Math rock, largely instrumental with sparse vocal passages separated by long breaks.",
+      "video_url": "https://www.youtube.com/watch?v=W9FzEiL50es",
+      "video_title": "Wings"
+    },
+    {
+      "id": "康士坦的變化球 蓋布瑞",
+      "why": "No sheet on any configured provider (checked Lrclib, NetEase, Musixmatch, Megalobiz, Genius).",
+      "video_url": "https://www.youtube.com/watch?v=fme8lLtkOys",
+      "video_title": "當代電影大師 告訴我他們都在本來的什麼地方 2022浪人祭"
+    },
+    {
+      "id": "淺堤 湊陣",
+      "why": "No sheet on any configured provider. Second data point for the same gap.",
+      "video_url": "https://www.youtube.com/watch?v=2NNPkKKPiTc",
+      "video_title": "陷眠"
+    },
+    {
+      "id": "周興哲 想念你想我 (live)",
+      "video_url": "https://www.youtube.com/watch?v=l7ZKHrPIkMQ",
+      "video_title": "(Live) Eric Chou 想念你想我 Concert in Singapore April 2026",
+      "why": "Live concert recording: crowd noise, ad-libs, and an arrangement that differs from the studio cut.",
+      "construction": "A 285s live recording deliberately paired with the 240s studio sheet."
+    },
+    {
+      "id": "告五人 KKBOX 醜人多作怪 medley",
+      "video_url": "https://www.youtube.com/watch?v=OQKRSMxB4q4",
+      "video_title": "告五人－醜人多作怪／在這座城市遺失了你／披星戴月的想你【第 16 屆 KKBOX 風雲榜】",
+      "lyrics_query": "告五人 醜人多作怪",
+      "why": "Televised awards performance running three songs continuously without a break.",
+      "construction": "Three songs performed back to back in one 531s video, paired with the sheet for the first song only."
+    }
+  ]
+}

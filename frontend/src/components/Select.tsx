@@ -1,20 +1,31 @@
-import { styled } from '@mui/material/styles';
-import { NativeSelect } from '@mui/material';
-const AppSelect = styled(NativeSelect)(({ theme }) => ({
-  border: 'none',
-  backgroundColor: theme.palette.mode == 'dark' ? '#333333' : '#bdb9a6',
-  borderRadius: 4,
-  fontSize: 12,
-  color: '#b3b3b3',
-  height: 32,
-  '& .MuiNativeSelect-select': {
-    border: 'none',
-    height: '100%',
-    padding: '0 12px',
-  },
-  '& svg': {
-    right: 4,
-  },
-}));
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from 'src/components/ui/select';
 
-export default AppSelect;
+/** Styled dropdown for a short list of `{ value, label }` options. */
+export default function AppSelect({
+  value,
+  onValueChange,
+  options,
+  disabled,
+  className,
+}: {
+  value: string;
+  onValueChange?: (value: string) => void;
+  options: readonly { value: string; label: string }[];
+  disabled?: boolean;
+  className?: string;
+}) {
+  return (
+    <Select value={value} onValueChange={onValueChange} disabled={disabled}>
+      <SelectTrigger className={className}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}

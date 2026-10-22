@@ -1,30 +1,20 @@
-import { Table, TableHead, TableRow, TableCell, TableBody, useMediaQuery, useTheme } from '@mui/material';
-import { forwardRef, useContext, useEffect, useRef, useState } from 'react';
+import { Table, TableHeader as TableHead, TableRow, TableCell, TableBody } from 'src/components/ui/table';
+import { useBreakpointDown } from 'src/hooks/media';
+import { cn } from 'src/lib/utils';
+import { forwardRef, useContext, useEffect, useRef } from 'react';
 import { Track } from 'src/models/spotify';
 import PlaylistRow, { getColWidth, HoverTableRow } from './Row';
 import { PlaylistContext } from 'src/context/playlist';
 import { TableComponents, TableVirtuoso } from 'react-virtuoso';
 import { usePlaylistStore } from 'src/store/playlist';
-import { styled } from '@mui/material/styles';
-import { useOverlayScrollbars } from 'overlayscrollbars-react';
+import { useT } from 'src/i18n';
 
-const Header = styled('div')(({ theme }) => ({
-  display: 'grid',
-  padding: 20,
-  placeItems: 'center',
-  gridTemplateColumns: 'auto 1fr',
-  [theme.breakpoints.down('md')]: {
-    gridTemplateColumns: '1fr',
-    padding: 5,
-    paddingTop: 15,
-    '& .title': {
-      padding: '0 75px 10px 75px',
-    },
-  },
-}));
 const VirtuosoTableComponents: TableComponents<Track> = {
   Table: (props) => {
-    const { collection, collectionImage, color, setIsSticky, scrollTop, setHalfway } = useContext(PlaylistContext);
+    const { collection, collectionType, collectionImage, color, setIsSticky, scrollTop, setHalfway, isLoading } =
+      useContext(PlaylistContext);
+    const heroLoading = isLoading && !collection.name; // opened directly, nothing known about it yet
+    const t = useT();
 
     const headerRef = useRef<HTMLDivElement>(null);
 
@@ -35,22 +25,36 @@ const VirtuosoTableComponents: TableComponents<Track> = {
     }, [scrollTop, headerRef.current]);
     return (
       <>
-        <Header
+        <div
           ref={headerRef}
-          className="h-[335px] md:h-[200px]"
+          className="grid h-[335px] grid-cols-1 place-items-center p-[5px] pt-[15px] md:h-[200px] md:grid-cols-[auto_1fr] md:p-5"
           style={{
             backgroundImage: `linear-gradient(to bottom, ${color}, ${color}40)`,
           }}
         >
-          <div className="title h-full shrink-0 w-full md:w-40 max-w-[400px]">
-            <img src={collectionImage} className="w-full h-full object-cover rounded-md" alt={collection.name} />
+          <div className="title h-full w-full max-w-[400px] shrink-0 max-md:px-[75px] max-md:pb-2.5 md:w-40">
+            {heroLoading ? (
+              <div className="size-full animate-pulse rounded-xl bg-white/15 shadow-2xl" />
+            ) : (
+              <img referrerPolicy="no-referrer" src={collectionImage} className="size-full rounded-xl object-cover shadow-2xl" alt={collection.name} />
+            )}
           </div>
-          <div className="ml-4 flex flex-col justify-center md:justify-start w-full">
-            <span className="text-2xl md:text-4xl font-bold line-clamp-2 leading-tight">{collection.name}</span>
-            <div className="text-sm text-gray-200 mt-1 line-clamp-1">{collection.description}</div>
+          <div className="ml-4 flex w-full flex-col justify-center text-white md:justify-end md:self-end">
+            <span className="text-xs font-medium tracking-wide uppercase opacity-80">{collectionType === 'album' ? t('playlist.type.album') : t('playlist.type.playlist')}</span>
+            {heroLoading ? (
+              <>
+                <div className="mt-2 h-9 w-2/3 animate-pulse rounded-lg bg-white/15 md:h-12" />
+                <div className="mt-3 h-4 w-1/3 animate-pulse rounded bg-white/10" />
+              </>
+            ) : (
+              <>
+                <span className="line-clamp-2 text-2xl font-extrabold leading-tight tracking-tight md:text-5xl">{collection.name}</span>
+                <div className="mt-2 line-clamp-1 text-sm opacity-80">{collection.description}</div>
+              </>
+            )}
           </div>
-        </Header>
-        <Table {...props} stickyHeader style={{ tableLayout: 'fixed' }}></Table>
+        </div>
+        <Table {...props} style={{ ...props.style, tableLayout: 'fixed' }}></Table>
       </>
     );
   },
@@ -64,27 +68,25 @@ const VirtuosoTableComponents: TableComponents<Track> = {
 };
 
 function fixedHeaderContent() {
+  const t = useT();
   const { headers, isSticky } = useContext(PlaylistContext);
-  const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
-  const theme = useTheme();
+  const mobile = useBreakpointDown('md');
   return (
-    <TableRow
-      sx={{
-        '& th': {
-          borderColor: '#b3b3b3',
-          bgcolor: isSticky ? (theme.palette.mode === 'dark' ? '#1a1a1a' : 'white') : 'transparent',
-          top: mobile ? 48 : 64,
-        },
-      }}
-    >
+    <TableRow>
       {headers.map((header) => (
         <TableCell
           key={header.key}
-          width={getColWidth(header.key)}
-          align={header.key == 'row_id' ? 'center' : 'left'}
-          sx={{ color: '#b3b3b3', padding: 2 }}
+          style={{
+            width: getColWidth(header.key),
+            top: mobile ? 48 : 64,
+            backgroundColor: isSticky ? 'var(--card)' : 'transparent',
+          }}
+          className={cn(
+            'sticky z-10 border-b p-4 text-xs font-medium tracking-wide text-muted-foreground uppercase',
+            header.key == 'row_id' ? 'text-center' : 'text-left'
+          )}
         >
-          {header.label}
+          {header.label === '#' ? '#' : header.label && t(header.label)}
         </TableCell>
       ))}
     </TableRow>
@@ -93,39 +95,9 @@ function fixedHeaderContent() {
 
 export default function PlaylistTable({ tracks }: { tracks: Track[] }) {
   const { setScrollTop } = useContext(PlaylistContext);
-  const rootRef = useRef(null);
-  const [scroller, setScroller] = useState<any>(null);
-  const [initialize, osInstance] = useOverlayScrollbars({
-    options: {
-      overflow: {
-        x: 'hidden',
-        y: 'scroll',
-      },
-      scrollbars: {
-        autoHide: 'leave',
-        autoHideDelay: 500,
-      },
-    },
-  });
-
-  useEffect(() => {
-    const { current: root } = rootRef;
-
-    if (scroller && root) {
-      initialize({
-        target: root,
-        elements: {
-          viewport: scroller,
-        },
-      });
-    }
-
-    return () => osInstance()?.destroy();
-  }, [scroller, initialize, osInstance]);
   return (
-    <div data-overlayscrollbars-initialize="" className="w-full h-full" ref={rootRef}>
+    <div className="h-full w-full">
       <TableVirtuoso
-        scrollerRef={setScroller}
         data={tracks}
         components={VirtuosoTableComponents}
         fixedHeaderContent={fixedHeaderContent}

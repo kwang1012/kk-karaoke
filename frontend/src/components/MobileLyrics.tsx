@@ -1,28 +1,27 @@
 import AppScrollbar from './Scrollbar';
+import LyricsSkeleton from './LyricsSkeleton';
+import PlainLyrics from './PlainLyrics';
+import WordLine from './WordLine';
 import { useState, useRef, useMemo, useEffect } from 'react';
 import { usePlayer } from 'src/store/player';
-import { styled } from '@mui/material/styles';
 import placeholder from 'src/assets/placeholder.png';
 import { useTrackStore } from 'src/store';
 import { useSettingStore } from 'src/store/setting';
-import { OverlayScrollbarsComponentRef } from 'overlayscrollbars-react';
+import { useT } from 'src/i18n';
 
-const Overlay = styled('div')(({ theme }) => ({
-  position: 'fixed',
-  top: 0,
-  left: 0,
-  right: 0,
-  height: 84,
-  zIndex: 1,
-}));
 export default function MobileLyrics({ color, bgColor }: { color?: string; bgColor?: string }) {
+  const t = useT();
   // local states
   const lineRefs = useRef<(HTMLSpanElement | null)[]>([]);
-  const containerRef = useRef<OverlayScrollbarsComponentRef<'div'> | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const { progress, currentLine, setCurrentLine, currentTrack, lyrics, seeking, loading } = usePlayer();
+  const { progress, playing, currentLine, setCurrentLine, currentTrack, lyrics, seeking, loading } = usePlayer();
   const { seek } = usePlayer();
-  const lyricsDelay = useTrackStore((state) => state.lyricsDelays[currentTrack?.id || ''] || 0);
+  const trackDelay = useTrackStore((state) => state.lyricsDelays[currentTrack?.id || ''] || 0);
+  const lyricsLead = useSettingStore((state) => state.lyricsLead);
+  const lyricsDelay = trackDelay - lyricsLead; // the song's own offset, and the lead before the singing
+  const wordHighlight = useSettingStore((state) => state.wordHighlight);
+  const plain = useTrackStore((state) => state.plainLyrics[currentTrack?.id || '']);
   const syncedLyrics = useMemo(() => {
     return (
       lyrics?.map((line) => {
@@ -46,9 +45,7 @@ export default function MobileLyrics({ color, bgColor }: { color?: string; bgCol
     const el = lineRefs.current[currentLine];
     const container = containerRef.current;
     if (!el || !container) return;
-    const osInstance = container.osInstance();
-    if (!osInstance) return;
-    const viewport = osInstance.elements().viewport;
+    const viewport = container;
 
     const elTop = el.offsetTop;
     const elHeight = el.offsetHeight;
@@ -60,10 +57,7 @@ export default function MobileLyrics({ color, bgColor }: { color?: string; bgCol
     });
   }, [currentLine, lineRefs.current]);
 
-  useEffect(() => {
-    if (!currentTrack) return;
-    document.title = `${currentTrack.name}．${currentTrack.artists.map((artist) => artist.name).join('、')} - Lyrics`;
-  }, [currentTrack]);
+
 
   useEffect(() => {
     const index = syncedLyrics.findIndex((line, i) => {
@@ -91,8 +85,8 @@ export default function MobileLyrics({ color, bgColor }: { color?: string; bgCol
       style={{ color, backgroundColor: bgColor }}
     >
       {sticky && (
-        <Overlay
-          className="shadow-md"
+        <div
+          className="fixed inset-x-0 top-0 z-[1] h-[84px] shadow-md"
           style={{
             background: bgColor,
           }}
@@ -100,9 +94,9 @@ export default function MobileLyrics({ color, bgColor }: { color?: string; bgCol
       )}
       <div className="sticky top-0 flex items-center w-full z-50 px-6">
         <div className="w-16 h-16 rounded-md bg-[#c3c3c3] overflow-hidden">
-          <img src={currentTrack?.album?.images?.[0]?.url || placeholder} className="w-full h-full" />
+          <img referrerPolicy="no-referrer" src={currentTrack?.album?.images?.[0]?.url || placeholder} className="w-full h-full" />
         </div>
-        <span className="text-xl ml-2 text-white">{currentTrack?.name || 'Not Playing'}</span>
+        <span className="text-xl ml-2 text-white">{currentTrack?.name || t('common.notPlaying')}</span>
       </div>
       {syncedLyrics.length > 0 ? (
         syncedLyrics.map((line, i) => (
@@ -112,10 +106,18 @@ export default function MobileLyrics({ color, bgColor }: { color?: string; bgCol
                 'text-2xl cursor-pointer font-bold transition-all duration-200',
                 i <= currentLine ? 'text-white' : '',
               ].join(' ')}
-              ref={(el) => (lineRefs.current[i] = el)}
+              ref={(el) => {
+                lineRefs.current[i] = el;
+              }}
               onClick={handleLineClick.bind(null, i)}
             >
-              {line.text === '' ? '♪' : line.text}
+              {wordHighlight && i === currentLine && line.words?.length ? (
+                <WordLine words={line.words} delay={lyricsDelay} progress={progress} playing={playing} dimColor={color || 'currentColor'} />
+              ) : line.text === '' ? (
+                '♪'
+              ) : (
+                line.text
+              )}
 
               {line.romanized && showTranslatinon && (
                 <>
@@ -126,9 +128,11 @@ export default function MobileLyrics({ color, bgColor }: { color?: string; bgCol
             </span>
           </div>
         ))
+      ) : plain ? (
+        <PlainLyrics text={plain} className="m-5 text-2xl" />
       ) : (
         <div className="text-center mt-20 text-4xl font-bold" style={{ color }}>
-          {!loading && <p>{currentTrack ? 'No lyrics available for this track.' : 'Start playing a track!'}</p>}
+          {loading ? <LyricsSkeleton className="px-2 py-0" /> : <p>{currentTrack ? t('lyrics.none') : t('lyrics.start')}</p>}
         </div>
       )}
     </AppScrollbar>

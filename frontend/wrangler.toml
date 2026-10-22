@@ -1,0 +1,15 @@
+# Cloudflare Workers static assets: `VITE_API_ADDR=api.kkaraoke.app yarn build`, then `npx wrangler deploy`.
+# not_found_handling makes unknown paths serve index.html, so client-side routes like /join work.
+name = "karaoke"
+compatibility_date = "2025-01-01"
+workers_dev = false
+preview_urls = false
+routes = [
+  { pattern = "kkaraoke.app", custom_domain = true },
+  { pattern = "www.kkaraoke.app", custom_domain = true },
+  { pattern = "karaoke.kwang.cc", custom_domain = true },
+]
+
+[assets]
+directory = "./build"
+not_found_handling = "single-page-application"

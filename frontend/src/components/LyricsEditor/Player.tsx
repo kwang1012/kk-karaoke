@@ -1,7 +1,6 @@
-import { faCirclePause, faCirclePlay } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { IconButton } from '@mui/material';
-import { useEffect, useRef, useState } from 'react';
+import { CirclePause, CirclePlay } from 'lucide-react';
+import { IconButton } from 'src/components/ui/button';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import AppSlider from '../Slider';
 import SyncedAudioPlayer from 'src/syncedPlayer';
 import { Track } from 'src/models/spotify';
@@ -13,13 +12,23 @@ function formatTime(seconds: number): string {
   const secs = Math.floor(seconds % 60);
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
-export default function LyricsEditorPlayer({
-  track,
-  onProgress,
-}: {
-  track: Track;
-  onProgress?: (progress: number) => void;
-}) {
+/** What the editor can ask of the player. `getTime` is exact; `progress` ticks only every 200 ms. */
+export type PlayerHandle = {
+  getTime: () => number;
+  seek: (seconds: number) => void;
+  play: () => void;
+  pause: () => void;
+  toggle: () => void;
+};
+
+const LyricsEditorPlayer = forwardRef<
+  PlayerHandle,
+  {
+    track: Track;
+    onProgress?: (progress: number) => void;
+    onPlayingChange?: (playing: boolean) => void;
+  }
+>(function LyricsEditorPlayer({ track, onProgress, onPlayingChange }, ref) {
   const [progress, setProgress] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [seeking, setSeeking] = useState(false);
@@ -120,14 +129,29 @@ export default function LyricsEditorPlayer({
   const handleSeekStart = () => {
     setSeeking(true);
   };
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      getTime: () => syncedPlayer.current?.getCurrentTime() ?? progress,
+      seek,
+      play,
+      pause,
+      toggle: handlePlayPause,
+    }),
+    [playing, progress]
+  );
+  useEffect(() => {
+    onPlayingChange?.(playing);
+  }, [playing]);
   return (
-    <div className="w-full flex items-end mt-4">
+    <div className="w-full flex items-end mt-4" data-stamp-player>
       <div className="flex items-center justify-stat">
-        <IconButton style={{ fontSize: 28, padding: 0 }} onClick={handlePlayPause} tabIndex={-1}>
+        <IconButton className="p-0 hover:bg-transparent" onClick={handlePlayPause} tabIndex={-1}>
           {playing ? (
-            <FontAwesomeIcon icon={faCirclePause} size="xl" color="white" />
+            <CirclePause className="size-10 text-primary" />
           ) : (
-            <FontAwesomeIcon icon={faCirclePlay} size="xl" color="white" />
+            <CirclePlay className="size-10 text-primary" />
           )}
         </IconButton>
       </div>
@@ -142,11 +166,13 @@ export default function LyricsEditorPlayer({
           onMouseDown={handleSeekStart}
           aria-labelledby="karaoke-slider"
         />
-        <div className="flex items-center justify-between w-full text-sm text-white">
+        <div className="flex items-center justify-between w-full text-sm text-muted-foreground">
           <span>{formatTime(progress)}</span>
           <span>{formatTime(duration)}</span>
         </div>
       </div>
     </div>
   );
-}
+});
+
+export default LyricsEditorPlayer;

@@ -1,60 +1,57 @@
-import { useMediaQuery, useTheme } from '@mui/material';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
+import { IconButton } from 'src/components/ui/button';
+import { useBreakpointDown } from 'src/hooks/media';
+import { cn } from 'src/lib/utils';
+import { useT } from 'src/i18n';
 
 export default function Carousel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLeft, setShowLeft] = useState(false);
   const [showRight, setShowRight] = useState(false);
-  const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
-
-  useEffect(() => {
-    handleScroll(); // initial check
-  }, []);
+  const t = useT();
+  const mobile = useBreakpointDown('md');
 
   const handleScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
-
     setShowLeft(el.scrollLeft > 0);
-    setShowRight(el.scrollLeft + el.clientWidth < el.scrollWidth);
+    setShowRight(Math.ceil(el.scrollLeft + el.clientWidth) < el.scrollWidth);
   };
 
-  const theme = useTheme();
+  useEffect(() => {
+    handleScroll(); // initial check, and again whenever the content changes
+  }, [children]);
+
+  const scrollBy = (direction: 1 | -1) => {
+    const el = scrollRef.current;
+    if (el) el.scrollBy({ left: direction * el.clientWidth * 0.8, behavior: 'smooth' });
+  };
+
+  const arrow = (side: 'left' | 'right') => (
+    <IconButton
+      aria-label={side === 'left' ? t('carousel.left') : t('carousel.right')}
+      onClick={() => scrollBy(side === 'left' ? -1 : 1)}
+      className={cn(
+        'absolute top-1/3 z-10 size-9 border bg-popover/90 p-0 shadow-lg backdrop-blur',
+        side === 'left' ? 'left-3' : 'right-3'
+      )}
+    >
+      {side === 'left' ? <ChevronLeft className="size-5" /> : <ChevronRight className="size-5" />}
+    </IconButton>
+  );
+
   return (
-    <div className={`relative ${className}`}>
+    <div className={cn('relative', className)}>
       <div
         onScroll={handleScroll}
         ref={scrollRef}
-        className="scroll-px-4 px-4 whitespace-nowrap flex overflow-x-auto snap-x snap-mandatory no-scrollbar scroll-smooth min-w-full w-auto overscroll-x-contain"
+        className="no-scrollbar flex w-auto min-w-full snap-x snap-mandatory scroll-px-4 overflow-x-auto overscroll-x-contain scroll-smooth px-4"
       >
         {children}
       </div>
-
-      {/* Left shadow */}
-      {showLeft && !mobile && (
-        <div
-          className="absolute top-0 left-0 z-2 h-full w-12 pointer-events-none"
-          style={{
-            backgroundImage:
-              theme.palette.mode == 'dark'
-                ? 'linear-gradient(to right, #121212, transparent)'
-                : 'linear-gradient(to right, #ffffff, transparent)',
-          }}
-        />
-      )}
-
-      {/* Right shadow */}
-      {showRight && !mobile && (
-        <div
-          className="absolute top-0 right-0 z-2 h-full w-12 pointer-events-none"
-          style={{
-            backgroundImage:
-              theme.palette.mode == 'dark'
-                ? 'linear-gradient(to left, #121212, transparent)'
-                : 'linear-gradient(to left, #ffffff, transparent)',
-          }}
-        />
-      )}
+      {!mobile && showLeft && arrow('left')}
+      {!mobile && showRight && arrow('right')}
     </div>
   );
 }
@@ -75,13 +72,13 @@ export function CarouselItem({
 } & React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={[
-        'duration-300 cursor-pointer shrink-0 rounded-md snap-start overflow-hidden text-pretty',
-        active ? 'bg-white/30 shadow-lg' : 'hover:bg-[#ffffff1a]',
-        disable ? 'pointer-events-none hover:bg-[none]' : '',
-        dense ? 'p-1' : 'p-3 w-[177px] min-h-[200px]',
-        className,
-      ].join(' ')}
+      className={cn(
+        'shrink-0 cursor-pointer snap-start overflow-hidden rounded-xl text-pretty transition-colors duration-200',
+        active ? 'bg-primary/15 ring-2 ring-primary' : 'hover:bg-accent',
+        disable && 'pointer-events-none',
+        dense ? 'p-1' : 'min-h-[200px] w-[176px] p-3',
+        className
+      )}
       {...props}
     >
       {children}

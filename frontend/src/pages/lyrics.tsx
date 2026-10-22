@@ -1,103 +1,63 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLyricsColors } from 'src/hooks/lyricsColors';
+import { usePageTitle } from 'src/hooks/documentTitle';
+import { useEffect, useMemo, useRef } from 'react';
 import AppScrollbar from 'src/components/Scrollbar';
 import { usePlayer } from 'src/store/player';
 import { useTrackStore } from 'src/store';
-import { DEFAULT_BG_COLOR, DEFAULT_COLOR, getLyricsRGB } from 'src/utils';
-import { IconButton, useTheme } from '@mui/material';
-import { FullscreenExitOutlined, FullscreenOutlined } from '@mui/icons-material';
+import { Maximize, Minimize } from 'lucide-react';
+import { IconButton } from 'src/components/ui/button';
+import { useThemeMode } from 'src/hooks/theme';
+import { cn } from 'src/lib/utils';
 import { useSettingStore } from 'src/store/setting';
-import MobilePlayer from 'src/components/MobilePlayer';
-import { styled } from '@mui/material/styles';
-import { OverlayScrollbarsComponentRef } from 'overlayscrollbars-react';
-import NonLinearSlider from 'src/components/NonLinearSlider';
-import Midi from 'src/components/Midi';
-import { api } from 'src/utils/api';
-
-const FloatingControl = styled('div')(({ theme }) => ({
-  display: 'grid',
-  gridTemplateRows: '1fr auto',
-  gridTemplateColumns: '1fr',
-  position: 'fixed',
-  left: 0,
-  top: '95%',
-  zIndex: 12,
-  padding: '20px 8px',
-  height: '50%',
-  overflow: 'hidden',
-  backdropFilter: 'blur(10px)',
-  borderRadius: '0.5rem',
-  aspectRatio: '3/4',
-  transform: 'translateX(-90%)',
-  backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  '&.active': {
-    transform: 'translateX(-5%) translateY(-90%)',
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-  },
-}));
-
-const DelayControl = styled('div')(({ theme }) => ({
-  position: 'absolute',
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'start',
-  left: 20,
-  top: '50%',
-  zIndex: 12,
-  transform: 'translateY(-50%)',
-}));
+import AudioController from 'src/components/AudioController';
+import { useIdle } from 'src/hooks/idle';
+import PitchRoll from 'src/components/PitchRoll';
+import SingingButtons from 'src/components/SingingButtons';
+import LyricsOffset from 'src/components/LyricsOffset';
+import LyricsSkeleton from 'src/components/LyricsSkeleton';
+import PlainLyrics from 'src/components/PlainLyrics';
+import VideoBackdrop from 'src/components/VideoBackdrop';
+import WordLine from 'src/components/WordLine';
+import { useLyricsOffset } from 'src/hooks/lyricsOffset';
+import { useVideoMode } from 'src/hooks/videoMode';
+import { useT } from 'src/i18n';
 
 export default function LyricsView() {
+  const t = useT();
   // local states
   const lineRefs = useRef<(HTMLSpanElement | null)[]>([]);
 
-  const { progress, currentLine, setCurrentLine, currentTrack, lyrics, seeking, loading } = usePlayer();
+  const { progress, playing, currentLine, setCurrentLine, currentTrack, lyrics, seeking, loading } = usePlayer();
   const { seek } = usePlayer();
-  const lyricsDelay = useTrackStore((state) => state.lyricsDelays[currentTrack?.id || ''] || 0);
-  const setLyricsDelay = useTrackStore((state) => state.setLyricsDelay);
-  const [ahead, setAhead] = useState(0);
+  const trackDelay = useTrackStore((state) => state.lyricsDelays[currentTrack?.id || ''] || 0);
+  const lyricsLead = useSettingStore((state) => state.lyricsLead);
+  const lyricsDelay = trackDelay - lyricsLead; // the song's own offset, and the lead before the singing
+  const plain = useTrackStore((state) => state.plainLyrics[currentTrack?.id || '']);
+  // How many seconds earlier the lyrics are shown, derived from the shared per-track delay.
+  const { ahead, setAhead, approximate, videoId } = useLyricsOffset();
+  const { showVideo: showVideoSetting } = useVideoMode();
+  const wordHighlight = useSettingStore((state) => state.wordHighlight);
+  const overVideo = showVideoSetting && !!videoId;
   const syncedLyrics = useMemo(() => {
     return (
       lyrics?.map((line) => {
         return {
           ...line,
-          time: line.time + lyricsDelay - ahead,
+          time: line.time + lyricsDelay,
         };
       }) || []
     );
-  }, [lyrics, lyricsDelay, ahead]);
+  }, [lyrics, lyricsDelay]);
 
-  const [color, setColor] = useState<string>(DEFAULT_COLOR);
-  const [bgColor, setBgColor] = useState<string>(DEFAULT_BG_COLOR);
   const image = currentTrack?.album?.images?.[0]?.url;
-  const theme = useTheme();
+  const mode = useThemeMode();
   const isFullscreen = useSettingStore((state) => state.isFullScreen);
+  // in fullscreen the controls fade away after a few seconds without input
+  const idle = useIdle(3000, isFullscreen);
   const showTranslatinon = useSettingStore((state) => state.showTranslatinon);
-  const scrollbarRef = useRef<OverlayScrollbarsComponentRef<'div'> | null>(null);
-  const [delaySeeking, setDelaySeeking] = useState(false);
-  const [active, setActive] = useState(false);
-  const [midi, setMidi] = useState({
-    noteEvents: [],
-    minNote: 48,
-    maxNote: 84,
-  });
+  const scrollbarRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!currentTrack?.id) return;
-    api
-      .get(`tracks/midi/${currentTrack?.id}`)
-      .then(({ data }) => {
-        setMidi(data);
-      })
-      .catch((error) => {
-        console.error('Error fetching MIDI data:', error);
-      });
-  }, [currentTrack?.id]);
-
-  // Set the document title to the current song name and artist
-  useEffect(() => {
-    if (!currentTrack) return;
-    document.title = `${currentTrack.name}．${currentTrack.artists.map((artist) => artist.name).join('、')} - Lyrics`;
-  }, [currentTrack]);
+  usePageTitle(t('nav.lyrics'), currentTrack);
 
   // Set the lineRefs to null when the lyrics change
   useEffect(() => {
@@ -105,30 +65,14 @@ export default function LyricsView() {
   }, [lyrics]);
 
   // Set the color and background color based on the image
-  useEffect(() => {
-    if (!image) {
-      setColor(DEFAULT_COLOR);
-      setBgColor(DEFAULT_BG_COLOR);
-      return;
-    }
-    getLyricsRGB(image, theme.palette.mode === 'light')
-      .then(({ lyrics, background }) => {
-        setColor(lyrics);
-        setBgColor(background);
-      })
-      .catch((error) => {
-        console.error('Error fetching average RGB:', error);
-      });
-  }, [image, theme.palette.mode]);
+  const { lyrics: color, background: bgColor } = useLyricsColors(image, mode === 'light');
 
   // Scroll to the current line when the progress changes
   useEffect(() => {
     const el = lineRefs.current[currentLine];
     const scrollbar = scrollbarRef.current;
     if (!el || !scrollbar) return;
-    const osInstance = scrollbar.osInstance();
-    if (!osInstance) return;
-    const viewport = osInstance.elements().viewport;
+    const viewport = scrollbar;
 
     const elTop = el.offsetTop;
     const elHeight = el.offsetHeight;
@@ -136,9 +80,9 @@ export default function LyricsView() {
 
     viewport.scrollTo({
       top: elTop - viewportHeight / 2 + elHeight / 2,
-      behavior: delaySeeking ? 'instant' : 'smooth',
+      behavior: 'smooth',
     });
-  }, [currentLine, delaySeeking, lineRefs.current.length, isFullscreen]);
+  }, [currentLine, lineRefs.current.length, isFullscreen]);
 
   // Update the current line based on the progress
   useEffect(() => {
@@ -175,87 +119,116 @@ export default function LyricsView() {
   };
   return (
     <>
-      {isFullscreen && (
-        <FloatingControl
-          className={active ? 'active' : ''}
-          onMouseEnter={() => setActive(true)}
-          onMouseLeave={() => setActive(false)}
-          style={{
-            transitionProperty: 'background-color, transform',
-            transitionDuration: '.2s',
-            transitionTimingFunction: 'ease-in-out',
-          }}
-        >
-          <MobilePlayer color="rgba(0, 0, 0, 0.8)" />
-        </FloatingControl>
-      )}
-      <div className={isFullscreen ? 'fixed left-0 w-screen h-screen z-11' : 'w-full h-full'}>
+      <div className={cn(isFullscreen ? 'fixed inset-0 z-11' : 'h-full w-full', isFullscreen && idle && 'cursor-none')}>
         <div className="relative w-full h-full" ref={containerRef}>
-          {/* Delay controller */}
-          <DelayControl>
-            <NonLinearSlider
-              onDragStart={() => setDelaySeeking(true)}
-              onDragEnd={() => setDelaySeeking(false)}
-              onChange={(ahead) => {
-                setAhead(ahead);
-                if (currentTrack) {
-                  setLyricsDelay(currentTrack.id, -ahead);
-                }
-              }}
-            />
-            <span>{ahead.toFixed(1)} s</span>
-          </DelayControl>
-          {currentTrack?.orderedBy && (
-            <div className="absolute top-2 right-3 z-10 flex items-center cursor-pointer px-2 bg-black/30 rounded-md">
-              <img src={currentTrack.orderedBy.avatar} className="w-12 h-12" alt={currentTrack.orderedBy.name} />
-              <span className="font-bold pr-2 text-white">{currentTrack.orderedBy.name}</span>
+          {videoId && <VideoBackdrop videoId={videoId} visible={overVideo} />}
+          <PitchRoll className="absolute inset-x-6 top-16 z-[3]" />
+          {!isFullscreen && (
+            <div className="absolute bottom-4 left-4 z-12">
+              <LyricsOffset value={ahead} onChange={setAhead} approximate={approximate} hasVideo={!!videoId} />
             </div>
           )}
-          <div className="absolute bottom-2 right-3 z-10">
-            <IconButton
-              disableRipple
-              className="opacity-70 hover:opacity-90 active:opacity-100 active:scale-110"
-              onClick={toggleFullscreen}
+          {currentTrack?.orderedBy && (
+            <div className="absolute top-4 right-4 z-10 flex items-center gap-2 rounded-full bg-black/30 py-1 pr-4 pl-1 backdrop-blur">
+              <img
+                src={currentTrack.orderedBy.avatar}
+                className="size-9 rounded-full"
+                alt={currentTrack.orderedBy.name}
+              />
+              <span className="text-sm font-semibold text-white">{currentTrack.orderedBy.name}</span>
+            </div>
+          )}
+          {!isFullscreen && (
+            <div className="absolute right-4 bottom-4 z-10 flex gap-2">
+              <SingingButtons />
+              <IconButton
+                aria-label={t('lyrics.fullscreen')}
+                className="bg-black/30 text-white backdrop-blur hover:bg-black/50"
+                onClick={toggleFullscreen}
+              >
+                <Maximize className="size-6" />
+              </IconButton>
+            </div>
+          )}
+          {isFullscreen && (
+            <div
+              className={cn(
+                'absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-6 pt-24 pb-5 transition-opacity duration-300',
+                idle && 'pointer-events-none opacity-0',
+              )}
             >
-              {isFullscreen ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
-            </IconButton>
-          </div>
-          {/* <Midi midi={midi} currentTime={progress} /> */}
-          <AppScrollbar
-            ref={scrollbarRef}
-            className={['w-full h-full px-10', isFullscreen ? 'py-[25%]' : ''].join(' ')}
-            style={{ color, backgroundColor: bgColor }}
-          >
-            {syncedLyrics.length > 0 ? (
-              syncedLyrics.map((line, i) => (
-                <div key={i} className={['my-8 mx-16', isFullscreen ? 'text-center' : ''].join(' ')}>
-                  <span
-                    className={[
-                      'text-[2.5vw] cursor-pointer font-bold hover:underline hover:opacity-100 transition-all duration-200',
-                      i <= currentLine ? 'text-white' : '',
-                      isFullscreen ? 'text-center text-[3vw]' : '',
-                      isFullscreen && (i === currentLine ? 'text-[5vw] opacity-100' : 'opacity-70'),
-                    ].join(' ')}
-                    ref={(el) => (lineRefs.current[i] = el)}
-                    onClick={handleLineClick.bind(null, i)}
-                  >
-                    {line.text === '' ? '♪' : line.text}
-
-                    {line.romanized && showTranslatinon && (
-                      <>
-                        <br />
-                        <span className="text-[0.8em]">({line.romanized})</span>
-                      </>
-                    )}
-                  </span>
+              <div className="mx-auto max-w-6xl">
+                <div className="mb-3 flex items-center justify-between">
+                  <LyricsOffset value={ahead} onChange={setAhead} approximate={approximate} hasVideo={!!videoId} />
+                  <div className="flex gap-2">
+                    <SingingButtons />
+                    <IconButton
+                      aria-label={t('lyrics.exitFullscreen')}
+                      className="bg-black/40 text-white backdrop-blur hover:bg-black/60"
+                      onClick={toggleFullscreen}
+                    >
+                      <Minimize className="size-6" />
+                    </IconButton>
+                  </div>
                 </div>
-              ))
-            ) : (
-              <div className="text-center mt-20 text-4xl font-bold" style={{ color }}>
-                {!loading && <p>{currentTrack ? 'No lyrics available for this track.' : 'Start playing a track!'}</p>}
+                <div className="h-[84px]">
+                  <AudioController />
+                </div>
               </div>
-            )}
-          </AppScrollbar>
+            </div>
+          )}
+          {!overVideo && (
+            <AppScrollbar
+              ref={scrollbarRef}
+              className={['relative z-[1] w-full h-full px-10', isFullscreen ? 'py-[25%]' : ''].join(' ')}
+              style={{ color, backgroundColor: bgColor }}
+            >
+              {syncedLyrics.length > 0 ? (
+                syncedLyrics.map((line, i) => (
+                  <div key={i} className={['my-6 mx-16', isFullscreen ? 'text-center' : ''].join(' ')}>
+                    <span
+                      className={[
+                        'origin-left cursor-pointer text-[2.5vw] leading-snug font-bold transition-all duration-300 hover:opacity-100',
+                        i <= currentLine ? 'text-white' : 'opacity-70',
+                        i === currentLine && !isFullscreen && 'scale-[1.04]',
+                        isFullscreen ? 'text-center text-[3vw]' : '',
+                        isFullscreen && (i === currentLine ? 'text-[5vw] opacity-100' : 'opacity-70'),
+                      ].join(' ')}
+                      ref={(el) => {
+                        lineRefs.current[i] = el;
+                      }}
+                      onClick={handleLineClick.bind(null, i)}
+                    >
+                      {wordHighlight && i === currentLine && line.words?.length ? (
+                        <WordLine words={line.words} delay={lyricsDelay} progress={progress} playing={playing} dimColor={color} />
+                      ) : line.text === '' ? (
+                        '♪'
+                      ) : (
+                        line.text
+                      )}
+
+                      {line.romanized && showTranslatinon && (
+                        <>
+                          <br />
+                          <span className="text-[0.8em]">({line.romanized})</span>
+                        </>
+                      )}
+                    </span>
+                  </div>
+                ))
+              ) : plain ? (
+                <PlainLyrics text={plain} className="mx-16 my-10 text-[2vw]" />
+              ) : (
+                <div className="mt-24 text-center text-3xl font-bold" style={{ color }}>
+                  {loading ? (
+                    <LyricsSkeleton className="mx-auto max-w-3xl py-0" />
+                  ) : (
+                    <p>{currentTrack ? t('lyrics.none') : t('lyrics.start')}</p>
+                  )}
+                </div>
+              )}
+            </AppScrollbar>
+          )}
         </div>
       </div>
     </>

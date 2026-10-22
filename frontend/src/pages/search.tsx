@@ -1,17 +1,133 @@
+import { usePageTitle } from 'src/hooks/documentTitle';
 import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Skeleton } from 'src/components/ui/skeleton';
+import { Button } from 'src/components/ui/button';
+import { Clock, Search as SearchIcon, X } from 'lucide-react';
 import { api } from 'src/utils/api';
 import Carousel, { CarouselItem } from '../components/Carousel';
 import SongCard from '../components/SongCard';
 import placeholder from 'src/assets/placeholder.png';
 import AppScrollbar from '../components/Scrollbar';
-import dayjs from 'dayjs';
-import { useNavigate } from 'react-router-dom';
-import { useAppStore } from 'src/store';
-import { useMediaQuery } from '@mui/material';
-import { styled } from '@mui/material/styles';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAppStore, useTrackStore } from 'src/store';
+import { useBreakpointDown } from 'src/hooks/media';
+import { cn } from 'src/lib/utils';
 import SearchBox from 'src/components/SearchBox';
 import { usePlayerStore } from 'src/store/player';
 import { useDebouncedCallback } from 'src/hooks/debounce';
+import { useT } from 'src/i18n';
+
+const SUGGESTIONS = ['周杰倫', '五月天', '蔡依林', '鄧紫棋', 'BTS', 'IU', 'Taylor Swift', '米津玄師', 'YOASOBI', 'Adele'];
+const RECENT_KEY = 'recent-searches';
+
+const loadRecent = (): string[] => {
+  try {
+    return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
+  } catch {
+    return [];
+  }
+};
+
+function Chip({ children, onClick, onRemove }: { children: React.ReactNode; onClick: () => void; onRemove?: () => void }) {
+  const t = useT();
+  return (
+    <span className="inline-flex items-center rounded-full border text-sm transition-colors hover:bg-accent">
+      <button className="py-1.5 pr-3 pl-4" onClick={onClick}>
+        {children}
+      </button>
+      {onRemove && (
+        <button aria-label={t('search.remove')} className="mr-2 rounded-full p-1 text-muted-foreground hover:text-foreground" onClick={onRemove}>
+          <X className="size-3" />
+        </button>
+      )}
+    </span>
+  );
+}
+
+/** Placeholder results while a search is in flight: song rows and album/playlist cards. */
+function SearchSkeleton() {
+  return (
+    <div className="px-4 md:px-8" role="status" aria-busy="true">
+      <Skeleton className="mt-2 h-6 w-24" />
+      <div className="mt-3 space-y-1">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="flex h-12 items-center gap-3 px-1">
+            <Skeleton className="size-10 rounded-lg" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-3.5 w-2/5" />
+              <Skeleton className="h-3 w-1/4" />
+            </div>
+          </div>
+        ))}
+      </div>
+      <Skeleton className="mt-8 h-6 w-24" />
+      <div className="mt-3 flex gap-4 overflow-hidden">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="w-[160px] shrink-0 space-y-2">
+            <Skeleton className="aspect-square w-full rounded-lg" />
+            <Skeleton className="h-3.5 w-4/5" />
+            <Skeleton className="h-3 w-1/2" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function EmptySearch({
+  recent,
+  onPick,
+  onRemove,
+  onClear,
+}: {
+  recent: string[];
+  onPick: (query: string) => void;
+  onRemove: (query: string) => void;
+  onClear: () => void;
+}) {
+  const t = useT();
+  return (
+    <div className="mx-auto flex max-w-2xl flex-col px-4 pt-6 pb-12 md:px-8 md:pt-12">
+      <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-primary/12 text-primary">
+        <SearchIcon className="size-7" />
+      </div>
+      <h2 className="mt-4 text-center text-2xl font-bold tracking-tight">{t('search.empty.title')}</h2>
+      <p className="mt-1 text-center text-sm text-muted-foreground">{t('search.empty.subtitle')}</p>
+
+      {recent.length > 0 && (
+        <section className="mt-10">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="flex items-center gap-2 text-sm font-semibold">
+              <Clock className="size-4 text-muted-foreground" /> {t('search.recent')}
+            </h3>
+            <button className="text-xs text-muted-foreground hover:text-foreground" onClick={onClear}>
+              {t('common.clearAll')}
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {recent.map((query) => (
+              <Chip key={query} onClick={() => onPick(query)} onRemove={() => onRemove(query)}>
+                {query}
+              </Chip>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="mt-8">
+        <h3 className="mb-3 text-sm font-semibold">{t('search.popular')}</h3>
+        <div className="flex flex-wrap gap-2">
+          {SUGGESTIONS.map((query) => (
+            <Chip key={query} onClick={() => onPick(query)}>
+              {query}
+            </Chip>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
 
 const getArtistsStr = (artists: any[]) => {
   return artists
@@ -22,15 +138,9 @@ const getArtistsStr = (artists: any[]) => {
     .join(',');
 };
 
-const Layout = styled('div')(({ theme }) => ({
-  display: 'grid',
-  gridTemplateRows: 'auto 1fr',
-  width: '100%',
-  height: '100%',
-}));
-
 export default function SearchView() {
-  const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
+  const t = useT();
+  const mobile = useBreakpointDown('md');
   const navigate = useNavigate();
   const searchValue = useAppStore((state) => state.searchValue);
   const setSearching = useAppStore((state) => state.setSearching);
@@ -40,29 +150,60 @@ export default function SearchView() {
   const onAdd = useDebouncedCallback(addSongToQueue, 100);
   const onInsert = useDebouncedCallback(insertSongToQueue, 100);
 
-  const [results, setResults] = useState<any>({});
+  const readyTracks = useTrackStore((state) => state.readyTracks);
+  // songs that are already processed and match the query: they can be sung right away
+  const libraryMatches = useMemo(() => {
+    const needle = searchValue.trim().toLowerCase();
+    if (!needle) return [];
+    const seen = new Set<string>();
+    return Array.from(readyTracks)
+      .filter((track) => {
+        const text = `${track.name} ${track.artists.map((a) => a.name).join(' ')} ${track.album?.name ?? ''}`.toLowerCase();
+        return text.includes(needle) && !seen.has(track.id) && !!seen.add(track.id);
+      })
+      .slice(0, 5);
+  }, [readyTracks, searchValue]);
+  const query = searchValue.trim();
+  const {
+    data: results,
+    isFetching,
+    isError,
+    refetch,
+  } = useQuery({
+    queryKey: ['search', query],
+    queryFn: () => api.get('/search', { params: { q: query } }).then(({ data }) => (data.results || {}) as any),
+    enabled: query !== '',
+  });
+  const loading = isFetching && !results;
+  const [recent, setRecent] = useState<string[]>(loadRecent);
+  const updateRecent = (next: string[]) => {
+    setRecent(next);
+    try {
+      localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+    } catch {}
+  };
   const [scrollTop, setScrollTop] = useState(0);
-  const tracks = results.tracks?.items?.filter((item: any) => !!item)?.slice(0, mobile ? 10 : 4) || [];
-  const albums = results.albums?.items?.filter((item: any) => !!item)?.slice(0, 4) || [];
-  const playlists = results.playlists?.items?.filter((item: any) => !!item)?.slice(0, 4) || [];
+  const tracks = results?.tracks?.items?.filter((item: any) => !!item)?.slice(0, mobile ? 10 : 8) || [];
+  const albums = results?.albums?.items?.filter((item: any) => !!item)?.slice(0, 4) || [];
+  const playlists = results?.playlists?.items?.filter((item: any) => !!item)?.slice(0, 4) || [];
   //   const artists = results.artists?.items.slice(0, 4) || [];
 
+  usePageTitle(t('search.title'), searchValue.trim());
+
+  // remember a search once it has produced results
   useEffect(() => {
-    document.title = `KKaraoke - Search`;
-  }, []);
+    if (!results || !query) return;
+    setRecent((prev) => {
+      const next = [query, ...prev.filter((q) => q !== query)].slice(0, 8);
+      try {
+        localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, [results]);
 
   // use useEffect bc the searchValue might be updated by other components
   useEffect(() => {
-    if (searchValue && searchValue.trim() !== '') {
-      api
-        .get('/search', { params: { q: searchValue } })
-        .then(({ data }) => {
-          setResults(data.results || {});
-        })
-        .catch((error) => {
-          console.error('Error fetching search results:', error);
-        });
-    }
     navigate(`/search/${encodeURIComponent(searchValue)}`, {
       replace: true,
       state: { searchValue },
@@ -93,26 +234,66 @@ export default function SearchView() {
     setSearching(value !== '');
   };
   return (
-    <Layout>
+    <div className="grid h-full w-full grid-rows-[auto_1fr]">
       {mobile ? (
         <div className="p-2">
-          <h1 className="px-4 py-2 text-4xl">Search</h1>
+          <h1 className="px-4 py-2 text-3xl font-bold tracking-tight">{t('search.title')}</h1>
           <div className="mx-2">
             <SearchBox value={searchValue} onChange={handleSearchChange} />
           </div>
         </div>
       ) : (
-        <div className={['px-8 h-[68px] flex items-center font-bold', scrollTop > 0 ? 'shadow-xl' : ''].join(' ')}>
-          Search Results for: <strong className="ml-1 underline">{searchValue}</strong>
+        <div className={cn('flex h-16 items-center px-8 text-xl font-semibold tracking-tight transition-shadow', scrollTop > 0 && 'shadow-md')}>
+          {searchValue ? (
+            <>
+              {t('search.resultsFor')} <span className="ml-2 text-primary">“{searchValue}”</span>
+            </>
+          ) : (
+            t('search.title')
+          )}
         </div>
       )}
 
       <AppScrollbar className="h-full" onScroll={handleScroll}>
-        {results ? (
+        {!searchValue.trim() ? (
+          <EmptySearch
+            recent={recent}
+            onPick={handleSearchChange}
+            onRemove={(query) => updateRecent(recent.filter((q) => q !== query))}
+            onClear={() => updateRecent([])}
+          />
+        ) : (
           <div className="pb-8">
+            {libraryMatches.length > 0 && (
+              <div className="px-4 md:px-8">
+                <div className="mt-2 flex items-baseline justify-between">
+                  <h2 className="text-lg font-semibold tracking-tight">{t('search.inLibrary')}</h2>
+                  <Link to="/library" className="text-sm font-medium text-primary hover:underline">
+                    {t('library.seeAll')} →
+                  </Link>
+                </div>
+                <div className="mt-2">
+                  {libraryMatches.map((track) => (
+                    <SongCard key={track.id} track={track} dense className="mt-1" onAdd={onAdd} onInsert={onInsert} />
+                  ))}
+                </div>
+              </div>
+            )}
+            {loading && <SearchSkeleton />}
+            {isError && (
+              <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
+                <p className="text-sm text-muted-foreground">{t('search.failed')}</p>
+                <Button size="sm" onClick={() => refetch()}>
+                  {t('common.retry')}
+                </Button>
+              </div>
+            )}
+            {results && tracks.length + albums.length + playlists.length === 0 && libraryMatches.length === 0 && (
+              <p className="px-4 py-16 text-center text-sm text-muted-foreground md:px-8">{t('search.noResults')}</p>
+            )}
             {tracks.length > 0 && (
               <div className="px-4 md:px-8">
-                <h1 className="text-2xl mt-2">Songs</h1>
+                <h2 className="mt-2 text-lg font-semibold tracking-tight">{t('search.songs')}</h2>
                 <div className="mt-2">
                   {tracks.map((track: any, i: number) => (
                     <SongCard key={i} track={track} dense className="mt-1" onAdd={onAdd} onInsert={onInsert} />
@@ -122,7 +303,7 @@ export default function SearchView() {
             )}
             {albums.length > 0 && (
               <>
-                <h1 className="text-2xl mt-8 px-4 md:px-8">Albums</h1>
+                <h2 className="mt-8 mb-2 px-4 text-lg font-semibold tracking-tight md:px-8">{t('search.albums')}</h2>
                 <Carousel>
                   {albums.map((album: any) => (
                     <CarouselItem
@@ -132,10 +313,10 @@ export default function SearchView() {
                       dense={mobile}
                       onClick={() => handleClickAlbum(album)}
                     >
-                      <img src={album.images?.[0]?.url || placeholder} className="w-full rounded-md" />
-                      <span className="text-md mt-2 line-clamp-2">{album.name}</span>
-                      <span className="text-sm text-gray-400 line-clamp-1">
-                        {dayjs(album.release_date, 'YYYY-MM-DD').format('YYYY')}．
+                      <img referrerPolicy="no-referrer" src={album.images?.[0]?.url || placeholder} className="aspect-square w-full rounded-lg object-cover shadow-md" />
+                      <span className="mt-2 line-clamp-2 text-sm font-medium">{album.name}</span>
+                      <span className="line-clamp-1 text-xs text-muted-foreground">
+                        {String(album.releaseDate ?? '').slice(0, 4)}．
                         {album.artists.map((a: any) => a.name).join(', ')}
                       </span>
                     </CarouselItem>
@@ -145,7 +326,7 @@ export default function SearchView() {
             )}
             {playlists.length > 0 && (
               <>
-                <h1 className="text-2xl mt-8 px-4 md:px-8">Playlists</h1>
+                <h2 className="mt-8 mb-2 px-4 text-lg font-semibold tracking-tight md:px-8">{t('search.playlists')}</h2>
                 <Carousel>
                   {playlists.map((playlist: any) => (
                     <CarouselItem
@@ -154,10 +335,10 @@ export default function SearchView() {
                       dense={mobile}
                       onClick={() => handleClickPlaylist(playlist)}
                     >
-                      <img src={playlist.images?.[0]?.url || placeholder} className="w-full rounded-md" />
-                      <span className="text-md mt-2 line-clamp-2">{playlist.name}</span>
-                      <span className="text-sm text-gray-400 line-clamp-1">
-                        By {playlist.owner?.display_name || 'Unknown'}
+                      <img referrerPolicy="no-referrer" src={playlist.images?.[0]?.url || placeholder} className="aspect-square w-full rounded-lg object-cover shadow-md" />
+                      <span className="mt-2 line-clamp-2 text-sm font-medium">{playlist.name}</span>
+                      <span className="line-clamp-1 text-xs text-muted-foreground">
+                        {t('search.byOwner', { name: playlist.owner?.displayName || t('common.unknown') })}
                       </span>
                     </CarouselItem>
                   ))}
@@ -170,19 +351,17 @@ export default function SearchView() {
                   <Carousel className="px-0">
                     {artists.map((artist: any) => (
                       <CarouselItem key={artist.id} className="flex-1">
-                        <img src={artist.images?.[0]?.url || placeholder} className="w-full rounded-full" />
-                        <span className="text-md mt-2 line-clamp-2">{artist.name}</span>
-                        <span className="text-sm text-gray-400 line-clamp-1">{capitalizeFirstLetter(artist.type)}</span>
+                        <img referrerPolicy="no-referrer" src={artist.images?.[0]?.url || placeholder} className="w-full rounded-full" />
+                        <span className="mt-2 line-clamp-2 text-sm font-medium">{artist.name}</span>
+                        <span className="line-clamp-1 text-xs text-muted-foreground">{capitalizeFirstLetter(artist.type)}</span>
                       </CarouselItem>
                     ))}
                   </Carousel>
                 </>
               )} */}
           </div>
-        ) : (
-          <p>No results found.</p>
         )}
       </AppScrollbar>
-    </Layout>
+    </div>
   );
 }

@@ -1,4 +1,5 @@
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import sys
 from pathlib import Path
 from typing import Any
@@ -36,8 +37,14 @@ def _load_model(args: argparse.Namespace, device: str) -> Any:
     return _MODEL_CACHE[key]
 
 
+def preload_model(model_name: str = "htdemucs") -> None:
+    """Load the model now, so the first song does not wait for it (a Modal container does this at startup)."""
+    device = "cuda" if th.cuda.is_available() else "mps" if th.backends.mps.is_available() else "cpu"
+    _load_model(argparse.Namespace(name=model_name, repo=None), device)
+
+
 async def async_separate_vocals(sid: str, model_name: str = "htdemucs",
-                                shifts: int = 1, overlap: float = 0.5,
+                                shifts: int = 1, overlap: float = 0.25,
                                 stem: str = "vocals", int24: bool = False,
                                 float32: bool = False, clip_mode: str = "rescale",
                                 mp3: bool = True, mp3_bitrate: int = 320,
@@ -52,7 +59,7 @@ def separate_vocals(
     sid: str,
     model_name: str = "htdemucs",
     shifts: int = 1,
-    overlap: float = 0.5,
+    overlap: float = 0.25,  # demucs' default; 0.5 was ~30% slower for little audible gain
     stem: str = "vocals",
     int24: bool = False,
     float32: bool = False,
@@ -92,9 +99,13 @@ def separate_vocals(
         th.set_num_threads(1)
         jobs = 1
     else:
-        # Number of jobs. This can increase memory usage but will be much faster when
-        # multiple cores are available.
-        jobs = os.cpu_count()
+        # CPU separation runs `jobs` segments in parallel, each using torch's intra-op threads.
+        # The old setting (jobs = cpu_count, torch threads = cpu_count) oversubscribed the CPU
+        # ~cores^2 threads and ran about 15x slower than this on 10 cores (measured: 1.1-1.4 s of
+        # compute per second of audio vs ~19). Keep jobs * threads close to the core count.
+        cores = os.cpu_count() or 1
+        jobs = 2 if cores >= 4 else 1
+        th.set_num_threads(max(1, cores - jobs))
 
     if th.cuda.is_available():
         device = "cuda"
@@ -198,13 +209,17 @@ def separate_vocals(
     non_vocal_tmp = non_vocal_stem.with_name(
         f"{non_vocal_stem.stem}.part{non_vocal_stem.suffix}")
     try:
-        save_audio(sources.pop(model.sources.index(args.stem)),
-                   str(vocal_tmp), **kwargs)
+        vocal = sources.pop(model.sources.index(args.stem))
         # Warning : after poping the stem, selected stem is no longer in the list 'sources'
         other_stem = th.zeros_like(sources[0])
         for i in sources:
             other_stem += i
-        save_audio(other_stem, str(non_vocal_tmp), **kwargs)
+        # MP3 encoding is single-threaded and takes as long as the separation itself: do both at once.
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            jobs = [pool.submit(save_audio, vocal, str(vocal_tmp), **kwargs),
+                    pool.submit(save_audio, other_stem, str(non_vocal_tmp), **kwargs)]
+            for job in jobs:
+                job.result()
         os.replace(non_vocal_tmp, non_vocal_stem)
         os.replace(vocal_tmp, vocal_stem)
     finally:

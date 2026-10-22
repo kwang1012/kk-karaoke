@@ -5,7 +5,9 @@ FROM node:22-alpine AS frontend
 ARG APP_ADDR=
 WORKDIR /app/frontend
 COPY frontend/ ./
-RUN yarn install && VITE_API_ADDR=${APP_ADDR} yarn build
+# package.json pins Yarn 4; enable it via Corepack (Yarn 1 can't read the lockfile).
+ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
+RUN corepack enable && yarn install --immutable && VITE_API_ADDR=${APP_ADDR} yarn build
 
 
 # --- Stage 2: Build FastAPI backend ---

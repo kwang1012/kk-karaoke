@@ -1,0 +1,72 @@
+name: Deploy
+
+# The frontend deploys on every push to main (after CI passes on the PR).
+# The backend image is large and restarts the worker, so it is deployed by hand:
+# Actions -> Deploy -> Run workflow -> target "backend" or "all".
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: What to deploy
+        type: choice
+        options: [frontend, backend, all]
+        default: frontend
+      force:
+        description: Deploy the backend even if a song is being processed
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  frontend:
+    if: github.event_name == 'push' || inputs.target != 'backend'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+      - run: yarn install --immutable
+      - run: yarn build
+        env:
+          VITE_API_ADDR: api.kkaraoke.app
+      - run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+  backend:
+    if: github.event_name == 'workflow_dispatch' && inputs.target != 'frontend'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          cat >> ~/.ssh/config <<CONF
+          Host kkaraoke
+            HostName ${{ secrets.DEPLOY_HOST }}
+            User ${{ secrets.DEPLOY_USER }}
+            IdentityFile ~/.ssh/id_ed25519
+          CONF
+      - name: Deploy backend
+        run: ./deploy.sh backend ${{ inputs.force && '--force' || '' }}

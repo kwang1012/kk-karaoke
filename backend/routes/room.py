@@ -1,5 +1,6 @@
 import redis
 from fastapi import APIRouter, Depends, HTTPException
+from auth import require_host
 from models.user import User
 from interfaces.jam import RedisJamInterface
 from managers.websocket import WebSocketManager
@@ -13,12 +14,28 @@ ws_manager = WebSocketManager()
 @router.post("/create")
 async def create_room(
     room: Room,
+    host: dict = Depends(require_host),
     redis_interface: RedisJamInterface = Depends(
         lambda: RedisJamInterface(get_db())
     ),
 ):
     redis_interface.create_or_update_jam_state(room.id, {**room.model_dump(), "is_on": True})
-    return {"message": f"Room {room.id} created successfully."}
+    redis_interface.mark_hosted(room.id, host["sub"])
+    code = redis_interface.get_or_create_code(room.id)
+    return {"message": f"Room {room.id} created successfully.", "code": code}
+
+
+@router.get("/code/{code}")
+async def get_room_by_code(
+    code: str,
+    redis_interface: RedisJamInterface = Depends(
+        lambda: RedisJamInterface(get_db())
+    ),
+):
+    room_id = redis_interface.room_for_code(code)
+    if not room_id or not redis_interface.jam_exists(room_id):
+        raise HTTPException(status_code=404, detail="No room has that code")
+    return {"room_id": room_id}
 
 
 @router.post("/{room_id}/join")
@@ -89,4 +106,5 @@ async def get_room(
     return {
         **jam_state.model_dump(),
         "participants": deduped,
+        "code": redis_interface.get_or_create_code(room_id) if jam_state.is_on else None,
     }

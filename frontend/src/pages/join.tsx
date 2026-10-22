@@ -1,29 +1,23 @@
-import { createAvatar, Result } from '@dicebear/core';
-import { adventurer } from '@dicebear/collection';
-import { Button, IconButton, TextField, Tooltip } from '@mui/material';
-import Carousel, { CarouselItem } from 'src/components/Carousel';
+import { usePageTitle } from 'src/hooks/documentTitle';
+import { Button } from 'src/components/ui/button';
+import { Input } from 'src/components/ui/input';
+import { cn } from 'src/lib/utils';
+import AvatarPicker from 'src/components/AvatarPicker';
 import { useEffect, useState } from 'react';
-import { styled } from '@mui/material/styles';
 import { api } from 'src/utils/api';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { authEnabled, useLoginModal } from 'src/lib/auth';
 import { useRoomStore } from 'src/store/room';
-import { generateAvatars, generateNickname } from 'src/utils';
-import logo from 'src/assets/logo.png';
-import { v4 as uuid } from 'uuid';
-import { Refresh } from '@mui/icons-material';
-
-const Layout = styled('div')(({ theme }) => ({
-  width: '100%',
-  height: '100%',
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-}));
+import { resolveRoomCode } from 'src/apis/room';
+import { useBreakpointDown } from 'src/hooks/media';
+import { PRESET_AVATARS, uuid } from 'src/utils';
+import Logo from 'src/components/Logo';
+import { useT } from 'src/i18n';
 
 export default function JoinView() {
+  const t = useT();
+  usePageTitle(t('join.pageTitle'));
   const navigate = useNavigate();
-  const [avatars, setAvatars] = useState<string[]>([]);
   const [nameError, setNameError] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
   const setJoinedRoom = useRoomStore((state) => state.setJoinedRoom);
@@ -35,45 +29,47 @@ export default function JoinView() {
   const setAvatarInStore = useRoomStore((state) => state.setAvatar);
 
   const [nickname, setNickname] = useState(nickName || '');
-  const [selectedAvatar, setSelectedAvatar] = useState<string | null>(avatar || avatars[0]);
+  const [selectedAvatar, setSelectedAvatar] = useState<string | null>(avatar || null);
 
   const [searchParams] = useSearchParams();
   const roomIdToJoin = searchParams.get('room');
+  // `?code=` (even empty) means the visitor came to join a room by its short code
+  const codeParam = searchParams.get('code');
+  const [code, setCode] = useState((codeParam ?? '').toUpperCase());
+  const [codeError, setCodeError] = useState(false);
+  const phone = useBreakpointDown('md');
+  // A phone that joins someone's room is a remote for it; anything bigger gets the full app.
+  const afterJoin = (joined: boolean) => (joined && phone ? '/remote' : '/');
+
+  // Point this device at the room behind a code. Returns false when no room has that code.
+  const joinByCode = async (value: string) => {
+    const resolved = await resolveRoomCode(value);
+    if (!resolved) return false;
+    setJoinedRoom(resolved);
+    return true;
+  };
 
   useEffect(() => {
-    if (!roomIdToJoin) {
-      // initial join
-      // has alreay joined before
-      if (roomId && nickName && avatar) {
-        navigate('/');
-        return;
-      }
-    } else {
+    const hasProfile = !!(roomId && nickName && avatar);
+    if (hasProfile && roomIdToJoin) {
       // join a jam from link
-      if (roomId && nickName && avatar) {
-        setJoinedRoom(roomIdToJoin);
-        navigate('/');
-        return;
-      }
+      setJoinedRoom(roomIdToJoin);
+      navigate(afterJoin(true));
+      return;
     }
-    handleGenerateAvatars();
+    if (hasProfile && codeParam) {
+      joinByCode(codeParam).then((joined) => {
+        if (joined) navigate(afterJoin(true));
+        else setCodeError(true);
+      });
+    } else if (hasProfile && codeParam === null && !roomIdToJoin) {
+      // has already joined before
+      navigate('/');
+      return;
+    }
   }, []);
 
-  const handleGenerateAvatars = () => {
-    let generatedAvatars = generateAvatars();
-    if (avatar) {
-      generatedAvatars = [avatar, ...generatedAvatars.filter((a) => a !== avatar)];
-    }
-    setAvatars(generatedAvatars);
-  };
-
-  const handleGenerate = () => {
-    const newNickname = generateNickname();
-    setNickname(newNickname);
-    setNameError(false);
-  };
-
-  const handleJoin = () => {
+  const handleJoin = async () => {
     if (!nickname) {
       setNameError(true);
       return;
@@ -82,8 +78,16 @@ export default function JoinView() {
       setAvatarError(true);
       return;
     }
+    let joined = false;
     if (roomIdToJoin) {
       setJoinedRoom(roomIdToJoin);
+      joined = true;
+    } else if (code.trim()) {
+      joined = await joinByCode(code);
+      if (!joined) {
+        setCodeError(true);
+        return;
+      }
     }
     if (!roomId) {
       setRoomId(uuid());
@@ -94,83 +98,91 @@ export default function JoinView() {
     if (!nickName) {
       setNicknameInStore(nickname);
     }
-    navigate('/', { replace: true });
+    navigate(afterJoin(joined), { replace: true });
   };
   return (
-    <Layout>
-      <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-blue-600 via-green-500 to-indigo-400 text-transparent bg-clip-text">
-        Welcome to KKaraoke
-      </h1>
-      <h3>The best karaoke web player in the world.</h3>
-      <img src={logo} className="w-[250px] h-[250px]" />
-      <div className="max-w-[400px] flex flex-col items-start justify-center">
-        <h1 className="text-lg">Nickname:</h1>
-        <TextField
-          fullWidth
-          className="mt-2"
-          required
-          value={nickname}
-          error={nameError}
-          helperText={nameError ? 'Nickname is required' : ''}
-          onChange={(e) => setNickname(e.target.value)}
-          sx={{
-            '& .MuiOutlinedInput-root': {
-              height: '45px',
-            },
-          }}
-          slotProps={{
-            input: {
-              endAdornment: (
-                <Button
-                  className="m-0 py-0 duration-200 transition-colors text-gray-600 border-gray-600 hover:text-primary hover:border-primary"
-                  variant="outlined"
-                  onClick={handleGenerate}
-                >
-                  Generate
-                </Button>
-              ),
-            },
-          }}
-        />
-        <div className="mt-6 flex justify-between items-center w-full">
-          <h1 className="text-lg ">Choose your avatar:</h1>
-          <Tooltip title="Refresh avatars" placement="right">
-            <IconButton disableRipple size="small" onClick={handleGenerateAvatars} className="ml-2">
-              <Refresh sx={{ fontSize: 20 }} className="text-gray-600 hover:text-primary" />
-            </IconButton>
-          </Tooltip>
+    <div className="relative flex h-full w-full items-center justify-center overflow-y-auto px-4 py-8">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-[radial-gradient(60%_80%_at_50%_0%,color-mix(in_oklab,var(--primary)_28%,transparent),transparent)]" />
+      <div className="relative w-full max-w-md rounded-3xl border bg-card/80 p-8 shadow-app backdrop-blur-xl">
+        <div className="flex flex-col items-center text-center">
+          <Logo className="size-20" />
+          <h1 className="mt-4 text-3xl font-bold tracking-tight">{t('join.title')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t('join.subtitle')}</p>
         </div>
-        <Carousel className="mt-2">
-          {avatars.map((avatar, index) => (
-            <CarouselItem
-              active={avatar == selectedAvatar}
-              key={index}
-              dense
-              onClick={() => {
-                setSelectedAvatar(avatar);
-                setAvatarError(false);
+
+        <div className="mt-8">
+          <label className="text-sm font-medium" htmlFor="nickname">
+            {t('join.nickname')}
+          </label>
+          <div className="relative mt-2 w-full">
+            <Input
+              id="nickname"
+              required
+              value={nickname}
+              aria-invalid={nameError}
+              maxLength={24}
+              autoComplete="off"
+              placeholder={t('join.nicknamePlaceholder')}
+              onChange={(e) => {
+                setNickname(e.target.value);
+                setNameError(false);
               }}
-            >
-              <img
-                src={avatar}
-                alt={`Avatar ${index + 1}`}
-                className="w-12 h-12"
-                onClick={() => setSelectedAvatar(avatar)}
-              />
-            </CarouselItem>
-          ))}
-        </Carousel>
-        <Button
-          disabled={!nickname || !selectedAvatar}
-          className="mt-6 bg-primary"
-          variant="contained"
-          fullWidth
-          size="large"
-          onClick={handleJoin}
-        >
-          Join
+              className={cn('h-11', nameError && 'border-destructive')}
+            />
+          </div>
+          {nameError && <p className="mt-1 text-xs text-destructive">{t('join.nicknameRequired')}</p>}
+        </div>
+
+        <div className="mt-6">
+          <span className="text-sm font-medium">{t('join.avatar')}</span>
+          <AvatarPicker
+            className="mt-3 grid grid-cols-6 gap-2.5"
+            avatars={PRESET_AVATARS}
+            value={selectedAvatar}
+            onChange={(avatar) => {
+              setSelectedAvatar(avatar);
+              setAvatarError(false);
+            }}
+          />
+          {avatarError && <p className="mt-1 text-xs text-destructive">{t('join.avatarRequired')}</p>}
+        </div>
+
+        {!roomIdToJoin && (
+          <div className="mt-6">
+            <label className="text-sm font-medium" htmlFor="room-code">
+              {t('join.code')}
+            </label>
+            <Input
+              id="room-code"
+              value={code}
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
+              maxLength={8}
+              aria-invalid={codeError}
+              onChange={(e) => {
+                setCode(e.target.value.toUpperCase());
+                setCodeError(false);
+              }}
+              className={cn('mt-2 h-11 font-mono tracking-[0.3em] uppercase', codeError && 'border-destructive')}
+            />
+            <p className={cn('mt-1 text-xs', codeError ? 'text-destructive' : 'text-muted-foreground')}>
+              {codeError ? t('join.codeInvalid') : t('join.codeHint')}
+            </p>
+          </div>
+        )}
+
+        <Button disabled={!nickname || !selectedAvatar} className="mt-8 w-full" size="lg" onClick={handleJoin}>
+          {t('join.start')}
         </Button>
+        {authEnabled && (
+          <p className="mt-4 text-center text-sm">
+            <button type="button" className="text-muted-foreground underline-offset-4 hover:underline" onClick={() => useLoginModal.setState({ open: true, reason: 'host' })}>
+              {t('login.hostLink')}
+            </button>
+          </p>
+        )}
       </div>
-    </Layout>
+    </div>
   );
 }

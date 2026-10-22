@@ -1,15 +1,7 @@
-import { OverlayScrollbarsComponent, OverlayScrollbarsComponentProps } from 'overlayscrollbars-react';
+import * as React from 'react';
+import { cn } from 'src/lib/utils';
 
-export default function AppScrollbar(props: OverlayScrollbarsComponentProps) {
-  return (
-    <OverlayScrollbarsComponent
-      events={{
-        scroll: (_, e) => {
-          props.onScroll?.(e as any);
-        },
-      }}
-      options={{ scrollbars: { autoHide: 'leave', autoHideDelay: 500 } }}
-      {...props}
-    />
-  );
+/** Plain scroll container; the thin scrollbar styling is global (see globals.css). */
+export default function AppScrollbar({ className, ...props }: React.ComponentProps<'div'>) {
+  return <div className={cn('overflow-x-hidden overflow-y-auto', className)} {...props} />;
 }

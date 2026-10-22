@@ -1,8 +1,10 @@
 import { create } from 'zustand';
+import { seekSync } from 'src/seekSync';
 
 import {
   downloadTrack,
   emptyQueue,
+  fetchQueue,
   fetchRandomTracks,
   insertToQueue,
   pushToQueue,
@@ -23,8 +25,18 @@ type PlayerStore = {
   // track context
   loading: boolean;
   setLoading: (loading: boolean) => void;
+  loadProgress: number | null; // 0..1 download progress of the current track, null when unknown
+  setLoadProgress: (progress: number | null) => void;
+  loadError: boolean; // the current track's audio could not be loaded
+  setLoadError: (error: boolean) => void;
+  loadAttempt: number; // bumped to retry loading the current track
+  retryLoad: () => void;
   playing: boolean;
   setPlaying: (playing: boolean) => void;
+  playRequested: boolean;
+  setPlayRequested: (requested: boolean) => void;
+  playbackReady: boolean;
+  setPlaybackReady: (ready: boolean) => void;
   semitone: number;
   setSemitone: (semitone: number) => void;
   progress: number;
@@ -34,7 +46,15 @@ type PlayerStore = {
   seeking: boolean;
   setSeeking: (seeking: boolean) => void;
   enabledPitchShift: boolean; // Whether pitch shift is enabled
+  hostPitchShift: boolean; // Whether the room's owner can change the key (known to guests only)
+  setHostPitchShift: (enabled: boolean) => void;
+  hostShowVideo: boolean; // Whether the owner's screen shows the video instead of the lyrics (known to guests only)
+  setHostShowVideo: (showVideo: boolean) => void;
+  hostShowMelody: boolean; // Whether the owner's screen draws the melody (known to guests only)
+  setHostShowMelody: (showMelody: boolean) => void;
   setEnabledPitchShift: (enabled: boolean) => void; // Set pitch shift enabled state
+  guideLevel: number; // 0..1: how much of the original vocal stays audible in karaoke mode
+  setGuideLevel: (level: number) => void;
   vocalOn: boolean; // Set vocal on
   setVocalOn: (enabled: boolean) => void; // Set vocal on state
   toggleVocalOn: () => void; // Toggle vocal on state
@@ -70,6 +90,24 @@ type PlayerStore = {
   clearQueue: () => Promise<void>;
 };
 
+/**
+ * The server announces an added song over the websocket. When that message does not reach this tab (its
+ * socket was not in the room yet), the song would only appear after a reload: check, and fetch the queue
+ * when the song is still missing.
+ */
+function ensureQueued(roomId: string, trackId: string, countBefore: number) {
+  setTimeout(async () => {
+    const count = () => usePlayerStore.getState().queue.filter((t) => t.id === trackId).length;
+    if (count() > countBefore) return;
+    try {
+      const { tracks } = await fetchQueue(roomId);
+      if (Array.isArray(tracks) && count() <= countBefore) usePlayerStore.setState({ queue: tracks });
+    } catch {
+      // the next message or reload will bring it
+    }
+  }, 1500);
+}
+
 export const usePlayerStore = create<PlayerStore>()(
   persist(
     (set, get) => ({
@@ -77,9 +115,27 @@ export const usePlayerStore = create<PlayerStore>()(
       setSyncedPlayer: (player: SyncedAudioPlayer) => set({ syncedPlayer: player }),
       loading: false,
       setLoading: (loading: boolean) => set({ loading }),
+      loadProgress: null,
+      setLoadProgress: (loadProgress: number | null) => set({ loadProgress }),
+      loadError: false,
+      setLoadError: (loadError: boolean) => set({ loadError }),
+      loadAttempt: 0,
+      retryLoad: () => set((state) => ({ loadAttempt: state.loadAttempt + 1, loadError: false, lastSongId: null })),
       playing: false,
       setPlaying: (playing: boolean) => set({ playing }),
-      enabledPitchShift: false,
+      playRequested: false,
+      setPlayRequested: (playRequested: boolean) => set({ playRequested }),
+      playbackReady: true,
+      setPlaybackReady: (playbackReady: boolean) => set({ playbackReady }),
+      enabledPitchShift: true,
+      hostPitchShift: false,
+      setHostPitchShift: (hostPitchShift: boolean) => set({ hostPitchShift }),
+      hostShowVideo: false,
+      hostShowMelody: false,
+      setHostShowMelody: (hostShowMelody: boolean) => set({ hostShowMelody }),
+      setHostShowVideo: (hostShowVideo: boolean) => set({ hostShowVideo }),
+      guideLevel: 0,
+      setGuideLevel: (guideLevel: number) => set({ guideLevel }),
       vocalOn: false,
       setVocalOn: (enabled: boolean) => set({ vocalOn: enabled }),
       toggleVocalOn: () => set((state) => ({ vocalOn: !state.vocalOn })),
@@ -139,11 +195,15 @@ export const usePlayerStore = create<PlayerStore>()(
       lastSongId: null,
       setLastSongId: (songId: string | null) => set({ lastSongId: songId }),
       getRandomTracks: async () => {
-        fetchRandomTracks().then((tracks) => {
-          set((prev) => ({
-            queue: [...prev.queue, ...tracks],
-          }));
-        });
+        const tracks: Track[] | undefined = await fetchRandomTracks();
+        // Add through the server (one at a time, to keep the order) so the queue survives a
+        // reload, is shared with the room, and the worker starts processing each song. The
+        // server's 'added' message puts each one into the local queue. Appending to the local
+        // queue only, as this used to do, left songs that were never processed and vanished
+        // on reload.
+        for (const track of tracks || []) {
+          await get().addSongToQueue(track);
+        }
       },
       addSongToQueue: async (track: Track) => {
         useTrackStore.getState().setSongStatus(track.id, 'submitted');
@@ -152,17 +212,24 @@ export const usePlayerStore = create<PlayerStore>()(
         const avatar = useRoomStore.getState().avatar;
         const joinedRoomId = useRoomStore.getState().joinedRoom;
         const activeRoomId = joinedRoomId || roomId || 'default';
-        pushToQueue(activeRoomId, {
+        const countBefore = get().queue.filter((t) => t.id === track.id).length;
+        return pushToQueue(activeRoomId, {
           ...track,
-          ordered_by: {
-            id: roomId,
-            name,
-            avatar,
+          // camelCase on purpose: tracks from the library carry `orderedBy: null`, which the server
+          // would prefer over a snake_case `ordered_by` and so drop who added the song
+          orderedBy: {
+            id: roomId ?? '',
+            name: name ?? '',
+            avatar: avatar ?? '',
           },
         }).then((data) => {
-          if (data.isReady) {
-            useTrackStore.getState().setSongStatus(track.id, 'ready');
+          // refused (sign-in needed) or failed: the song is not on its way
+          if (!data) {
+            useTrackStore.getState().removeSongStatus(track.id);
+            return;
           }
+          if (data.isReady) useTrackStore.getState().setSongStatus(track.id, 'ready');
+          ensureQueued(activeRoomId, track.id, countBefore);
         });
       },
       insertSongToQueue: async (track: Track) => {
@@ -172,17 +239,24 @@ export const usePlayerStore = create<PlayerStore>()(
         const avatar = useRoomStore.getState().avatar;
         const joinedRoomId = useRoomStore.getState().joinedRoom;
         const activeRoomId = joinedRoomId || roomId || 'default';
+        const countBefore = get().queue.filter((t) => t.id === track.id).length;
         insertToQueue(activeRoomId, {
           ...track,
-          ordered_by: {
-            id: roomId,
-            name,
-            avatar,
+          // camelCase on purpose: tracks from the library carry `orderedBy: null`, which the server
+          // would prefer over a snake_case `ordered_by` and so drop who added the song
+          orderedBy: {
+            id: roomId ?? '',
+            name: name ?? '',
+            avatar: avatar ?? '',
           },
         }).then((data) => {
-          if (data.isReady) {
-            useTrackStore.getState().setSongStatus(track.id, 'ready');
+          // refused (sign-in needed) or failed: the song is not on its way
+          if (!data) {
+            useTrackStore.getState().removeSongStatus(track.id);
+            return;
           }
+          if (data.isReady) useTrackStore.getState().setSongStatus(track.id, 'ready');
+          ensureQueued(activeRoomId, track.id, countBefore);
         });
       },
       rmSongFromQueue: async (track: Track) => {
@@ -202,6 +276,7 @@ export const usePlayerStore = create<PlayerStore>()(
       },
       downloadSong: async (track: Track) => {
         downloadTrack(track).then((data) => {
+          if (!data) return;
           // no task, is ready
           if (!data.task) {
             useTrackStore.getState().setSongStatus(track.id, 'ready');
@@ -222,12 +297,19 @@ export const usePlayerStore = create<PlayerStore>()(
     }),
     {
       name: 'player-storage', // unique name
+      version: 1,
+      // Key shifting used to be opt-in; it is now on by default, so drop the old "off" that was only the default
+      migrate: (persisted, version) => {
+        const state = (persisted ?? {}) as Partial<PlayerStore>;
+        return version < 1 ? { ...state, enabledPitchShift: true } : state;
+      },
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         volume: state.volume,
         semitone: state.semitone,
         enabledPitchShift: state.enabledPitchShift,
         vocalOn: state.vocalOn,
+        guideLevel: state.guideLevel,
       }),
     }
   )
@@ -242,6 +324,8 @@ export const usePlayer = () => {
     volume,
     setVolume,
     vocalOn,
+    guideLevel,
+    setGuideLevel,
     toggleVocalOn,
     semitone,
     setSemitone,
@@ -308,14 +392,21 @@ export const usePlayer = () => {
 
   // when is Callback is true, this function is called when receving the socket message
   const playAudio = (isCallback: boolean = false) => {
-    if (loading) return;
-    if (!currentTrack || !syncedPlayer) return;
+    const state = usePlayerStore.getState();
+    const player = state.syncedPlayer;
+    if (!state.queue[state.queueIdx] || !player) return;
 
+    state.setPlayRequested(true);
     if (isOwner) {
-      syncedPlayer.setVolume(volume, vocalOn ? volume : 0);
-      syncedPlayer.play();
+      if (state.playbackReady && !state.loading) {
+        player.setVolume(state.volume, state.vocalOn ? state.volume : state.volume * state.guideLevel);
+        player.play();
+      }
+      // A scheduled source in a suspended AudioContext is not audible playback.
+      setPlaying(state.playbackReady && !state.loading && player.isRunning);
+    } else {
+      setPlaying(true);
     }
-    setPlaying(true);
 
     if (isCallback) return;
     sendMessage({
@@ -327,6 +418,7 @@ export const usePlayer = () => {
   };
 
   const pauseAudio = (isCallback: boolean = false) => {
+    usePlayerStore.getState().setPlayRequested(false);
     if (isOwner && syncedPlayer) {
       syncedPlayer.pause();
     }
@@ -341,10 +433,25 @@ export const usePlayer = () => {
     });
   };
 
+  // Vocal gain: full when the vocal is on, otherwise only the guide level (0 = completely removed).
+  const vocalVolume = (masterVolume: number, on: boolean) => (on ? masterVolume : masterVolume * guideLevel);
+
+  const changeGuideLevel = (level: number, isCallback: boolean = false) => {
+    setGuideLevel(level);
+    if (isOwner && syncedPlayer && !vocalOn) syncedPlayer.setVolume(volume, volume * level);
+    if (isCallback) return;
+    sendMessage({
+      type: 'jam',
+      action: 'control',
+      op: 'setGuideLevel',
+      roomId: activeRoomId,
+      data: { level },
+    });
+  };
+
   const toggleVocal = (isCallback: boolean = false) => {
     if (isOwner && syncedPlayer) {
-      const newVolume = vocalOn ? 0 : volume;
-      syncedPlayer.setVolume(volume, newVolume);
+      syncedPlayer.setVolume(volume, vocalVolume(volume, !vocalOn));
     }
 
     toggleVocalOn();
@@ -359,7 +466,7 @@ export const usePlayer = () => {
 
   const setAudioVolume = (value: number, isCallback: boolean = false) => {
     if (isOwner && syncedPlayer) {
-      syncedPlayer.setVolume(value, vocalOn ? value : 0);
+      syncedPlayer.setVolume(value, vocalVolume(value, vocalOn));
     }
     setVolume(value);
     if (isCallback) return;
@@ -376,30 +483,18 @@ export const usePlayer = () => {
   const increaseVolume = (isCallback: boolean = false) => {
     const newVolume = Math.min(1, volume + 0.1);
     if (isOwner && syncedPlayer) {
-      syncedPlayer.setVolume(newVolume, vocalOn ? newVolume : 0);
+      syncedPlayer.setVolume(newVolume, vocalVolume(newVolume, vocalOn));
     }
-    setAudioVolume(newVolume);
-    if (isCallback) return;
-    sendMessage({
-      type: 'jam',
-      action: 'control',
-      op: 'increaseVolume',
-      roomId: activeRoomId,
-    });
+    // setAudioVolume already broadcasts the absolute value. Also sending a relative
+    // increase made every receiver apply the change twice.
+    setAudioVolume(newVolume, isCallback);
   };
   const decreaseVolume = (isCallback: boolean = false) => {
     const newVolume = Math.max(0, volume - 0.1);
     if (isOwner && syncedPlayer) {
-      syncedPlayer.setVolume(newVolume, vocalOn ? newVolume : 0);
+      syncedPlayer.setVolume(newVolume, vocalVolume(newVolume, vocalOn));
     }
-    setAudioVolume(newVolume);
-    if (isCallback) return;
-    sendMessage({
-      type: 'jam',
-      action: 'control',
-      op: 'decreaseVolume',
-      roomId: activeRoomId,
-    });
+    setAudioVolume(newVolume, isCallback);
   };
   const seek = (time: number, isCallback: boolean = false) => {
     if (isOwner && syncedPlayer) {
@@ -414,6 +509,7 @@ export const usePlayer = () => {
       roomId: activeRoomId,
       data: {
         seekTime: time,
+        seekRequestId: isOwner ? undefined : seekSync.begin(activeRoomId),
       },
     });
   };
@@ -458,6 +554,8 @@ export const usePlayer = () => {
     playAudio,
     pauseAudio,
     vocalOn,
+    guideLevel,
+    setGuideLevel: changeGuideLevel,
     toggleVocal,
     volume,
     setVolume: setAudioVolume,

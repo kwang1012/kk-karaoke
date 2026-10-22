@@ -1,4 +1,5 @@
 import asyncio
+from redis.exceptions import RedisError
 import threading
 import uuid
 from fastapi import WebSocket, WebSocketDisconnect
@@ -102,7 +103,7 @@ class WebSocketManager:
         user = None
         room_id = None
         try:
-            while True:
+            while websocket.client_state == WebSocketState.CONNECTED:
                 msg = await websocket.receive_json()
                 msg_type = msg.get("type")
                 if not msg_type:
@@ -112,7 +113,12 @@ class WebSocketManager:
                     user = User(**msg.get("data", {}))
                     await self.handle_join_message(websocket, room_id, user)
                 elif msg_type == "jam":
-                    await self.handle_jam_message(websocket, msg)
+                    try:
+                        await self.handle_jam_message(websocket, msg)
+                    except RedisError as e:
+                        # The jam state could not be saved: skip this message, keep the connection. (Letting it
+                        # escape reaches the app's HTTP error handler, which cannot answer a websocket.)
+                        print(f"Jam message dropped, Redis unavailable: {e!r}")
         except WebSocketDisconnect:
             pass
         finally:
@@ -125,10 +131,14 @@ class WebSocketManager:
         """
         Handle messages related to joining a room.
         """
-        if room_id not in self.rooms:
-            self.rooms[room_id] = []
-        if socket not in self.rooms[room_id]:
-            self.rooms[room_id].append((user, socket))
+        # A socket is in at most one room: drop any earlier entry (the old check
+        # compared the socket to (user, socket) tuples, so it never matched and
+        # re-joining duplicated the client - and every message it received).
+        for rid in list(self.rooms):
+            self.rooms[rid] = [(u, ws) for (u, ws) in self.rooms[rid] if ws != socket]
+            if not self.rooms[rid]:
+                del self.rooms[rid]
+        self.rooms.setdefault(room_id, []).append((user, socket))
 
         await self.multicast(room_id, {
             "type": "jam",

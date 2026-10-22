@@ -1,65 +1,62 @@
-import React from 'react';
-import { Slider } from '@mui/material';
-import { styled } from '@mui/material/styles';
-const iOSBoxShadow = '0 3px 1px rgba(0,0,0,0.1),0 4px 8px rgba(0,0,0,0.13),0 0 0 1px rgba(0,0,0,0.02)';
+import * as React from 'react';
+import { Slider } from 'src/components/ui/slider';
+import { cn } from 'src/lib/utils';
 
-const AppSlider = styled(Slider)(({ theme }) => ({
-  color: '#007bff',
-  height: 4,
-  padding: '4px 0',
-  '&:hover .MuiSlider-thumb': {
-    opacity: 1,
-  },
-  '& .MuiSlider-thumb': {
-    opacity: 0,
-    height: 12,
-    width: 12,
-    backgroundColor: '#fff',
-    boxShadow: '0 0 2px 0px rgba(0, 0, 0, 0.1)',
-    '&:focus, &:hover, &.Mui-active': {
-      boxShadow: '0px 0px 3px 1px rgba(0, 0, 0, 0.1)',
-      // Reset on touch devices, it doesn't add specificity
-      '@media (hover: none)': {
-        boxShadow: iOSBoxShadow,
-      },
-    },
-    '&:before': {
-      boxShadow: '0px 0px 1px 0px rgba(0,0,0,0.2), 0px 0px 0px 0px rgba(0,0,0,0.14), 0px 0px 1px 0px rgba(0,0,0,0.12)',
-    },
-  },
-  '& .MuiSlider-valueLabel': {
-    fontSize: 12,
-    fontWeight: 'normal',
-    top: -6,
-    backgroundColor: 'unset',
-    color: theme.palette.text.primary,
-    '&::before': {
-      display: 'none',
-    },
-    '& *': {
-      background: 'transparent',
-      color: '#000',
-      ...theme.applyStyles('dark', {
-        color: '#fff',
-      }),
-    },
-  },
-  '&:hover .MuiSlider-track': {
-    backgroundColor: theme.palette.primary.main,
-  },
-  '& .MuiSlider-track': {
-    border: 'none',
-    height: 4,
-    backgroundColor: theme.palette.mode === 'dark' ? 'white' : '#9d9986',
-  },
-  '& .MuiSlider-rail': {
-    opacity: 0.5,
-    boxShadow: 'inset 0px 0px 4px -2px #000',
-    backgroundColor: '#d0d0d0',
-  },
-  ...theme.applyStyles('dark', {
-    color: '#0a84ff',
-  }),
-}));
+type AppSliderProps = {
+  min?: number;
+  max?: number;
+  step?: number;
+  value: number;
+  className?: string;
+  onChange?: (event: Event, value: number | number[]) => void;
+  onChangeCommitted?: (event: Event, value: number | number[]) => void;
+  onMouseDown?: React.MouseEventHandler;
+  /** Formats the value under the pointer (e.g. a time); enables a hover preview above the track. */
+  preview?: (value: number) => string;
+  'aria-labelledby'?: string;
+};
 
-export default AppSlider;
+/** Single-value slider with the app styling: thin track, thumb only visible on hover. */
+export default function AppSlider({
+  value,
+  onChange,
+  onChangeCommitted,
+  onMouseDown,
+  preview,
+  className,
+  'aria-labelledby': labelledBy,
+  ...props
+}: AppSliderProps) {
+  const { min = 0, max = 100 } = props;
+  const [hover, setHover] = React.useState<{ x: number; value: number } | null>(null);
+
+  const track = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!preview || e.pointerType === 'touch') return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const fraction = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    setHover({ x: fraction * rect.width, value: min + fraction * (max - min) });
+  };
+
+  return (
+    // The wrapper owns the size (callers pass width/height classes); the slider fills it.
+    <div className={cn('relative h-4 w-full', className)} onPointerMove={track} onPointerLeave={() => setHover(null)}>
+      <Slider
+        {...props}
+        value={[value]}
+        aria-labelledby={labelledBy}
+        onPointerDown={onMouseDown as unknown as React.PointerEventHandler}
+        onValueChange={([v]) => onChange?.(new Event('change'), v)}
+        onValueCommit={([v]) => onChangeCommitted?.(new Event('change'), v)}
+        className="group h-full [&_[data-slot=thumb]]:opacity-0 hover:[&_[data-slot=thumb]]:opacity-100 hover:[&_[data-slot=range]]:bg-primary"
+      />
+      {preview && hover && max > min && (
+        <div
+          className="pointer-events-none absolute bottom-full z-20 mb-2 -translate-x-1/2 rounded-md border bg-popover px-2 py-1 text-xs font-medium text-popover-foreground tabular-nums shadow-md"
+          style={{ left: hover.x }}
+        >
+          {preview(hover.value)}
+        </div>
+      )}
+    </div>
+  );
+}

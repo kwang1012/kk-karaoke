@@ -1,87 +1,19 @@
-import { Vibrant } from 'node-vibrant/browser';
 import { Track } from 'src/models/spotify';
-import { colord } from 'colord';
-import { adventurer } from '@dicebear/collection';
-import { createAvatar } from '@dicebear/core';
-
-export const DEFAULT_COLOR = '#d3d3d3';
-export const DEFAULT_BG_COLOR = '#3a3a3a';
-export const DEFULT_LIGHT_COLOR = '#f5bacc';
-export function getAvgRGB(src: string, light = false): Promise<any> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.setAttribute('crossOrigin', '');
-    img.src = src;
-    img.onload = () => {
-      const vibrant = new Vibrant(img);
-      vibrant.getPalette().then((palette) => {
-        let baseColor = palette.Vibrant?.hex;
-        if (!baseColor) {
-          resolve(light ? DEFULT_LIGHT_COLOR : DEFAULT_COLOR);
-          return;
-        }
-        const base = colord(baseColor);
-        if (light) {
-          const luminance = base.brightness();
-          if (luminance < 0.8) {
-            baseColor = base.lighten(0.8 - luminance).toHex();
-          }
-        }
-        resolve(baseColor);
-      });
-    };
-  });
-}
-
-export function getLyricsRGB(src: string, light = false): Promise<any> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.setAttribute('crossOrigin', '');
-    img.src = src;
-    img.onload = () => {
-      const vibrant = new Vibrant(img);
-      vibrant.getPalette().then((palette) => {
-        const baseColor = light ? palette.LightVibrant?.hex : palette.DarkVibrant?.hex;
-        if (!baseColor) {
-          resolve({ lyrics: DEFAULT_COLOR, background: DEFAULT_BG_COLOR });
-          return;
-        }
-        // 1. Get the base color
-        const base = colord(baseColor);
-
-        // 2. Measure brightness (range: 0 = black, 1 = white)
-        const luminance = base.brightness();
-        // console.log('Luminance:', luminance);
-
-        let bgColor: string = base.toHex();
-        let textColor: string;
-        if (!light) {
-          // 3. Dynamically adjust based on luminance
-          textColor = base.lighten(0.5).toHex();
-
-          // Middle brightness → moderate adjustment
-          if (luminance < 0.2) {
-            bgColor = base.lighten(0.1).toHex();
-            textColor = base.lighten(0.6).toHex();
-          }
-        } else {
-          textColor = base.darken(0.5).toHex();
-          if (luminance > 0.8) {
-            bgColor = base.darken(0.1).toHex();
-            textColor = base.darken(0.6).toHex();
-          }
-        }
-        resolve({
-          lyrics: textColor,
-          background: bgColor,
-        });
-      });
-    };
-  });
-}
+import { getBackendAddress } from './backend';
+export { DEFAULT_COLOR, DEFAULT_BG_COLOR, DEFULT_LIGHT_COLOR, getAvgRGB, getLyricsRGB } from './coverColors';
 
 export function getUniqueId(track: Track) {
   return `${track.id}-${track.timeAdded}`;
+}
+
+/** crypto.randomUUID only exists in secure contexts; a phone on http://<laptop-ip> is not one. */
+export function uuid(): string {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  const b = crypto.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6] & 0x0f) | 0x40; // version 4
+  b[8] = (b[8] & 0x3f) | 0x80; // variant
+  const h = Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 }
 
 export function copyToClipboard(text: string): Promise<void> {
@@ -112,30 +44,18 @@ export function copyToClipboard(text: string): Promise<void> {
   });
 }
 
-export function generateNickname() {
-  const adjectives = ['Cool', 'Silly', 'Brave', 'Happy', 'Sleepy', 'Jolly', 'Swift', 'Witty', 'Funky', 'Chill'];
-  const nouns = ['Panda', 'Tiger', 'Eagle', 'Otter', 'Fox', 'Koala', 'Hawk', 'Bear', 'Penguin', 'Shark'];
+/** Preset avatars (public/avatars), shared with KK Trip: animals, travel companions, and a funny set. */
+const AVATAR_IDS = [
+  'shiba', 'cat', 'panda', 'bunny', 'bear', 'owl',
+  'suitcase', 'balloon', 'plane', 'train', 'camera', 'compass',
+  'lemon', 'toast', 'egg', 'ghost', 'dumpling', 'potato',
+];
 
-  const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
-  const noun = nouns[Math.floor(Math.random() * nouns.length)];
-  const number = Math.floor(100 + Math.random() * 900); // 3-digit random number
+export const PRESET_AVATARS: string[] = AVATAR_IDS.map((id) => `/avatars/${id}.svg`);
 
-  return `${adj}${noun}${number}`; // e.g. "HappyOtter738"
-}
+export const isLoopbackHost = (hostname: string) => ['localhost', '127.0.0.1', '[::1]'].includes(hostname);
 
-export function generateAvatars(count: number = 10): string[] {
-  const avatars: string[] = [];
-  for (let i = 0; i < count; i++) {
-    const avatar = createAvatar(adventurer, {
-      seed: Math.random().toString(36).substring(2, 15), // Random seed for each avatar
-      // ... other options
-    });
-    avatars.push(avatar.toDataUri());
-  }
-  return avatars;
-}
-
-export function getSchemesForAddress(address: string = import.meta.env.VITE_API_ADDR): {
+export function getSchemesForAddress(address: string | undefined = getBackendAddress()): {
   http: string;
   ws: string;
   address: string;
@@ -144,6 +64,13 @@ export function getSchemesForAddress(address: string = import.meta.env.VITE_API_
   if (!address) {
     const secure = window.location.protocol === 'https:';
     return { http: secure ? 'https://' : 'http://', ws: secure ? 'wss://' : 'ws://', address: window.location.host };
+  }
+  // "localhost" in the config means the machine that serves the page. Opened from another device
+  // (a phone on the LAN) that machine is whatever host the page came from, not the phone itself.
+  const configured = address.match(/^(localhost|127\.0\.0\.1)(:\d+)?$/);
+  if (configured && !isLoopbackHost(window.location.hostname)) {
+    const secure = window.location.protocol === 'https:';
+    return { http: secure ? 'https://' : 'http://', ws: secure ? 'wss://' : 'ws://', address: window.location.hostname + (configured[2] ?? '') };
   }
   let host = address;
   if (host === 'localhost') {

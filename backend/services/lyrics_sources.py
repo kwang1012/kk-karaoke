@@ -1,0 +1,780 @@
+"""
+Find timed lyrics for a track, and say how far to trust them.
+
+A "recording" is the unit that matters: lyrics are only correct for the audio
+they were timed against. So instead of searching lyrics and audio separately and
+hoping they line up, we resolve the track to one YouTube Music song first and
+use its videoId for both the audio download and its lyrics.
+
+Sources, best first (the first usable one wins):
+  1. YouTube Music timed lyrics for that exact videoId  -- same recording by construction
+  2. LRCLib by artist/title/duration                    -- LRCLib only answers when durations match
+  3. LRCLib / NetEase searched by metadata             -- accepted only if title, artist and length fit
+  4. Whisper listening to the vocal stem               -- only when nothing above has the song; timing is
+                                                          measured from the audio, the words are a guess
+
+Sources 1 and 2 are independent, so when both exist we compare them line by line.
+Agreement is the strongest evidence we can get without listening to the audio.
+"""
+import json
+import logging
+import re
+import statistics
+import unicodedata
+from dataclasses import asdict, dataclass, field
+from difflib import SequenceMatcher
+from pathlib import Path
+from typing import Literal, Optional
+
+import opencc
+from ytmusicapi import YTMusic
+
+from services import audio_check, providers, transcribe, word_timing
+from services.downloader import (
+    _convert_lrc_to_traditional,
+    _fetch_lrclib,
+    _has_simplified_chinese,
+    fetch_lrclib_record,
+)
+from managers import r2
+from utils import LYRICS_DIR
+
+log = logging.getLogger(__name__)
+
+# verified:    two independent sources agree on the timing
+# synced:      one source that is tied to the audio (same videoId, or LRCLib matched on duration)
+# approximate: timing from a free-text search; may be for a different version of the song
+# unsynced:    words only, no timing (shown as static text)
+Confidence = Literal["verified", "synced", "approximate", "unsynced"]
+
+# Two catalogs' lengths for the same song differ by a little (silence at the ends); beyond
+# this it is a different cut.
+MAX_DURATION_DIFF_S = 4
+# Two sources "agree" when their matched lines sit within this of each other.
+AGREE_TOLERANCE_S = 0.5
+MIN_MATCHED_LINES = 5
+
+Lines = list[tuple[float, str]]
+
+_t2s = opencc.OpenCC("t2s").convert
+_t2tw = opencc.OpenCC("s2t").convert
+_ytm: Optional[YTMusic] = None
+
+
+def _client() -> YTMusic:
+    global _ytm
+    if _ytm is None:
+        _ytm = YTMusic()
+    return _ytm
+
+
+@dataclass
+class Recording:
+    video_id: str
+    title: str
+    artist: str
+    duration_s: Optional[int]
+
+
+@dataclass
+class Agreement:
+    matched: int
+    total: int
+    median_delta_s: float  # other source minus ytm; the version offset between the two
+    spread_s: float        # median absolute deviation of that offset
+
+    @property
+    def agrees(self) -> bool:
+        return (
+            self.matched >= MIN_MATCHED_LINES
+            and abs(self.median_delta_s) <= AGREE_TOLERANCE_S
+            and self.spread_s <= AGREE_TOLERANCE_S
+        )
+
+
+@dataclass
+class LyricsResult:
+    lrc: str
+    source: str  # "ytmusic" | "lrclib" | "netease" | "whisper"
+    confidence: Confidence
+    video_id: Optional[str] = None
+    agreement: Optional[Agreement] = None
+    notes: list[str] = field(default_factory=list)
+    # The video whose lyrics these were timed for, when that is not the recording they are used with
+    # (a music video borrowing its studio song's lyrics): the timing may be a whole intro off.
+    timed_for: Optional[str] = None
+    # Per-word timing that came with the sheet (a provider that times every word), keyed like meta["words"].
+    word_map: Optional[dict] = None
+
+
+# --- text helpers ---------------------------------------------------------------
+
+def _norm(text: str) -> str:
+    """Compare lines across sources: ignore case, punctuation, spacing and Chinese script."""
+    text = _t2s(unicodedata.normalize("NFKC", text).lower())
+    # The converter leaves 著 alone, but it is 着 in Simplified and in many Taiwanese sheets too.
+    return re.sub(r"[\W_]+", "", text.replace("著", "着"))
+
+
+def parse_lrc(lrc: str) -> Lines:
+    out: Lines = []
+    for line in lrc.splitlines():
+        m = re.match(r"\[(\d+):(\d+(?:\.\d+)?)\](.*)", line.strip())
+        if m and m.group(3).strip():
+            out.append((int(m.group(1)) * 60 + float(m.group(2)), m.group(3).strip()))
+    return out
+
+
+def format_lrc(lines: Lines) -> str:
+    def stamp(t: float) -> str:
+        return f"[{int(t // 60):02d}:{t % 60:05.2f}]"
+    return "\n".join(f"{stamp(t)}{text}" for t, text in lines)
+
+
+# --- cross-source check ---------------------------------------------------------
+
+def compare_timing(ref: Lines, other: Lines) -> Optional[Agreement]:
+    """
+    Pair lines of the two sources in order and measure how far apart their start times are.
+
+    Pairing is monotonic on purpose: choruses repeat, and pairing each line with its
+    best text match would match it to the wrong repeat and fake a large spread.
+    """
+    a = [_norm(text) for _, text in ref]
+    b = [_norm(text) for _, text in other]
+    deltas: list[float] = []
+    for tag, i1, i2, j1, j2 in SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
+        if tag == "equal":
+            deltas += [other[j][0] - ref[i][0]
+                       for i, j in zip(range(i1, i2), range(j1, j2)) if len(a[i]) >= 2]
+    if not deltas:
+        return None
+    median = statistics.median(deltas)
+    spread = statistics.median(abs(d - median) for d in deltas)
+    return Agreement(len(deltas), len(ref), round(median, 2), round(spread, 2))
+
+
+# --- sources --------------------------------------------------------------------
+
+def _same_artist(wanted: list[str], got: list[str]) -> bool:
+    """Title and length are not enough: many unrelated songs are called "Dynamite"."""
+    for w in map(_norm, wanted):
+        for g in map(_norm, got):
+            if w and g and (w in g or g in w or SequenceMatcher(None, w, g).ratio() >= 0.7):
+                return True
+    return False
+
+
+def _is_cjk(text: str) -> bool:
+    return any("\u3040" <= ch <= "\u30ff" or "\u3400" <= ch <= "\u9fff" or "\uac00" <= ch <= "\ud7af"
+               for ch in text)
+
+
+def _artist_in_other_script(wanted: list[str], got: list[str]) -> bool:
+    """
+    A video channel says "Nine Chen", the song says "陳零九": names cannot be compared, but every
+    one of them being written in a different script is not evidence of a different artist.
+    "BTS" against "Calvin Sparks" is (both Latin, and they differ).
+    """
+    return bool(wanted and got) and all(_is_cjk(w) != _is_cjk(g) for w in wanted for g in got)
+
+
+# A music video runs longer than the studio cut it was made from (an intro, an outro, some talking)
+# but sings the same song; this is how far apart the two may be.
+SIBLING_MAX_DIFF_S = 45
+# How far the audio check looks for the offset of a sheet that was timed for another recording.
+SIBLING_SEARCH_S = SIBLING_MAX_DIFF_S + 15
+
+
+def _mmss(seconds: Optional[float]) -> str:
+    return "?" if not seconds else f"{int(seconds) // 60}:{int(seconds) % 60:02d}"
+
+
+def sibling_songs(
+    title: str, artists: list[str], duration_s: Optional[float], video_id: Optional[str],
+    *, max_diff: float = SIBLING_MAX_DIFF_S, limit: int = 6,
+) -> list[Recording]:
+    """
+    Other YouTube Music songs that are this song: the studio recording of a music video, whose lyrics
+    YouTube Music has timed even though it has none for the video. Same title, same artist (in any
+    script), and a length near this one's.
+    """
+    if not artists:
+        return []
+    try:
+        hits = _client().search(f"{artists[0]} {title}", filter="songs", limit=limit)
+    except Exception as e:  # noqa: BLE001
+        log.warning("YT Music sibling lookup failed for %r: %r", title, e)
+        return []
+    wanted = providers.title_variants(title)
+    wanted_folded = {_norm(w) for w in wanted} - {""}
+    found: list[Recording] = []
+    for hit in hits[:limit]:
+        vid = hit.get("videoId")
+        if not vid or vid == video_id or not providers._title_fits(wanted, hit.get("title") or "", _norm):
+            continue
+        # Containment is fine for a provider search, but a sibling is the same song: "情歌" is not "怪情歌".
+        if _norm(hit.get("title") or "") not in wanted_folded:
+            continue
+        names = [a["name"] for a in hit.get("artists") or [] if a.get("name")]
+        if not (_same_artist(artists, names) or _artist_in_other_script(artists, names)):
+            continue
+        got = hit.get("duration_seconds")
+        if duration_s and got and abs(got - duration_s) > max_diff:
+            continue
+        found.append(Recording(vid, hit.get("title") or "", names[0] if names else "", got))
+    return found
+
+
+def video_duration_s(video_id: str) -> Optional[int]:
+    """A recording's length from YouTube Music, for tracks queued without one."""
+    try:
+        length = _client().get_watch_playlist(video_id, limit=1)["tracks"][0].get("length") or ""
+        seconds = 0
+        for part in length.split(":"):
+            seconds = seconds * 60 + int(part)
+        return seconds or None
+    except Exception as e:  # noqa: BLE001
+        log.warning("YT Music length lookup failed for %s: %r", video_id, e)
+        return None
+
+
+def artist_aliases(
+    title: str, artists: list[str], duration_s: Optional[float], recording: Optional[Recording]
+) -> list[str]:
+    """
+    Every name this song's artist goes by. Lyric sites index "陳零九", while a music video
+    channel may call the same artist "Nine Chen", and a search under the wrong
+    one finds nothing. Names come from the recording itself and from the YouTube Music song
+    with the same title and length.
+    """
+    names = [*artists]
+    if recording and recording.artist:
+        names.append(recording.artist)
+    if artists:
+        try:
+            hits = _client().search(f"{artists[0]} {title}", filter="songs", limit=5)
+        except Exception as e:  # noqa: BLE001
+            log.warning("YT Music alias lookup failed for %r: %r", title, e)
+            hits = []
+        want = _norm(title)
+        for hit in hits:
+            have = _norm(hit.get("title") or "")
+            if want not in have and have not in want:
+                continue
+            got = hit.get("duration_seconds")
+            if duration_s and got and abs(got - duration_s) > MAX_DURATION_DIFF_S:
+                continue
+            hit_names = [a["name"] for a in hit.get("artists") or [] if a.get("name")]
+            if _same_artist(artists, hit_names) or _artist_in_other_script(artists, hit_names):
+                names += hit_names
+    return [n for n in dict.fromkeys(n.strip() for n in names) if n]
+
+
+def fetch_ytmusic_lines(video_id: str) -> Optional[Lines]:
+    try:
+        browse_id = _client().get_watch_playlist(video_id).get("lyrics")
+        if not browse_id:
+            return None
+        res = _client().get_lyrics(browse_id, timestamps=True)
+    except Exception as e:  # noqa: BLE001
+        log.warning("YT Music lyrics failed for %s: %r", video_id, e)
+        return None
+    if not res or not res.get("hasTimestamps"):
+        return None
+    lines = [(line.start_time / 1000, line.text.strip())
+             for line in res["lyrics"] if line.text.strip()]
+    return lines or None
+
+
+# --- ladder ---------------------------------------------------------------------
+
+def _names(artist: "str | list[str]") -> list[str]:
+    return [artist] if isinstance(artist, str) else list(artist)
+
+
+def _is_header(text: str, title: str, names: list[str]) -> bool:
+    """Providers open a sheet with a "title - artist" line that is not sung."""
+    folded = _norm(text)
+    return bool(_norm(title)) and _norm(title) in folded and any(_norm(n) and _norm(n) in folded for n in names)
+
+
+def _word_result(entry: "providers.Entry", video_id: Optional[str], title: str = "",
+                 names: Optional[list[str]] = None) -> LyricsResult:
+    """A sheet made from a word-timed entry, keeping its words in the sheet's own script."""
+    wl = [l for l in entry.word_lines or [] if l.text.strip()]
+    if wl and _is_header(wl[0].text, title, names or []):
+        wl = wl[1:]
+    result = _finish(LyricsResult(
+        format_lrc([(l.start, l.text.strip()) for l in wl]), entry.source, "synced", video_id,
+        notes=[f"Timed word by word by {entry.source}"]))
+    # The saved sheet rounds each line to a centisecond; its words are filed under that same time.
+    by_time = {_cs(parse_lrc(format_lrc([(l.start, "x")]))[0][0]): l for l in wl}
+    words: dict[str, Words] = {}
+    for start, text in parse_lrc(result.lrc):
+        line = by_time.get(_cs(start))
+        pieces = split_by_words(text, [w[2] for w in line.words]) if line else None
+        if line and pieces:
+            words[_cs(start)] = [(round(s, 2), round(e, 2), piece) for (s, e, _), piece in zip(line.words, pieces)]
+    result.word_map = words or None
+    return result
+
+
+def find_lyrics(
+    title: str,
+    artist: "str | list[str]",
+    album: Optional[str],
+    duration_s: Optional[float],
+    recording: Optional[Recording],
+) -> Optional[LyricsResult]:
+    """Walk the ladder. Returns None when no source has timed lyrics."""
+    names = [n for n in _names(artist) if n]
+    video_id = recording.video_id if recording else None
+
+    # The finest sync first: a provider that times every word, if it has this recording.
+    word_entry = providers.find_word_entry(title, names, duration_s, fold=_norm, same_artist=_same_artist,
+                                           other_script=_artist_in_other_script, video_id=video_id)
+    if word_entry:
+        return _word_result(word_entry, video_id, title, names)
+
+    ytm_lines = fetch_ytmusic_lines(video_id) if video_id else None
+
+    length = round(duration_s) if duration_s else None
+    variants = providers.title_variants(title)
+    lrclib_text = None
+    for variant in variants:
+        for name in names:
+            lrclib_text = _fetch_lrclib(variant, name, album, length)
+            if lrclib_text:
+                break
+        if lrclib_text:
+            break
+    if lrclib_text and providers.is_romanized_korean(lrclib_text):
+        log.info("LRCLib has %r as romanized Korean; looking for the Hangul", title)
+        lrclib_text = None
+    lrclib_lines = parse_lrc(lrclib_text) if lrclib_text else None
+
+    if ytm_lines:
+        result = LyricsResult(format_lrc(ytm_lines), "ytmusic", "synced", video_id)
+        if lrclib_lines:
+            result.agreement = compare_timing(ytm_lines, lrclib_lines)
+            if result.agreement and result.agreement.agrees:
+                result.confidence = "verified"
+            elif result.agreement:
+                result.notes.append("LRCLib is timed differently; using YouTube Music, which matches the audio")
+        return _finish(result)
+
+    if lrclib_lines and lrclib_text:
+        # LRCLib's /api/get only answers when the duration matches, so a known duration
+        # is what makes this one tied to the audio rather than a guess.
+        confidence: Confidence = "synced" if duration_s else "approximate"
+        return _finish(LyricsResult(lrclib_text, "lrclib", confidence, video_id))
+
+    entry = providers.find_entry(title, names, duration_s, fold=_norm,
+                                 same_artist=_same_artist, other_script=_artist_in_other_script)
+    if entry and entry.synced and parse_lrc(entry.synced):
+        note = f"Matched on {entry.source} by title, artist and length"
+        if entry.loose_artist:
+            note += f" (artist is written differently: {entry.artists[0]})"
+        return _finish(LyricsResult(entry.synced, entry.source, "approximate" if entry.loose_artist else "synced",
+                                    video_id, notes=[note]))
+
+    # A music video has no timed lyrics of its own, but its studio recording usually does.
+    for sibling in sibling_songs(title, names, duration_s, video_id) if recording else []:
+        lines = fetch_ytmusic_lines(sibling.video_id)
+        if lines:
+            return _finish(LyricsResult(
+                format_lrc(lines), "ytmusic", "approximate", video_id,
+                notes=[f"Timed for the studio recording ({_mmss(sibling.duration_s)}); this one is "
+                       f"{_mmss(duration_s)}, so the timing may be offset"],
+                timed_for=sibling.video_id))
+    return None
+
+
+@dataclass
+class PlainLyrics:
+    text: str
+    source: str
+    video_id: Optional[str] = None
+
+
+def find_plain_lyrics(
+    title: str,
+    artist: "str | list[str]",
+    album: Optional[str],
+    duration_s: Optional[float],
+    recording: Optional[Recording],
+) -> Optional[PlainLyrics]:
+    """Last resort when nothing is timed: the words alone are still worth showing."""
+    video_id = recording.video_id if recording else None
+    text, source = None, ""
+    if video_id:
+        text, source = fetch_ytmusic_plain(video_id), "ytmusic"
+    names = [n for n in _names(artist) if n]
+    for variant in providers.title_variants(title):
+        for name in names:
+            if text:
+                break
+            record = fetch_lrclib_record(variant, name, album, round(duration_s) if duration_s else None)
+            text, source = (record or {}).get("plainLyrics"), "lrclib"
+            if text and providers.is_romanized_korean(text):
+                text = None
+    if not text:
+        entry = providers.find_entry(title, names, duration_s, fold=_norm, same_artist=_same_artist,
+                                     other_script=_artist_in_other_script, want="plain")
+        if entry:
+            text, source = entry.plain or None, entry.source
+    if not text:
+        text, source = providers.lyrics_ovh_plain(title, names), "ovh"
+    if not text or not text.strip() or providers.is_romanized_korean(text):
+        return None
+    text = text.strip()
+    if _has_simplified_chinese(text):
+        text = _t2tw(text)
+    return PlainLyrics(text, source, video_id)
+
+
+def fetch_ytmusic_plain(video_id: str) -> Optional[str]:
+    try:
+        browse_id = _client().get_watch_playlist(video_id).get("lyrics")
+        res = _client().get_lyrics(browse_id) if browse_id else None
+    except Exception as e:  # noqa: BLE001
+        log.warning("YT Music plain lyrics failed for %s: %r", video_id, e)
+        return None
+    text = res.get("lyrics") if res else None
+    return text if isinstance(text, str) else None
+
+
+def _finish(result: LyricsResult) -> LyricsResult:
+    result.lrc = _without_credits(result.lrc)
+    if _has_simplified_chinese(result.lrc):
+        result.lrc = _convert_lrc_to_traditional(result.lrc)
+    return result
+
+
+def _without_credits(lrc: str) -> str:
+    """Providers list who wrote and mixed the song as lyric lines with made-up timestamps."""
+    kept = []
+    for line in lrc.splitlines():
+        m = re.match(r"\[\d+:\d+(?:\.\d+)?\](.*)", line.strip())
+        if m and word_timing.is_credit_line(m.group(1)):
+            continue
+        kept.append(line)
+    return "\n".join(kept)
+
+
+# --- persistence ----------------------------------------------------------------
+
+def _meta_path(track_id: str) -> Path:
+    return Path(LYRICS_DIR, f"{track_id}.meta.json")
+
+
+def save_result(track_id: str, result: LyricsResult) -> None:
+    path = Path(LYRICS_DIR, f"{track_id}.lrc")
+    path.write_text(result.lrc, encoding="utf-8")
+    r2.upload_path("lyrics", path)
+    meta = asdict(result)
+    meta.pop("lrc")
+    word_map = meta.pop("word_map", None)
+    if word_map:
+        meta["words"] = word_map
+        meta["word_source"] = result.source
+    write_meta(track_id, meta)
+
+
+def write_meta(track_id: str, meta: dict) -> None:
+    _meta_path(track_id).write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+    r2.upload_path("lyrics-meta", _meta_path(track_id))
+
+
+def save_plain(track_id: str, plain: PlainLyrics) -> None:
+    """Words without timing live in the sidecar: the .lrc file only ever holds timed lines."""
+    write_meta(track_id, {
+        "source": plain.source, "confidence": "unsynced", "video_id": plain.video_id,
+        "notes": ["No timed lyrics found; showing the words only"], "plain": plain.text,
+    })
+
+
+def read_meta(track_id: str, fresh: bool = True) -> dict:
+    """Sidecar for a track's lyrics; empty for tracks fetched before the ladder existed.
+    `fresh=False` when the caller has just refreshed every sidecar (a list)."""
+    from managers import catalog
+    asset = catalog.asset(track_id, "lyrics-meta")
+    return asset["metadata"] if asset and asset["state"] in ("ready", "pending") else {}
+
+
+# --- check against the audio ----------------------------------------------------
+
+def shift_lrc(lrc: str, offset_s: float) -> str:
+    """Move every timestamp by `offset_s`, leaving headers and text alone."""
+    def move(m: re.Match) -> str:
+        t = max(0.0, int(m.group(1)) * 60 + float(m.group(2)) + offset_s)
+        return f"[{int(t // 60):02d}:{t % 60:05.2f}]"
+    return re.sub(r"\[(\d+):(\d+(?:\.\d+)?)\]", move, lrc)
+
+
+def verify_against_audio(track_id: str, vocal_path: str) -> Optional[audio_check.AudioCheck]:
+    """
+    Measure the saved lyrics against the vocal stem, then record what we learned.
+
+    Only lyrics the ladder fetched are touched (they have a sidecar), and only once:
+    a sheet someone has edited by hand, or that already went through this, is theirs.
+    """
+    meta = read_meta(track_id)
+    lrc_path = r2.local("lyrics", track_id)
+    if not meta or meta.get("edited") or "audio_check" in meta or not lrc_path.exists():
+        return None
+    if meta.get("source") == "whisper":
+        return None  # its timing was measured from this audio: agreeing with itself proves nothing
+
+    lrc = lrc_path.read_text(encoding="utf-8")
+    check = audio_check.check_file(vocal_path, [t for t, _ in parse_lrc(lrc)],
+                                   *((SIBLING_SEARCH_S, audio_check.MIN_Z_WIDE) if meta.get("timed_for") else ()))
+    if check is None:
+        return None
+
+    meta["audio_check"] = asdict(check)
+    if check.status == "confirmed":
+        meta["confidence"] = "verified"
+    elif check.status == "corrected":
+        lrc_path.write_text(shift_lrc(lrc, check.offset_s), encoding="utf-8")
+        r2.upload_path("lyrics", lrc_path)
+        if meta.get("words"):
+            meta["words"] = _shift_words(meta["words"], check.offset_s)
+        meta["confidence"] = "synced"
+    elif check.status == "mismatch":
+        meta["confidence"] = "approximate"
+    write_meta(track_id, meta)
+    return check
+
+
+# --- word-level timing ----------------------------------------------------------
+
+# A word timing is only believed when its lines sit this close to the sheet's, and
+# consistently so (a constant offset is fine, scatter is a different version).
+WORDS_MAX_OFFSET_S = 3.0
+WORDS_LINE_TOLERANCE_S = 1.0
+WORDS_MIN_LINES = 5
+
+Words = list[tuple[float, float, str]]
+
+
+def _cs(t: float) -> str:
+    return str(int(round(t * 100)))
+
+
+def split_by_words(line: str, word_texts: list[str]) -> Optional[list[str]]:
+    """
+    Cut `line` into pieces matching the words' lengths, keeping the sheet's own characters
+    (its script and punctuation) rather than the word source's.
+    """
+    targets = [len(_norm(w)) for w in word_texts]
+    if sum(targets) != len(_norm(line)):
+        return None
+    pieces, i = [], 0
+    for n in targets:
+        piece, count = "", 0
+        while i < len(line) and count < n:
+            piece += line[i]
+            count += len(_norm(line[i]))
+            i += 1
+        while i < len(line) and not _norm(line[i]):  # punctuation and spaces trail their word
+            piece += line[i]
+            i += 1
+        pieces.append(piece)
+    if i < len(line):
+        pieces[-1] += line[i:]
+    return pieces
+
+
+WORDS_MAX_MERGED_LINES = 4
+WORDS_MAX_SKIPPED_LINES = 6
+
+
+def _pair_lines(sheet_text: list[str], word_text: list[str]) -> list[tuple[int, int, int]]:
+    """
+    (sheet line, first, last word line) wherever the same text appears, in order. Sources
+    break lines differently, so a sheet line may be one word line or several joined.
+    """
+    pairs: list[tuple[int, int, int]] = []
+    j = 0
+    for i, target in enumerate(sheet_text):
+        if len(target) < 2:
+            continue
+        for start in range(j, min(j + WORDS_MAX_SKIPPED_LINES, len(word_text))):
+            acc, hit = "", None
+            for end in range(start, min(start + WORDS_MAX_MERGED_LINES, len(word_text))):
+                acc += word_text[end]
+                if acc == target:
+                    hit = end
+                    break
+                if not target.startswith(acc):
+                    break
+            if hit is not None:
+                pairs.append((i, start, hit))
+                j = hit + 1
+                break
+    return pairs
+
+
+def match_words(sheet: Lines, word_lines: list[word_timing.WordLine]) -> dict[str, Words]:
+    """Words for each sheet line they agree with, in the sheet's own timebase."""
+    pairs = _pair_lines([_norm(text) for _, text in sheet], [_norm(l.text) for l in word_lines])
+    if len(pairs) < WORDS_MIN_LINES:
+        return {}
+    deltas = [word_lines[js].start - sheet[i][0] for i, js, _ in pairs]
+    median = statistics.median(deltas)
+    spread = statistics.median(abs(d - median) for d in deltas)
+    if abs(median) > WORDS_MAX_OFFSET_S or spread > AGREE_TOLERANCE_S:
+        return {}
+
+    out: dict[str, Words] = {}
+    for (i, js, je), delta in zip(pairs, deltas):
+        if abs(delta - median) > WORDS_LINE_TOLERANCE_S:
+            continue
+        words = [w for l in word_lines[js:je + 1] for w in l.words]
+        pieces = split_by_words(sheet[i][1], [w[2] for w in words])
+        if pieces is None:
+            continue
+        out[_cs(sheet[i][0])] = [
+            (round(s - median, 2), round(e - median, 2), piece)
+            for (s, e, _), piece in zip(words, pieces)
+        ]
+    # A handful of lucky lines is not a word timing for this recording.
+    return out if len(out) >= WORDS_MIN_LINES else {}
+
+
+def add_word_timing(track_id: str, title: str, artists: list[str], duration_s: Optional[float]) -> int:
+    """Attach NetEase's word timings to the saved sheet. Returns how many lines got words."""
+    meta = read_meta(track_id)
+    lrc_path = r2.local("lyrics", track_id)
+    if not meta or meta.get("edited") or "words" in meta or not lrc_path.exists():
+        return 0
+    sheet = parse_lrc(lrc_path.read_text(encoding="utf-8"))
+    word_lines = word_timing.find_netease_lines(
+        title, duration_s,
+        artist_ok=lambda names: (not artists or _same_artist(artists, names)
+                                 or _artist_in_other_script(artists, names)),
+        fold=_norm,
+    )
+    words = match_words(sheet, word_lines) if word_lines else {}
+    meta["words"] = words  # empty is recorded too, so we do not ask again
+    if words:
+        meta["word_source"] = "netease"
+    write_meta(track_id, meta)
+    return len(words)
+
+
+def words_for_line(meta: dict, start_s: float) -> Optional[list[dict]]:
+    """The words of the line that starts at `start_s`, if we have them."""
+    words = meta.get("words") or {}
+    # A hand edit puts the sheet out of step with a provider's words, but not with words that were
+    # aligned to this very sheet: the editor only keeps those for lines it left alone.
+    if (meta.get("edited") and meta.get("word_source") != ALIGNED) or not words:
+        return None
+    cs = int(round(start_s * 100))
+    for key in (cs, cs - 1, cs + 1, cs - 2, cs + 2):
+        found = words.get(str(key))
+        if found:
+            return [{"start": s, "end": e, "text": t} for s, e, t in found]
+    return None
+
+
+def is_guess(meta: dict, start_s: float) -> bool:
+    """Whether the line that starts at `start_s` was placed by guesswork when the sheet was aligned."""
+    guessed = (meta.get("aligned") or {}).get("guessed") or []
+    return int(round(start_s * 100)) in guessed
+
+
+# Word timing measured by aligning the sheet to the vocals (rather than taken from a provider).
+ALIGNED = "aligned"
+
+
+def set_aligned(meta: dict, score: Optional[float], lines: list[tuple[float, list[tuple[float, float, str]], bool]]) -> dict:
+    """
+    `meta` with the result of an accepted alignment recorded: each line's (start, words, guess).
+    Words are kept per line, keyed like a provider's, under their own source so that the hand-edit
+    flag that disables a provider's words leaves them alone. No lines clears it again.
+    """
+    out = {k: v for k, v in meta.items() if k != "aligned"}
+    words = {_cs(t): [list(w) for w in ws] for t, ws, _ in lines if ws}
+    guessed = sorted({int(_cs(t)) for t, _, guess in lines if guess})
+    if words:
+        # Words that came from a provider and survived an edit on the lines left alone are filed as
+        # aligned (they are tied to this exact sheet now), but remember whose they were.
+        previous = out.get("word_source")
+        if previous and previous != ALIGNED:
+            out["word_origin"] = previous
+        out["words"], out["word_source"] = words, ALIGNED
+    elif out.get("word_source") == ALIGNED:
+        out.pop("words", None)
+        out.pop("word_source", None)
+        out.pop("word_origin", None)
+    if words or guessed:
+        out["aligned"] = {"score": score, "guessed": guessed}
+    return out
+
+
+def _shift_words(words: dict, offset_s: float) -> dict:
+    return {
+        _cs(int(k) / 100 + offset_s): [[round(s + offset_s, 2), round(e + offset_s, 2), t] for s, e, t in v]
+        for k, v in words.items()
+    }
+
+
+# --- lyrics heard from the audio ------------------------------------------------
+
+def add_heard_lyrics(track_id: str, vocal_path: str, video_id: Optional[str]) -> int:
+    """
+    Last resort: transcribe the vocal stem into a timed sheet (with word timing). Does nothing
+    when the track already has timed or plain lyrics. Returns the number of lines saved.
+    """
+    meta = read_meta(track_id)
+    if r2.exists("lyrics", track_id) or meta.get("plain"):
+        return 0
+    heard = transcribe.transcribe_vocals(vocal_path)
+    if not heard:
+        return 0
+    lines: Lines = [(line.start, line.text) for line in heard]
+    result = LyricsResult(format_lrc(lines), "whisper", "approximate", video_id,
+                          notes=["No provider has this song; transcribed from the audio, so words may be wrong"])
+    save_result(track_id, result)
+    saved = read_meta(track_id)
+    saved["words"] = {_cs(line.start): [[s, e, t] for s, e, t in line.words] for line in heard if line.words}
+    saved["word_source"] = "whisper"
+    write_meta(track_id, saved)
+    return len(lines)
+
+
+# --- looking again --------------------------------------------------------------
+
+def discard_lyrics(track_id: str) -> None:
+    """
+    Forget a track's lyrics and what was learned about them (including hand edits), keeping only
+    which recording it is. Removed from R2 too, or the next sync would bring them back.
+    """
+    from managers import r2  # imported here: r2 reads storage paths at import time
+
+    video_id = read_meta(track_id).get("video_id")
+    Path(LYRICS_DIR, f"{track_id}.lrc").unlink(missing_ok=True)
+    _meta_path(track_id).unlink(missing_ok=True)
+    r2.delete_path("lyrics", f"{track_id}.lrc")
+    r2.delete_path("lyrics-meta", f"{track_id}.meta.json")
+    if video_id:
+        write_meta(track_id, {"video_id": video_id})
+
+
+def lyrics_summary(track_id: str) -> dict:
+    """What a track's lyrics are, in a few fields: for a client that wants to say what it found."""
+    meta = read_meta(track_id)
+    from managers import catalog
+    asset = catalog.asset(track_id, "lyrics")
+    lines = asset["metadata"].get("lines", 0) if asset and asset["state"] == "ready" else 0
+    return {
+        "has_lyrics": lines > 0, "lines": lines, "has_plain": bool(meta.get("plain")),
+        "source": meta.get("source"), "confidence": meta.get("confidence"), "notes": meta.get("notes") or [],
+        "edited": bool(meta.get("edited")), "has_words": bool(meta.get("words")),
+        "word_source": meta.get("word_source"), "word_origin": meta.get("word_origin"), "audio_check": meta.get("audio_check"),
+        "aligned": meta.get("aligned") and {"score": meta["aligned"].get("score"), "guessed": len(meta["aligned"].get("guessed") or [])},
+        "video_id": meta.get("video_id"),
+    }

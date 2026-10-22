@@ -40,10 +40,17 @@ export type Queue = {
   // ... any other metadata
 };
 
+export type LyricWord = {
+  start: number;
+  end: number;
+  text: string;
+};
 export type Lyrics = {
   time: number;
   text: string;
   romanized?: string;
+  /** Per-word timing, when a verified one exists for this line. */
+  words?: LyricWord[] | null;
 };
 
 export type Collection = {

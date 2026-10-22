@@ -1,21 +1,19 @@
-import React, { lazy, useEffect } from 'react';
-import { StyledEngineProvider, ThemeProvider } from '@mui/material/styles';
-import { darkTheme, lightTheme } from 'src/styles/theme';
-import { IconDefinition, IconName, IconPrefix, library } from '@fortawesome/fontawesome-svg-core';
-import { createTheme } from '@mui/material/styles';
+import React, { Suspense, lazy, useEffect, useRef } from 'react';
 import { useSettingStore } from 'src/store/setting';
-import { Route, Routes, HashRouter, BrowserRouter, Navigate } from 'react-router-dom';
+import { Route, Routes, HashRouter, BrowserRouter, Navigate, useLocation, useParams } from 'react-router-dom';
 import Layout from './layouts/Layout';
 import LyricsView from './pages/lyrics';
-import BrowseView, { MainView } from './pages/browse';
+import BrowseView, { MainView, topCategoriesQuery } from './pages/browse';
 import PlaylistView from './pages/playlist';
 import SearchView from './pages/search';
+import LibraryView from './pages/library';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Message, useWebSocketStore } from './store/ws';
 import { useTrackStore } from './store';
 import { useRemoteMessageQueue } from './hooks/queue';
-import { CssBaseline, GlobalStyles, useMediaQuery } from '@mui/material';
+import { useBreakpointDown } from 'src/hooks/media';
+import { TooltipProvider } from 'src/components/ui/tooltip';
 import PlayView from './pages/play';
 import { useActiveRoomId, useIsLoggedIn, useRoomStore } from './store/room';
 
@@ -23,49 +21,78 @@ import 'src/styles/globals.css';
 import Player from './components/Player';
 import { api } from './utils/api';
 import LyricsEditView from './pages/lyrics-edit';
+import AdminLayout from './pages/admin/AdminLayout';
+import AdminSongs from './pages/admin/songs';
+import AdminWorker from './pages/admin/worker';
+import AdminStorage from './pages/admin/storage';
 import MobileLyricsView from './pages/mobile-lyrics';
+import { useLanguageStore, useT } from 'src/i18n';
+import BackendGate from './components/BackendGate';
+import LoginDialog from './components/LoginDialog';
+import { authEnabled, openLogin, useAuthStore } from './lib/auth';
 
 // lazily loaded components
 const JoinView = lazy(() => import('./pages/join'));
-const SettingView = lazy(() => import('./pages/setting'));
+const RemoteView = lazy(() => import('./pages/remote'));
+const TvView = lazy(() => import('./pages/tv'));
 
-const faSearchStyle: IconDefinition = {
-  prefix: 'fac' as IconPrefix,
-  iconName: 'search' as IconName,
-  icon: [
-    24,
-    24,
-    [],
-    '',
-    `M4 11C4 7.13401 7.13401 4 11 4C14.866 4 18 7.13401 18 11C18 14.866 14.866 18 11 18C7.13401 18 4 14.866 4 11ZM11 2C6.02944 2 2 6.02944 2 11C2 15.9706 6.02944 20 11 20C13.125 20 15.078 19.2635 16.6177 18.0319L20.2929 21.7071C20.6834 22.0976 21.3166 22.0976 21.7071 21.7071C22.0976 21.3166 22.0976 20.6834 21.7071 20.2929L18.0319 16.6177C19.2635 15.078 20 13.125 20 11C20 6.02944 15.9706 2 11 2Z`,
-  ],
-};
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 10 * 60 * 1000, // playlists and search results barely change; avoid refetching on every mount
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+// start loading the home page data before the route renders
+queryClient.prefetchQuery(topCategoriesQuery).catch(() => {});
 
-library.add(faSearchStyle);
-
-const queryClient = new QueryClient();
-
-const Providers = ({ children }: { children: React.ReactNode }) => {
-  const theme = useSettingStore((state) => state.theme);
-  const appTheme = theme === 'light' ? createTheme(lightTheme) : createTheme(darkTheme);
-
-  return (
-    <QueryClientProvider client={queryClient}>
-      <StyledEngineProvider enableCssLayer>
-        <GlobalStyles styles="@layer theme, base, mui, components, utilities;" />
-        <ThemeProvider theme={appTheme}>{children}</ThemeProvider>
-      </StyledEngineProvider>
-    </QueryClientProvider>
-  );
-};
+const Providers = ({ children }: { children: React.ReactNode }) => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
+  </QueryClientProvider>
+);
 
 const isElectron = navigator.userAgent.toLowerCase().includes('electron');
 const Router = isElectron ? HashRouter : BrowserRouter;
+/**
+ * The room's shared player. The lyrics editor is a tool for one person, with a player of its own:
+ * it must neither start the room's player in that tab nor take its place as the room's player tab.
+ */
+const RoomPlayer = () => {
+  const { pathname } = useLocation();
+  if (pathname.startsWith('/admin') || pathname.startsWith('/lyrics/edit')) return null;
+  return <Player />;
+};
+
+/** The editor used to live at /lyrics/edit; links and bookmarks to it still work. */
+const OldEditorRedirect = () => {
+  const { trackId } = useParams();
+  return <Navigate to={trackId ? `/admin/lyrics/${trackId}` : '/admin/lyrics'} replace />;
+};
+
+/** Admin pages are for signed-in hosts. */
+const RequireHost = ({ children }: { children: React.ReactNode }) => {
+  const { session, ready } = useAuthStore();
+  const t = useT();
+  useEffect(() => {
+    if (ready) openLogin('host');
+  }, [ready, session]);
+  if (!authEnabled || session) return <>{children}</>;
+  return (
+    <div className="flex h-full w-full items-center justify-center p-6 text-center text-muted-foreground">
+      {t('login.reasonHost')}
+    </div>
+  );
+};
+
 const AppRouters = () => {
   const isLoggedIn = useIsLoggedIn();
-  const mobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
+  const mobile = useBreakpointDown('md');
   return (
     <Router>
+      <Suspense fallback={null}>
       <Routes>
         <Route path="/" element={isLoggedIn ? <Layout /> : <Navigate to="/join" replace />}>
           <Route path="/" element={<BrowseView />}>
@@ -73,33 +100,74 @@ const AppRouters = () => {
             <Route path="playlist/:id" element={<PlaylistView />} />
             <Route path="album/:id" element={<PlaylistView />} />
             <Route path="search/*" element={<SearchView />} />
+            <Route path="library" element={<LibraryView />} />
             <Route path="lyrics" element={mobile ? <MobileLyricsView /> : <LyricsView />} />
             <Route path="play" element={<PlayView />} />
-            <Route path="settings" element={<SettingView />} />
           </Route>
         </Route>
-        <Route path="/lyrics/edit/:trackId?" element={<LyricsEditView />} />
+        <Route path="/lyrics/edit/:trackId?" element={<OldEditorRedirect />} />
+        <Route path="/admin" element={<RequireHost><AdminLayout /></RequireHost>}>
+          <Route index element={<AdminSongs />} />
+          <Route path="lyrics/:trackId?" element={<LyricsEditView />} />
+          <Route path="worker" element={<AdminWorker />} />
+          <Route path="storage" element={<AdminStorage />} />
+        </Route>
         <Route path="join" element={<JoinView />} />
+        <Route path="tv" element={<TvView />} />
+        <Route path="remote" element={isLoggedIn ? <RemoteView /> : <Navigate to="/join" replace />} />
       </Routes>
+      </Suspense>
+      <RoomPlayer />
     </Router>
   );
 };
 
+/** How often to double-check, while songs are processing, that no "ready" notice was lost. */
+const SAFETY_NET_MS = 30_000;
+
 function App() {
+  const language = useLanguageStore((state) => state.language);
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
   const connect = useWebSocketStore((state) => state.connect);
   const setSongStatus = useTrackStore((state) => state.setSongStatus);
   const setSongProgress = useTrackStore((state) => state.setSongProgress);
+  const setSongStages = useTrackStore((state) => state.setSongStages);
   const roomId = useRoomStore((state) => state.roomId);
   const activeRoomId = useActiveRoomId();
   const avatar = useRoomStore((state) => state.avatar);
   const nickName = useRoomStore((state) => state.nickname);
   const getReadyTracks = useTrackStore((state) => state.getReadyTracks);
+  const syncProcessing = useTrackStore((state) => state.syncProcessing);
   const sendMessage = useWebSocketStore((state) => state.sendMessage);
   const connected = useWebSocketStore((state) => state.connected);
 
+  // Status updates arrive as live websocket messages ("ready" included), so nothing polls while the socket is up.
+  // A "ready" that lands while the socket is down or the tab is asleep is never replayed, so ask about the tracks
+  // still processing (just those) when the socket is back and when the tab wakes, with a slow check as a safety net.
+  const processing = useTrackStore((state) =>
+    Object.values(state.songStatus).some((s) => s !== 'ready' && s !== 'error')
+  );
+  const libraryRequested = useRef(false);
   useEffect(() => {
-    getReadyTracks();
-  }, []);
+    if (!libraryRequested.current) {
+      libraryRequested.current = true;
+      getReadyTracks();
+    } else if (connected) {
+      syncProcessing();
+    }
+  }, [connected]);
+  useEffect(() => {
+    if (!processing) return;
+    const onVisible = () => document.visibilityState === 'visible' && syncProcessing();
+    document.addEventListener('visibilitychange', onVisible);
+    const timer = setInterval(onVisible, SAFETY_NET_MS);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      clearInterval(timer);
+    };
+  }, [processing]);
 
   useEffect(() => {
     if (!connected) return;
@@ -131,6 +199,7 @@ function App() {
     if (message.type === 'notify') {
       if (message.data.action === 'progress') {
         setSongStatus(message.data.track.id, message.data.status);
+        if (message.data.stages) setSongStages(message.data.track.id, message.data.stages);
         if (message.data.value) {
           setSongProgress(message.data.track.id, (100 * message.data.value) / message.data.total);
         }
@@ -175,9 +244,10 @@ function App() {
   return (
     // <div key={refreshKey} className="h-full w-full">
     <Providers>
-      <CssBaseline />
-      <AppRouters />
-      <Player />
+      <BackendGate>
+        <AppRouters />
+        <LoginDialog />
+      </BackendGate>
     </Providers>
     // </div>
   );

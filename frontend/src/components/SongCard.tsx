@@ -1,37 +1,16 @@
-import { ReactElement, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import placeholderImage from 'src/assets/placeholder.png';
-import { CircleAlert, Cog, Music, Plus } from 'lucide-react';
+import { CircleAlert, Plus } from 'lucide-react';
 import { useReadyTrackIds, useTrackStore } from 'src/store';
 import { Track } from 'src/models/spotify';
 import ActionMenu from './playlist/ActionMenu';
 import ReadyBadge from './ReadyBadge';
+import ProcessingStatus from './ProcessingStatus';
 import { Avatar, AvatarImage } from 'src/components/ui/avatar';
-import { CircularProgress } from 'src/components/ui/progress';
 import { Tooltip } from 'src/components/ui/tooltip';
 import { useBreakpointDown } from 'src/hooks/media';
 import { cn } from 'src/lib/utils';
 import { useT } from 'src/i18n';
-
-const CircularProgressWithLabel = ({
-  children,
-  value,
-  size,
-  indeterminate,
-}: {
-  children?: ReactElement;
-  value: number;
-  size: number;
-  indeterminate?: boolean;
-}) => {
-  return (
-    <div className="relative inline-flex">
-      <CircularProgress size={size} value={indeterminate ? undefined : value} />
-      <div className="top-0 left-0 bottom-0 right-0 absolute flex items-center justify-center">
-        {children ? children : <span className="text-xs">{value}%</span>}
-      </div>
-    </div>
-  );
-};
 
 type SongCardProps = {
   className?: string;
@@ -81,12 +60,8 @@ export default function SongCard({
     return readyTrackIds.has(parsedTrack.id);
   }, [readyTrackIds, parsedTrack]);
 
-  const progressIcon = useMemo(() => {
-    if (status === 'downloading_lyrics' || status === 'downloading_audio')
-      return <Music className="size-3.5" />;
-    if (status === 'separating') return <Cog className="size-3.5" />;
-    return <></>;
-  }, [status]);
+  const processing = !isReady && status !== 'error' && !disable;
+  const failed = status === 'error' && !disable;
 
   const [menuOpen, setMenuOpen] = useState(false);
   const mobile = useBreakpointDown('md');
@@ -97,14 +72,13 @@ export default function SongCard({
         dense && 'h-12 px-1',
         !disabled && !disableHover && 'hover:bg-accent',
         menuOpen && !disableHover && 'bg-accent',
-        disabled && 'opacity-50',
         className
       )}
       {...props}
     >
       <div className="relative size-10 shrink-0">
         <div className="absolute inset-0 overflow-hidden rounded-lg bg-muted">
-        <img referrerPolicy="no-referrer" src={parsedTrack.album?.images?.[0]?.url || placeholderImage} className="size-full object-cover" />
+        <img referrerPolicy="no-referrer" src={parsedTrack.album?.images?.[0]?.url || placeholderImage} className={cn('size-full object-cover transition-opacity', (processing || failed) && 'opacity-50')} />
           {onAdd && !disable && !mobile && (
             <button
               aria-label={t('song.addToQueue')}
@@ -121,25 +95,22 @@ export default function SongCard({
         <span className="truncate text-sm font-medium" title={parsedTrack.name}>
           {parsedTrack.name}
         </span>
-        <span className="truncate text-xs text-muted-foreground">
-          {parsedTrack.kind === 'video' && (
-            <span className="mr-1.5 rounded border px-1 py-px text-[10px] font-medium uppercase">{t('song.video')}</span>
-          )}
-          {parsedTrack.artists.map((artist) => artist.name).join(', ')}
-        </span>
+        {processing ? (
+          <ProcessingStatus status={status} progress={progress} />
+        ) : failed ? (
+          <span className="flex items-center gap-1 truncate text-xs text-destructive">
+            <CircleAlert className="size-3.5 shrink-0" />
+            <span className="truncate">{t('song.failed')}</span>
+          </span>
+        ) : (
+          <span className="truncate text-xs text-muted-foreground">
+            {parsedTrack.kind === 'video' && (
+              <span className="mr-1.5 rounded border px-1 py-px text-[10px] font-medium uppercase">{t('song.video')}</span>
+            )}
+            {parsedTrack.artists.map((artist) => artist.name).join(', ')}
+          </span>
+        )}
       </div>
-      {status === 'error' && !disable && (
-        <Tooltip placement="top" title={t('song.failed')}>
-          <CircleAlert className="size-4 shrink-0 text-destructive" />
-        </Tooltip>
-      )}
-      {!isReady && status !== 'error' && !disable && (
-        <div className="shrink-0">
-          <CircularProgressWithLabel size={32} indeterminate={status !== 'separating'} value={progress}>
-            {progressIcon}
-          </CircularProgressWithLabel>
-        </div>
-      )}
       {/* shown while the song is still processing too: who added it, and a way to remove it */}
       {hasActions && !disable && (
         // On desktop the avatar and the menu share one slot at the right: the avatar fades out while the

@@ -198,10 +198,24 @@ def as_dtype_pcm(wav, dtype):
         return i16_pcm(wav)
 
 
+def _encode_mp3_ffmpeg(pcm: bytes, path, channels, samplerate, bitrate) -> bool:
+    """ffmpeg's libmp3lame is several times faster than lameenc. False when it is not available."""
+    try:
+        sp.run(["ffmpeg", "-nostdin", "-y", "-loglevel", "error",
+                "-f", "s16le", "-ar", str(samplerate), "-ac", str(channels), "-i", "pipe:0",
+                "-c:a", "libmp3lame", "-b:a", f"{bitrate}k", "-f", "mp3", str(path)],
+               input=pcm, check=True)
+        return True
+    except (FileNotFoundError, sp.CalledProcessError):
+        return False
+
+
 def encode_mp3(wav, path, samplerate=44100, bitrate=320, quality=2, verbose=False):
     """Save given audio as mp3. This should work on all OSes."""
     C, T = wav.shape
     wav = i16_pcm(wav)
+    if _encode_mp3_ffmpeg(wav.data.cpu().transpose(0, 1).numpy().tobytes(), path, C, samplerate, bitrate):
+        return
     encoder = lameenc.Encoder()
     encoder.set_bit_rate(bitrate)
     encoder.set_in_sample_rate(samplerate)

@@ -115,6 +115,10 @@ dependencies = [
     "zhconv>=1.4.3",
 ]
 
+[project.optional-dependencies]
+# Offload vocal separation to a Modal GPU: `uv sync --extra modal`
+modal = ["modal>=1.0"]
+
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",

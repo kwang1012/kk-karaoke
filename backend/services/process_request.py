@@ -17,6 +17,7 @@ from services import admin, candidates, library, lyrics_align
 from services.library import save_track
 from services.lyrics_sources import Recording, add_heard_lyrics, add_word_timing, artist_aliases, discard_lyrics, find_lyrics, find_plain_lyrics, lyrics_summary, read_meta, save_plain, save_result, verify_against_audio, video_duration_s, write_meta
 from services.pitcher import extract_melody
+from services import modal_separate
 from services.voice_remover import separate_vocals
 from managers import r2
 from services.tasks import celery, is_ready, send_process_request, request_melody, record_progress, r
@@ -151,6 +152,17 @@ def _listen_and_verify(track: Track, who: _Identity) -> None:
         print(f"Audio check failed for {track.id}: {e!r}")
 
 
+def _separate(track_id: str, on_progress) -> None:
+    """On a Modal GPU when configured; this machine's Demucs otherwise, or if Modal is unreachable."""
+    if modal_separate.enabled():
+        try:
+            modal_separate.separate_vocals_remote(track_id, on_progress=on_progress)
+            return
+        except Exception as e:
+            print(f"Modal separation failed for {track_id}, separating locally: {e!r}")
+    separate_vocals(track_id, on_progress=on_progress)
+
+
 def _process_track(track: Track):
     print("Processing request for track:", track.name)
     search_term = f"{track.name} {' '.join(map(lambda artist: artist.name, track.artists))}"
@@ -160,9 +172,14 @@ def _process_track(track: Track):
 
     who = _identify(track)
 
+    if not vocals_exist or not non_vocals_exist:
+        modal_separate.warm("Separator")  # start the GPU now: the audio is still to be downloaded
+
     if not lyrics_exist:
         _publish_status(track, "downloading_lyrics")
         _find_lyrics(track, who)
+        if not r2.local("lyrics", track.id).exists():
+            modal_separate.warm("Transcriber")  # no timed lyrics: the vocals will be transcribed
 
     if not vocals_exist or not non_vocals_exist:
         _publish_status(track, "downloading_audio")
@@ -176,7 +193,7 @@ def _process_track(track: Track):
             Callback function to handle progress updates during vocal separation.
             """
             _publish_status(track, "separating", value=progress, total=total)
-        separate_vocals(track.id, on_progress=on_progress)
+        _separate(track.id, on_progress)
         r2.upload_track(track.id)
 
     # Retry durable pending bytes before trusting the shared readiness manifest.

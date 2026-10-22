@@ -9,11 +9,12 @@ verified source, and never used when a provider has the song.
 import logging
 import os
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Optional
 
 import opencc
 
-from config import WHISPER_MODEL
+from config import USE_MODAL, WHISPER_MODEL
 
 log = logging.getLogger(__name__)
 
@@ -48,6 +49,27 @@ def _load_model():
     return _model
 
 
+def _transcribe(path: str):
+    """`(segments, info)` from Whisper: on a Modal GPU when configured, else (or if that fails) on this machine."""
+    if USE_MODAL:
+        try:
+            return _transcribe_remote(path)
+        except Exception as e:  # noqa: BLE001 - the local model is the fallback
+            log.warning("Modal transcription failed for %s, transcribing locally: %r", path, e)
+    segments, info = _load_model().transcribe(path, beam_size=5, vad_filter=True, word_timestamps=True)
+    return list(segments), info
+
+
+def _transcribe_remote(path: str):
+    from services.modal_separate import remote
+
+    with open(path, "rb") as f:
+        heard = remote("Transcriber").transcribe.remote(f.read(), WHISPER_MODEL, os.path.splitext(path)[1] or ".mp3")
+    segments = [SimpleNamespace(**{**seg, "words": [SimpleNamespace(start=s, end=e, word=w) for s, e, w in seg["words"]]})
+                for seg in heard["segments"]]
+    return segments, SimpleNamespace(language=heard["language"])
+
+
 def heard_words(path: str) -> Optional[tuple[list[tuple[float, float, str]], str]]:
     """
     Every word heard in the vocal stem, as (start_s, end_s, text) in the order sung, and the
@@ -57,8 +79,7 @@ def heard_words(path: str) -> Optional[tuple[list[tuple[float, float, str]], str
     if not os.path.exists(path):
         return None
     try:
-        segments, info = _load_model().transcribe(path, beam_size=5, vad_filter=True, word_timestamps=True)
-        segments = list(segments)
+        segments, info = _transcribe(path)
     except Exception as e:  # noqa: BLE001 - the caller reports it
         log.warning("Transcription failed for %s: %r", path, e)
         return None
@@ -77,8 +98,7 @@ def transcribe_vocals(path: str) -> Optional[list[HeardLine]]:
     if not os.path.exists(path):
         return None
     try:
-        segments, info = _load_model().transcribe(path, beam_size=5, vad_filter=True, word_timestamps=True)
-        segments = list(segments)
+        segments, info = _transcribe(path)
     except Exception as e:  # noqa: BLE001 - never block a track on a transcription failure
         log.warning("Transcription failed for %s: %r", path, e)
         return None

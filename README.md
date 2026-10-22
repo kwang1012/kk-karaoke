@@ -114,6 +114,25 @@ something else is using `localhost:6379` (for example a Redis container or `redi
 for local development): stop it first. Give Docker enough memory too; the default 8 GB is tight
 while separating a song.
 
+#### Optional: run separation and Whisper on a Modal GPU
+
+Separating the vocals and transcribing lyrics (Whisper) are the slow steps. To run them on a
+[Modal](https://modal.com) GPU instead of your own machine (the worker falls back to doing them
+locally if Modal can't be reached; a container is started while the audio downloads, so it is ready
+when needed):
+
+```bash
+cd backend
+uv sync --extra modal
+uv run modal setup                  # once: logs in to your workspace
+uv run modal deploy modal_app.py    # deploys the `kkaraoke` app
+echo "USE_MODAL=1" >> .env
+```
+
+In Docker or on a server, give the worker `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET` (create them in
+the Modal dashboard) and install the extra (`uv sync --extra modal`). `MODAL_GPU` (default `T4,L4`, tried in order)
+`MODAL_IDLE_SECONDS` (default 60: how long an idle container stays up, and is billed) and `MODAL_APP_NAME` are optional. Whisper uses `WHISPER_MODEL`. Redeploy after changing `modal_app.py` or `services/demucs`.
+
 #### Option B: Single container
 
 Everything (Redis, API, worker, nginx) in one image:

@@ -26,6 +26,11 @@ CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",") if 
 # Whisper model for songs no lyric provider has (faster-whisper name: tiny, base, small, medium, turbo...).
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "small")
 
+# Modal: run vocal separation on a cloud GPU instead of this machine. Deploy backend/modal_app.py
+# first; Modal credentials come from `modal setup` or MODAL_TOKEN_ID / MODAL_TOKEN_SECRET.
+USE_MODAL = os.getenv("USE_MODAL", "").strip().lower() in ("1", "true", "yes", "on")
+MODAL_APP_NAME = os.getenv("MODAL_APP_NAME", "kkaraoke")
+
 # Jam state
 JAM_STATE_SYNC_INTERVAL = float(os.getenv("JAM_STATE_SYNC_INTERVAL", "1.0"))
 

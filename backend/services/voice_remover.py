@@ -1,4 +1,5 @@
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import sys
 from pathlib import Path
 from typing import Any
@@ -34,6 +35,12 @@ def _load_model(args: argparse.Namespace, device: str) -> Any:
         model.eval()
         _MODEL_CACHE[key] = model
     return _MODEL_CACHE[key]
+
+
+def preload_model(model_name: str = "htdemucs") -> None:
+    """Load the model now, so the first song does not wait for it (a Modal container does this at startup)."""
+    device = "cuda" if th.cuda.is_available() else "mps" if th.backends.mps.is_available() else "cpu"
+    _load_model(argparse.Namespace(name=model_name, repo=None), device)
 
 
 async def async_separate_vocals(sid: str, model_name: str = "htdemucs",
@@ -202,13 +209,17 @@ def separate_vocals(
     non_vocal_tmp = non_vocal_stem.with_name(
         f"{non_vocal_stem.stem}.part{non_vocal_stem.suffix}")
     try:
-        save_audio(sources.pop(model.sources.index(args.stem)),
-                   str(vocal_tmp), **kwargs)
+        vocal = sources.pop(model.sources.index(args.stem))
         # Warning : after poping the stem, selected stem is no longer in the list 'sources'
         other_stem = th.zeros_like(sources[0])
         for i in sources:
             other_stem += i
-        save_audio(other_stem, str(non_vocal_tmp), **kwargs)
+        # MP3 encoding is single-threaded and takes as long as the separation itself: do both at once.
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            jobs = [pool.submit(save_audio, vocal, str(vocal_tmp), **kwargs),
+                    pool.submit(save_audio, other_stem, str(non_vocal_tmp), **kwargs)]
+            for job in jobs:
+                job.result()
         os.replace(non_vocal_tmp, non_vocal_stem)
         os.replace(vocal_tmp, vocal_stem)
     finally:

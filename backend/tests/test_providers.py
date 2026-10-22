@@ -476,3 +476,28 @@ def test_a_bare_lyricist_or_composer_credit_is_not_a_lyric_line():
     from services.word_timing import is_credit_line
     assert is_credit_line("詞：某人") and is_credit_line("曲 : 某人") and is_credit_line("作詞：某人")
     assert not is_credit_line("曲折的路")
+
+
+def test_whisper_runs_on_modal_when_enabled(monkeypatch, tmp_path):
+    stem = tmp_path / "v.mp3"
+    stem.write_bytes(b"x")
+    heard = {"language": "en", "segments": [
+        {"start": 0.0, "end": 1.0, "text": " hello", "no_speech_prob": 0.0, "avg_logprob": -0.1,
+         "words": [[0.0, 1.0, " hello"]]}]}
+    called = SimpleNamespace(transcribe=SimpleNamespace(remote=lambda audio, model, suffix: heard))
+    monkeypatch.setattr(transcribe, "USE_MODAL", True)
+    monkeypatch.setattr("services.modal_separate.remote", lambda name: called)
+    monkeypatch.setattr(transcribe, "_load_model", lambda: pytest.fail("must not transcribe locally"))
+    assert transcribe.heard_words(str(stem)) == ([(0.0, 1.0, "hello")], "en")
+
+
+def test_whisper_falls_back_to_this_machine_when_modal_fails(monkeypatch, tmp_path):
+    stem = tmp_path / "v.mp3"
+    stem.write_bytes(b"x")
+    seg = SimpleNamespace(start=0.0, end=1.0, text=" hi", no_speech_prob=0.0, avg_logprob=-0.1,
+                          words=[SimpleNamespace(start=0.0, end=1.0, word=" hi")])
+    local = SimpleNamespace(transcribe=lambda path, **kw: (iter([seg]), SimpleNamespace(language="en")))
+    monkeypatch.setattr(transcribe, "USE_MODAL", True)
+    monkeypatch.setattr("services.modal_separate.remote", lambda name: 1 / 0)
+    monkeypatch.setattr(transcribe, "_load_model", lambda: local)
+    assert transcribe.heard_words(str(stem)) == ([(0.0, 1.0, "hi")], "en")

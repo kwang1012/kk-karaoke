@@ -50,6 +50,8 @@ export default function SettingsDialog() {
   const theme = useSettingStore((state) => state.theme);
   const toggleTheme = useSettingStore((state) => state.toggleTheme);
   const showTranslatinon = useSettingStore((state) => state.showTranslatinon);
+  const lyricsLead = useSettingStore((state) => state.lyricsLead);
+  const setLyricsLead = useSettingStore((state) => state.setLyricsLead);
   const wordHighlight = useSettingStore((state) => state.wordHighlight);
   const setWordHighlight = useSettingStore((state) => state.setWordHighlight);
   const setShowTranslatinon = useSettingStore((state) => state.setShowTranslatinon);
@@ -184,6 +186,17 @@ export default function SettingsDialog() {
                 onChange={(_, value) => setMelodyDetail((value as number) / 100)}
               />
               <span>{t('melody.detail.detailed')}</span>
+            </div>
+          </Row>
+          <Row title={t('settings.lyricsLead')} description={t('settings.lyricsLeadHint')}>
+            <div className="flex w-[200px] items-center gap-3 text-xs text-muted-foreground">
+              <AppSlider
+                className="flex-1"
+                value={(lyricsLead / 1.5) * 100}
+                aria-label={t('settings.lyricsLead')}
+                onChange={(_, value) => setLyricsLead(Math.round(((value as number) / 100) * 1.5 * 20) / 20)}
+              />
+              <span className="w-9 text-right tabular-nums">{lyricsLead.toFixed(2)}s</span>
             </div>
           </Row>
           <Row title={t('settings.wordHighlight')} description={t('settings.wordHighlightHint')}>

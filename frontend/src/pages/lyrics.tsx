@@ -27,9 +27,11 @@ export default function LyricsView() {
   // local states
   const lineRefs = useRef<(HTMLSpanElement | null)[]>([]);
 
-  const { progress, currentLine, setCurrentLine, currentTrack, lyrics, seeking, loading } = usePlayer();
+  const { progress, playing, currentLine, setCurrentLine, currentTrack, lyrics, seeking, loading } = usePlayer();
   const { seek } = usePlayer();
-  const lyricsDelay = useTrackStore((state) => state.lyricsDelays[currentTrack?.id || ''] || 0);
+  const trackDelay = useTrackStore((state) => state.lyricsDelays[currentTrack?.id || ''] || 0);
+  const lyricsLead = useSettingStore((state) => state.lyricsLead);
+  const lyricsDelay = trackDelay - lyricsLead; // the song's own offset, and the lead before the singing
   const plain = useTrackStore((state) => state.plainLyrics[currentTrack?.id || '']);
   // How many seconds earlier the lyrics are shown, derived from the shared per-track delay.
   const { ahead, setAhead, approximate, videoId } = useLyricsOffset();
@@ -198,7 +200,7 @@ export default function LyricsView() {
                       onClick={handleLineClick.bind(null, i)}
                     >
                       {wordHighlight && i === currentLine && line.words?.length ? (
-                        <WordLine words={line.words} delay={lyricsDelay} progress={progress} dimColor={color} />
+                        <WordLine words={line.words} delay={lyricsDelay} progress={progress} playing={playing} dimColor={color} />
                       ) : line.text === '' ? (
                         '♪'
                       ) : (

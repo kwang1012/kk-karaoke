@@ -3,11 +3,12 @@ import type { Lyrics } from 'src/models/spotify';
 import WordLine from './WordLine';
 
 /** Keep each line mounted as it moves into and out of the singing position. */
-export default function TvLyrics({ lyrics, lineIndex, delay, progress, seeking }: {
+export default function TvLyrics({ lyrics, lineIndex, delay, progress, playing, seeking }: {
   lyrics: Lyrics[];
   lineIndex: number;
   delay: number;
   progress: number;
+  playing: boolean;
   seeking: boolean;
 }) {
   const previous = useRef(lineIndex);
@@ -79,7 +80,7 @@ export default function TvLyrics({ lyrics, lineIndex, delay, progress, seeking }
             }}
           >
             {line?.words?.length ? (
-              <WordLine words={line.words} delay={delay} progress={progress} dimColor="rgba(255,255,255,0.55)" />
+              <WordLine words={line.words} delay={delay} progress={progress} playing={playing} dimColor="rgba(255,255,255,0.55)" />
             ) : line?.text || '♪'}
           </div>
         );

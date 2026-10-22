@@ -16,3 +16,11 @@ export function wordFill(
   if (next) end = Math.max(Math.min(end, next.start + delay), start + 0.01);
   return progress <= start ? 0 : progress >= end ? 1 : (progress - start) / (end - start);
 }
+
+/** The player reports the time every 200 ms (400 ms to a guest); never guess further ahead than that. */
+export const MAX_AHEAD_S = 0.45;
+
+/** The playback time now, from the last reported time and the milliseconds since it arrived. */
+export function extrapolate(progress: number, elapsedMs: number, playing: boolean): number {
+  return playing ? progress + Math.min(Math.max(elapsedMs, 0) / 1000, MAX_AHEAD_S) : progress;
+}

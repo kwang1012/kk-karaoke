@@ -2,10 +2,15 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { DEFAULT_MELODY_DETAIL } from 'src/melodyDetail';
 
+/** Lyrics appear this much before the singing by default; the player's time lags the sound a little, and a singer reads ahead. */
+export const DEFAULT_LYRICS_LEAD_S = 0.4;
+
 export interface SettingState {
   // settings
   refreshKey: number; // Key to refresh the settings
   refresh: () => void; // Function to refresh the settings
+  lyricsLead: number; // Seconds the lyrics show before they are sung: a karaoke singer needs to read ahead
+  setLyricsLead: (lyricsLead: number) => void;
   wordHighlight: boolean; // Fill the current line word by word when word timing exists
   setWordHighlight: (wordHighlight: boolean) => void;
   outputDeviceId: string; // Chosen audio output device; '' follows the system default
@@ -59,6 +64,8 @@ export const useSettingStore = create<SettingState>()(
       },
       refreshKey: 0, // Key to refresh the settings
       refresh: () => set((state) => ({ refreshKey: state.refreshKey + 1 })), // Function to refresh the settings
+      lyricsLead: DEFAULT_LYRICS_LEAD_S,
+      setLyricsLead: (lyricsLead: number) => set({ lyricsLead: Math.min(Math.max(lyricsLead, 0), 1.5) }),
       wordHighlight: true,
       setWordHighlight: (wordHighlight: boolean) => set({ wordHighlight }),
       outputDeviceId: '',
@@ -126,6 +133,7 @@ export const useSettingStore = create<SettingState>()(
         theme: state.theme,
         queueOpen: state.queueOpen,
         wordHighlight: state.wordHighlight,
+        lyricsLead: state.lyricsLead,
         outputDeviceId: state.outputDeviceId,
         inputDeviceId: state.inputDeviceId,
         micVolume: state.micVolume,

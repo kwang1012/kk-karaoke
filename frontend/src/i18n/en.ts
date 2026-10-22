@@ -174,6 +174,8 @@ export const en = {
   'lyrics.showVideo': 'Show video instead of lyrics',
   'lyrics.hideVideo': 'Show lyrics',
   'lyrics.videoBlocked': "This video can't be embedded. Open it on YouTube",
+  'settings.lyricsLead': 'Lyrics lead',
+  'settings.lyricsLeadHint': 'Show lyrics this many seconds before they are sung, so you can read ahead. Raise it if lyrics feel late (Bluetooth, AirPlay, a TV).',
   'settings.wordHighlight': 'Highlight word by word',
   'settings.wordHighlightHint': 'Fill the current line as it is sung, for songs with word-level timing.',
   'song.video': 'Video',

@@ -377,7 +377,9 @@ export default function TvView() {
   }, [connected, hasRoom, activeRoomId]);
 
   // ---- lyrics -----------------------------------------------------------------------------
-  const syncedLyrics = useMemo(() => (lyrics || []).map((line) => ({ ...line, time: line.time + lyricsDelay })), [lyrics, lyricsDelay]);
+  const lyricsLead = useSettingStore((state) => state.lyricsLead);
+  const shownDelay = lyricsDelay - lyricsLead; // what the screen uses: the song's own offset, and the lead before the singing
+  const syncedLyrics = useMemo(() => (lyrics || []).map((line) => ({ ...line, time: line.time + shownDelay })), [lyrics, shownDelay]);
   const lineIndex = useMemo(
     () => syncedLyrics.findIndex((line, i) => progress >= line.time && (i === syncedLyrics.length - 1 || progress < syncedLyrics[i + 1].time)),
     [syncedLyrics, progress]
@@ -429,7 +431,7 @@ export default function TvView() {
                 {loading && loadProgress !== null && ` ${Math.round(loadProgress * 100)}%`}
               </p>
             ) : overVideo ? null : syncedLyrics.length > 0 ? (
-              <TvLyrics key={currentTrack.id} lyrics={syncedLyrics} lineIndex={lineIndex} delay={lyricsDelay} progress={progress} seeking={p.seeking} />
+              <TvLyrics key={currentTrack.id} lyrics={syncedLyrics} lineIndex={lineIndex} delay={shownDelay} progress={progress} playing={playing} seeking={p.seeking} />
             ) : plain ? (
               <PlainLyrics text={plain} className="max-h-full overflow-hidden text-[2.4vw]" />
             ) : (

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { wordFill } from './wordFill.ts';
+import { MAX_AHEAD_S, extrapolate, wordFill } from './wordFill.ts';
 
 test('a word fills from its start to its end', () => {
   const w = { start: 10, end: 12 };
@@ -28,4 +28,15 @@ test('a zero-length word still lights up, and never ends before it starts', () =
 
 test('words that do not overlap are unchanged', () => {
   assert.equal(wordFill({ start: 1, end: 2 }, { start: 2.5 }, 0, 1.5), 0.5);
+});
+
+test('between two reports the time keeps moving with the clock', () => {
+  assert.equal(extrapolate(10, 100, true), 10.1);
+  assert.equal(extrapolate(10, 0, true), 10);
+});
+
+test('a missing report is not guessed forever, and a paused song does not move', () => {
+  assert.equal(extrapolate(10, 5000, true), 10 + MAX_AHEAD_S);
+  assert.equal(extrapolate(10, 300, false), 10);
+  assert.equal(extrapolate(10, -50, true), 10); // a clock that went backwards
 });

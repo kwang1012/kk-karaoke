@@ -15,9 +15,11 @@ export default function MobileLyrics({ color, bgColor }: { color?: string; bgCol
   const lineRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const { progress, currentLine, setCurrentLine, currentTrack, lyrics, seeking, loading } = usePlayer();
+  const { progress, playing, currentLine, setCurrentLine, currentTrack, lyrics, seeking, loading } = usePlayer();
   const { seek } = usePlayer();
-  const lyricsDelay = useTrackStore((state) => state.lyricsDelays[currentTrack?.id || ''] || 0);
+  const trackDelay = useTrackStore((state) => state.lyricsDelays[currentTrack?.id || ''] || 0);
+  const lyricsLead = useSettingStore((state) => state.lyricsLead);
+  const lyricsDelay = trackDelay - lyricsLead; // the song's own offset, and the lead before the singing
   const wordHighlight = useSettingStore((state) => state.wordHighlight);
   const plain = useTrackStore((state) => state.plainLyrics[currentTrack?.id || '']);
   const syncedLyrics = useMemo(() => {
@@ -110,7 +112,7 @@ export default function MobileLyrics({ color, bgColor }: { color?: string; bgCol
               onClick={handleLineClick.bind(null, i)}
             >
               {wordHighlight && i === currentLine && line.words?.length ? (
-                <WordLine words={line.words} delay={lyricsDelay} progress={progress} dimColor={color || 'currentColor'} />
+                <WordLine words={line.words} delay={lyricsDelay} progress={progress} playing={playing} dimColor={color || 'currentColor'} />
               ) : line.text === '' ? (
                 '♪'
               ) : (

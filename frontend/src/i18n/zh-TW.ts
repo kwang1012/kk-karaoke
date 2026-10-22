@@ -165,6 +165,8 @@ export const zhTW: Record<TranslationKey, string> = {
   'lyrics.showVideo': '顯示影片（取代歌詞）',
   'lyrics.hideVideo': '顯示歌詞',
   'lyrics.videoBlocked': '此影片無法嵌入，請到 YouTube 觀看',
+  'settings.lyricsLead': '歌詞提前',
+  'settings.lyricsLeadHint': '歌詞比演唱提早幾秒顯示，方便提前看詞。覺得歌詞偏慢時（藍牙、AirPlay、電視）可以調高。',
   'settings.wordHighlight': '逐字高亮',
   'settings.wordHighlightHint': '歌曲有逐字時間軸時，隨演唱逐字填色。',
   'song.video': '影片',

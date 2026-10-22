@@ -5,7 +5,7 @@ import { useT } from 'src/i18n';
 
 
 /** Marks a song that has been processed. `dot` is the small corner badge for thumbnails. */
-export default function ReadyBadge({ variant = 'pill', className }: { variant?: 'pill' | 'dot'; className?: string }) {
+export default function ReadyBadge({ variant = 'pill', className }: { variant?: 'pill' | 'dot' | 'icon'; className?: string }) {
   const t = useT();
   const TITLE = t('song.readyHint');
   if (variant === 'dot') {
@@ -18,6 +18,21 @@ export default function ReadyBadge({ variant = 'pill', className }: { variant?: 
           )}
         >
           <Check className="size-2.5" strokeWidth={3.5} />
+        </span>
+      </Tooltip>
+    );
+  }
+  if (variant === 'icon') {
+    // just the check, for tight spots such as a table's action column
+    return (
+      <Tooltip title={TITLE} side="top">
+        <span
+          className={cn(
+            'inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-success/15 text-success',
+            className
+          )}
+        >
+          <Check className="size-3" strokeWidth={3} />
         </span>
       </Tooltip>
     );

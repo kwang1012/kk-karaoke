@@ -33,8 +33,9 @@ export const getColWidth = (key: string) => {
     case 'artists':
       return 150;
     case 'row_id':
-    case 'action':
       return 50;
+    case 'action':
+      return 96; // ready check + download + menu
     default:
       return undefined;
   }
@@ -140,7 +141,7 @@ const PlaylistRow = memo(({ track, index }: { track: Track; index: number }) => 
     action: !isLoading && (
       <div className="flex items-center justify-end">
         {ready || downloaded ? (
-          <ReadyBadge className="mr-2" />
+          <ReadyBadge variant="icon" className="mr-2" />
         ) : unknown ? (
           <Tooltip placement="top" title={t('playlist.download')}>
             <IconButton className="row-actions mr-2 p-0" onClick={() => onDownload(parsedTrack)}>

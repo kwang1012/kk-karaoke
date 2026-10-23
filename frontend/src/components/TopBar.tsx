@@ -1,5 +1,5 @@
 import { useTvMode } from 'src/hooks/tvMode';
-import { ChevronLeft, ChevronRight, LibraryBig, Moon, Settings, Sun, Tv, UserPlus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LibraryBig, Settings, Tv, UserPlus } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from 'src/lib/utils';
 import Logo from './Logo';
@@ -13,8 +13,8 @@ import { useJam, useRoomStore } from 'src/store/room';
 import { useSettingStore } from 'src/store/setting';
 import { useRemoteMessageQueue } from 'src/hooks/queue';
 import { useT } from 'src/i18n';
+import { isElectronMac, isElectronWindows } from 'src/utils/platform';
 
-const isElectron = navigator.userAgent.toLowerCase().includes('electron');
 
 export default function TopBar() {
   const t = useT();
@@ -31,8 +31,6 @@ export default function TopBar() {
   const removeParticipant = useRoomStore((state) => state.removeParticipant);
   const { isInJam } = useJam();
   const leaveRoom = useRoomStore((state) => state.leaveRoom);
-  const theme = useSettingStore((state) => state.theme);
-  const toggleTheme = useSettingStore((state) => state.toggleTheme);
   const setSettingsOpen = useSettingStore((state) => state.setSettingsOpen);
   const setInviteOpen = useSettingStore((state) => state.setInviteOpen);
 
@@ -50,11 +48,11 @@ export default function TopBar() {
     setSearching(value !== '');
   };
   return (
-    <header className="flex h-12 shrink-0 touch-none items-center gap-3 [-webkit-app-region:drag] max-md:hidden [&_button]:[-webkit-app-region:no-drag] [&_input]:[-webkit-app-region:no-drag]">
+    <header className={cn('flex h-12 shrink-0 touch-none items-center gap-3 [-webkit-app-region:drag] max-md:hidden [&_button]:[-webkit-app-region:no-drag] [&_input]:[-webkit-app-region:no-drag]', isElectronWindows && 'pr-36')}>
       <div className="flex items-center gap-1">
-        {/* the logo doubles as the home button; hidden in electron to leave room for the window controls */}
+        {/* the logo doubles as the home button; hidden in the Mac app to leave room for the window controls */}
         <Tooltip title={t('nav.home')} side="bottom">
-          <Link to="/" aria-label={t('nav.home')} className={isElectron ? 'invisible' : 'mr-2 shrink-0'}>
+          <Link to="/" aria-label={t('nav.home')} className={isElectronMac ? 'invisible' : 'mr-2 shrink-0'}>
             <Logo className="size-9" />
           </Link>
         </Tooltip>
@@ -115,11 +113,6 @@ export default function TopBar() {
         <Tooltip title={t('nav.settings')} side="bottom">
           <IconButton aria-label={t('nav.settings')} onClick={() => setSettingsOpen(true)}>
             <Settings className="size-5" />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title={theme === 'dark' ? t('nav.lightMode') : t('nav.darkMode')} side="bottom">
-          <IconButton aria-label={t('nav.toggleTheme')} onClick={() => toggleTheme()}>
-            {theme === 'dark' ? <Sun className="size-5" /> : <Moon className="size-5" />}
           </IconButton>
         </Tooltip>
       </div>

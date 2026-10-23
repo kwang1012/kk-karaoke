@@ -78,7 +78,7 @@ struct WebIconButtonStyle: ButtonStyle {
         )
         .opacity(enabled ? 1 : 0.3)
         .onHover { hovered = $0 }
-        .pointerStyle(enabled ? .link : nil)
+        .stableCursor(enabled ? .link : nil)
     }
   }
 }
@@ -100,7 +100,7 @@ struct WebButtonStyle: ButtonStyle {
       )
       .contentShape(RoundedRectangle(cornerRadius: capsule ? 17 : 8))
       .opacity(enabled ? 1 : 0.45)
-      .pointerStyle(enabled ? .link : nil)
+      .stableCursor(enabled ? .link : nil)
   }
 }
 

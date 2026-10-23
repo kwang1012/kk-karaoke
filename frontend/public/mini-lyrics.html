@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>KKaraoke</title>
+    <!-- The floating lyrics window of the desktop app (electron.js). Plain HTML on purpose: the main window owns
+         the player and sends this one the current line, so it needs none of the app. -->
+    <style>
+      * { box-sizing: border-box; margin: 0; }
+      html, body { height: 100%; overflow: hidden; }
+      body {
+        display: flex; flex-direction: column; justify-content: center; gap: 6px;
+        padding: 14px 20px 10px; color: #fff; text-align: center; user-select: none;
+        font-family: system-ui, 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+        background: linear-gradient(160deg, #3a1230, #16121f);
+        -webkit-app-region: drag;
+      }
+      #title { font-size: 11px; opacity: 0.55; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      #line { font-size: 24px; font-weight: 700; line-height: 1.25; }
+      #next { font-size: 15px; opacity: 0.5; line-height: 1.25; min-height: 19px; }
+      #line, #next { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+      .controls { display: flex; justify-content: center; gap: 6px; margin-top: 4px; -webkit-app-region: no-drag; }
+      button {
+        width: 32px; height: 28px; border: 0; border-radius: 14px; color: #fff; cursor: pointer;
+        background: rgba(255, 255, 255, 0.1); font-size: 13px;
+      }
+      button:hover { background: rgba(255, 255, 255, 0.22); }
+      #close { position: fixed; top: 6px; right: 8px; width: 24px; height: 24px; -webkit-app-region: no-drag; background: none; opacity: 0.5; }
+      #close:hover { opacity: 1; }
+    </style>
+  </head>
+  <body>
+    <button id="close" aria-label="Close" title="Close">✕</button>
+    <div id="title"></div>
+    <div id="line"></div>
+    <div id="next"></div>
+    <div class="controls">
+      <button id="previous" aria-label="Previous song" title="Previous song">⏮</button>
+      <button id="toggle" aria-label="Play or pause" title="Play / Pause">▶</button>
+      <button id="next-song" aria-label="Next song" title="Next song">⏭</button>
+      <button id="back" aria-label="Back to KKaraoke" title="Back to KKaraoke">⤢</button>
+    </div>
+    <script>
+      const api = window.kkaraoke;
+      const $ = (id) => document.getElementById(id);
+      if (api) {
+        api.onMiniState((s) => {
+          $('title').textContent = [s.title, s.artist].filter(Boolean).join(' · ');
+          $('line').textContent = s.line || (s.title ? '♪' : '');
+          $('next').textContent = s.next || '';
+          $('toggle').textContent = s.playing ? '⏸' : '▶';
+        });
+        $('previous').onclick = () => api.mediaKey('previous');
+        $('toggle').onclick = () => api.mediaKey('toggle');
+        $('next-song').onclick = () => api.mediaKey('next');
+        $('close').onclick = () => api.toggleMini();
+        $('back').onclick = () => api.toggleMini();
+        api.miniReady();
+      }
+    </script>
+  </body>
+</html>

@@ -316,6 +316,37 @@ A native macOS app (SwiftUI) lives in [`macos/`](macos/README.md): the same libr
 any microphone, media keys, a menu bar item and songs downloaded for offline use. Build it with `xcodegen` and Xcode, or
 make a DMG with `macos/scripts/release.sh`.
 
+## Windows app
+
+An Electron app in [`frontend/`](frontend/electron.js) wraps the web app: the same library, rooms and queues, plus media keys,
+a tray icon (closing the window keeps the song playing) and a native title bar. On a Windows PC:
+
+```bash
+cd frontend
+yarn install
+set VITE_API_ADDR=api.kkaraoke.app   # PowerShell: $env:VITE_API_ADDR="api.kkaraoke.app"
+yarn package-windows                 # frontend/dist/KKaraoke-Setup.exe
+```
+
+To ship an update, bump `version` in `frontend/package.json`, run `yarn package-windows`, then `yarn publish-windows`
+(uploads the installer and `latest.yml` to `updates.kkaraoke.app/windows/`). Installed apps check at launch and every four
+hours, download in the background and ask before restarting, or install when you quit.
+
+Or run the **Windows app** workflow in GitHub Actions and download the installer from its artifacts. The installer is not
+code-signed, so SmartScreen shows an "unknown publisher" warning the first time. `yarn build:electron && yarn electron`
+runs it without packaging.
+
+
+### Code signing policy
+
+Free code signing for the Windows installer is provided by [SignPath.io](https://about.signpath.io/), with a certificate
+from the [SignPath Foundation](https://signpath.org/). Only installers built by this repository's
+[Windows app workflow](.github/workflows/windows.yml) from the source here are submitted for signing.
+
+- **Author and approver:** [Kai-Siang Wang](https://github.com/kwang1012) (maintainer) approves every signing request.
+- **Privacy:** the app sends no data to the signing service; it talks only to the KKaraoke backend you use and checks
+  `updates.kkaraoke.app` for new versions.
+
 ## Disclaimer
 
 KKaraoke is designed to work from copyrighted music for
@@ -323,3 +354,7 @@ legally permissible purposes, such as learning, practicing, research, or other n
 activities that fall within the scope of fair use or exceptions to copyright. As a user, you are
 responsible for ensuring that your use of separated audio tracks complies with the legal
 requirements in your jurisdiction.
+
+## License
+
+[MIT](LICENSE) © Kai-Siang Wang.

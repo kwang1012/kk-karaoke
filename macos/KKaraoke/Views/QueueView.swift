@@ -20,7 +20,7 @@ struct QueueView: View {
         Text("Queue").font(.system(size: 18, weight: .semibold))
         Spacer()
         if !room.upcoming.isEmpty {
-          Button("Clear") { room.clear() }.buttonStyle(.plain).pointerStyle(.link).foregroundStyle(.secondary)
+          Button("Clear") { room.clear() }.buttonStyle(.plain).stableCursor(.link).foregroundStyle(.secondary)
         }
         Button(action: onClose) { LucideIcon("x", size: 16) }
           .buttonStyle(WebIconButtonStyle()).help("Hide queue").accessibilityLabel("Hide queue")
@@ -95,7 +95,7 @@ struct QueueView: View {
                 Label("Surprise me", lucide: "shuffle")
               }
               .buttonStyle(WebButtonStyle())
-              Button("Find a song", action: onSearch).buttonStyle(.plain).pointerStyle(.link).font(.caption)
+              Button("Find a song", action: onSearch).buttonStyle(.plain).stableCursor(.link).font(.caption)
                 .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity).padding(.vertical, 28)

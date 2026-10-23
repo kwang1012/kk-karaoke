@@ -29,6 +29,7 @@ import { useActiveRoomId, useJam, useRoomStore } from 'src/store/room';
 import { takeOverPlayback, usePlayerTabStore } from 'src/store/playerTab';
 import { useWebSocketStore } from 'src/store/ws';
 import { PRESET_AVATARS, uuid } from 'src/utils';
+import { publicUrl } from 'src/utils/publicUrl';
 import { api } from 'src/utils/api';
 
 const SEEK_STEP_S = 5;
@@ -417,7 +418,7 @@ export default function TvView() {
             </div>
             {currentTrack.orderedBy && (
               <div className="flex shrink-0 items-center gap-[0.9vw] rounded-full bg-black/40 py-[0.4vw] pr-[1.6vw] pl-[0.4vw] backdrop-blur">
-                <img src={currentTrack.orderedBy.avatar} alt="" className="size-[3.4vw] rounded-full" />
+                <img src={publicUrl(currentTrack.orderedBy.avatar)} alt="" className="size-[3.4vw] rounded-full" />
                 <span className="text-[1.7vw] font-semibold">{currentTrack.orderedBy.name}</span>
               </div>
             )}
@@ -459,7 +460,7 @@ export default function TvView() {
                     <div key={`${track.id}-${track.timeAdded}`} className="flex min-w-0 max-w-[20vw] items-center gap-[0.7vw] rounded-full bg-black/40 py-[0.35vw] pr-[1.2vw] pl-[0.35vw] backdrop-blur">
                       <div className="relative size-[2.6vw] shrink-0">
                         <img referrerPolicy="no-referrer" src={track.album?.images?.[0]?.url || placeholderImage} alt="" className="size-full rounded-full object-cover" />
-                        {track.orderedBy && <img src={track.orderedBy.avatar} alt={track.orderedBy.name} className="absolute -right-[0.2vw] -bottom-[0.2vw] size-[1.2vw] rounded-full border-[0.12vw] border-black/80 object-cover" />}
+                        {track.orderedBy && <img src={publicUrl(track.orderedBy.avatar)} alt={track.orderedBy.name} className="absolute -right-[0.2vw] -bottom-[0.2vw] size-[1.2vw] rounded-full border-[0.12vw] border-black/80 object-cover" />}
                       </div>
                       <span className="truncate text-[1.35vw] font-medium">{track.name}</span>
                     </div>

@@ -72,7 +72,7 @@ struct LibraryView: View {
           } label: {
             LucideIcon("x", size: 14)
           }
-          .buttonStyle(.plain).pointerStyle(.link).help("Clear library search").accessibilityLabel(
+          .buttonStyle(.plain).stableCursor(.link).help("Clear library search").accessibilityLabel(
             "Clear library search")
         }
       }

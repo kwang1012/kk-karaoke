@@ -20,6 +20,7 @@ import { cn } from 'src/lib/utils';
 import { useJam, useRoomStore } from 'src/store/room';
 import { useT, type TranslationKey } from 'src/i18n';
 import { chartLabels, PROVIDER_COLOR, PROVIDER_LOGO, type ChartSource } from 'src/utils/charts';
+import { publicUrl } from 'src/utils/publicUrl';
 
 function PlaylistCard({
   playlist,
@@ -85,7 +86,7 @@ const fetchCharts = async (): Promise<ChartSource[]> =>
 function ProviderMark({ source, className }: { source: string; className?: string }) {
   const logo = PROVIDER_LOGO[source];
   return logo ? (
-    <img src={logo} alt="" className={cn('size-6 shrink-0', className)} />
+    <img src={publicUrl(logo)} alt="" className={cn('size-6 shrink-0', className)} />
   ) : (
     <span
       className={cn('flex size-6 shrink-0 items-center justify-center rounded-md text-sm font-extrabold text-white', className)}

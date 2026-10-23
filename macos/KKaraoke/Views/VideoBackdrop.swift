@@ -16,7 +16,7 @@ struct VideoBackdrop: View {
           LucideIcon("video-off", size: 36).foregroundStyle(.secondary)
           Text("This video can't be shown here.").foregroundStyle(.secondary)
           Link("Open on YouTube", destination: URL(string: "https://www.youtube.com/watch?v=\(videoId)")!)
-            .pointerStyle(.link)
+            .stableCursor(.link)
         }
       } else {
         VideoWebView(

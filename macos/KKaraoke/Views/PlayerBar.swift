@@ -34,7 +34,7 @@ struct PlayerBar: View {
           }
           .contentShape(Rectangle())
         }
-        .buttonStyle(.plain).pointerStyle(.link).help("Open lyrics").frame(maxWidth: .infinity)
+        .buttonStyle(.plain).stableCursor(.link).help("Open lyrics").frame(maxWidth: .infinity)
 
         VStack(spacing: 4) {
           HStack(spacing: 12) {
@@ -56,7 +56,7 @@ struct PlayerBar: View {
                   player.status == .ready ? AppTheme.accent : Color.secondary.opacity(0.3),
                   in: Circle())
             }
-            .buttonStyle(.plain).pointerStyle(.link).keyboardShortcut(.space, modifiers: [])
+            .buttonStyle(.plain).stableCursor(.link).keyboardShortcut(.space, modifiers: [])
             .help(player.isPlaying ? "Pause" : "Play").accessibilityLabel(
               player.isPlaying ? "Pause" : "Play"
             )
@@ -98,7 +98,7 @@ struct PlayerBar: View {
             .background(AppTheme.accent.opacity(0.1), in: Capsule())
             .overlay { Capsule().strokeBorder(AppTheme.accent.opacity(0.25)) }
           }
-          .buttonStyle(.plain).pointerStyle(.link).foregroundStyle(AppTheme.accent).help("Toggle original vocal")
+          .buttonStyle(.plain).stableCursor(.link).foregroundStyle(AppTheme.accent).help("Toggle original vocal")
           Button {
             showMixer.toggle()
           } label: {
@@ -120,10 +120,10 @@ struct PlayerBar: View {
               LucideIcon(player.masterVolume == 0 ? "volume-x" : "volume-2", size: 16)
                 .foregroundStyle(.secondary).frame(width: 22, height: 22)
             }
-            .buttonStyle(.plain).pointerStyle(.link)
+            .buttonStyle(.plain).stableCursor(.link)
             .help(player.masterVolume == 0 ? "Unmute" : "Mute")
             .accessibilityLabel(player.masterVolume == 0 ? "Unmute" : "Mute")
-            Slider(value: $player.masterVolume, in: 0...1).pointerStyle(.link).controlSize(.mini).frame(width: 58)
+            Slider(value: $player.masterVolume, in: 0...1).stableCursor(.link).controlSize(.mini).frame(width: 58)
               .accessibilityLabel("Volume")
           }
           .padding(.horizontal, 6)
@@ -182,7 +182,7 @@ struct PlayerBar: View {
               scrubbing = nil
             }
           }
-          .controlSize(.mini).pointerStyle(.link).disabled(player.status != .ready).accessibilityLabel("Song position")
+          .controlSize(.mini).stableCursor(.link).disabled(player.status != .ready).accessibilityLabel("Song position")
           Text(TrackRow.format(player.duration)).frame(width: 36, alignment: .leading)
         }
         .font(.system(size: 11).monospacedDigit()).foregroundStyle(.secondary).frame(height: 16)
@@ -200,12 +200,32 @@ struct MixerView: View {
     @Bindable var player = player
     @Bindable var singing = singing
     VStack(alignment: .leading, spacing: 14) {
-      LabeledContent("Volume") { Slider(value: $player.masterVolume, in: 0...1).pointerStyle(.link) }
-      LabeledContent("Original vocal") { Slider(value: $player.vocalVolume, in: 0...1).pointerStyle(.link) }
-      LabeledContent("Instrumental") { Slider(value: $player.instrumentalVolume, in: 0...1).pointerStyle(.link) }
+      LabeledContent("Volume") { Slider(value: $player.masterVolume, in: 0...1).stableCursor(.link) }
+      LabeledContent("Original vocal") { Slider(value: $player.vocalVolume, in: 0...1).stableCursor(.link) }
+      LabeledContent("Instrumental") { Slider(value: $player.instrumentalVolume, in: 0...1).stableCursor(.link) }
+      LabeledContent("Key") {
+        HStack(spacing: 4) {
+          Button {
+            player.perform(.decreaseSemitone)
+          } label: {
+            LucideIcon("minus", size: 14)
+          }
+          .buttonStyle(WebIconButtonStyle()).accessibilityLabel("Lower the key")
+          .disabled(player.semitone <= PlayerModel.semitoneRange.lowerBound)
+          Text(player.semitone > 0 ? "+\(player.semitone)" : "\(player.semitone)")
+            .font(.system(size: 13).monospacedDigit()).frame(width: 52)
+          Button {
+            player.perform(.increaseSemitone)
+          } label: {
+            LucideIcon("plus", size: 14)
+          }
+          .buttonStyle(WebIconButtonStyle()).accessibilityLabel("Raise the key")
+          .disabled(player.semitone >= PlayerModel.semitoneRange.upperBound)
+        }
+      }
       Divider()
       LabeledContent("Lyrics lead") {
-        Slider(value: $player.lyricsLead, in: 0...1.5).pointerStyle(.link)
+        Slider(value: $player.lyricsLead, in: 0...1.5).stableCursor(.link)
       }
       Text(
         "Shows the lyrics earlier on this Mac only, to make up for how long it takes to read and sing."
@@ -231,12 +251,12 @@ struct MixerView: View {
       }
       Text("Saved for everyone who sings this song.").font(.caption).foregroundStyle(.secondary)
       Divider()
-      LabeledContent("Microphone") { Slider(value: $singing.micVolume, in: 0...1).pointerStyle(.link) }
-      LabeledContent("Reverb") { Slider(value: $singing.reverb, in: 0...1).pointerStyle(.link) }
+      LabeledContent("Microphone") { Slider(value: $singing.micVolume, in: 0...1).stableCursor(.link) }
+      LabeledContent("Reverb") { Slider(value: $singing.reverb, in: 0...1).stableCursor(.link) }
       Toggle("Hear myself through the speakers", isOn: $singing.monitor).toggleStyle(AppSwitchStyle())
       Text("Use headphones, or the microphone will pick up the speakers and squeal.").font(.caption)
         .foregroundStyle(.secondary)
-      LabeledContent("Melody detail") { Slider(value: $singing.melodyDetail, in: 0...1).pointerStyle(.link) }
+      LabeledContent("Melody detail") { Slider(value: $singing.melodyDetail, in: 0...1).stableCursor(.link) }
       Divider()
       Button {
         showOutputs.toggle()

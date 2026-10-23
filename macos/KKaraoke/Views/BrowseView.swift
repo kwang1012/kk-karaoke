@@ -30,7 +30,7 @@ struct BrowseView: View {
                   .secondary)
               }
               Spacer()
-              Button("See all →", action: onLibrary).buttonStyle(.plain).pointerStyle(.link).foregroundStyle(
+              Button("See all →", action: onLibrary).buttonStyle(.plain).stableCursor(.link).foregroundStyle(
                 AppTheme.accent
               ).font(.callout)
             }
@@ -114,7 +114,7 @@ struct BrowseView: View {
           Capsule().strokeBorder(selected ? .clear : Color.primary.opacity(0.12))
         }
     }
-    .buttonStyle(.plain).pointerStyle(.link).accessibilityAddTraits(selected ? .isSelected : [])
+    .buttonStyle(.plain).stableCursor(.link).accessibilityAddTraits(selected ? .isSelected : [])
   }
 
   private var hero: some View {

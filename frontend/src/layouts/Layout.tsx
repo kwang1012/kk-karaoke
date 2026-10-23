@@ -2,11 +2,15 @@ import { Outlet } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
 import TopBar from 'src/components/TopBar';
 import Queue from 'src/components/Queue';
+import MiniLyricsBridge from 'src/components/MiniLyricsBridge';
 import AudioController from 'src/components/AudioController';
 import AppSnackbar from 'src/components/Snackbar';
 import PlayerTabNotice from 'src/components/PlayerTabNotice';
 import { useBreakpointDown } from 'src/hooks/media';
 import { useSettingStore } from 'src/store/setting';
+import WindowControls from 'src/components/WindowControls';
+import { cn } from 'src/lib/utils';
+import { isElectronWindows } from 'src/utils/platform';
 
 // lazy import mobile components
 const AppNavigation = lazy(() => import('src/components/Navigation'));
@@ -40,10 +44,11 @@ export default function Layout() {
     );
   }
   return (
-    <div className="flex h-full w-full flex-col gap-3 p-3">
+    <div className={cn('flex h-full w-full flex-col gap-3 p-3', isElectronWindows && !isFullScreen && 'pt-0')}>
+      {isElectronWindows && <WindowControls className="fixed top-0 right-0 z-50" />}
+      {!isFullScreen && <TopBar />}
       <div className="flex min-h-0 flex-1 gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-3">
-          {!isFullScreen && <TopBar />}
           <PlayerTabNotice />
           <main className="min-h-0 flex-1 overflow-hidden rounded-2xl border bg-card">
             <Outlet />
@@ -54,6 +59,7 @@ export default function Layout() {
       <div className="h-[84px] shrink-0">
         <AudioController />
       </div>
+      {window.kkaraoke && <MiniLyricsBridge />}
       <AppSnackbar />
       <Suspense fallback={null}>
         <SettingsDialog />

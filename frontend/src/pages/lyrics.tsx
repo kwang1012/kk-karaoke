@@ -1,3 +1,4 @@
+import { publicUrl } from 'src/utils/publicUrl';
 import { useLyricsColors } from 'src/hooks/lyricsColors';
 import { usePageTitle } from 'src/hooks/documentTitle';
 import { Fragment, useEffect, useMemo, useRef } from 'react';
@@ -147,7 +148,7 @@ export default function LyricsView() {
           {currentTrack?.orderedBy && (
             <div className="absolute top-4 right-4 z-10 flex items-center gap-2 rounded-full bg-black/30 py-1 pr-4 pl-1 backdrop-blur">
               <img
-                src={currentTrack.orderedBy.avatar}
+                src={publicUrl(currentTrack.orderedBy.avatar)}
                 className="size-9 rounded-full"
                 alt={currentTrack.orderedBy.name}
               />
@@ -204,10 +205,13 @@ export default function LyricsView() {
                 {gapMarker(-1)}
                 {syncedLyrics.map((line, i) => (
                   <Fragment key={i}>
-                  <div className={['my-6 mx-16', isFullscreen ? 'text-center' : ''].join(' ')}>
+                  <div
+                    className={['py-3 px-16 cursor-pointer', isFullscreen ? 'text-center' : ''].join(' ')}
+                    onClick={handleLineClick.bind(null, i)}
+                  >
                     <span
                       className={[
-                        'origin-left cursor-pointer text-[2.5vw] leading-snug font-bold transition-all duration-300 hover:opacity-100',
+                        'origin-left text-[2.5vw] leading-snug font-bold transition-all duration-300 hover:opacity-100',
                         i <= currentLine ? 'text-white' : 'opacity-70',
                         i === currentLine && !isFullscreen && 'scale-[1.04]',
                         isFullscreen ? 'text-center text-[3vw]' : '',
@@ -216,7 +220,6 @@ export default function LyricsView() {
                       ref={(el) => {
                         lineRefs.current[i] = el;
                       }}
-                      onClick={handleLineClick.bind(null, i)}
                     >
                       {wordHighlight && i === currentLine && line.words?.length ? (
                         <WordLine words={line.words} delay={lyricsDelay} progress={progress} playing={playing} dimColor={color} />

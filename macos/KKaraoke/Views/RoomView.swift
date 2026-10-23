@@ -127,7 +127,7 @@ struct InviteView: View {
           }
         }
         .buttonStyle(WebButtonStyle(height: 44)).disabled(starting)
-        Button("Have a room code? Join one", action: onJoin).buttonStyle(.plain).pointerStyle(.link).foregroundStyle(
+        Button("Have a room code? Join one", action: onJoin).buttonStyle(.plain).stableCursor(.link).foregroundStyle(
           .secondary
         ).font(.callout)
       }
@@ -197,7 +197,7 @@ struct JoinRoomView: View {
                 Circle().strokeBorder(avatar == value ? AppTheme.accent : .clear, lineWidth: 2)
               }
             }
-            .buttonStyle(.plain).pointerStyle(.link).accessibilityAddTraits(avatar == value ? .isSelected : [])
+            .buttonStyle(.plain).stableCursor(.link).accessibilityAddTraits(avatar == value ? .isSelected : [])
           }
         }
       }
@@ -224,7 +224,7 @@ struct JoinRoomView: View {
       .buttonStyle(WebButtonStyle(height: 44)).disabled(
         nickname.trimmingCharacters(in: .whitespaces).isEmpty || avatar.isEmpty || joining)
       if app.auth.isEnabled {
-        Button("Have an account? Sign in", action: onLogin).buttonStyle(.plain).pointerStyle(.link).font(.callout)
+        Button("Have an account? Sign in", action: onLogin).buttonStyle(.plain).stableCursor(.link).font(.callout)
           .foregroundStyle(.secondary).frame(maxWidth: .infinity)
       }
     }

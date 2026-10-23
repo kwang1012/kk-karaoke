@@ -435,7 +435,7 @@ final class RoomModel {
         case .next: wantsPlay = player?.isPlaying ?? wantsPlay; Task { await goNext() }
         case .previous: Task { await goPrevious() }
         case .volume, .guideLevel: sendToOwnerOrRoom(control); return // sliders: sent (and published) once they settle
-        case .seek, .toggleVocal: sendToOwnerOrRoom(control)
+        case .seek, .toggleVocal, .increaseSemitone, .decreaseSemitone: sendToOwnerOrRoom(control)
         }
         publish(force: true, full: true)
     }
@@ -455,6 +455,8 @@ final class RoomModel {
                 self.publish(force: true, full: true)
             }
         case .toggleVocal: socket.send(.control("toggleVocal", room: activeRoomId))
+        case .increaseSemitone: socket.send(.control("increaseSemitone", room: activeRoomId))
+        case .decreaseSemitone: socket.send(.control("decreaseSemitone", room: activeRoomId))
         default: break
         }
     }
@@ -539,7 +541,8 @@ final class RoomModel {
         let settled = Date().timeIntervalSince(lastControlAt) > 1.5
         player.applyRemote(time: data["currentTime"]?.double, playing: data["playing"]?.bool, duration: data["duration"]?.double,
                            volume: settled ? data["volume"]?.double : nil, vocalOn: settled ? data["vocalOn"]?.bool : nil,
-                           guideLevel: settled ? data["guideLevel"]?.double : nil)
+                           guideLevel: settled ? data["guideLevel"]?.double : nil,
+                           semitone: settled ? data["semitone"]?.double.map { Int($0.rounded()) } : nil)
         if settled, let index = data["queueIdx"]?.int, index != queueIdx {
             if queue.indices.contains(index) { queueIdx = index; queueChanged() } else { scheduleQueueRefresh() }
         }
@@ -563,6 +566,8 @@ final class RoomModel {
             publish(force: true, full: true, extra: ["seekRequestId": data?["seekRequestId"] ?? .null])
             return
         case "toggleVocal": player.perform(.toggleVocal, fromRemote: true)
+        case "increaseSemitone": player.perform(.increaseSemitone, fromRemote: true)
+        case "decreaseSemitone": player.perform(.decreaseSemitone, fromRemote: true)
         case "setGuideLevel": if let level = data?["level"]?.double { player.perform(.guideLevel(level), fromRemote: true) }
         case "setVolume": if let volume = data?["volume"]?.double { player.perform(.volume(volume), fromRemote: true) }
         case "increaseVolume": player.perform(.volume(player.masterVolume + 0.1), fromRemote: true)
@@ -601,9 +606,9 @@ final class RoomModel {
             data["guideLevel"] = .number(player.vocalVolume)
             data["showVideo"] = .bool(UserDefaults.standard.bool(forKey: "showVideo"))
             data["showMelody"] = .bool(singing?.showMelody ?? false)
-            data["semitone"] = .number(0)
+            data["semitone"] = .number(Double(player.semitone))
             data["duration"] = .number(player.duration)
-            data["pitchShift"] = .bool(false) // the key cannot be changed on a Mac yet
+            data["pitchShift"] = .bool(true)
         }
         for (key, value) in extra { data[key] = value }
         socket.send(.update(room: activeRoomId, force: force, data))

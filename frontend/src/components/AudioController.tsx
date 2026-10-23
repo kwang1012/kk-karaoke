@@ -1,5 +1,6 @@
 import {
   ListMusic,
+  PictureInPicture2,
   Mic,
   Mic2,
   MicOff,
@@ -217,6 +218,13 @@ export default function AudioController() {
             </IconButton>
           </Tooltip>
         )} */}
+        {window.kkaraoke && (
+          <Tooltip title={t('player.floatingLyrics')} side="top">
+            <IconButton aria-label={t('player.floatingLyrics')} onClick={() => window.kkaraoke?.toggleMini()}>
+              <PictureInPicture2 className="size-5" />
+            </IconButton>
+          </Tooltip>
+        )}
         {!isFullScreen && (
           <Tooltip title={queueOpen ? t('player.hideQueue') : t('player.showQueue')} side="top">
             <IconButton

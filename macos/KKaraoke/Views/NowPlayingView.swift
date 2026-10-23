@@ -145,11 +145,10 @@ private struct LyricHover: ViewModifier {
   func body(content: Content) -> some View {
     content
       .background(
-        RoundedRectangle(cornerRadius: 16).fill(.white.opacity(hovered ? 0.08 : 0)).padding(-12)
+        RoundedRectangle(cornerRadius: 16).fill(.white.opacity(hovered ? 0.08 : 0)).padding(.horizontal, -12)
       )
       .contentShape(Rectangle())
       .onHover { hovered = $0 }
-      .pointerStyle(.link)
   }
 }
 
@@ -173,7 +172,7 @@ private struct ScrollingLyricLines: View, Equatable {
   }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 28) {
+    VStack(alignment: .leading, spacing: 0) {
       gapMarker(after: -1)
       ForEach(lines.indices, id: \.self) { index in
         PlaybackLyricLine(
@@ -184,6 +183,8 @@ private struct ScrollingLyricLines: View, Equatable {
         .font(.system(size: fontSize, weight: .bold)).lineSpacing(4)
         .frame(maxWidth: .infinity, alignment: .leading)
         .scaleEffect(current == index ? 1.04 : 1, anchor: .leading)
+        // padding, not stack spacing: the pointer stays a hand across the gap between two lines
+        .padding(.vertical, 14)
         .animation(
           reduceMotion ? nil : .timingCurve(0.22, 1, 0.36, 1, duration: 0.3),
           value: current == index
@@ -196,6 +197,10 @@ private struct ScrollingLyricLines: View, Equatable {
       }
     }
     .padding(.horizontal, 64).padding(.top, topPadding).padding(.bottom, 120)
+    // One AppKit cursor rect for the whole list, not SwiftUI's per-row pointer style: the rows are redrawn
+    // every frame and slide under a still pointer while the list scrolls, and that made the hand flicker
+    // back to the arrow.
+    .stableCursor(.link)
     .onChange(of: current, initial: true) { old, index in
       guard let index else { return }
       // Seeking jumps immediately; adjacent lines move promptly without an ease-in delay.
@@ -209,7 +214,7 @@ private struct ScrollingLyricLines: View, Equatable {
   @ViewBuilder private func gapMarker(after index: Int) -> some View {
     if let gap = LyricGap.after(lines, index: index, delay: delay) {
       LyricGapMarker(gap: gap, active: (current ?? -1) == index, size: fontSize * 0.9)
-        .padding(.vertical, 4)
+        .padding(.vertical, 18)
     }
   }
 

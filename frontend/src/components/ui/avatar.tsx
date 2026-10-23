@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Avatar as AvatarPrimitive } from 'radix-ui';
 import { cn } from 'src/lib/utils';
+import { publicUrl } from 'src/utils/publicUrl';
 
 function Avatar({ className, ...props }: React.ComponentProps<typeof AvatarPrimitive.Root>) {
   return (
@@ -11,8 +12,8 @@ function Avatar({ className, ...props }: React.ComponentProps<typeof AvatarPrimi
   );
 }
 
-function AvatarImage({ className, ...props }: React.ComponentProps<typeof AvatarPrimitive.Image>) {
-  return <AvatarPrimitive.Image className={cn('aspect-square size-full', className)} {...props} />;
+function AvatarImage({ className, src, ...props }: React.ComponentProps<typeof AvatarPrimitive.Image>) {
+  return <AvatarPrimitive.Image className={cn('aspect-square size-full', className)} src={publicUrl(src)} {...props} />;
 }
 
 function AvatarFallback({ className, ...props }: React.ComponentProps<typeof AvatarPrimitive.Fallback>) {

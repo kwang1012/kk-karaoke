@@ -1,4 +1,5 @@
 import { cn } from 'src/lib/utils';
+import { publicUrl } from 'src/utils/publicUrl';
 
 /** Even grid of round avatars; the selected one gets a primary ring. */
 export default function AvatarPicker({
@@ -32,7 +33,7 @@ export default function AvatarPicker({
               itemClassName
             )}
           >
-            <img src={avatar} alt="" className="size-full object-cover" />
+            <img src={publicUrl(avatar)} alt="" className="size-full object-cover" />
           </button>
         );
       })}

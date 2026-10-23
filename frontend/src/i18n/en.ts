@@ -611,6 +611,7 @@ export const en = {
   'download.step3': 'After that the app updates itself: use KKaraoke → Check for Updates… any time.',
   'download.notMac': 'These downloads are for Mac and Windows. On other devices, use KKaraoke in the browser.',
   'download.openWeb': 'Open the web app',
+  'download.signing': 'The Windows installer is signed with free code signing provided by SignPath.io, certificate by SignPath Foundation. KKaraoke is open source (MIT).',
   'download.buttonWindows': 'Download for Windows',
   'download.requirementsWindows': 'Windows 10 or later · 64-bit',
   'download.step1Windows': 'Run the downloaded KKaraoke-Setup.exe. If Windows SmartScreen warns about an unknown publisher, choose More info → Run anyway.',

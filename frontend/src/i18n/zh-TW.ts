@@ -598,6 +598,7 @@ export const zhTW: Record<TranslationKey, string> = {
   'download.step3': '之後 App 會自動更新，也可隨時使用 KKaraoke → 檢查更新⋯。',
   'download.notMac': '此下載僅適用於 Mac 與 Windows。其他裝置請在瀏覽器中使用 KKaraoke。',
   'download.openWeb': '開啟網頁版',
+  'download.signing': 'Windows 安裝程式由 SignPath.io 提供免費程式碼簽署，憑證由 SignPath Foundation 核發。KKaraoke 為開源專案（MIT）。',
   'download.buttonWindows': '下載 Windows 版',
   'download.requirementsWindows': 'Windows 10 或更新版本 · 64 位元',
   'download.step1Windows': '執行下載的 KKaraoke-Setup.exe。若 Windows SmartScreen 提示未知的發行者，請選「其他資訊」→「仍要執行」。',

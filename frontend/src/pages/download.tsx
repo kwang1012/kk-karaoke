@@ -50,6 +50,12 @@ export default function DownloadView() {
             <li>{isWindows ? t('download.step3Windows') : t('download.step3')}</li>
           </ol>
         </div>
+        <p className="text-xs text-muted-foreground">
+          {t('download.signing')}{' '}
+          <a href="https://github.com/kwang1012/kk-karaoke#code-signing-policy" className="underline underline-offset-4">
+            Code signing policy
+          </a>
+        </p>
         <Link to="/join" className="text-sm text-muted-foreground underline underline-offset-4">
           {t('download.openWeb')}
         </Link>

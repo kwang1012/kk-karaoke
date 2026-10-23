@@ -117,7 +117,7 @@ function fixture(secondStatus = 'submitted', isOwner = true) {
     }
     assert.fail('Player effects did not settle');
   };
-  return { state, audio, loaded, songStatus, settle, sent, pitches, prefetched, preloaded, settings, message: (message: any) => handlers.jam.onAddItem({ type: 'jam', roomId: 'test-room', ...message }), select: (index: number) => update('queueIdx', index) };
+  return { handlers, state, audio, loaded, songStatus, settle, sent, pitches, prefetched, preloaded, settings, message: (message: any) => handlers.jam.onAddItem({ type: 'jam', roomId: 'test-room', ...message }), select: (index: number) => update('queueIdx', index) };
 }
 
 test('previous restores a ready song after next selects a song still processing', async () => {
@@ -279,4 +279,13 @@ test('a song that finishes processing while another plays is warmed then, not on
   assert.deepEqual(f.preloaded, ['b']);
   assert.deepEqual(f.prefetched, ['b']);
   assert.deepEqual(f.loaded, ['a']); // and it did not start playing or loading as the current song
+});
+
+test('the first song into an empty queue asks for playback; later songs do not', async () => {
+  const f = fixture();
+  await f.settle();
+  f.handlers.queue.onAddItem({ type: 'queue', data: { action: 'added', track: { id: 'c' }, autoplay: false } });
+  assert.equal(f.state.playRequested, false);
+  f.handlers.queue.onAddItem({ type: 'queue', data: { action: 'added', track: { id: 'c' }, autoplay: true } });
+  assert.equal(f.state.playRequested, true);
 });

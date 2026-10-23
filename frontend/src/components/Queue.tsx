@@ -89,7 +89,7 @@ export default function Queue({ hidden }: { hidden?: boolean }) {
         </div>
 
         <div className="mt-6 flex items-center justify-between gap-2 px-2 pb-1">
-          <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{t('queue.nextUp')}</span>
+          <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{t(tracks.length > 0 && tracks.every((track) => track.recommended) ? 'queue.suggested' : 'queue.nextUp')}</span>
           {tracks.length > 0 && <QueueOrderControls />}
         </div>
         {tracks.length ? (

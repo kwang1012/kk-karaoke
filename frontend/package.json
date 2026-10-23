@@ -1,6 +1,6 @@
 {
   "name": "v1-react",
-  "version": "0.2.16",
+  "version": "0.2.19",
   "private": true,
   "dependencies": {
     "electron-updater": "^6"
@@ -12,7 +12,6 @@
     "preview": "vite preview",
     "build:electron": "vite --mode=electron build",
     "electron": "electron .",
-    "package-mac": "vite --mode=electron build && electron-packager . KKaraoke --platform=darwin --arch=arm64 --out=dist --icon=icon.icns --overwrite",
     "package-windows": "vite --mode=electron build && electron-builder --win --x64 --publish never",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test \"src/**/*.test.ts\"",

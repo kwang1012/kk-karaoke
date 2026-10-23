@@ -166,6 +166,7 @@ export const en = {
   'queue.arrangeError': 'Could not reorder the queue. Please try again.',
   'queue.nowPlaying': 'Now playing',
   'queue.nextUp': 'Next up',
+  'queue.suggested': 'Suggested for you',
   'queue.reorder': 'Reorder {name}',
   'queue.empty': 'Nothing queued yet.',
   'queue.random': 'Random songs?',

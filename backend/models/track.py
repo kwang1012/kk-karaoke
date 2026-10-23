@@ -33,6 +33,9 @@ class Track(CamelModel):
     video_id: Optional[TrackId] = None
     # "song" (studio audio) or "video" (music video, live, upload) for YouTube results.
     kind: Optional[str] = None
+    # Suggested by the server to keep the queue going, not ordered by anyone: songs a user
+    # orders are queued ahead of these.
+    recommended: bool = False
 
 
 class LyricsDelay(CamelModel):

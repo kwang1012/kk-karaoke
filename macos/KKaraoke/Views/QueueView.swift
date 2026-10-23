@@ -66,7 +66,7 @@ struct QueueView: View {
           .padding(.top, 16)
 
           HStack {
-            Text("NEXT UP").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
+            Text(room.upcoming.allSatisfy(\.recommended) && !room.upcoming.isEmpty ? "SUGGESTED FOR YOU" : "NEXT UP").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
             Spacer()
             if room.upcoming.count > 1 {
               Button {
@@ -105,6 +105,11 @@ struct QueueView: View {
             }
           }
           ForEach(Array(room.upcoming.enumerated()), id: \.element.queueID) { offset, track in
+            if track.recommended, offset > 0, !room.upcoming[offset - 1].recommended {
+              // songs people ordered come first; the ones the server suggested follow, under a heading
+              Text("SUGGESTED FOR YOU").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
+                .padding(.horizontal, 8).padding(.top, 16).padding(.bottom, 8)
+            }
             QueueRow(track: track, current: false, offset: offset)
               .background(dragging == track.queueID ? AppTheme.popover : .clear, in: RoundedRectangle(cornerRadius: 12))
               .shadow(color: .black.opacity(dragging == track.queueID ? 0.35 : 0), radius: 10, y: 4)

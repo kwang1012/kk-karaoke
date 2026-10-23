@@ -20,6 +20,9 @@ class RedisKeys:
     TRACK_DATA = "track_data:{track_id}"
     TRACK_DELAY = "track_delay:{track_id}"
 
+    # Songs a signed-in user ordered, newest first
+    USER_HISTORY = "user_history:{user_id}"
+
     # Lyrics keys
     ROMANIZED = "romanized:{track_id}"
 
@@ -50,6 +53,10 @@ class RedisKeys:
     @staticmethod
     def room_code_of(room_id: str) -> str:
         return RedisKeys.ROOM_CODE_OF.format(room_id=room_id)
+
+    @staticmethod
+    def user_history(user_id: str) -> str:
+        return RedisKeys.USER_HISTORY.format(user_id=user_id)
 
     @staticmethod
     def track_data(track_id: str) -> str:

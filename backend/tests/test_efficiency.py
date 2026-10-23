@@ -123,7 +123,11 @@ def test_queue_edits_reach_only_their_room(monkeypatch):
     recorder = Recorder()
     monkeypatch.setattr(queue, "ws_manager", recorder)
     monkeypatch.setattr(queue, "is_ready", lambda track: True)
+    monkeypatch.setattr(queue, "recommend", lambda jam, history, limit: ("random", []))
+    monkeypatch.setattr(queue.catalog, "ready_among", lambda ids: set())
     fake = type("Q", (), {"add_track_to_next": lambda self, room, track: 1,
+                          "get_queue": lambda self, room: [Track(id=ID_B, artists=[], name="b")] * 2,
+                          "get_current_idx": lambda self, room: 0,
                           "remove_track_from_queue": lambda self, room, track: None,
                           "clear_queue": lambda self, room: None})()
     track = Track(id=ID_A, artists=[], name="a")

@@ -1,5 +1,5 @@
 import { CSS } from '@dnd-kit/utilities';
-import { useEffect, useState, type PointerEvent } from 'react';
+import { Fragment, useEffect, useState, type PointerEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { GripVertical } from 'lucide-react';
 import {
@@ -152,6 +152,10 @@ export default function TrackQueue({ tracks }: { tracks: Track[] }) {
   const { rmSongFromQueue } = usePlayer();
   const roomId = useRoomStore((state) => state.roomId);
   const activeRoomId = useActiveRoomId();
+  const t = useT();
+  // Songs people ordered come first; the ones the server suggested follow, under a heading (when nothing was
+  // ordered, the section's own heading says so).
+  const firstSuggested = tracks.findIndex((track) => track.recommended);
   const items = tracks.map((item) => item.uniqueId);
   const mobile = useBreakpointDown('md');
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -212,14 +216,21 @@ export default function TrackQueue({ tracks }: { tracks: Track[] }) {
       items={items}
     >
       {tracks.map((track, index) => (
-        <SortableItem key={track.uniqueId} id={track.uniqueId} name={track.name} dragging={dragging}>
-          <SongCard
-            className="flex-1"
-            track={track}
-            onInsert={() => onInsert(track, index)}
-            onDelete={() => rmSongFromQueue(track)}
-          />
-        </SortableItem>
+        <Fragment key={track.uniqueId}>
+          {index === firstSuggested && index > 0 && (
+            <div className="px-2 pt-4 pb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              {t('queue.suggested')}
+            </div>
+          )}
+          <SortableItem id={track.uniqueId} name={track.name} dragging={dragging}>
+            <SongCard
+              className="flex-1"
+              track={track}
+              onInsert={() => onInsert(track, index)}
+              onDelete={() => rmSongFromQueue(track)}
+            />
+          </SortableItem>
+        </Fragment>
       ))}
       {mobile && createPortal(
         <DragOverlay dropAnimation={null}>

@@ -159,6 +159,7 @@ export const zhTW: Record<TranslationKey, string> = {
   'queue.arrangeError': '無法調整待播順序，請再試一次。',
   'queue.nowPlaying': '正在播放',
   'queue.nextUp': '接下來',
+  'queue.suggested': '為你推薦',
   'queue.reorder': '調整 {name} 的順序',
   'queue.empty': '還沒有排任何歌曲。',
   'queue.random': '隨機點歌？',

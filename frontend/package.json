@@ -68,6 +68,7 @@
       "electron-preload.js",
       "build/**/*",
       "icon.ico",
+      "taskbar/*.png",
       "package.json"
     ],
     "win": {

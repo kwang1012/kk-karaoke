@@ -137,6 +137,8 @@ export const zhTW: Record<TranslationKey, string> = {
   'player.leaveLyricsView': '離開歌詞畫面',
   'player.editLyrics': '編輯歌詞',
   'player.showQueue': '顯示待播',
+  'notify.songReady': '你的歌曲已準備好',
+  'notify.songReadyBody': '可以開始唱了。',
   'update.available': '有可用更新',
   'update.downloading': '正在下載更新…',
   'update.ready': 'KKaraoke {version} 已就緒：重新啟動即可更新',

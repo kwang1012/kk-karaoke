@@ -32,6 +32,9 @@ interface Window {
     getUpdateState: () => Promise<UpdateState>;
     onUpdateState: (callback: (state: UpdateState) => void) => () => void;
     installUpdate: () => void;
+    notify: (title: string, body?: string) => void;
+    /** 0 to 1 shows it on the taskbar icon; anything else clears it. */
+    setProgress: (fraction: number, playing: boolean) => void;
     windowDrag: (start: boolean) => void;
     windowControl: (action: 'minimize' | 'maximize' | 'close') => void;
     isMaximized: () => Promise<boolean>;

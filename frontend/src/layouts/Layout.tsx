@@ -3,6 +3,7 @@ import { Suspense, lazy } from 'react';
 import TopBar from 'src/components/TopBar';
 import Queue from 'src/components/Queue';
 import MiniLyricsBridge from 'src/components/MiniLyricsBridge';
+import DesktopNotifications from 'src/components/DesktopNotifications';
 import AudioController from 'src/components/AudioController';
 import AppSnackbar from 'src/components/Snackbar';
 import PlayerTabNotice from 'src/components/PlayerTabNotice';
@@ -62,6 +63,7 @@ export default function Layout() {
         <AudioController />
       </div>
       {window.kkaraoke && <MiniLyricsBridge />}
+      {window.kkaraoke && <DesktopNotifications />}
       <AppSnackbar />
       <Suspense fallback={null}>
         <SettingsDialog />

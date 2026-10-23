@@ -8,6 +8,25 @@ const isWindows = process.platform === 'win32';
 const indexHtml = path.join(__dirname, 'build', 'index.html');
 const iconPath = path.join(__dirname, isWindows ? 'icon.ico' : 'build/icon-512.png');
 
+const fs = require('fs');
+
+// A tiny settings file: only "floatingLyricsOnMinimize" so far (on by default, like the Mac app).
+const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
+function readSettings() {
+  try {
+    return { floatingLyricsOnMinimize: true, ...JSON.parse(fs.readFileSync(settingsFile(), 'utf8')) };
+  } catch {
+    return { floatingLyricsOnMinimize: true };
+  }
+}
+function writeSettings(patch) {
+  try {
+    fs.writeFileSync(settingsFile(), JSON.stringify({ ...readSettings(), ...patch }));
+  } catch {
+    // not saved: the choice only lasts until the app quits
+  }
+}
+
 let win = null;
 let mini = null;
 let lastMini = null;
@@ -42,6 +61,13 @@ function createWindow() {
     // minimize/maximize/close buttons in the top bar (a drag region), driven over IPC (see 'window-control').
     ...(isWindows ? { frame: false } : { titleBarStyle: 'hidden' }),
     ...(isMac ? { trafficLightPosition: { x: 20, y: 28 } } : {}),
+  });
+  // Like the Mac app: minimizing the main window opens the floating lyrics, restoring it closes them.
+  win.on('minimize', () => {
+    if (readSettings().floatingLyricsOnMinimize && !(mini && !mini.isDestroyed())) toggleMini();
+  });
+  win.on('restore', () => {
+    if (mini && !mini.isDestroyed()) mini.close();
   });
   win.on('maximize', () => win.webContents.send('window-maximized', true));
   win.on('unmaximize', () => win.webContents.send('window-maximized', false));
@@ -101,7 +127,7 @@ function toggleMini() {
     mini = null;
     if (!quitting && win && !win.isDestroyed() && !win.isVisible()) showWindow();
   });
-  if (win && !win.isDestroyed()) win.hide();
+  if (win && !win.isDestroyed() && !win.isMinimized()) win.hide();
 }
 
 function showWindow() {
@@ -160,22 +186,30 @@ async function checkForUpdatesNow() {
   }
 }
 
+function trayMenu() {
+  return Menu.buildFromTemplate([
+    { label: 'Open KKaraoke', click: showWindow },
+    { type: 'separator' },
+    { label: 'Floating lyrics', click: toggleMini },
+    {
+      label: 'Floating lyrics when minimized',
+      type: 'checkbox',
+      checked: readSettings().floatingLyricsOnMinimize,
+      click: (item) => writeSettings({ floatingLyricsOnMinimize: item.checked }),
+    },
+    { label: 'Play / Pause', click: () => sendMediaKey('toggle') },
+    { label: 'Next', click: () => sendMediaKey('next') },
+    { label: 'Previous', click: () => sendMediaKey('previous') },
+    { type: 'separator' },
+    ...(app.isPackaged ? [{ label: `Check for updates (v${app.getVersion()})`, click: checkForUpdatesNow }] : []),
+    { label: 'Quit', click: () => app.quit() },
+  ]);
+}
+
 function createTray() {
   tray = new Tray(nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 }));
   tray.setToolTip('KKaraoke');
-  tray.setContextMenu(
-    Menu.buildFromTemplate([
-      { label: 'Open KKaraoke', click: showWindow },
-      { type: 'separator' },
-      { label: 'Floating lyrics', click: toggleMini },
-      { label: 'Play / Pause', click: () => sendMediaKey('toggle') },
-      { label: 'Next', click: () => sendMediaKey('next') },
-      { label: 'Previous', click: () => sendMediaKey('previous') },
-      { type: 'separator' },
-      ...(app.isPackaged ? [{ label: `Check for updates (v${app.getVersion()})`, click: checkForUpdatesNow }] : []),
-      { label: 'Quit', click: () => app.quit() },
-    ])
-  );
+  tray.setContextMenu(trayMenu());
   tray.on('click', showWindow);
 }
 

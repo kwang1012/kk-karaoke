@@ -1,6 +1,6 @@
 {
   "name": "v1-react",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "private": true,
   "dependencies": {
     "electron-updater": "^6"

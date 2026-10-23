@@ -4,6 +4,10 @@ interface MiniLyricsState {
   artist?: string;
   line?: string;
   next?: string;
+  /** Shown instead of lyrics: nothing playing, or no lyrics for the song. */
+  message?: string;
+  /** False before the first line is sung. */
+  current?: boolean;
   playing: boolean;
 }
 

@@ -501,3 +501,65 @@ def test_whisper_falls_back_to_this_machine_when_modal_fails(monkeypatch, tmp_pa
     monkeypatch.setattr("services.modal_separate.remote", lambda name: 1 / 0)
     monkeypatch.setattr(transcribe, "_load_model", lambda: local)
     assert transcribe.heard_words(str(stem)) == ([(0.0, 1.0, "hi")], "en")
+
+
+# --- LRCLib being overloaded -----------------------------------------------------------
+
+BUSY = {"message": "The server is busy, please retry in a moment", "name": "ServerOverloaded", "statusCode": 503}
+
+
+def test_a_busy_lrclib_is_retried_not_read_as_no_results(monkeypatch):
+    answers = [BUSY, BUSY, [lrclib_row(1, "說了再見", "周杰倫", 283)]]
+    monkeypatch.setattr(pv.httpx, "get", lambda url, **kw: Resp(answers.pop(0)))
+    entries = pv.lrclib_entries(["說了再見"])
+    assert [e.title for e in entries] == ["說了再見"] and not answers
+
+
+def test_lrclib_staying_busy_gives_up(monkeypatch):
+    calls = []
+    monkeypatch.setattr(pv.httpx, "get", lambda url, **kw: calls.append(url) or Resp(BUSY))
+    assert pv.lrclib_entries(["說了再見"]) == []
+    assert len(calls) == pv.LRCLIB_ATTEMPTS * 1
+
+
+def test_lrclib_not_found_is_not_retried(monkeypatch):
+    calls = []
+    monkeypatch.setattr(pv.httpx, "get", lambda url, **kw: calls.append(url) or SimpleNamespace(
+        status_code=404, json=lambda: {"statusCode": 404}))
+    from services.downloader import fetch_lrclib_record
+    assert fetch_lrclib_record("x", "y") is None and len(calls) == 1
+
+
+def test_exact_lookup_retries_a_busy_lrclib(monkeypatch):
+    answers = [BUSY, {"trackName": "說了再見", "syncedLyrics": LRC}]
+    monkeypatch.setattr(pv.httpx, "get", lambda url, **kw: Resp(answers.pop(0)))
+    from services.downloader import fetch_lrclib_record
+    assert fetch_lrclib_record("說了再見", "周杰倫")["syncedLyrics"] == LRC
+
+
+# --- instrumental notices ---------------------------------------------------------------
+
+@pytest.mark.parametrize("text", [
+    "[00:00.00]纯音乐，请欣赏",
+    "[ti:說了再見]\n[ar:周杰倫]\n[00:00.000]純音樂 請欣賞",
+    "[0,5000]<0,500,0>纯音乐<500,500,0>，请欣赏",
+    "[00:00.00]此歌曲为没有填词的纯音乐，请您欣赏",
+])
+def test_an_instrumentals_notice_is_not_lyrics(text):
+    assert pv.is_placeholder(text) and pv.is_unusable_lyrics(text)
+
+
+def test_real_lyrics_are_not_mistaken_for_a_notice():
+    assert not pv.is_placeholder("\n".join(f"[00:{i:02d}.00]第{i}行" for i in range(10)))
+    assert not pv.is_placeholder("[00:01.00]我听见雨滴 打在 instrumental 上\n" + "\n".join(f"[00:{i:02d}.00]行" for i in range(2, 8)))
+
+
+def test_a_piano_cut_is_not_the_wanted_song():
+    assert not pv._title_fits(["說了再見"], "说了再见 (钢琴版)", ls._norm)
+    assert pv._title_fits(["說了再見 (Piano Ver.)"], "說了再見 (Piano Ver.)", ls._norm)
+
+
+def test_an_entry_whose_lyrics_are_a_notice_is_skipped_for_the_next(net):
+    net["lrclib"] = [lrclib_row(1, "說了再見", "周杰倫", 283, synced="[00:00.00]纯音乐，请欣赏"),
+                     lrclib_row(2, "說了再見", "周杰倫", 284)]
+    assert find("說了再見", ["周杰倫"], 283).synced == LRC

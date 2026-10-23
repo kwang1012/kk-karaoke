@@ -110,7 +110,7 @@ def _check_audio(env, lrc: str) -> Optional[dict]:
 
 def _flag_romanized(candidate: Candidate) -> None:
     """The right song in the wrong script: listed, because it may be all there is, but not recommended."""
-    if providers.is_romanized_korean(candidate.lrc or candidate.plain or ""):
+    if providers.is_unusable_lyrics(candidate.lrc or candidate.plain or ""):
         candidate.fit = "poor"
         candidate.notes.insert(0, "Korean written in Latin letters, not Hangul")
 

@@ -68,3 +68,9 @@ def no_binimum(monkeypatch):
 def no_unison(monkeypatch):
     monkeypatch.setattr("services.providers.unison_entries", lambda *a, **k: [])
     monkeypatch.setattr("services.providers.unison_for_video", lambda *a, **k: None)
+
+
+@pytest.fixture(autouse=True)
+def no_lrclib_backoff(monkeypatch):
+    from services import providers
+    monkeypatch.setattr(providers, "LRCLIB_BACKOFF_S", 0)

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useTvMode } from 'src/hooks/tvMode';
 import { ChevronLeft, ChevronRight, LibraryBig, Moon, Settings, Sun, Tv, UserPlus } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -13,11 +14,8 @@ import { useJam, useRoomStore } from 'src/store/room';
 import { useSettingStore } from 'src/store/setting';
 import { useRemoteMessageQueue } from 'src/hooks/queue';
 import { useT } from 'src/i18n';
+import { isElectronMac, isElectronWindows } from 'src/utils/platform';
 
-const isElectron = navigator.userAgent.toLowerCase().includes('electron');
-/** Windows draws minimize/maximize/close over the top right of the window; the Mac puts its buttons on the left. */
-const isElectronWindows = isElectron && /Windows/i.test(navigator.userAgent);
-const isElectronMac = isElectron && !isElectronWindows;
 
 export default function TopBar() {
   const t = useT();
@@ -47,6 +45,11 @@ export default function TopBar() {
       else if (message.action == 'left') removeParticipant(participant);
     },
   });
+
+  // the native Windows buttons are drawn over the header: match them to the theme
+  useEffect(() => {
+    window.kkaraoke?.setTitleBarTheme(theme === 'dark');
+  }, [theme]);
 
   const handleSearchChange = (value: string) => {
     setSearchValue(value);

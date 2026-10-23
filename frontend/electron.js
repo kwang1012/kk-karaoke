@@ -212,6 +212,11 @@ ipcMain.on('mini-ready', () => {
   if (lastMini && mini && !mini.isDestroyed()) mini.webContents.send('mini-state', lastMini);
 });
 ipcMain.on('mini-toggle', toggleMini);
+// The native Windows buttons sit over the web header, so their glyphs follow the page's theme.
+ipcMain.on('title-bar-theme', (_event, dark) => {
+  if (!isWindows || !win || win.isDestroyed()) return;
+  win.setTitleBarOverlay({ color: '#00000000', symbolColor: dark ? '#e4e4e7' : '#3f3f46', height: 48 });
+});
 ipcMain.on('media-key-request', (_event, action) => {
   if (action in { toggle: 1, next: 1, previous: 1 }) sendMediaKey(action);
 });

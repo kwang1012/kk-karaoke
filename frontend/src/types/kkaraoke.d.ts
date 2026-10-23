@@ -13,5 +13,6 @@ interface Window {
     version: () => Promise<string>;
     publishMini: (state: MiniLyricsState) => void;
     toggleMini: () => void;
+    setTitleBarTheme: (dark: boolean) => void;
   };
 }

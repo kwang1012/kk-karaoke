@@ -8,6 +8,8 @@ import AppSnackbar from 'src/components/Snackbar';
 import PlayerTabNotice from 'src/components/PlayerTabNotice';
 import { useBreakpointDown } from 'src/hooks/media';
 import { useSettingStore } from 'src/store/setting';
+import { cn } from 'src/lib/utils';
+import { isElectronWindows } from 'src/utils/platform';
 
 // lazy import mobile components
 const AppNavigation = lazy(() => import('src/components/Navigation'));
@@ -41,7 +43,7 @@ export default function Layout() {
     );
   }
   return (
-    <div className="flex h-full w-full flex-col gap-3 p-3">
+    <div className={cn('flex h-full w-full flex-col gap-3 p-3', isElectronWindows && !isFullScreen && 'pt-0')}>
       {!isFullScreen && <TopBar />}
       <div className="flex min-h-0 flex-1 gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-3">

@@ -20,17 +20,20 @@
       #message { font-size: 15px; opacity: 0.7; }
       #line { font-size: 24px; font-weight: 700; line-height: 1.25; }
       #line.upcoming { opacity: 0.5; }
-      .info { flex: 1; min-width: 0; text-align: left; margin-left: 6px; }
+      .info { flex: 1; min-width: 0; text-align: left; margin: 0 6px; }
       #title { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       #artist { font-size: 11px; opacity: 0.6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       #next { font-size: 15px; opacity: 0.5; line-height: 1.25; min-height: 19px; }
       #line, #next { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-      .controls { display: flex; align-items: center; gap: 6px; margin-top: 4px; -webkit-app-region: no-drag; }
+      .controls { display: flex; align-items: center; gap: 2px; margin-top: 4px; -webkit-app-region: no-drag; }
       button {
-        width: 32px; height: 28px; border: 0; border-radius: 14px; color: #fff; cursor: pointer;
-        background: rgba(255, 255, 255, 0.1); font-size: 13px;
+        display: inline-flex; align-items: center; justify-content: center; flex: none; padding: 0;
+        width: 30px; height: 30px; border: 0; border-radius: 50%; color: #fff; cursor: pointer;
+        background: transparent; opacity: 0.85;
       }
-      button:hover { background: rgba(255, 255, 255, 0.22); }
+      button svg { display: block; }
+      #toggle { width: 36px; height: 36px; }
+      button:hover { background: rgba(255, 255, 255, 0.16); opacity: 1; }
     </style>
   </head>
   <body>
@@ -40,15 +43,17 @@
       <div id="next"></div>
     </main>
     <div class="controls">
-      <button id="previous" aria-label="Previous song" title="Previous song">⏮</button>
-      <button id="toggle" aria-label="Play or pause" title="Play / Pause">▶</button>
-      <button id="next-song" aria-label="Next song" title="Next song">⏭</button>
+      <button id="previous" aria-label="Previous song" title="Previous song"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.971 4.285A2 2 0 0 1 21 6v12a2 2 0 0 1-3.029 1.715l-9.997-5.998a2 2 0 0 1-.003-3.432z"/><path d="M3 20V4"/></svg></button>
+      <button id="toggle" aria-label="Play or pause" title="Play / Pause"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></svg></button>
+      <button id="next-song" aria-label="Next song" title="Next song"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 4v16"/><path d="M6.029 4.285A2 2 0 0 0 3 6v12a2 2 0 0 0 3.029 1.715l9.997-5.998a2 2 0 0 0 .003-3.432z"/></svg></button>
       <div class="info"><div id="title"></div><div id="artist"></div></div>
-      <button id="back" aria-label="Back to the main window" title="Back to the main window">⤢</button>
+      <button id="back" aria-label="Back to the main window" title="Back to the main window"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
     </div>
     <script>
       const api = window.kkaraoke;
       const $ = (id) => document.getElementById(id);
+      const wrap = (inner) => '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + inner + '</svg>';
+      const ICONS = { play: wrap('<path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/>'), pause: wrap('<rect x="14" y="3" width="5" height="18" rx="1"/><rect x="5" y="3" width="5" height="18" rx="1"/>') };
       if (api) {
         api.onMiniState((s) => {
           $('title').textContent = s.title || 'Nothing playing';
@@ -58,7 +63,7 @@
           $('line').textContent = s.message ? '' : s.line || '';
           $('line').classList.toggle('upcoming', s.current === false);
           $('next').textContent = s.message ? '' : s.next || '';
-          $('toggle').textContent = s.playing ? '⏸' : '▶';
+          $('toggle').innerHTML = s.playing ? ICONS.pause : ICONS.play;
         });
         $('previous').onclick = () => api.mediaKey('previous');
         $('toggle').onclick = () => api.mediaKey('toggle');

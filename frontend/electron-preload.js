@@ -38,5 +38,7 @@ contextBridge.exposeInMainWorld('kkaraoke', {
     return () => ipcRenderer.removeListener('update-state', listener);
   },
   installUpdate: () => ipcRenderer.send('update-install'),
+  notify: (title, body) => ipcRenderer.send('notify', { title, body }),
+  setProgress: (fraction, playing) => ipcRenderer.send('taskbar-progress', { fraction, playing: !!playing }),
   version: () => ipcRenderer.invoke('app-version'),
 });

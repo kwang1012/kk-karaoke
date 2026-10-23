@@ -1,6 +1,6 @@
 {
   "name": "v1-react",
-  "version": "0.2.16",
+  "version": "0.2.17",
   "private": true,
   "dependencies": {
     "electron-updater": "^6"
@@ -69,6 +69,7 @@
       "electron-preload.js",
       "build/**/*",
       "icon.ico",
+      "taskbar/*.png",
       "package.json"
     ],
     "win": {

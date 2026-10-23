@@ -143,6 +143,8 @@ export const en = {
   'player.leaveLyricsView': 'Leave lyrics view',
   'player.editLyrics': 'Edit lyrics',
   'player.showQueue': 'Show queue',
+  'notify.songReady': 'Your song is ready',
+  'notify.songReadyBody': 'It is ready to sing.',
   'update.available': 'Update available',
   'update.downloading': 'Downloading update…',
   'update.ready': 'KKaraoke {version} is ready: restart to update',

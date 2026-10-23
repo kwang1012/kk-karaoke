@@ -38,14 +38,13 @@ function createWindow() {
       backgroundThrottling: false,
       preload: path.join(__dirname, 'electron-preload.js'),
     },
-    // Remove the default titlebar. On Windows the native minimize/maximize/close buttons stay,
-    // drawn over the top bar (which is 48px tall and a drag region).
-    titleBarStyle: 'hidden',
+    // Remove the default titlebar. The Mac keeps its traffic lights; on Windows the page draws its own
+    // minimize/maximize/close buttons in the top bar (a drag region), driven over IPC (see 'window-control').
+    ...(isWindows ? { frame: false } : { titleBarStyle: 'hidden' }),
     ...(isMac ? { trafficLightPosition: { x: 20, y: 28 } } : {}),
-    ...(isWindows
-      ? { titleBarOverlay: { color: '#00000000', symbolColor: '#a1a1aa', height: 48 } }
-      : {}),
   });
+  win.on('maximize', () => win.webContents.send('window-maximized', true));
+  win.on('unmaximize', () => win.webContents.send('window-maximized', false));
 
   win.loadFile(indexHtml);
   if (process.argv.includes('-d')) {
@@ -212,11 +211,14 @@ ipcMain.on('mini-ready', () => {
   if (lastMini && mini && !mini.isDestroyed()) mini.webContents.send('mini-state', lastMini);
 });
 ipcMain.on('mini-toggle', toggleMini);
-// The native Windows buttons sit over the web header, so their glyphs follow the page's theme.
-ipcMain.on('title-bar-theme', (_event, dark) => {
-  if (!isWindows || !win || win.isDestroyed()) return;
-  win.setTitleBarOverlay({ color: '#00000000', symbolColor: dark ? '#e4e4e7' : '#3f3f46', height: 48 });
+// The page's own window buttons (Windows).
+ipcMain.on('window-control', (_event, action) => {
+  if (!win || win.isDestroyed()) return;
+  if (action === 'minimize') win.minimize();
+  else if (action === 'maximize') (win.isMaximized() ? win.unmaximize() : win.maximize());
+  else if (action === 'close') win.close();
 });
+ipcMain.handle('window-is-maximized', () => !!win && !win.isDestroyed() && win.isMaximized());
 ipcMain.on('media-key-request', (_event, action) => {
   if (action in { toggle: 1, next: 1, previous: 1 }) sendMediaKey(action);
 });

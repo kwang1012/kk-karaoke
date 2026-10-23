@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useTvMode } from 'src/hooks/tvMode';
 import { ChevronLeft, ChevronRight, LibraryBig, Moon, Settings, Sun, Tv, UserPlus } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -45,11 +44,6 @@ export default function TopBar() {
       else if (message.action == 'left') removeParticipant(participant);
     },
   });
-
-  // the native Windows buttons are drawn over the header: match them to the theme
-  useEffect(() => {
-    window.kkaraoke?.setTitleBarTheme(theme === 'dark');
-  }, [theme]);
 
   const handleSearchChange = (value: string) => {
     setSearchValue(value);

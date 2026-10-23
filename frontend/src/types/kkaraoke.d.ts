@@ -13,6 +13,8 @@ interface Window {
     version: () => Promise<string>;
     publishMini: (state: MiniLyricsState) => void;
     toggleMini: () => void;
-    setTitleBarTheme: (dark: boolean) => void;
+    windowControl: (action: 'minimize' | 'maximize' | 'close') => void;
+    isMaximized: () => Promise<boolean>;
+    onMaximizeChange: (callback: (maximized: boolean) => void) => () => void;
   };
 }

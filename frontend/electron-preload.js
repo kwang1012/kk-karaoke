@@ -9,7 +9,14 @@ contextBridge.exposeInMainWorld('kkaraoke', {
   },
   // main window -> floating lyrics
   publishMini: (state) => ipcRenderer.send('mini-state', state),
-  setTitleBarTheme: (dark) => ipcRenderer.send('title-bar-theme', !!dark),
+  // the page's own window buttons (Windows)
+  windowControl: (action) => ipcRenderer.send('window-control', action),
+  isMaximized: () => ipcRenderer.invoke('window-is-maximized'),
+  onMaximizeChange: (callback) => {
+    const listener = (_event, maximized) => callback(maximized);
+    ipcRenderer.on('window-maximized', listener);
+    return () => ipcRenderer.removeListener('window-maximized', listener);
+  },
   toggleMini: () => ipcRenderer.send('mini-toggle'),
   // floating lyrics window
   onMiniState: (callback) => ipcRenderer.on('mini-state', (_event, state) => callback(state)),

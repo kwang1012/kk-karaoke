@@ -70,7 +70,7 @@ MAX_SPICY_FETCHES = 2  # Spicy rate-limits an application; a wrong song is cheap
 
 # A wanted title without one of these must not match an entry that has it.
 _VARIANT = re.compile(
-    r"live|現場|现场|演唱會|演唱会|remix|cover|翻唱|伴奏|instrumental|karaoke|純音樂|纯音乐|acoustic|"
+    r"live|現場|现场|演唱會|演唱会|remix|cover|翻唱|伴奏|instrumental|karaoke|純音樂|纯音乐|piano|鋼琴|钢琴|acoustic|"
     r"demo|sped up|slowed|nightcore|reverb|dj版|ver\.",
     re.IGNORECASE,
 )
@@ -99,6 +99,23 @@ _ENGLISH_LOOKALIKES = {"people", "video", "videos", "leo", "romeo", "geo", "theo
 _NATIVE_SCRIPT = re.compile("[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]")
 MIN_ROMANIZED_SHARE = 0.1
 MIN_LATIN_LINES = 5
+
+
+# What Chinese providers put in the lyric slot of an instrumental: 纯音乐，请欣赏 / 此歌曲为没有填词的纯音乐 / 暂无歌词.
+_PLACEHOLDER = re.compile(r"純音樂|纯音乐|請欣賞|请欣赏|没有填词|沒有填詞|暂无歌词|暫無歌詞|no lyrics|instrumental", re.IGNORECASE)
+MAX_PLACEHOLDER_LINES = 4
+
+
+def is_placeholder(text: str) -> bool:
+    """A provider's "this is instrumental" notice in place of lyrics: a few lines, one of them the notice."""
+    lines = [re.sub(r"^(\[[\d:.,]+\])+|<[^>]*>", "", raw.strip()).strip() for raw in text.splitlines()]
+    lines = [line for line in lines if line and not re.match(r"^\[[a-z]+:", line)]  # [ti:] / [ar:] headers
+    return bool(lines) and len(lines) <= MAX_PLACEHOLDER_LINES and any(_PLACEHOLDER.search(line) for line in lines)
+
+
+def is_unusable_lyrics(text: str) -> bool:
+    """Words nobody can sing: a romanized Korean sheet, or an instrumental's notice."""
+    return is_romanized_korean(text) or is_placeholder(text)
 
 
 def is_romanized_korean(text: str) -> bool:
@@ -732,7 +749,7 @@ def find_word_entry(
     variants = title_variants(title)
     if video_id:
         entry = unison_for_video(video_id, duration_s)
-        if entry and entry.word_lines and not is_romanized_korean(entry.synced or ""):
+        if entry and entry.word_lines and not is_unusable_lyrics(entry.synced or ""):
             return entry
     for search_name, fetch_name, limit in TIMED_PROVIDERS:
         if search_name not in WORD_PROVIDERS:
@@ -740,7 +757,7 @@ def find_word_entry(
         search, fetch = globals()[search_name], globals()[fetch_name]
         for entry in _ordered(search(variants, names), variants, names, duration_s, fold, same_artist, other_script)[:limit]:
             fetch(entry)
-            if entry.word_lines and not is_romanized_korean(entry.synced or ""):
+            if entry.word_lines and not is_unusable_lyrics(entry.synced or ""):
                 return entry
     return None
 
@@ -766,12 +783,12 @@ def find_entry(
 
     for entry in ordered(lrclib_entries(variants)):
         text = entry.synced if want == "synced" else entry.synced or entry.plain
-        if text and not is_romanized_korean(text):
+        if text and not is_unusable_lyrics(text):
             return entry
     for search, fetch, limit in timed_providers():
         for entry in ordered(search(variants, names))[:limit]:
             fetch(entry)
-            if entry.synced and not is_romanized_korean(entry.synced):
+            if entry.synced and not is_unusable_lyrics(entry.synced):
                 if want != "synced":
                     entry.plain = plain_from_lrc(entry.synced)
                 return entry

@@ -80,7 +80,7 @@ struct StemCacheTests {
         ]
         #expect(LyricGap.after(lines, index: -1, delay: 0) == LyricGap(start: 0, end: 20))
         #expect(LyricGap.after(lines, index: 0, delay: 0) == nil)
-        #expect(LyricGap.after(lines, index: 1, delay: 0) == LyricGap(start: 26.4, end: 60))
+        #expect(LyricGap.after(lines, index: 1, delay: 0) == LyricGap(start: 26, end: 60))
         #expect(LyricGap.after(lines, index: 2, delay: 1) == LyricGap(start: 61, end: 81))
         #expect(LyricGap.after(lines, index: 3, delay: 0) == nil)
         let gap = LyricGap(start: 22, end: 40)

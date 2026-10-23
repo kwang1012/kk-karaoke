@@ -63,24 +63,24 @@ struct CoverPalette: Equatable, Sendable {
 
   /// Decode a small thumbnail on a worker, avoiding AppKit's first-use image work on the UI thread.
   static func decode(_ data: Data) -> CoverPalette {
-      guard let source = CGImageSourceCreateWithData(data as CFData, nil),
-        let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, [
-          kCGImageSourceCreateThumbnailFromImageAlways: true,
-          kCGImageSourceThumbnailMaxPixelSize: 64,
-          kCGImageSourceCreateThumbnailWithTransform: true,
-        ] as CFDictionary) else { return .fallback }
-      var pixels = [UInt8](repeating: 0, count: 64 * 64 * 4)
-      let drawn = pixels.withUnsafeMutableBytes { bytes -> Bool in
-        guard
-          let context = CGContext(
-            data: bytes.baseAddress, width: 64, height: 64,
-            bitsPerComponent: 8, bytesPerRow: 64 * 4, space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
-        else { return false }
-        context.draw(cg, in: CGRect(x: 0, y: 0, width: 64, height: 64))
-        return true
-      }
-      return drawn ? dominant(pixels: pixels) : .fallback
+    guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+      let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+        kCGImageSourceCreateThumbnailFromImageAlways: true,
+        kCGImageSourceThumbnailMaxPixelSize: 64,
+        kCGImageSourceCreateThumbnailWithTransform: true,
+      ] as CFDictionary) else { return .fallback }
+    var pixels = [UInt8](repeating: 0, count: 64 * 64 * 4)
+    let drawn = pixels.withUnsafeMutableBytes { bytes -> Bool in
+      guard
+        let context = CGContext(
+          data: bytes.baseAddress, width: 64, height: 64,
+          bitsPerComponent: 8, bytesPerRow: 64 * 4, space: CGColorSpaceCreateDeviceRGB(),
+          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+      else { return false }
+      context.draw(cg, in: CGRect(x: 0, y: 0, width: 64, height: 64))
+      return true
+    }
+    return drawn ? dominant(pixels: pixels) : .fallback
   }
 }
 

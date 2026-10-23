@@ -9,12 +9,15 @@ interface MiniLyricsState {
   /** False before the first line is sung. */
   current?: boolean;
   playing: boolean;
+  /** 0 to 1 */
+  volume: number;
 }
 
 interface Window {
   kkaraoke?: {
     onMediaKey: (callback: (action: 'toggle' | 'next' | 'previous') => void) => () => void;
     version: () => Promise<string>;
+    onMiniCommand: (callback: (command: { type: 'volume'; value: number }) => void) => () => void;
     publishMini: (state: MiniLyricsState) => void;
     toggleMini: () => void;
     windowControl: (action: 'minimize' | 'maximize' | 'close') => void;

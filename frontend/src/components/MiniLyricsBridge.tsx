@@ -1,11 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { usePlayer } from 'src/store/player';
 import { useTrackStore } from 'src/store/track';
 import { useSettingStore } from 'src/store/setting';
 
 /** Desktop app only: tells the floating lyrics window (public/mini-lyrics.html) what is being sung. */
 export default function MiniLyricsBridge() {
-  const { currentTrack, lyrics, progress, playing, loading } = usePlayer();
+  const { currentTrack, lyrics, progress, playing, loading, volume, setVolume } = usePlayer();
   const trackDelay = useTrackStore((state) => state.lyricsDelays[currentTrack?.id || ''] || 0);
   const lyricsLead = useSettingStore((state) => state.lyricsLead);
   const time = progress + lyricsLead - trackDelay; // the same offset the lyrics page applies
@@ -21,7 +21,16 @@ export default function MiniLyricsBridge() {
   const artist = currentTrack?.artists?.map((a) => a.name).join(', ');
 
   useEffect(() => {
-    window.kkaraoke?.publishMini({ title, artist, line, next, message, playing, current: index >= 0 });
-  }, [title, artist, line, next, message, playing, index >= 0]);
+    window.kkaraoke?.publishMini({ title, artist, line, next, message, playing, current: index >= 0, volume });
+  }, [title, artist, line, next, message, playing, index >= 0, volume]);
+
+  // the floating window's volume slider
+  const setVolumeRef = useRef(setVolume);
+  setVolumeRef.current = setVolume;
+  useEffect(() => {
+    return window.kkaraoke?.onMiniCommand((command) => {
+      if (command.type === 'volume') setVolumeRef.current(command.value);
+    });
+  }, []);
   return null;
 }

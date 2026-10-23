@@ -111,7 +111,7 @@ function toggleMini() {
     height,
     x: Math.round(workArea.x + (workArea.width - width) / 2),
     y: workArea.y + workArea.height - height - 24,
-    minWidth: 320,
+    minWidth: 360,
     minHeight: 130,
     frame: false,
     alwaysOnTop: true,
@@ -250,6 +250,12 @@ ipcMain.on('mini-ready', () => {
   if (lastMini && mini && !mini.isDestroyed()) mini.webContents.send('mini-state', lastMini);
 });
 ipcMain.on('mini-toggle', toggleMini);
+ipcMain.on('mini-command', (_event, command) => {
+  const volume = command && command.type === 'volume' ? Number(command.value) : NaN;
+  if (Number.isFinite(volume) && win && !win.isDestroyed()) {
+    win.webContents.send('mini-command', { type: 'volume', value: Math.min(1, Math.max(0, volume)) });
+  }
+});
 // The page's own window buttons (Windows).
 ipcMain.on('window-control', (_event, action) => {
   if (!win || win.isDestroyed()) return;

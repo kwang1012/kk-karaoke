@@ -21,6 +21,13 @@ contextBridge.exposeInMainWorld('kkaraoke', {
   // floating lyrics window
   onMiniState: (callback) => ipcRenderer.on('mini-state', (_event, state) => callback(state)),
   miniReady: () => ipcRenderer.send('mini-ready'),
+  // mini -> main window: set the volume
+  miniCommand: (command) => ipcRenderer.send('mini-command', command),
+  onMiniCommand: (callback) => {
+    const listener = (_event, command) => callback(command);
+    ipcRenderer.on('mini-command', listener);
+    return () => ipcRenderer.removeListener('mini-command', listener);
+  },
   mediaKey: (action) => ipcRenderer.send('media-key-request', action),
   version: () => ipcRenderer.invoke('app-version'),
 });

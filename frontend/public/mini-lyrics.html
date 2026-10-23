@@ -32,6 +32,15 @@
         background: transparent; opacity: 0.85;
       }
       button svg { display: block; }
+      .volume { display: flex; align-items: center; flex: none; gap: 2px; }
+      #mute { width: 26px; height: 26px; }
+      input[type='range'] {
+        -webkit-appearance: none; appearance: none; width: 72px; height: 4px; border-radius: 2px; cursor: pointer;
+        background: linear-gradient(to right, #fff var(--fill, 80%), rgba(255, 255, 255, 0.25) var(--fill, 80%));
+      }
+      input[type='range']::-webkit-slider-thumb {
+        -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #fff; border: 0;
+      }
       #toggle { width: 36px; height: 36px; }
       button:hover { background: rgba(255, 255, 255, 0.16); opacity: 1; }
     </style>
@@ -47,12 +56,17 @@
       <button id="toggle" aria-label="Play or pause" title="Play / Pause"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></svg></button>
       <button id="next-song" aria-label="Next song" title="Next song"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 4v16"/><path d="M6.029 4.285A2 2 0 0 0 3 6v12a2 2 0 0 0 3.029 1.715l9.997-5.998a2 2 0 0 0 .003-3.432z"/></svg></button>
       <div class="info"><div id="title"></div><div id="artist"></div></div>
+      <div class="volume">
+        <button id="mute" aria-label="Mute" title="Mute"></button>
+        <input id="volume" type="range" min="0" max="100" step="1" aria-label="Volume" />
+      </div>
       <button id="back" aria-label="Back to the main window" title="Back to the main window"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
     </div>
     <script>
       const api = window.kkaraoke;
       const $ = (id) => document.getElementById(id);
       const wrap = (inner) => '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + inner + '</svg>';
+      const VOLUME_ICONS = {"x": "<svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M11 4.702a.7.7 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.7.7 0 0 0 11 19.298z\"/><path d=\"m16.5 14.5 5-5\"/><path d=\"m16.5 9.5 5 5\"/></svg>", "low": "<svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z\"/><path d=\"M16 9a5 5 0 0 1 0 6\"/></svg>", "high": "<svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z\"/><path d=\"M16 9a5 5 0 0 1 0 6\"/><path d=\"M19.364 18.364a9 9 0 0 0 0-12.728\"/></svg>"};
       const ICONS = { play: wrap('<path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/>'), pause: wrap('<rect x="14" y="3" width="5" height="18" rx="1"/><rect x="5" y="3" width="5" height="18" rx="1"/>') };
       if (api) {
         api.onMiniState((s) => {
@@ -64,7 +78,30 @@
           $('line').classList.toggle('upcoming', s.current === false);
           $('next').textContent = s.message ? '' : s.next || '';
           $('toggle').innerHTML = s.playing ? ICONS.pause : ICONS.play;
+          if (typeof s.volume === 'number') showVolume(s.volume);
         });
+        let volume = 0.8;
+        let lastAudible = 0.8;
+        const showVolume = (value) => {
+          volume = value;
+          if (value > 0) lastAudible = value;
+          const slider = $('volume');
+          if (document.activeElement !== slider) slider.value = Math.round(value * 100);
+          slider.style.setProperty('--fill', Math.round(value * 100) + '%');
+          $('mute').innerHTML = value === 0 ? VOLUME_ICONS.x : value < 0.5 ? VOLUME_ICONS.low : VOLUME_ICONS.high;
+          $('mute').title = $('mute').ariaLabel = value === 0 ? 'Unmute' : 'Mute';
+        };
+        showVolume(volume);
+        $('volume').oninput = (e) => {
+          const value = Number(e.target.value) / 100;
+          showVolume(value);
+          api.miniCommand({ type: 'volume', value });
+        };
+        $('mute').onclick = () => {
+          const value = volume === 0 ? lastAudible || 0.8 : 0;
+          showVolume(value);
+          api.miniCommand({ type: 'volume', value });
+        };
         $('previous').onclick = () => api.mediaKey('previous');
         $('toggle').onclick = () => api.mediaKey('toggle');
         $('next-song').onclick = () => api.mediaKey('next');

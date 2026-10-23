@@ -203,6 +203,26 @@ struct MixerView: View {
       LabeledContent("Volume") { Slider(value: $player.masterVolume, in: 0...1).pointerStyle(.link) }
       LabeledContent("Original vocal") { Slider(value: $player.vocalVolume, in: 0...1).pointerStyle(.link) }
       LabeledContent("Instrumental") { Slider(value: $player.instrumentalVolume, in: 0...1).pointerStyle(.link) }
+      LabeledContent("Key") {
+        HStack(spacing: 4) {
+          Button {
+            player.perform(.decreaseSemitone)
+          } label: {
+            LucideIcon("minus", size: 14)
+          }
+          .buttonStyle(WebIconButtonStyle()).accessibilityLabel("Lower the key")
+          .disabled(player.semitone <= PlayerModel.semitoneRange.lowerBound)
+          Text(player.semitone > 0 ? "+\(player.semitone)" : "\(player.semitone)")
+            .font(.system(size: 13).monospacedDigit()).frame(width: 52)
+          Button {
+            player.perform(.increaseSemitone)
+          } label: {
+            LucideIcon("plus", size: 14)
+          }
+          .buttonStyle(WebIconButtonStyle()).accessibilityLabel("Raise the key")
+          .disabled(player.semitone >= PlayerModel.semitoneRange.upperBound)
+        }
+      }
       Divider()
       LabeledContent("Lyrics lead") {
         Slider(value: $player.lyricsLead, in: 0...1.5).pointerStyle(.link)

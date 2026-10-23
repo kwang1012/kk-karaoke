@@ -204,10 +204,13 @@ export default function LyricsView() {
                 {gapMarker(-1)}
                 {syncedLyrics.map((line, i) => (
                   <Fragment key={i}>
-                  <div className={['my-6 mx-16', isFullscreen ? 'text-center' : ''].join(' ')}>
+                  <div
+                    className={['my-6 mx-16 cursor-pointer', isFullscreen ? 'text-center' : ''].join(' ')}
+                    onClick={handleLineClick.bind(null, i)}
+                  >
                     <span
                       className={[
-                        'origin-left cursor-pointer text-[2.5vw] leading-snug font-bold transition-all duration-300 hover:opacity-100',
+                        'origin-left text-[2.5vw] leading-snug font-bold transition-all duration-300 hover:opacity-100',
                         i <= currentLine ? 'text-white' : 'opacity-70',
                         i === currentLine && !isFullscreen && 'scale-[1.04]',
                         isFullscreen ? 'text-center text-[3vw]' : '',
@@ -216,7 +219,6 @@ export default function LyricsView() {
                       ref={(el) => {
                         lineRefs.current[i] = el;
                       }}
-                      onClick={handleLineClick.bind(null, i)}
                     >
                       {wordHighlight && i === currentLine && line.words?.length ? (
                         <WordLine words={line.words} delay={lyricsDelay} progress={progress} playing={playing} dimColor={color} />

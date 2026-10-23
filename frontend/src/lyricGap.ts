@@ -25,6 +25,9 @@ export function gapAfter(lines: GapLine[], index: number, delay: number): { star
   return next.time - start >= GAP_MIN_S ? { start, end: next.time } : null;
 }
 
+/** The number is shown only for the last seconds of the wait. */
+export const COUNTDOWN_S = 3;
+
 /** Whole seconds left on the countdown to the next line. */
 export function countdown(gap: { end: number }, progress: number): number {
   return Math.max(1, Math.ceil(gap.end - progress));

@@ -7,6 +7,9 @@ final class StemPlayer {
     private let engine = AVAudioEngine()
     private let vocalNode = AVAudioPlayerNode()
     private let instrumentalNode = AVAudioPlayerNode()
+    /// The key change: each stem is shifted by the same number of semitones, without changing its speed.
+    private let vocalPitch = AVAudioUnitTimePitch()
+    private let instrumentalPitch = AVAudioUnitTimePitch()
     private var vocalFile: AVAudioFile?
     private var instrumentalFile: AVAudioFile?
     /// The song position the nodes were last started from.
@@ -21,6 +24,8 @@ final class StemPlayer {
     init() {
         engine.attach(vocalNode)
         engine.attach(instrumentalNode)
+        engine.attach(vocalPitch)
+        engine.attach(instrumentalPitch)
     }
 
     var isLoaded: Bool { instrumentalFile != nil }
@@ -32,8 +37,12 @@ final class StemPlayer {
         engine.stop()
         engine.disconnectNodeOutput(vocalNode)
         engine.disconnectNodeOutput(instrumentalNode)
-        engine.connect(vocalNode, to: engine.mainMixerNode, format: vocalFile.processingFormat)
-        engine.connect(instrumentalNode, to: engine.mainMixerNode, format: instrumentalFile.processingFormat)
+        engine.disconnectNodeOutput(vocalPitch)
+        engine.disconnectNodeOutput(instrumentalPitch)
+        engine.connect(vocalNode, to: vocalPitch, format: vocalFile.processingFormat)
+        engine.connect(vocalPitch, to: engine.mainMixerNode, format: vocalFile.processingFormat)
+        engine.connect(instrumentalNode, to: instrumentalPitch, format: instrumentalFile.processingFormat)
+        engine.connect(instrumentalPitch, to: engine.mainMixerNode, format: instrumentalFile.processingFormat)
         self.vocalFile = vocalFile
         self.instrumentalFile = instrumentalFile
         duration = max(Self.length(vocalFile), Self.length(instrumentalFile))
@@ -48,6 +57,13 @@ final class StemPlayer {
         engine.stop()
         try engine.outputNode.auAudioUnit.setDeviceID(id)
         if isLoaded { engine.prepare() }
+    }
+
+    /// Raises (or lowers) the song by `semitone` semitones, playing or not.
+    func setSemitone(_ semitone: Int) {
+        let cents = Float(semitone * 100)
+        vocalPitch.pitch = cents
+        instrumentalPitch.pitch = cents
     }
 
     func setVolumes(vocal: Float, instrumental: Float) {

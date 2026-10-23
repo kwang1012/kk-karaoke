@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { GAP_MIN_S, countdown, gapAfter } from './lyricGap.ts';
+import { COUNTDOWN_S, GAP_MIN_S, countdown, gapAfter } from './lyricGap.ts';
 
 const lines = [
   { time: 20, text: 'a', words: [{ end: 4 }, { end: 22 }] },
@@ -36,4 +36,8 @@ test('lines without word timing are guessed', () => {
 test('the countdown rounds up and never shows zero', () => {
   assert.equal(countdown({ end: 40 }, 36.2), 4);
   assert.equal(countdown({ end: 40 }, 39.99), 1);
+});
+
+test('only the last seconds are counted out', () => {
+  assert.equal(COUNTDOWN_S, 3);
 });

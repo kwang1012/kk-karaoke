@@ -1,9 +1,7 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "" : {
-
-    },
+    "" : {},
     "(%@)" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2294,9 +2292,7 @@
         }
       }
     },
-    "Mix, lyrics timing and output" : {
-
-    },
+    "Mix, lyrics timing and output" : {},
     "More options" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5387,6 +5383,57 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "房間已開啟，分享 QR code 或連結讓朋友加入。"
+          }
+        }
+      }
+    },
+    "Key" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音调"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音調"
+          }
+        }
+      }
+    },
+    "Lower the key" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "降低音调"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "降低音調"
+          }
+        }
+      }
+    },
+    "Raise the key" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "升高音调"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "升高音調"
           }
         }
       }

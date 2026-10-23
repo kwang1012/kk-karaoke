@@ -77,6 +77,8 @@ enum LyricsTiming {
 struct LyricGap: Equatable, Sendable {
     /// A wait at least this long (seconds) is marked.
     static let minimum = 5.0
+    /// The number is shown only for the last seconds of the wait.
+    static let countdownSeconds = 3
 
     var start: Double
     var end: Double

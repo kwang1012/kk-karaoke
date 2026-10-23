@@ -41,6 +41,9 @@ final class PlayerModel {
     }
     /// The original singer at full level, whatever the guide level says.
     var vocalOn = false { didSet { applyVolumes() } }
+    /// The key change in semitones (-12...12), for the song and the melody that follows it.
+    private(set) var semitone = 0 { didSet { stems.setSemitone(semitone) } }
+    static let semitoneRange = -12...12
     /// Seconds the lyrics show before the singing, for this Mac's speakers and screen. Not shared with other devices.
     var lyricsLead: Double { didSet { UserDefaults.standard.set(lyricsLead, forKey: Keys.lead) } }
 
@@ -64,6 +67,7 @@ final class PlayerModel {
         case volume(Double)
         case toggleVocal
         case guideLevel(Double)
+        case increaseSemitone, decreaseSemitone
     }
 
     /// Following another device's room: nothing plays here, and the time and state come from the room.
@@ -159,9 +163,16 @@ final class PlayerModel {
         case .volume(let value): applyingRemote = fromRemote; masterVolume = min(1, max(0, value)); applyingRemote = false
         case .toggleVocal: vocalOn.toggle()
         case .guideLevel(let level): applyingRemote = fromRemote; vocalVolume = min(1, max(0, level)); applyingRemote = false
+        case .increaseSemitone: setSemitone(semitone + 1)
+        case .decreaseSemitone: setSemitone(semitone - 1)
         case .next, .previous: break // the queue decides
         }
         if !fromRemote { onControl?(control) }
+    }
+
+    /// Sets the key here; a follower only mirrors the room's, which changes on the owner's word.
+    func setSemitone(_ value: Int) {
+        semitone = min(Self.semitoneRange.upperBound, max(Self.semitoneRange.lowerBound, value))
     }
 
     private func resume() {
@@ -223,8 +234,9 @@ final class PlayerModel {
 
     /// What the room's owner last announced.
     func applyRemote(time: Double? = nil, playing: Bool? = nil, duration: Double? = nil, volume: Double? = nil,
-                     vocalOn: Bool? = nil, guideLevel: Double? = nil) {
+                     vocalOn: Bool? = nil, guideLevel: Double? = nil, semitone: Int? = nil) {
         guard isFollower else { return }
+        if let semitone { setSemitone(semitone) }
         if let time { remoteClock = (time, ProcessInfo.processInfo.systemUptime); if !isPlaying { seekCount += 1 } }
         if let playing { isPlaying = playing }
         if let duration, duration > 0 { self.duration = duration }

@@ -272,11 +272,11 @@ final class SingingModel {
       }
     }
     let sung = hz.map(PitchDetector.midi(fromHz:))
-    let on = player.isPlaying ? scorer.update(time: time, sung: sung, notes: melody) : nil
+    let on = player.isPlaying ? scorer.update(time: time, sung: sung, notes: melody, shift: Double(player.semitone)) : nil
     if let sung {
       let target = Scoring.noteUnder(melody, time)
       let hit =
-        target.map { abs(Scoring.semitonesOff(sung, $0.note)) <= Scoring.tolerance } ?? false
+        target.map { abs(Scoring.semitonesOff(sung, $0.note + Double(player.semitone))) <= Scoring.tolerance } ?? false
       trail.append(Sample(time: time, midi: sung, on: on ?? hit))
     }
     trail.removeAll { $0.time < time - Self.trailSeconds || $0.time > time + 1 }

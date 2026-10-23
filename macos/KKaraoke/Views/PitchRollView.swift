@@ -38,8 +38,9 @@ struct PitchRollView: View {
       state.trackId = player.track?.id
     }
     let time = player.currentTime
+    let shift = Double(player.semitone)
     let wanted = RollView.fitting(
-      notes, from: time - Self.past, to: time + Self.future, shift: 0, song: singing.range)
+      notes, from: time - Self.past, to: time + Self.future, shift: shift, song: singing.range)
     let view = state.view.map { $0.eased(toward: wanted, Self.follow) } ?? wanted
     state.view = view
 
@@ -83,7 +84,7 @@ struct PitchRollView: View {
       let opacity = sounding ? 0.98 : n.end < time ? 0.28 : 0.7
       let left = x(n.start)
       let rect = CGRect(
-        x: left, y: onScreen(n.note) - barHeight / 2, width: max(3, x(n.end) - left),
+        x: left, y: onScreen(n.note + shift) - barHeight / 2, width: max(3, x(n.end) - left),
         height: barHeight)
       context.fill(
         Path(roundedRect: rect, cornerRadius: min(barHeight / 2, 6)),
@@ -91,7 +92,7 @@ struct PitchRollView: View {
     }
 
     // Your voice, drawn in whichever octave sits nearest the note you are meant to be on
-    let anchor = Scoring.noteUnder(notes, time)?.note
+    let anchor = Scoring.noteUnder(notes, time).map { $0.note + shift }
     let dot = max(3, min(6, rowHeight * 0.35))
     let near = anchor ?? (view.lo + view.hi) / 2
     for s in singing.trail {

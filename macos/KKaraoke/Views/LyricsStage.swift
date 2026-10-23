@@ -203,7 +203,7 @@ struct LyricGapMarker: View {
             let seconds = active ? gap.countdown(at: player.currentTime) : nil
             HStack(spacing: size * 0.4) {
                 LucideIcon("music", size: size)
-                if let seconds {
+                if let seconds, seconds <= LyricGap.countdownSeconds {
                     Text("\(seconds)").font(.system(size: size, weight: .bold).monospacedDigit())
                         .contentTransition(.numericText())
                 }
@@ -211,7 +211,7 @@ struct LyricGapMarker: View {
             .frame(maxWidth: .infinity, alignment: centered ? .center : .leading)
             .opacity(seconds == nil ? 0.3 : 1)
             .accessibilityHidden(seconds == nil)
-            .accessibilityLabel(seconds.map { "\($0)" } ?? "")
+            .accessibilityLabel(seconds.map { $0 <= LyricGap.countdownSeconds ? "\($0)" : "" } ?? "")
         }
     }
 }

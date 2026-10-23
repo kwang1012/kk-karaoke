@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, Tray, dialog, globalShortcut, ipcMain, nativeImage, shell } = require('electron');
+const { app, BrowserWindow, Menu, Notification, Tray, dialog, globalShortcut, ipcMain, nativeImage, shell } = require('electron');
 const path = require('path');
 
 const isMac = process.platform === 'darwin';
@@ -27,6 +27,9 @@ function writeSettings(patch) {
   }
 }
 
+// Started by Windows at sign-in ("Start with Windows"): stay in the tray until the user opens the window.
+let startHidden = process.argv.includes('--hidden');
+
 let win = null;
 let mini = null;
 let lastMini = null;
@@ -43,6 +46,7 @@ const MEDIA_KEYS = {
 function createWindow() {
   win = new BrowserWindow({
     useContentSize: true,
+    show: !startHidden,
     width: 1440,
     height: 810,
     minWidth: 900,
@@ -69,6 +73,8 @@ function createWindow() {
   win.on('restore', () => {
     if (mini && !mini.isDestroyed()) mini.close();
   });
+  win.once('ready-to-show', updateTaskbar);
+  win.on('show', updateTaskbar);
   win.on('maximize', () => win.webContents.send('window-maximized', true));
   win.on('unmaximize', () => win.webContents.send('window-maximized', false));
 
@@ -183,6 +189,25 @@ async function checkForUpdatesNow() {
   }
 }
 
+// Taskbar (Windows): previous / play-pause / next under the window's thumbnail, and the song's progress on its icon.
+const taskbarIcon = (name) => nativeImage.createFromPath(path.join(__dirname, 'taskbar', `${name}.png`));
+let playing = false;
+function updateTaskbar() {
+  if (!isWindows || !win || win.isDestroyed()) return;
+  win.setThumbarButtons([
+    { tooltip: 'Previous', icon: taskbarIcon('previous'), click: () => sendMediaKey('previous') },
+    { tooltip: playing ? 'Pause' : 'Play', icon: taskbarIcon(playing ? 'pause' : 'play'), click: () => sendMediaKey('toggle') },
+    { tooltip: 'Next', icon: taskbarIcon('next'), click: () => sendMediaKey('next') },
+  ]);
+}
+
+// "Start with Windows": opens KKaraoke in the tray when you sign in. Only the installed app can register itself.
+const loginArgs = ['--hidden'];
+const startsWithWindows = () => app.getLoginItemSettings({ args: loginArgs }).openAtLogin;
+function setStartWithWindows(on) {
+  if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: on, args: loginArgs });
+}
+
 function trayMenu() {
   return Menu.buildFromTemplate([
     { label: 'Open KKaraoke', click: showWindow },
@@ -194,6 +219,14 @@ function trayMenu() {
       checked: readSettings().floatingLyricsOnMinimize,
       click: (item) => writeSettings({ floatingLyricsOnMinimize: item.checked }),
     },
+    {
+      label: 'Start with Windows',
+      type: 'checkbox',
+      checked: startsWithWindows(),
+      enabled: app.isPackaged,
+      click: (item) => setStartWithWindows(item.checked),
+    },
+    { type: 'separator' },
     { label: 'Play / Pause', click: () => sendMediaKey('toggle') },
     { label: 'Next', click: () => sendMediaKey('next') },
     { label: 'Previous', click: () => sendMediaKey('previous') },
@@ -223,6 +256,7 @@ if (!app.requestSingleInstanceLock()) {
       createTray();
     }
     createWindow();
+    startHidden = false;
     setupUpdates();
     for (const [key, action] of Object.entries(MEDIA_KEYS)) {
       globalShortcut.register(key, () => sendMediaKey(action));
@@ -241,7 +275,27 @@ if (!app.requestSingleInstanceLock()) {
 
 ipcMain.on('mini-state', (_event, state) => {
   lastMini = state;
+  if (!!state?.playing !== playing) {
+    playing = !!state?.playing;
+    updateTaskbar();
+  }
   if (mini && !mini.isDestroyed()) mini.webContents.send('mini-state', state);
+});
+// A toast from the page ("your song is ready"); clicking it brings the app back.
+ipcMain.on('notify', (_event, payload) => {
+  if (!Notification.isSupported() || !payload) return;
+  const title = String(payload.title || '').slice(0, 120);
+  const body = String(payload.body || '').slice(0, 240);
+  if (!title) return;
+  const toast = new Notification({ title, body, icon: iconPath });
+  toast.on('click', showWindow);
+  toast.show();
+});
+ipcMain.on('taskbar-progress', (_event, payload) => {
+  if (!win || win.isDestroyed()) return;
+  const fraction = Number(payload?.fraction);
+  if (!(fraction >= 0 && fraction <= 1)) win.setProgressBar(-1);
+  else win.setProgressBar(fraction, { mode: payload.playing ? 'normal' : 'paused' });
 });
 ipcMain.on('mini-ready', () => {
   if (lastMini && mini && !mini.isDestroyed()) mini.webContents.send('mini-state', lastMini);

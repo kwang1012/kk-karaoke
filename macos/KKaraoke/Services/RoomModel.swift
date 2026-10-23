@@ -230,6 +230,8 @@ final class RoomModel {
 
     private func add(_ track: Track, next: Bool, thenPlay: Bool) async {
         guard let client = clientProvider?() else { return }
+        // the first song into an empty queue starts by itself
+        let wasEmpty = queue.isEmpty
         // where the song lands: right after the current one, or at the end
         let landing = next ? (queue.isEmpty ? 0 : queueIdx + 1) : queue.count
         var entry = track
@@ -237,7 +239,7 @@ final class RoomModel {
         entry.status = nil
         entry.progress = nil
         message = nil
-        if thenPlay, !isGuest { wantsPlay = true } // so the song starts as it loads
+        if (thenPlay || wasEmpty), !isGuest { wantsPlay = true } // so the song starts as it loads
         if offline { localAdd(entry, next: next, thenPlay: thenPlay); return }
         do {
             try await client.addToQueue(room: activeRoomId, track: entry, next: next)
@@ -247,15 +249,21 @@ final class RoomModel {
                 await setIndex(landing, announce: .next)
             } else if currentTrack == nil, !isGuest, !queue.isEmpty {
                 await setIndex(0, announce: nil) // the first song is made ready, paused
+            } else if wasEmpty, isGuest, !queue.isEmpty {
+                socket.send(.control("play", room: activeRoomId)) // the room's player starts it
             }
         } catch APIError.status(403, let detail) {
+            if wasEmpty, !thenPlay { wantsPlay = false } // the song is not on its way
             if !isGuest, let auth, auth.isEnabled, auth.accessToken == nil {
                 auth.requireSignIn(.addSong, retry: { [weak self] in Task { await self?.add(track, next: next, thenPlay: thenPlay) } })
             } else { message = detail ?? tr("That song has to be processed first, and only a host can start that.") }
         } catch APIError.offline {
             offline = true
             localAdd(entry, next: next, thenPlay: thenPlay)
-        } catch { message = error.localizedDescription }
+        } catch {
+            if wasEmpty, !thenPlay { wantsPlay = false }
+            message = error.localizedDescription
+        }
     }
 
     // MARK: The queue without a server
@@ -485,7 +493,10 @@ final class RoomModel {
     private func handle(_ message: SocketMessage) {
         switch message.type {
         case "jam": handleJam(message)
-        case "queue": scheduleQueueRefresh()
+        case "queue":
+            // the first song into an empty queue starts by itself, on the screen that plays
+            if message.data?["autoplay"]?.bool == true, !isGuest { wantsPlay = true }
+            scheduleQueueRefresh()
         case "notify": handleNotify(message)
         default: break
         }

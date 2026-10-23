@@ -9,6 +9,9 @@ from services.queue_order import QueueOrder, order_queue
 import time
 
 
+HISTORY_SIZE = 100
+
+
 def _same_entry(stored: Track, other: Track) -> bool:
     """Whether two tracks are the same queue entry (a song can be queued more than once).
 
@@ -114,6 +117,24 @@ class RedisQueueInterface:
             json.dumps(trimmed_track.model_dump()),
         )
         return idx  # type: ignore
+
+    def add_user_track(self, room_id: str, track: Track) -> int:
+        """Queue a song someone ordered: after the songs ordered before it, ahead of the recommended ones."""
+        queue = self.get_queue(room_id)
+        idx = self.get_current_idx(room_id)
+        first = next((i for i in range(idx + 1, len(queue)) if queue[i].recommended), None)
+        if first is None:
+            return self.add_track_to_queue(room_id, track) - 1
+        track.time_added = time.time_ns()
+        self.redis.sadd(RedisKeys.TRACK_DATA_SET, json.dumps(track.model_dump()))
+        queue.insert(first, track)
+        self.set_queue(room_id, queue)
+        return first
+
+    def add_recommended(self, room_id: str, tracks: List[Track]) -> None:
+        for track in tracks:
+            track.recommended = True
+            self.add_track_to_queue(room_id, track)
 
     def add_track_to_next(self, room_id: str, track: Track) -> int:
         current_queue = self.get_queue(room_id)
@@ -253,6 +274,30 @@ class RedisQueueInterface:
     def room_exists(self, room_id: str) -> bool:
         room_key = RedisKeys.room(room_id)
         return self.redis.exists(room_key)  # type: ignore
+
+    # --- Order history ---
+    def record_history(self, user_id: str, track: Track) -> None:
+        """Remember that a user ordered a song: newest first, once per song, the last HISTORY_SIZE kept."""
+        key = RedisKeys.user_history(user_id)
+        entry = Track(
+            id=track.id, name=track.name, artists=track.artists, album=track.album,
+            duration_ms=track.duration_ms, video_id=track.video_id, kind=track.kind,
+        )
+        with self.redis.pipeline() as pipe:
+            for raw in self.redis.lrange(key, 0, -1):  # type: ignore
+                if json.loads(raw).get("id") == track.id:
+                    pipe.lrem(key, 0, raw)
+            pipe.lpush(key, json.dumps(entry.model_dump()))
+            pipe.ltrim(key, 0, HISTORY_SIZE - 1)
+            pipe.execute()
+
+    def get_history(self, user_id: str, limit: int = HISTORY_SIZE) -> List[Track]:
+        try:
+            raw: list[Any] = self.redis.lrange(RedisKeys.user_history(user_id), 0, limit - 1)  # type: ignore
+            return [Track(**json.loads(item)) for item in raw]
+        except redis.RedisError as e:
+            print(f"Error getting history of {user_id}: {e}")
+            return []
 
     # --- Track Data Operations ---
     def store_track_data(self, track: Track) -> None:

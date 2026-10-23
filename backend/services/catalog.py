@@ -142,6 +142,37 @@ def track_from_video_id(video_id: str) -> Optional[dict[str, Any]]:
     }, "video")
 
 
+def _seconds(length: Any) -> Optional[int]:
+    """"3:45" or "1:02:03" as seconds."""
+    try:
+        parts = [int(p) for p in str(length).split(":")]
+    except ValueError:
+        return None
+    seconds = 0
+    for part in parts:
+        seconds = seconds * 60 + part
+    return seconds
+
+
+def related_tracks(video_id: str) -> list[dict[str, Any]]:
+    """Songs YouTube Music's radio plays after this one (not the song itself). Empty when it is unavailable."""
+    def fetch():
+        try:
+            hits = _ytm().get_watch_playlist(video_id, limit=25, radio=True).get("tracks") or []
+        except Exception as e:  # noqa: BLE001 - unofficial API; the caller falls back
+            log.warning("YT Music related tracks of %s failed: %r", video_id, e)
+            return []
+        tracks = []
+        for hit in hits:
+            hit = {**hit, "duration_seconds": hit.get("duration_seconds") or _seconds(hit.get("length")),
+                   "thumbnails": hit.get("thumbnails") or hit.get("thumbnail") or []}
+            track = to_track(hit, _kind(hit))
+            if track and track["id"] != video_id:
+                tracks.append(track)
+        return tracks
+    return _cached(f"related:{video_id}", 3600, fetch) or []
+
+
 # --- collections: albums, playlists, home shelves --------------------------------------
 
 # A karaoke song is not a ten second clip or an hour-long compilation.

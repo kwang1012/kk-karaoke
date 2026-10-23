@@ -5,7 +5,7 @@ import { useSettingStore } from 'src/store/setting';
 
 /** Desktop app only: tells the floating lyrics window (public/mini-lyrics.html) what is being sung. */
 export default function MiniLyricsBridge() {
-  const { currentTrack, lyrics, progress, playing, loading, volume, setVolume, vocalOn, toggleVocal } = usePlayer();
+  const { currentTrack, lyrics, progress, playing, loading, volume, setVolume, vocalOn, toggleVocal, duration } = usePlayer();
   const trackDelay = useTrackStore((state) => state.lyricsDelays[currentTrack?.id || ''] || 0);
   const lyricsLead = useSettingStore((state) => state.lyricsLead);
   const time = progress + lyricsLead - trackDelay; // the same offset the lyrics page applies
@@ -23,6 +23,12 @@ export default function MiniLyricsBridge() {
   useEffect(() => {
     window.kkaraoke?.publishMini({ title, artist, line, next, message, playing, current: index >= 0, volume, vocalOn });
   }, [title, artist, line, next, message, playing, index >= 0, volume, vocalOn]);
+
+  // the song's progress on the taskbar icon, once a second
+  const progressSecond = Math.floor(progress);
+  useEffect(() => {
+    window.kkaraoke?.setProgress(currentTrack && duration > 0 ? progress / duration : -1, playing);
+  }, [currentTrack?.id, progressSecond, duration, playing]);
 
   // the floating window's volume slider and karaoke toggle
   const actions = useRef({ setVolume, toggleVocal });

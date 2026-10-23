@@ -62,10 +62,12 @@ struct Track: Codable, Hashable, Identifiable, Sendable {
     /// How far the server is with processing it: "ready", or the stage it is at.
     var status: String?
     var progress: Double?
+    /// Suggested by the server to keep the queue going, not ordered by anyone. Songs people order are queued ahead of these.
+    var recommended = false
 
     init(id: String, name: String, artists: [Artist] = [], album: Album? = nil, durationMs: Int? = nil,
          timeAdded: Int? = nil, videoId: String? = nil, kind: String? = nil, orderedBy: User? = nil,
-         status: String? = nil, progress: Double? = nil) {
+         status: String? = nil, progress: Double? = nil, recommended: Bool = false) {
         self.id = id
         self.name = name
         self.artists = artists
@@ -77,6 +79,7 @@ struct Track: Codable, Hashable, Identifiable, Sendable {
         self.orderedBy = orderedBy
         self.status = status
         self.progress = progress
+        self.recommended = recommended
     }
 
     init(from decoder: Decoder) throws {
@@ -92,6 +95,7 @@ struct Track: Codable, Hashable, Identifiable, Sendable {
         orderedBy = try? c.decodeIfPresent(User.self, forKey: .orderedBy)
         status = try c.decodeIfPresent(String.self, forKey: .status)
         progress = try c.decodeIfPresent(Double.self, forKey: .progress)
+        recommended = try c.decodeIfPresent(Bool.self, forKey: .recommended) ?? false
     }
 
     /// The same song put in the queue at the same moment: the queue may hold one song twice.

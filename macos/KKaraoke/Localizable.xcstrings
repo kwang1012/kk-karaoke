@@ -2457,6 +2457,23 @@
         }
       }
     },
+    "SUGGESTED FOR YOU" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "为你推荐"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "為你推薦"
+          }
+        }
+      }
+    },
     "NEXT UP" : {
       "extractionState" : "manual",
       "localizations" : {

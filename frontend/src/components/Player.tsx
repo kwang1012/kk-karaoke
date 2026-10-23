@@ -229,6 +229,14 @@ export const Player = () => {
     });
   }, [connected, activeRoomId, isOwner]);
 
+  // The first song into an empty queue starts by itself. The server says so with the song, so this holds whatever
+  // order the screens hear things in; the song plays as soon as it has loaded (see the end of `load`).
+  useRemoteMessageQueue('queue', {
+    onAddItem: (message) => {
+      if (message.data?.autoplay && message.data.track) usePlayerStore.getState().setPlayRequested(true);
+    },
+  });
+
   // Lyrics timing adjusted by anyone is shared with everyone
   useRemoteMessageQueue('lyrics', {
     onAddItem: (message) => {

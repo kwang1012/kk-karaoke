@@ -51,7 +51,7 @@ export default function MobilePlayer({ color }: { color?: string }) {
         <div className="w-full px-6 pt-5 text-white">
           {tracks.length > 0 && (
             <div className="mb-2 flex items-center justify-between gap-2">
-              <h2 className="text-lg font-semibold">{t('queue.nextUp')}</h2>
+              <h2 className="text-lg font-semibold">{t(tracks.every((track) => track.recommended) ? 'queue.suggested' : 'queue.nextUp')}</h2>
               <QueueOrderControls />
             </div>
           )}

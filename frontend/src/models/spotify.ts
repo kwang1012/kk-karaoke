@@ -31,6 +31,8 @@ export type Track = {
   orderedBy?: User;
   status?: SongStatus;
   progress?: number;
+  /** Suggested by the server to keep the queue going; songs people order are queued ahead of these. */
+  recommended?: boolean;
   [key: string]: any; // Allow additional properties
   // ... any other metadata
 };

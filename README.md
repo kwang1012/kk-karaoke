@@ -328,6 +328,10 @@ set VITE_API_ADDR=api.kkaraoke.app   # PowerShell: $env:VITE_API_ADDR="api.kkara
 yarn package-windows                 # frontend/dist/KKaraoke-Setup.exe
 ```
 
+To ship an update, bump `version` in `frontend/package.json`, run `yarn package-windows`, then `yarn publish-windows`
+(uploads the installer and `latest.yml` to `updates.kkaraoke.app/windows/`). Installed apps check at launch and every four
+hours, download in the background and ask before restarting, or install when you quit.
+
 Or run the **Windows app** workflow in GitHub Actions and download the installer from its artifacts. The installer is not
 code-signed, so SmartScreen shows an "unknown publisher" warning the first time. `yarn build:electron && yarn electron`
 runs it without packaging.

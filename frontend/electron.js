@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, Tray, globalShortcut, ipcMain, nativeImage, shell } = require('electron');
+const { app, BrowserWindow, Menu, Tray, dialog, globalShortcut, ipcMain, nativeImage, shell } = require('electron');
 const path = require('path');
 
 const isMac = process.platform === 'darwin';
@@ -77,6 +77,50 @@ function sendMediaKey(action) {
   if (win && !win.isDestroyed()) win.webContents.send('media-key', action);
 }
 
+// Over-the-air updates (Windows): the installer and latest.yml are published to updates.kkaraoke.app/windows
+// (see scripts/publish-windows.sh). A new version downloads in the background; nothing restarts mid-song,
+// the user picks when, or it installs the next time the app quits.
+const UPDATE_CHECK_MS = 4 * 60 * 60 * 1000;
+let updater = null;
+
+function setupUpdates() {
+  if (!isWindows || !app.isPackaged) return;
+  updater = require('electron-updater').autoUpdater;
+  updater.autoDownload = true;
+  updater.autoInstallOnAppQuit = true;
+  updater.on('error', (error) => console.error('update check failed:', error?.message || error));
+  updater.on('update-downloaded', async (info) => {
+    const { response } = await dialog.showMessageBox(win && !win.isDestroyed() ? win : undefined, {
+      type: 'info',
+      buttons: ['Restart now', 'Later'],
+      defaultId: 1,
+      cancelId: 1,
+      title: 'Update ready',
+      message: `KKaraoke ${info.version} is ready to install.`,
+      detail: 'Restart to update now, or it installs the next time you quit KKaraoke.',
+    });
+    if (response === 0) {
+      quitting = true;
+      updater.quitAndInstall();
+    }
+  });
+  const check = () => updater.checkForUpdates().catch(() => {});
+  check();
+  setInterval(check, UPDATE_CHECK_MS);
+}
+
+async function checkForUpdatesNow() {
+  if (!updater) return;
+  try {
+    const result = await updater.checkForUpdates();
+    if (!result?.isUpdateAvailable) {
+      dialog.showMessageBox({ type: 'info', message: 'KKaraoke is up to date.', detail: `Version ${app.getVersion()}` });
+    }
+  } catch {
+    dialog.showMessageBox({ type: 'error', message: 'Could not check for updates.', detail: 'Check your connection and try again.' });
+  }
+}
+
 function createTray() {
   tray = new Tray(nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 }));
   tray.setToolTip('KKaraoke');
@@ -88,6 +132,7 @@ function createTray() {
       { label: 'Next', click: () => sendMediaKey('next') },
       { label: 'Previous', click: () => sendMediaKey('previous') },
       { type: 'separator' },
+      ...(app.isPackaged ? [{ label: `Check for updates (v${app.getVersion()})`, click: checkForUpdatesNow }] : []),
       { label: 'Quit', click: () => app.quit() },
     ])
   );
@@ -107,6 +152,7 @@ if (!app.requestSingleInstanceLock()) {
       createTray();
     }
     createWindow();
+    setupUpdates();
     for (const [key, action] of Object.entries(MEDIA_KEYS)) {
       globalShortcut.register(key, () => sendMediaKey(action));
     }

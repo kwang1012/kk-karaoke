@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useTvMode } from 'src/hooks/tvMode';
 import { ChevronLeft, ChevronRight, LibraryBig, Settings, Tv, UserPlus } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -44,31 +43,12 @@ export default function TopBar() {
     },
   });
 
-  // Windows: the header moves the window (and a double click maximizes), see 'window-drag' in electron.js
-  useEffect(() => {
-    if (!isElectronWindows) return;
-    const stop = () => window.kkaraoke?.windowDrag(false);
-    window.addEventListener('mouseup', stop);
-    window.addEventListener('blur', stop);
-    return () => {
-      window.removeEventListener('mouseup', stop);
-      window.removeEventListener('blur', stop);
-    };
-  }, []);
-  const interactive = (target: EventTarget) => !!(target as HTMLElement).closest('a, button, input, textarea, select, [role="button"]');
-  const onHeaderMouseDown = (event: React.MouseEvent) => {
-    if (isElectronWindows && event.button === 0 && !interactive(event.target)) window.kkaraoke?.windowDrag(true);
-  };
-  const onHeaderDoubleClick = (event: React.MouseEvent) => {
-    if (isElectronWindows && !interactive(event.target)) window.kkaraoke?.windowControl('maximize');
-  };
-
   const handleSearchChange = (value: string) => {
     setSearchValue(value);
     setSearching(value !== '');
   };
   return (
-    <header onMouseDown={onHeaderMouseDown} onDoubleClick={onHeaderDoubleClick} className={cn('flex h-12 shrink-0 touch-none items-center gap-3 select-none max-md:hidden [&_a]:[-webkit-app-region:no-drag] [&_button]:[-webkit-app-region:no-drag] [&_input]:[-webkit-app-region:no-drag]', isElectronWindows ? 'pr-36' : '[-webkit-app-region:drag]')}>
+    <header className={cn('flex h-12 shrink-0 touch-none items-center gap-3 select-none max-md:hidden [&_a]:[-webkit-app-region:no-drag] [&_button]:[-webkit-app-region:no-drag] [&_input]:[-webkit-app-region:no-drag]', isElectronWindows ? 'pr-36' : '[-webkit-app-region:drag]')}>
       <div className="flex items-center gap-1">
         {/* the logo doubles as the home button; hidden in the Mac app to leave room for the window controls */}
         <Tooltip title={t('nav.home')} side="bottom">

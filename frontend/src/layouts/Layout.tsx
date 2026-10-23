@@ -10,6 +10,7 @@ import { useBreakpointDown } from 'src/hooks/media';
 import { useSettingStore } from 'src/store/setting';
 import WindowControls from 'src/components/WindowControls';
 import { isElectronWindows } from 'src/utils/platform';
+import { useWindowDrag } from 'src/hooks/windowDrag';
 
 // lazy import mobile components
 const AppNavigation = lazy(() => import('src/components/Navigation'));
@@ -20,6 +21,7 @@ export default function Layout() {
   const mobile = useBreakpointDown('md');
   const isFullScreen = useSettingStore((state) => state.isFullScreen);
   const queueOpen = useSettingStore((state) => state.queueOpen);
+  const windowDrag = useWindowDrag(!isFullScreen);
 
   if (mobile) {
     return (
@@ -43,7 +45,7 @@ export default function Layout() {
     );
   }
   return (
-    <div className="flex h-full w-full flex-col gap-3 p-3">
+    <div className="flex h-full w-full flex-col gap-3 p-3" {...windowDrag}>
       {!isFullScreen && <TopBar />}
       {/* after the header in the DOM: where drag regions overlap, the later element wins, so the buttons stay clickable */}
       {isElectronWindows && <WindowControls className="fixed top-3 right-3 z-50 [-webkit-app-region:no-drag]" />}

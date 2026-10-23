@@ -148,28 +148,24 @@ function sendMediaKey(action) {
 const UPDATE_CHECK_MS = 4 * 60 * 60 * 1000;
 let updater = null;
 
+// What the page shows (the pill in the header): nothing, an update downloading, or one ready to install.
+let updateState = { status: 'idle', version: null, percent: 0 };
+function setUpdateState(patch) {
+  updateState = { ...updateState, ...patch };
+  if (win && !win.isDestroyed()) win.webContents.send('update-state', updateState);
+}
+
 function setupUpdates() {
   if (!isWindows || !app.isPackaged) return;
   updater = require('electron-updater').autoUpdater;
   updater.autoDownload = true;
   updater.autoInstallOnAppQuit = true;
   updater.on('error', (error) => console.error('update check failed:', error?.message || error));
-  updater.on('update-downloaded', async (info) => {
-    const { response } = await dialog.showMessageBox(win && !win.isDestroyed() ? win : undefined, {
-      type: 'info',
-      buttons: ['Restart now', 'Later'],
-      defaultId: 1,
-      cancelId: 1,
-      title: 'Update ready',
-      message: `KKaraoke ${info.version} is ready to install.`,
-      detail: 'Restart to update now, or it installs the next time you quit KKaraoke.',
-    });
-    if (response === 0) {
-      quitting = true;
-      // silent: no installer window, and the app reopens by itself
-      updater.quitAndInstall(true, true);
-    }
-  });
+  updater.on('update-available', (info) => setUpdateState({ status: 'downloading', version: info.version, percent: 0 }));
+  updater.on('download-progress', (progress) => setUpdateState({ percent: Math.round(progress.percent) }));
+  updater.on('update-not-available', () => setUpdateState({ status: 'idle', version: null }));
+  // Like the Mac app, no popup: the pill in the header offers the restart, and quitting installs it anyway.
+  updater.on('update-downloaded', (info) => setUpdateState({ status: 'ready', version: info.version, percent: 100 }));
   const check = () => updater.checkForUpdates().catch(() => {});
   check();
   setInterval(check, UPDATE_CHECK_MS);
@@ -295,6 +291,15 @@ ipcMain.on('window-control', (_event, action) => {
 ipcMain.handle('window-is-maximized', () => !!win && !win.isDestroyed() && win.isMaximized());
 ipcMain.on('media-key-request', (_event, action) => {
   if (action in { toggle: 1, next: 1, previous: 1 }) sendMediaKey(action);
+});
+
+ipcMain.handle('update-state', () => updateState);
+ipcMain.on('update-install', () => {
+  if (updater && updateState.status === 'ready') {
+    quitting = true;
+    // silent: no installer window, and the app reopens by itself
+    updater.quitAndInstall(true, true);
+  }
 });
 
 ipcMain.handle('app-version', () => app.getVersion());

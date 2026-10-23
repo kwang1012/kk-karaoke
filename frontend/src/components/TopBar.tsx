@@ -13,6 +13,7 @@ import { useJam, useRoomStore } from 'src/store/room';
 import { useSettingStore } from 'src/store/setting';
 import { useRemoteMessageQueue } from 'src/hooks/queue';
 import { useT } from 'src/i18n';
+import UpdateIndicator from 'src/components/UpdateIndicator';
 import { isElectronMac, isElectronWindows } from 'src/utils/platform';
 
 
@@ -97,6 +98,7 @@ export default function TopBar() {
             </Avatar>
           )}
         </AvatarGroup>
+        <UpdateIndicator />
         <Button variant="outline" size="sm" onClick={() => setInviteOpen(true)}>
           <UserPlus /> {t('invite.button')}
         </Button>

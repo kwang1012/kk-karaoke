@@ -31,5 +31,12 @@ contextBridge.exposeInMainWorld('kkaraoke', {
     return () => ipcRenderer.removeListener('mini-command', listener);
   },
   mediaKey: (action) => ipcRenderer.send('media-key-request', action),
+  getUpdateState: () => ipcRenderer.invoke('update-state'),
+  onUpdateState: (callback) => {
+    const listener = (_event, state) => callback(state);
+    ipcRenderer.on('update-state', listener);
+    return () => ipcRenderer.removeListener('update-state', listener);
+  },
+  installUpdate: () => ipcRenderer.send('update-install'),
   version: () => ipcRenderer.invoke('app-version'),
 });

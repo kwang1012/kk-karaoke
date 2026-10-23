@@ -15,6 +15,12 @@ interface MiniLyricsState {
   vocalOn: boolean;
 }
 
+interface UpdateState {
+  status: 'idle' | 'downloading' | 'ready';
+  version: string | null;
+  percent: number;
+}
+
 interface Window {
   kkaraoke?: {
     onMediaKey: (callback: (action: 'toggle' | 'next' | 'previous') => void) => () => void;
@@ -23,6 +29,9 @@ interface Window {
     publishMini: (state: MiniLyricsState) => void;
     toggleMini: () => void;
     setFullScreen: (on: boolean) => void;
+    getUpdateState: () => Promise<UpdateState>;
+    onUpdateState: (callback: (state: UpdateState) => void) => () => void;
+    installUpdate: () => void;
     windowDrag: (start: boolean) => void;
     windowControl: (action: 'minimize' | 'maximize' | 'close') => void;
     isMaximized: () => Promise<boolean>;

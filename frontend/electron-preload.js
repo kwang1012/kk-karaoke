@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('kkaraoke', {
   // main window -> floating lyrics
   publishMini: (state) => ipcRenderer.send('mini-state', state),
   // the page's own window buttons (Windows)
+  windowDrag: (start) => ipcRenderer.send('window-drag', !!start),
   windowControl: (action) => ipcRenderer.send('window-control', action),
   isMaximized: () => ipcRenderer.invoke('window-is-maximized'),
   onMaximizeChange: (callback) => {

@@ -22,6 +22,7 @@ interface Window {
     onMiniCommand: (callback: (command: { type: 'volume'; value: number } | { type: 'karaoke' }) => void) => () => void;
     publishMini: (state: MiniLyricsState) => void;
     toggleMini: () => void;
+    windowDrag: (start: boolean) => void;
     windowControl: (action: 'minimize' | 'maximize' | 'close') => void;
     isMaximized: () => Promise<boolean>;
     onMaximizeChange: (callback: (maximized: boolean) => void) => () => void;

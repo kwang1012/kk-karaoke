@@ -259,6 +259,27 @@ ipcMain.on('mini-command', (_event, command) => {
     win.webContents.send('mini-command', { type: 'volume', value: Math.min(1, Math.max(0, Number(command.value))) });
   }
 });
+// Moving the window by its header (Windows): the page reports mouse down and up, and the window follows the
+// cursor. CSS drag regions proved unreliable for this frameless window.
+let dragTimer = null;
+function stopDrag() {
+  if (dragTimer) clearInterval(dragTimer);
+  dragTimer = null;
+}
+ipcMain.on('window-drag', (_event, start) => {
+  stopDrag();
+  if (!start || !win || win.isDestroyed() || win.isMaximized() || win.isFullScreen()) return;
+  const { screen } = require('electron');
+  const origin = screen.getCursorScreenPoint();
+  const bounds = win.getBounds();
+  dragTimer = setInterval(() => {
+    if (!win || win.isDestroyed()) return stopDrag();
+    const cursor = screen.getCursorScreenPoint();
+    // the same width and height every time: moving across monitors with different scaling must not resize it
+    win.setBounds({ x: bounds.x + cursor.x - origin.x, y: bounds.y + cursor.y - origin.y, width: bounds.width, height: bounds.height });
+  }, 8);
+});
+
 // The page's own window buttons (Windows).
 ipcMain.on('window-control', (_event, action) => {
   if (!win || win.isDestroyed()) return;

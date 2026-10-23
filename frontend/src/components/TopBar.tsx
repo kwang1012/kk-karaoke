@@ -1,5 +1,5 @@
 import { useTvMode } from 'src/hooks/tvMode';
-import { ChevronLeft, ChevronRight, LibraryBig, Moon, Settings, Sun, Tv, UserPlus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LibraryBig, Settings, Tv, UserPlus } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from 'src/lib/utils';
 import Logo from './Logo';
@@ -31,8 +31,6 @@ export default function TopBar() {
   const removeParticipant = useRoomStore((state) => state.removeParticipant);
   const { isInJam } = useJam();
   const leaveRoom = useRoomStore((state) => state.leaveRoom);
-  const theme = useSettingStore((state) => state.theme);
-  const toggleTheme = useSettingStore((state) => state.toggleTheme);
   const setSettingsOpen = useSettingStore((state) => state.setSettingsOpen);
   const setInviteOpen = useSettingStore((state) => state.setInviteOpen);
 
@@ -115,11 +113,6 @@ export default function TopBar() {
         <Tooltip title={t('nav.settings')} side="bottom">
           <IconButton aria-label={t('nav.settings')} onClick={() => setSettingsOpen(true)}>
             <Settings className="size-5" />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title={theme === 'dark' ? t('nav.lightMode') : t('nav.darkMode')} side="bottom">
-          <IconButton aria-label={t('nav.toggleTheme')} onClick={() => toggleTheme()}>
-            {theme === 'dark' ? <Sun className="size-5" /> : <Moon className="size-5" />}
           </IconButton>
         </Tooltip>
       </div>

@@ -6,7 +6,7 @@ const isWindows = process.platform === 'win32';
 
 // Packaged builds keep the web build next to this file; `electron .` uses it straight from the project.
 const indexHtml = path.join(__dirname, 'build', 'index.html');
-const iconPath = path.join(__dirname, isWindows ? 'icon.ico' : 'icon.iconset/icon_512x512.png');
+const iconPath = path.join(__dirname, isWindows ? 'icon.ico' : 'build/icon-512.png');
 
 let win = null;
 let tray = null;

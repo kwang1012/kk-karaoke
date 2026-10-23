@@ -67,7 +67,7 @@ struct MenuBarContent: View {
           HStack(spacing: 10) {
             LucideIcon(player.masterVolume == 0 ? "volume-x" : "volume-2", size: 16)
               .foregroundStyle(.secondary)
-            Slider(value: $player.masterVolume, in: 0...1).pointerStyle(.link).controlSize(.mini).accessibilityLabel(
+            Slider(value: $player.masterVolume, in: 0...1).stableCursor(.link).controlSize(.mini).accessibilityLabel(
               "Volume")
             Text("\(Int(player.masterVolume * 100))%")
               .font(.system(size: 11).monospacedDigit()).foregroundStyle(.secondary).frame(
@@ -142,7 +142,7 @@ struct MenuBarContent: View {
           .background(AppTheme.accent, in: Circle())
           .shadow(color: AppTheme.accent.opacity(0.2), radius: 8, y: 3)
       }
-      .buttonStyle(.plain).pointerStyle(.link).disabled(player.status != .ready)
+      .buttonStyle(.plain).stableCursor(.link).disabled(player.status != .ready)
       .opacity(player.status == .ready ? 1 : 0.45)
       .help(player.isPlaying ? "Pause" : "Play").accessibilityLabel(
         player.isPlaying ? "Pause" : "Play")
@@ -183,7 +183,7 @@ struct MenuBarContent: View {
               scrubbing = nil
             }
           }
-          .controlSize(.mini).pointerStyle(.link).disabled(player.status != .ready).accessibilityLabel("Song position")
+          .controlSize(.mini).stableCursor(.link).disabled(player.status != .ready).accessibilityLabel("Song position")
           HStack {
             Text(TrackRow.format(time))
             Spacer()

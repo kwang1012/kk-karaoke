@@ -89,7 +89,7 @@ struct TrackRow: View {
             }
           }
       }
-      .buttonStyle(.plain).pointerStyle(.link).help("Add to queue").accessibilityLabel("Add \(track.name) to queue")
+      .buttonStyle(.plain).stableCursor(.link).help("Add to queue").accessibilityLabel("Add \(track.name) to queue")
       VStack(alignment: .leading, spacing: 3) {
         Text(track.name).font(.system(size: 14, weight: .medium)).lineLimit(1)
           .foregroundStyle(player.track?.id == track.id ? AppTheme.accent : .primary)
@@ -153,7 +153,7 @@ struct CollectionCard: View {
       .padding(12)
       .background(hovering ? AppTheme.card : .clear, in: RoundedRectangle(cornerRadius: 16))
     }
-    .buttonStyle(.plain).pointerStyle(.link)
+    .buttonStyle(.plain).stableCursor(.link)
     .onHover { hovering = $0 }
     .animation(.easeOut(duration: 0.15), value: hovering)
   }
@@ -248,7 +248,7 @@ struct ChartCard: View {
       .overlay { RoundedRectangle(cornerRadius: 12).strokeBorder(.primary.opacity(0.08)) }
       .contentShape(RoundedRectangle(cornerRadius: 12))
     }
-    .buttonStyle(.plain).pointerStyle(.link)
+    .buttonStyle(.plain).stableCursor(.link)
     .onHover { hovering = $0 }
     .accessibilityLabel("\(source) \(title)")
   }
@@ -316,7 +316,7 @@ struct PinButton: View {
         } label: {
           LucideIcon("arrow.down.circle.fill").font(.title3).foregroundStyle(.green)
         }
-        .buttonStyle(.plain).pointerStyle(.link).help("Downloaded for offline. Click to remove.")
+        .buttonStyle(.plain).stableCursor(.link).help("Downloaded for offline. Click to remove.")
         .accessibilityLabel("Remove \(track.name) from downloads")
       } else {
         Button {
@@ -324,7 +324,7 @@ struct PinButton: View {
         } label: {
           LucideIcon("arrow.down.circle").font(.title3)
         }
-        .buttonStyle(.plain).pointerStyle(.link).help(offline.failures[track.id] ?? tr("Download for offline"))
+        .buttonStyle(.plain).stableCursor(.link).help(offline.failures[track.id] ?? tr("Download for offline"))
         .foregroundStyle(offline.failures[track.id] == nil ? Color.primary : Color.red)
         .accessibilityLabel("Download \(track.name) for offline")
       }

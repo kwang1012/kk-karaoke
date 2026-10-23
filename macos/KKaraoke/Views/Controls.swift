@@ -159,7 +159,7 @@ struct MenuRowStyle: ButtonStyle {
         .contentShape(RoundedRectangle(cornerRadius: 6))
         .opacity(enabled ? 1 : 0.4)
         .onHover { hovered = $0 }
-        .pointerStyle(enabled ? .link : nil)
+        .stableCursor(enabled ? .link : nil)
     }
   }
 }
@@ -259,7 +259,7 @@ struct AppSelect<Value: Hashable>: View {
       }
       .contentShape(RoundedRectangle(cornerRadius: 8))
     }
-    .buttonStyle(.plain).pointerStyle(.link).accessibilityLabel(label).help(label)
+    .buttonStyle(.plain).stableCursor(.link).accessibilityLabel(label).help(label)
     .dropdown(isPresented: $open, edge: .leading, width: max(width ?? 0, 220)) {
       if options.count > 8 {
         ScrollView { list }.frame(maxHeight: 280)
@@ -325,7 +325,7 @@ struct AppSwitchStyle: ToggleStyle {
       }
       .contentShape(Rectangle())
     }
-    .buttonStyle(.plain).pointerStyle(.link)
+    .buttonStyle(.plain).stableCursor(.link)
     .accessibilityValue(configuration.isOn ? "On" : "Off")
   }
 }
@@ -343,7 +343,7 @@ struct AppChipToggleStyle: ToggleStyle {
         .background(configuration.isOn ? AppTheme.accent : Color.primary.opacity(0.08), in: Capsule())
         .contentShape(Capsule())
     }
-    .buttonStyle(.plain).pointerStyle(.link)
+    .buttonStyle(.plain).stableCursor(.link)
     .accessibilityValue(configuration.isOn ? "On" : "Off")
   }
 }

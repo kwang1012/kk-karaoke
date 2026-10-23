@@ -140,7 +140,7 @@ private struct NotchView: View {
           .disabled(player.status != .ready)
         Button { player.perform(.next) } label: { LucideIcon("skip-forward", size: 16) }
       }
-      .buttonStyle(.plain).pointerStyle(.link)
+      .buttonStyle(.plain).stableCursor(.link)
     }
     .padding(.horizontal, 18).padding(.bottom, 12)
   }

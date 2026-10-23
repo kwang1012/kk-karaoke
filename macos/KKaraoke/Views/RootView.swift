@@ -92,7 +92,7 @@ struct RootView: View {
           .overlay { RoundedRectangle(cornerRadius: 16).strokeBorder(.primary.opacity(0.08)) }
           .overlay(alignment: .leading) {
             Color.clear.frame(width: 12).contentShape(Rectangle()).offset(x: -10)
-              .pointerStyle(.columnResize)
+              .stableCursor(.columnResize)
               .gesture(
                 DragGesture(minimumDistance: 1, coordinateSpace: .global)
                   .onChanged { drag in
@@ -222,7 +222,7 @@ struct RootView: View {
           } label: {
             LucideIcon("x", size: 14)
           }
-          .buttonStyle(.plain).pointerStyle(.link).foregroundStyle(.secondary).help("Clear search").accessibilityLabel(
+          .buttonStyle(.plain).stableCursor(.link).foregroundStyle(.secondary).help("Clear search").accessibilityLabel(
             "Clear search")
         }
       }
@@ -243,7 +243,7 @@ struct RootView: View {
             } label: {
               UserAvatar(avatar: person.avatar, name: person.name)
                 .overlay { Circle().stroke(AppTheme.card, lineWidth: 2) }
-            }.buttonStyle(.plain).pointerStyle(.link).help(person.name)
+            }.buttonStyle(.plain).stableCursor(.link).help(person.name)
           }
         }
         .padding(.trailing, 6)
@@ -301,7 +301,7 @@ struct ConnectionBadge: View {
       } label: {
         LucideIcon("arrow.clockwise")
       }
-      .buttonStyle(.plain).pointerStyle(.link).help("Check the server again")
+      .buttonStyle(.plain).stableCursor(.link).help("Check the server again")
     }
     .frame(maxWidth: .infinity, alignment: .leading)
   }

@@ -229,7 +229,7 @@ struct StageControls: View {
       .background(.white.opacity(singing.showMelody ? 0.2 : 0), in: Circle())
       .help(singing.showMelody ? "Hide melody" : "Show melody")
       if singing.showMelody {
-        Slider(value: Bindable(singing).melodyDetail, in: 0...1).pointerStyle(.link).frame(width: 80)
+        Slider(value: Bindable(singing).melodyDetail, in: 0...1).stableCursor(.link).frame(width: 80)
           .controlSize(.mini).accessibilityLabel("Melody detail")
       }
       Button {

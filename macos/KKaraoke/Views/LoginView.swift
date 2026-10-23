@@ -30,7 +30,7 @@ struct LoginView: View {
         Text("Signed in as \(session.user.email ?? "host")").font(.callout)
         Button(action: onClose) { Text("Done").frame(maxWidth: .infinity) }.buttonStyle(
           WebButtonStyle(height: 44))
-        Button("Sign out") { app.auth.signOut() }.buttonStyle(.plain).pointerStyle(.link).foregroundStyle(.secondary)
+        Button("Sign out") { app.auth.signOut() }.buttonStyle(.plain).stableCursor(.link).foregroundStyle(.secondary)
       } else {
         VStack(spacing: 12) {
           TextField("Email", text: $email).textContentType(.emailAddress).focused($emailFocused)

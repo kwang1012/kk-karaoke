@@ -205,7 +205,7 @@ export default function LyricsView() {
                 {syncedLyrics.map((line, i) => (
                   <Fragment key={i}>
                   <div
-                    className={['my-6 mx-16 cursor-pointer', isFullscreen ? 'text-center' : ''].join(' ')}
+                    className={['py-3 px-16 cursor-pointer', isFullscreen ? 'text-center' : ''].join(' ')}
                     onClick={handleLineClick.bind(null, i)}
                   >
                     <span

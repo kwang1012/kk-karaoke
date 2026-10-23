@@ -46,7 +46,7 @@ struct MiniLyricsView: View {
       Button { dismissWindow(id: MiniLyrics.windowID) } label: { LucideIcon("maximize", size: 16) }
         .help("Back to the main window").accessibilityLabel("Back to the main window")
     }
-    .buttonStyle(.plain).pointerStyle(.link)
+    .buttonStyle(.plain).stableCursor(.link)
   }
 
   @ViewBuilder private var content: some View {

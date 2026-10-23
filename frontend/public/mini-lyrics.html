@@ -39,6 +39,7 @@
       <button id="previous" aria-label="Previous song" title="Previous song">⏮</button>
       <button id="toggle" aria-label="Play or pause" title="Play / Pause">▶</button>
       <button id="next-song" aria-label="Next song" title="Next song">⏭</button>
+      <button id="back" aria-label="Back to KKaraoke" title="Back to KKaraoke">⤢</button>
     </div>
     <script>
       const api = window.kkaraoke;
@@ -54,6 +55,7 @@
         $('toggle').onclick = () => api.mediaKey('toggle');
         $('next-song').onclick = () => api.mediaKey('next');
         $('close').onclick = () => api.toggleMini();
+        $('back').onclick = () => api.toggleMini();
         api.miniReady();
       }
     </script>

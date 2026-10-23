@@ -70,9 +70,11 @@ function createWindow() {
 }
 
 // Floating lyrics: a small always-on-top window. The main window owns the player and sends it the state.
+// Only one of the two is on screen at a time: opening floating lyrics tucks the main window away (it keeps
+// playing), and closing them, or opening the app, swaps back.
 function toggleMini() {
   if (mini && !mini.isDestroyed()) {
-    mini.close();
+    showWindow();
     return;
   }
   const { workArea } = require('electron').screen.getPrimaryDisplay();
@@ -97,10 +99,13 @@ function toggleMini() {
   mini.loadFile(path.join(__dirname, 'build', 'mini-lyrics.html'));
   mini.on('closed', () => {
     mini = null;
+    if (!quitting && win && !win.isDestroyed() && !win.isVisible()) showWindow();
   });
+  if (win && !win.isDestroyed()) win.hide();
 }
 
 function showWindow() {
+  if (mini && !mini.isDestroyed()) mini.close();
   if (!win) return createWindow();
   if (win.isMinimized()) win.restore();
   win.show();

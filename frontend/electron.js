@@ -259,6 +259,11 @@ ipcMain.on('mini-command', (_event, command) => {
     win.webContents.send('mini-command', { type: 'volume', value: Math.min(1, Math.max(0, Number(command.value))) });
   }
 });
+// TV mode fills the screen: the page asks for it on entering and leaving.
+ipcMain.on('set-fullscreen', (_event, on) => {
+  if (win && !win.isDestroyed()) win.setFullScreen(!!on);
+});
+
 // Moving the window by its header (Windows): the page reports mouse down and up, and the window follows the
 // cursor. CSS drag regions proved unreliable for this frameless window.
 let dragTimer = null;

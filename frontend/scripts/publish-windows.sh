@@ -13,6 +13,6 @@ if command -v wrangler >/dev/null; then WRANGLER=(wrangler); else WRANGLER=(npx 
 
 put() { "${WRANGLER[@]}" r2 object put "$BUCKET/$PREFIX/$1" --file "dist/$1" --content-type "$2" --cache-control no-cache --remote; }
 put KKaraoke-Setup.exe application/vnd.microsoft.portable-executable
-put KKaraoke-Setup.exe.blockmap application/octet-stream
+[ -f dist/KKaraoke-Setup.exe.blockmap ] && put KKaraoke-Setup.exe.blockmap application/octet-stream
 put latest.yml text/yaml
 echo "Published: https://updates.kkaraoke.app/$PREFIX/latest.yml"

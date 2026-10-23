@@ -1,8 +1,13 @@
 name: Windows app
 
 # Builds KKaraoke-Setup.exe (the Electron app). Run it by hand: Actions -> Windows app -> Run workflow,
-# then download the installer from the run's artifacts. Pushing a tag like `windows-v0.1.0` also
-# attaches the installer to a GitHub release.
+# then download the installer and latest.yml from the run's artifacts. Pushing a tag like `windows-v0.2.1`
+# also attaches the installer to a GitHub release.
+#
+# Code signing is free from the SignPath Foundation (see README, "Code signing policy"). Once the project is
+# approved, add the repository secret SIGNPATH_API_TOKEN and the variables SIGNPATH_ORGANIZATION_ID,
+# SIGNPATH_PROJECT_SLUG and SIGNPATH_SIGNING_POLICY_SLUG; until then the installer is built unsigned.
+# After downloading a signed build, publish it with `yarn publish-windows` (it needs dist/latest.yml).
 
 on:
   workflow_dispatch:
@@ -12,9 +17,11 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     permissions:
       contents: write
+    env:
+      SIGN: ${{ secrets.SIGNPATH_API_TOKEN != '' }}
     defaults:
       run:
         working-directory: frontend
@@ -30,11 +37,45 @@ jobs:
       - run: yarn package-windows
         env:
           VITE_API_ADDR: api.kkaraoke.app
+
+      - name: Upload the unsigned installer
+        id: unsigned
+        uses: actions/upload-artifact@v4
+        with:
+          name: KKaraoke-Setup-unsigned
+          path: frontend/dist/KKaraoke-Setup.exe
+          if-no-files-found: error
+
+      - name: Sign with SignPath
+        if: env.SIGN == 'true'
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: frontend/signed
+
+      - name: Use the signed installer
+        if: env.SIGN == 'true'
+        shell: bash
+        run: |
+          cp signed/KKaraoke-Setup.exe dist/KKaraoke-Setup.exe
+          node scripts/finalize-signed.mjs dist/KKaraoke-Setup.exe dist/latest.yml
+          # the block map was made for the unsigned file: without it the updater downloads the whole installer
+          rm -f dist/KKaraoke-Setup.exe.blockmap
+
       - uses: actions/upload-artifact@v4
         with:
           name: KKaraoke-Setup
-          path: frontend/dist/KKaraoke-Setup.exe
-          if-no-files-found: error
+          path: |
+            frontend/dist/KKaraoke-Setup.exe
+            frontend/dist/KKaraoke-Setup.exe.blockmap
+            frontend/dist/latest.yml
+          if-no-files-found: ignore
+
       - if: startsWith(github.ref, 'refs/tags/windows-v')
         uses: softprops/action-gh-release@v2
         with:

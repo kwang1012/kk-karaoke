@@ -238,14 +238,10 @@ def fetch_lrclib_record(
     if duration_s:
         params["duration"] = duration_s
 
-    try:
-        with httpx.Client() as client:
-            resp = client.get("https://lrclib.net/api/get", params=params, timeout=10)
-        if resp.status_code == 200:
-            return resp.json()
-    except Exception as e:
-        print(f"Lrclib structured lookup failed: {e!r}")
-    return None
+    from services import providers  # providers sit above the downloader; imported late to keep the layers apart
+
+    record = providers.lrclib_json(providers.LRCLIB_GET, params)
+    return record if isinstance(record, dict) else None
 
 
 def _fetch_lrclib(

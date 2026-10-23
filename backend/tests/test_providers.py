@@ -501,3 +501,37 @@ def test_whisper_falls_back_to_this_machine_when_modal_fails(monkeypatch, tmp_pa
     monkeypatch.setattr("services.modal_separate.remote", lambda name: 1 / 0)
     monkeypatch.setattr(transcribe, "_load_model", lambda: local)
     assert transcribe.heard_words(str(stem)) == ([(0.0, 1.0, "hi")], "en")
+
+
+# --- LRCLib being overloaded -----------------------------------------------------------
+
+BUSY = {"message": "The server is busy, please retry in a moment", "name": "ServerOverloaded", "statusCode": 503}
+
+
+def test_a_busy_lrclib_is_retried_not_read_as_no_results(monkeypatch):
+    answers = [BUSY, BUSY, [lrclib_row(1, "說了再見", "周杰倫", 283)]]
+    monkeypatch.setattr(pv.httpx, "get", lambda url, **kw: Resp(answers.pop(0)))
+    entries = pv.lrclib_entries(["說了再見"])
+    assert [e.title for e in entries] == ["說了再見"] and not answers
+
+
+def test_lrclib_staying_busy_gives_up(monkeypatch):
+    calls = []
+    monkeypatch.setattr(pv.httpx, "get", lambda url, **kw: calls.append(url) or Resp(BUSY))
+    assert pv.lrclib_entries(["說了再見"]) == []
+    assert len(calls) == pv.LRCLIB_ATTEMPTS * 1
+
+
+def test_lrclib_not_found_is_not_retried(monkeypatch):
+    calls = []
+    monkeypatch.setattr(pv.httpx, "get", lambda url, **kw: calls.append(url) or SimpleNamespace(
+        status_code=404, json=lambda: {"statusCode": 404}))
+    from services.downloader import fetch_lrclib_record
+    assert fetch_lrclib_record("x", "y") is None and len(calls) == 1
+
+
+def test_exact_lookup_retries_a_busy_lrclib(monkeypatch):
+    answers = [BUSY, {"trackName": "說了再見", "syncedLyrics": LRC}]
+    monkeypatch.setattr(pv.httpx, "get", lambda url, **kw: Resp(answers.pop(0)))
+    from services.downloader import fetch_lrclib_record
+    assert fetch_lrclib_record("說了再見", "周杰倫")["syncedLyrics"] == LRC

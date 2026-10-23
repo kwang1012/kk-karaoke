@@ -102,6 +102,20 @@ def _identify(track: Track) -> _Identity:
     return _Identity(video_id, title, artist, duration_s, recording)
 
 
+# Providers are free services that go down, rate-limit and get songs added late, so a song nobody
+# had a minute ago is worth asking for again: after 10 minutes, an hour, then 6 hours.
+LYRICS_RETRY_DELAYS_S = (600, 3600, 6 * 3600)
+
+
+def _schedule_lyrics_retry(track_id: str, attempt: int) -> None:
+    if attempt >= len(LYRICS_RETRY_DELAYS_S):
+        return
+    try:
+        celery.send_task("retry_lyrics", args=[track_id, attempt], countdown=LYRICS_RETRY_DELAYS_S[attempt])
+    except Exception as e:  # the retry is a bonus: never fail the track over it
+        print(f"Could not schedule a lyrics retry for {track_id}: {e!r}")
+
+
 def _find_lyrics(track: Track, who: _Identity) -> None:
     """Timed lyrics from the providers, else their plain words, saved next to the track."""
     album_name = track.album.get("name") if track.album else None
@@ -119,9 +133,11 @@ def _find_lyrics(track: Track, who: _Identity) -> None:
             if plain:
                 save_plain(track.id, plain)
             print(f"No timed lyrics found for {track.id}" + (" (kept the words only)" if plain else ""))
+            _schedule_lyrics_retry(track.id, 0)
     except Exception as e:
         # Missing lyrics shouldn't stop the track from being playable.
         print(f"Lyrics download failed for {track.id}: {e!r}")
+        _schedule_lyrics_retry(track.id, 0)
 
 
 def _listen_and_verify(track: Track, who: _Identity) -> None:
@@ -318,6 +334,38 @@ def refresh_lyrics(track_id: str) -> dict:
     if saved is None:
         raise RuntimeError(f"Unknown track {track_id}")
     return refresh_lyrics_for(saved)
+
+
+@celery.task(name="retry_lyrics")
+def retry_lyrics(track_id: str, attempt: int = 0) -> dict:
+    """
+    Ask the providers again for a track that still has no timed lyrics from one (nothing, only words,
+    or a transcript). Hand edits and lyrics a provider already timed are left alone.
+    """
+    saved = library.load_track(track_id)
+    if saved is None:
+        return {"found": False}
+    meta = read_meta(track_id)
+    timed = r2.exists("lyrics", track_id)
+    if meta.get("edited") or (timed and meta.get("source") != "whisper" and meta.get("confidence") != "unsynced"):
+        return {"found": timed}
+    who = _identify(saved)
+    names = artist_aliases(who.title, [a.name for a in saved.artists], who.duration_s, who.recording)
+    album_name = saved.album.get("name") if saved.album else None
+    result = find_lyrics(who.title, names, album_name, who.duration_s, who.recording)
+    if not result:
+        print(f"Lyrics retry {attempt + 1} for {track_id}: still none")
+        _schedule_lyrics_retry(track_id, attempt + 1)
+        return {"found": False}
+    discard_lyrics(track_id)  # the transcript or words it replaces
+    save_result(track_id, result)
+    print(f"Lyrics for {track_id} on retry {attempt + 1}: {result.source} ({result.confidence})")
+    if add_word_timing(track_id, who.title, names, who.duration_s):
+        print(f"Word timing for {track_id}")
+    if r2.local("vocal", track_id).exists():
+        _listen_and_verify(saved, who)
+    r2.upload_track(track_id)
+    return {"found": True, "source": result.source}
 
 
 @celery.task(name="find_candidates")

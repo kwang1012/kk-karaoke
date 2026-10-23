@@ -33,6 +33,9 @@ log = logging.getLogger(__name__)
 
 _NETEASE_HEADERS = {"User-Agent": "Mozilla/5.0", "Referer": "https://music.163.com/"}
 LRCLIB_SEARCH = "https://lrclib.net/api/search"
+LRCLIB_GET = "https://lrclib.net/api/get"
+LRCLIB_ATTEMPTS = 4
+LRCLIB_BACKOFF_S = 1.0
 NETEASE_SEARCH = "https://music.163.com/api/search/get"
 NETEASE_LYRIC = "https://music.163.com/api/song/lyric"
 _QQ_HEADERS = {"User-Agent": "Mozilla/5.0", "Referer": "https://y.qq.com/"}
@@ -175,15 +178,41 @@ def _accept(
     return abs(entry.duration_s - duration_s) <= limit
 
 
+def lrclib_json(url: str, params: dict):
+    """
+    LRCLib's JSON answer, retried while it is overloaded. It is a free service that often answers 503
+    ("The server is busy") under load, and a busy answer read as "no results" loses lyrics that exist.
+    None when it has nothing (404) or stays unavailable.
+    """
+    for attempt in range(LRCLIB_ATTEMPTS):
+        status: Optional[int] = None
+        try:
+            resp = httpx.get(url, params=params, timeout=15)
+            status = getattr(resp, "status_code", 200)
+            body = resp.json() if status != 404 else None
+            if isinstance(body, dict) and isinstance(body.get("statusCode"), int):
+                status = body["statusCode"]  # the error is also in the body
+        except Exception as e:  # noqa: BLE001 - a provider being down must not stop the track
+            log.warning("LRCLib request failed for %s %s: %r", url, params, e)
+            body = None
+        if status == 404:
+            return None
+        if status is not None and status < 400:
+            return body
+        if status is not None and status != 429 and status < 500:
+            return None  # a request LRCLib refuses will be refused again
+        if attempt + 1 < LRCLIB_ATTEMPTS:
+            log.info("LRCLib unavailable (%s); retrying %s", status, params)
+            time.sleep(LRCLIB_BACKOFF_S * 2 ** attempt)
+    log.warning("LRCLib stayed unavailable for %s %s", url, params)
+    return None
+
+
 def lrclib_entries(variants: list[str]) -> list[Entry]:
     out: list[Entry] = []
     seen: set[int] = set()
     for variant in variants[:3]:
-        try:
-            rows = httpx.get(LRCLIB_SEARCH, params={"track_name": variant}, timeout=15).json()
-        except Exception as e:  # noqa: BLE001 - a provider being down must not stop the track
-            log.warning("LRCLib search failed for %r: %r", variant, e)
-            continue
+        rows = lrclib_json(LRCLIB_SEARCH, {"track_name": variant})
         for row in rows if isinstance(rows, list) else []:
             if row.get("id") in seen:
                 continue

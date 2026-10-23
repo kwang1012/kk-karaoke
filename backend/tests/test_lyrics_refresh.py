@@ -167,3 +167,60 @@ def test_saving_over_lyrics_that_were_already_timed_keeps_their_confidence(env, 
     save("t1", "verified")
     client.post("/api/lyrics/t1/update", json={"content": "[00:01.00]hi"})
     assert ls.read_meta("t1")["confidence"] == "verified"
+
+
+# --- asking the providers again later ------------------------------------------------
+
+@pytest.fixture
+def retries(env, monkeypatch):
+    """A processed track whose providers answer from `answers`; collects what the worker is asked to schedule."""
+    state = {"answers": [], "scheduled": []}
+    monkeypatch.setattr(pr.celery, "send_task", lambda name, args, countdown: state["scheduled"].append((name, args, countdown)))
+    monkeypatch.setattr(library, "load_track", lambda tid: Track(id=tid, name="S", artists=[]))
+    monkeypatch.setattr(pr, "_identify", lambda track: pr._Identity(VID, "S", "A", 200, None))
+    monkeypatch.setattr(pr, "artist_aliases", lambda *a: ["A"])
+    monkeypatch.setattr(pr, "find_lyrics", lambda *a: state["answers"].pop(0))
+    monkeypatch.setattr(pr, "find_plain_lyrics", lambda *a: None)
+    monkeypatch.setattr(pr, "add_word_timing", lambda *a: 0)
+    monkeypatch.setattr(pr.r2, "upload_track", lambda *a, **k: None)
+    monkeypatch.setattr(pr.r2, "exists", lambda prefix, tid: (env / f"{tid}.lrc").exists())
+    return state
+
+
+def test_a_song_no_provider_has_is_asked_about_again_later(retries):
+    retries["answers"] = [None]
+    pr._find_lyrics(Track(id="t1", name="S", artists=[]), pr._Identity(VID, "S", "A", 200, None))
+    assert retries["scheduled"] == [("retry_lyrics", ["t1", 0], 600)]
+
+
+def test_a_provider_erroring_is_asked_about_again_later(retries, monkeypatch):
+    monkeypatch.setattr(pr, "find_lyrics", lambda *a: (_ for _ in ()).throw(RuntimeError("down")))
+    pr._find_lyrics(Track(id="t1", name="S", artists=[]), pr._Identity(VID, "S", "A", 200, None))
+    assert retries["scheduled"] == [("retry_lyrics", ["t1", 0], 600)]
+
+
+def test_found_lyrics_are_not_retried(retries):
+    retries["answers"] = [ls.LyricsResult("[00:01.00]hi", "lrclib", "synced", VID)]
+    pr._find_lyrics(Track(id="t1", name="S", artists=[]), pr._Identity(VID, "S", "A", 200, None))
+    assert retries["scheduled"] == []
+
+
+def test_the_retry_replaces_a_transcript_with_a_providers_lyrics(retries, env):
+    save("t1", "approximate", source="whisper")
+    retries["answers"] = [ls.LyricsResult("[00:05.00]real", "kugou", "synced", VID)]
+    assert pr.retry_lyrics("t1") == {"found": True, "source": "kugou"}
+    assert ls.read_meta("t1")["source"] == "kugou" and "real" in (env / "t1.lrc").read_text()
+
+
+def test_the_retry_backs_off_then_stops(retries):
+    retries["answers"] = [None, None, None, None]
+    for attempt in range(4):
+        pr.retry_lyrics("t1", attempt)
+    assert [c for *_, c in retries["scheduled"]] == [3600, 6 * 3600]  # attempt 3 is the last
+
+
+def test_the_retry_leaves_provider_lyrics_and_hand_edits_alone(retries):
+    save("t1", "synced", source="lrclib")
+    save("t2", "approximate", source="whisper", edited=True)
+    assert pr.retry_lyrics("t1") == {"found": True} and pr.retry_lyrics("t2") == {"found": True}
+    assert retries["answers"] == [] and retries["scheduled"] == []

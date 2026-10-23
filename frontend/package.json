@@ -1,6 +1,6 @@
 {
   "name": "v1-react",
-  "version": "0.2.6",
+  "version": "0.2.16",
   "private": true,
   "dependencies": {
     "electron-updater": "^6"
@@ -84,9 +84,9 @@
       "artifactName": "KKaraoke-Setup.${ext}"
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "perMachine": false
+      "oneClick": true,
+      "perMachine": false,
+      "runAfterFinish": true
     }
   }
 }

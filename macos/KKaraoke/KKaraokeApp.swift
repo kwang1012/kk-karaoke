@@ -98,7 +98,7 @@ struct KKaraokeApp: App {
     Window("Lyrics", id: MiniLyrics.windowID) {
       MiniLyricsView().environment(player).menuHost()
     }
-    .defaultSize(width: 460, height: 200)
+    .defaultSize(width: 580, height: 200)
     .windowStyle(.hiddenTitleBar)
     .windowLevel(.floating)
     .windowBackgroundDragBehavior(.enabled)

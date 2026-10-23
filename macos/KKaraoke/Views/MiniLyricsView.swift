@@ -7,6 +7,8 @@ struct MiniLyricsView: View {
   @Environment(PlayerModel.self) private var player
   @Environment(\.dismissWindow) private var dismissWindow
   @State private var palette = CoverPalette.fallback
+  /// The level to come back to when the speaker button unmutes.
+  @State private var unmutedVolume = 1.0
   @AppStorage("showRomanizedLyrics") private var showRomanized = false
 
   var body: some View {
@@ -43,6 +45,30 @@ struct MiniLyricsView: View {
         Text(player.track?.artistText ?? "").font(.system(size: 11)).opacity(0.6).lineLimit(1)
       }
       .frame(maxWidth: .infinity, alignment: .leading)
+      Button { player.vocalVolume = player.vocalVolume > 0 ? 0 : 1 } label: {
+        HStack(spacing: 4) {
+          LucideIcon(player.vocalVolume > 0 ? "mic" : "mic-off", size: 13)
+          Text(player.vocalVolume > 0 ? "Vocal" : "Karaoke").font(.system(size: 11, weight: .medium)).lineLimit(1)
+            .fixedSize()
+        }
+        .padding(.horizontal, 9).frame(height: 26)
+        .background(.white.opacity(0.16), in: Capsule())
+      }
+      .help("Toggle original vocal").accessibilityLabel(player.vocalVolume > 0 ? "Vocal" : "Karaoke")
+      HStack(spacing: 6) {
+        Button {
+          if player.masterVolume == 0 {
+            player.masterVolume = unmutedVolume
+          } else {
+            unmutedVolume = player.masterVolume
+            player.masterVolume = 0
+          }
+        } label: { LucideIcon(player.masterVolume == 0 ? "volume-x" : "volume-2", size: 16) }
+          .help(player.masterVolume == 0 ? "Unmute" : "Mute")
+          .accessibilityLabel(player.masterVolume == 0 ? "Unmute" : "Mute")
+        Slider(value: Binding(get: { player.masterVolume }, set: { player.masterVolume = $0 }), in: 0...1)
+          .controlSize(.mini).tint(.white).frame(width: 64).stableCursor(.link).accessibilityLabel("Volume")
+      }
       Button { dismissWindow(id: MiniLyrics.windowID) } label: { LucideIcon("maximize", size: 16) }
         .help("Back to the main window").accessibilityLabel("Back to the main window")
     }

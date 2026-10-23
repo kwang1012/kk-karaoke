@@ -159,6 +159,12 @@ export default function TvView() {
   const lyricsDelay = useTrackStore((state) => state.lyricsDelays[currentTrack?.id || ''] || 0);
   const plain = useTrackStore((state) => state.plainLyrics[currentTrack?.id || '']);
   const [started, setStarted] = useState(() => !!usePlayerStore.getState().syncedPlayer?.isAudioReady && usePlayerTabStore.getState().isPlayerTab);
+  // The desktop app's window fills the screen for as long as TV mode is open (a browser needs a key press first).
+  useEffect(() => {
+    window.kkaraoke?.setFullScreen(true);
+    return () => window.kkaraoke?.setFullScreen(false);
+  }, []);
+
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;

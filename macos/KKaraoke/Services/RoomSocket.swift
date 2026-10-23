@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// The websocket every room talks over. It keeps itself connected: when the connection drops it comes back with a
 /// growing wait (capped), joins the room again, and replays the controls pressed while it was down, if recent.
@@ -136,8 +137,11 @@ final class RoomSocket {
     }
 
     nonisolated private static func ping(_ task: URLSessionWebSocketTask) async throws {
+        // URLSession can invoke the pong handler more than once when the connection drops; resuming twice traps.
+        let resumed = OSAllocatedUnfairLock(initialState: false)
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             task.sendPing { error in
+                guard !resumed.withLock({ let was = $0; $0 = true; return was }) else { return }
                 if let error { continuation.resume(throwing: error) } else { continuation.resume() }
             }
         }

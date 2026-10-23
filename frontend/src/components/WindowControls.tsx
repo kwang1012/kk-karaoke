@@ -3,7 +3,7 @@ import { Copy, Minus, Square, X } from 'lucide-react';
 import { cn } from 'src/lib/utils';
 
 const button =
-  'inline-flex h-12 w-[46px] items-center justify-center text-muted-foreground transition-colors [-webkit-app-region:no-drag] hover:bg-accent hover:text-foreground';
+  'inline-flex h-12 w-11 items-center justify-center rounded-lg text-muted-foreground transition-colors [-webkit-app-region:no-drag] hover:bg-accent hover:text-foreground';
 
 /** Minimize, maximize and close for the Windows desktop app, whose window has no frame of its own. */
 export default function WindowControls({ className }: { className?: string }) {

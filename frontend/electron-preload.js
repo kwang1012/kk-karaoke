@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld('kkaraoke', {
   // main window -> floating lyrics
   publishMini: (state) => ipcRenderer.send('mini-state', state),
   // the page's own window buttons (Windows)
+  setFullScreen: (on) => ipcRenderer.send('set-fullscreen', !!on),
+  windowDrag: (start) => ipcRenderer.send('window-drag', !!start),
   windowControl: (action) => ipcRenderer.send('window-control', action),
   isMaximized: () => ipcRenderer.invoke('window-is-maximized'),
   onMaximizeChange: (callback) => {
@@ -21,6 +23,20 @@ contextBridge.exposeInMainWorld('kkaraoke', {
   // floating lyrics window
   onMiniState: (callback) => ipcRenderer.on('mini-state', (_event, state) => callback(state)),
   miniReady: () => ipcRenderer.send('mini-ready'),
+  // mini -> main window: set the volume
+  miniCommand: (command) => ipcRenderer.send('mini-command', command),
+  onMiniCommand: (callback) => {
+    const listener = (_event, command) => callback(command);
+    ipcRenderer.on('mini-command', listener);
+    return () => ipcRenderer.removeListener('mini-command', listener);
+  },
   mediaKey: (action) => ipcRenderer.send('media-key-request', action),
+  getUpdateState: () => ipcRenderer.invoke('update-state'),
+  onUpdateState: (callback) => {
+    const listener = (_event, state) => callback(state);
+    ipcRenderer.on('update-state', listener);
+    return () => ipcRenderer.removeListener('update-state', listener);
+  },
+  installUpdate: () => ipcRenderer.send('update-install'),
   version: () => ipcRenderer.invoke('app-version'),
 });

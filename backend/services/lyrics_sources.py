@@ -349,8 +349,8 @@ def find_lyrics(
                 break
         if lrclib_text:
             break
-    if lrclib_text and providers.is_romanized_korean(lrclib_text):
-        log.info("LRCLib has %r as romanized Korean; looking for the Hangul", title)
+    if lrclib_text and providers.is_unusable_lyrics(lrclib_text):
+        log.info("LRCLib has %r as unusable words (romanized, or an instrumental notice); looking elsewhere", title)
         lrclib_text = None
     lrclib_lines = parse_lrc(lrclib_text) if lrclib_text else None
 
@@ -417,7 +417,7 @@ def find_plain_lyrics(
                 break
             record = fetch_lrclib_record(variant, name, album, round(duration_s) if duration_s else None)
             text, source = (record or {}).get("plainLyrics"), "lrclib"
-            if text and providers.is_romanized_korean(text):
+            if text and providers.is_unusable_lyrics(text):
                 text = None
     if not text:
         entry = providers.find_entry(title, names, duration_s, fold=_norm, same_artist=_same_artist,
@@ -426,7 +426,7 @@ def find_plain_lyrics(
             text, source = entry.plain or None, entry.source
     if not text:
         text, source = providers.lyrics_ovh_plain(title, names), "ovh"
-    if not text or not text.strip() or providers.is_romanized_korean(text):
+    if not text or not text.strip() or providers.is_unusable_lyrics(text):
         return None
     text = text.strip()
     if _has_simplified_chinese(text):

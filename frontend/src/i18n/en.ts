@@ -143,6 +143,7 @@ export const en = {
   'player.leaveLyricsView': 'Leave lyrics view',
   'player.editLyrics': 'Edit lyrics',
   'player.showQueue': 'Show queue',
+  'player.floatingLyrics': 'Floating lyrics',
   'player.hideQueue': 'Hide queue',
   'player.guide': 'Guide vocal',
   'player.guideHint': 'Keep a faint original vocal to help you follow the melody. 0% removes it completely.',

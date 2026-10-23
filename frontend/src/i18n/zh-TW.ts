@@ -137,6 +137,7 @@ export const zhTW: Record<TranslationKey, string> = {
   'player.leaveLyricsView': '離開歌詞畫面',
   'player.editLyrics': '編輯歌詞',
   'player.showQueue': '顯示待播',
+  'player.floatingLyrics': '浮動歌詞',
   'player.hideQueue': '隱藏待播',
   'player.guide': '導唱人聲',
   'player.guideHint': '保留一點原唱人聲，幫助你跟上旋律。0% 為完全消除。',

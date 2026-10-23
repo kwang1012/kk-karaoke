@@ -9,6 +9,8 @@ const indexHtml = path.join(__dirname, 'build', 'index.html');
 const iconPath = path.join(__dirname, isWindows ? 'icon.ico' : 'build/icon-512.png');
 
 let win = null;
+let mini = null;
+let lastMini = null;
 let tray = null;
 let quitting = false;
 
@@ -32,6 +34,8 @@ function createWindow() {
       // Disable Node integration for security in production
       nodeIntegration: false,
       contextIsolation: true,
+      // the window can sit hidden in the tray while a song plays: keep its timers and lyrics running
+      backgroundThrottling: false,
       preload: path.join(__dirname, 'electron-preload.js'),
     },
     // Remove the default titlebar. On Windows the native minimize/maximize/close buttons stay,
@@ -63,6 +67,37 @@ function createWindow() {
   });
   win.on('closed', () => {
     win = null;
+  });
+}
+
+// Floating lyrics: a small always-on-top window. The main window owns the player and sends it the state.
+function toggleMini() {
+  if (mini && !mini.isDestroyed()) {
+    mini.close();
+    return;
+  }
+  const { workArea } = require('electron').screen.getPrimaryDisplay();
+  const width = 480;
+  const height = 170;
+  mini = new BrowserWindow({
+    width,
+    height,
+    x: Math.round(workArea.x + (workArea.width - width) / 2),
+    y: workArea.y + workArea.height - height - 24,
+    minWidth: 320,
+    minHeight: 130,
+    frame: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    fullscreenable: false,
+    icon: iconPath,
+    backgroundColor: '#16121f',
+    webPreferences: { nodeIntegration: false, contextIsolation: true, preload: path.join(__dirname, 'electron-preload.js') },
+  });
+  mini.setAlwaysOnTop(true, 'floating');
+  mini.loadFile(path.join(__dirname, 'build', 'mini-lyrics.html'));
+  mini.on('closed', () => {
+    mini = null;
   });
 }
 
@@ -128,6 +163,7 @@ function createTray() {
     Menu.buildFromTemplate([
       { label: 'Open KKaraoke', click: showWindow },
       { type: 'separator' },
+      { label: 'Floating lyrics', click: toggleMini },
       { label: 'Play / Pause', click: () => sendMediaKey('toggle') },
       { label: 'Next', click: () => sendMediaKey('next') },
       { label: 'Previous', click: () => sendMediaKey('previous') },
@@ -167,5 +203,17 @@ if (!app.requestSingleInstanceLock()) {
     if (!isMac) app.quit();
   });
 }
+
+ipcMain.on('mini-state', (_event, state) => {
+  lastMini = state;
+  if (mini && !mini.isDestroyed()) mini.webContents.send('mini-state', state);
+});
+ipcMain.on('mini-ready', () => {
+  if (lastMini && mini && !mini.isDestroyed()) mini.webContents.send('mini-state', lastMini);
+});
+ipcMain.on('mini-toggle', toggleMini);
+ipcMain.on('media-key-request', (_event, action) => {
+  if (action in { toggle: 1, next: 1, previous: 1 }) sendMediaKey(action);
+});
 
 ipcMain.handle('app-version', () => app.getVersion());

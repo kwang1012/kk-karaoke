@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
 import TopBar from 'src/components/TopBar';
 import Queue from 'src/components/Queue';
+import MiniLyricsBridge from 'src/components/MiniLyricsBridge';
 import AudioController from 'src/components/AudioController';
 import AppSnackbar from 'src/components/Snackbar';
 import PlayerTabNotice from 'src/components/PlayerTabNotice';
@@ -54,6 +55,7 @@ export default function Layout() {
       <div className="h-[84px] shrink-0">
         <AudioController />
       </div>
+      {window.kkaraoke && <MiniLyricsBridge />}
       <AppSnackbar />
       <Suspense fallback={null}>
         <SettingsDialog />

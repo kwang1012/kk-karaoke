@@ -69,8 +69,10 @@ export default function SongCard({
   return (
     <div
       className={cn(
-        'group/card relative flex h-14 min-w-0 cursor-default items-center gap-3 rounded-xl px-2 transition-colors',
-        dense && 'h-12 px-1',
+        // min-h, not h: a song being processed shows stage labels that can wrap, and the card must grow with them
+        'group/card relative flex min-h-14 min-w-0 cursor-default items-center gap-3 rounded-xl px-2 transition-colors',
+        dense && 'min-h-12 px-1',
+        processing && 'items-start py-2',
         !disabled && !disableHover && 'hover:bg-accent',
         menuOpen && !disableHover && 'bg-accent',
         className

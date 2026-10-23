@@ -292,6 +292,9 @@ def _fetch_album(browse_id: str):
 
 def collection_tracks(collection_type: str, collection_id: str):
     """(collection, tracks) for a playlist or an album, cached for ten minutes."""
+    if collection_type == "playlists" and collection_id.startswith("chart:"):
+        from services import charts  # imports this module, so it is loaded when first needed
+        return charts.chart_tracks(collection_id)
     fetch = {"playlists": _fetch_playlist, "albums": _fetch_album}.get(collection_type)
     if fetch is None:
         return None, None

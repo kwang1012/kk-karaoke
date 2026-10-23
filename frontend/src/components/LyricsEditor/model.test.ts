@@ -159,11 +159,23 @@ test('setting words by hand keeps the line as it is', () => {
   assert.equal(out[0].text, 'abc');
   assert.equal(out[0].words?.[0].start, 1.1);
   assert.equal(out[1], rows[1]);
-  // …whereas changing the line's time or text still drops them: they no longer describe it.
-  assert.equal(setTime(rows, 0, 2)[0].words, undefined);
+  // …whereas changing the line's text drops them: they no longer describe it.
   assert.equal(setText(rows, 0, 'abd')[0].words, undefined);
 });
 
+
+test('moving a line moves its words with it and keeps their spacing', () => {
+  const rows = [{ id: 1, time: 1, text: 'abc', words: W, guess: true }];
+  const out = setTime(rows, 0, 3)[0];
+  assert.equal(out.time, 3);
+  assert.deepEqual(out.words?.map((w) => [w.start, w.end]), W.map((w) => [w.start + 2, w.end + 2]));
+  assert.equal(out.guess, undefined); // a time somebody chose is not a guess
+  assert.deepEqual(nudge(rows, 0, 0.5)[0].words?.[0], { ...W[0], start: W[0].start + 0.5, end: W[0].end + 0.5 });
+});
+
+test('clearing a line\'s time drops its words, since there is nothing left to hang them on', () => {
+  assert.equal(setTime([{ id: 1, time: 1, text: 'abc', words: W }], 0, null)[0].words, undefined);
+});
 
 // --- renaming one word -------------------------------------------------------------------
 

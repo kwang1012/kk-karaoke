@@ -1,0 +1,85 @@
+name: KKaraoke
+options:
+  bundleIdPrefix: app.kkaraoke
+  deploymentTarget:
+    macOS: "15.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+  knownRegions: [en, zh-Hant, zh-Hans, Base]
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    KARAOKE_UPDATE_FEED_URL: ""
+    KARAOKE_UPDATE_PUBLIC_KEY: ""
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: 2.9.0
+targets:
+  KKaraoke:
+    type: application
+    platform: macOS
+    sources: [KKaraoke, Shared]
+    dependencies:
+      - package: Sparkle
+      - target: KKaraokeWidget
+    postBuildScripts:
+      - name: Bundle public sign-in configuration
+        script: python3 "$SRCROOT/Tools/configure-auth.py"
+        basedOnDependencyAnalysis: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.kkaraoke.KKaraoke
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_FILE: KKaraoke/Info.plist
+        INFOPLIST_KEY_CFBundleDisplayName: KKaraoke
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.music
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: KKaraoke listens to your microphone to score your singing and play your voice through the speakers.
+        CODE_SIGN_ENTITLEMENTS: KKaraoke/KKaraoke.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
+        CODE_SIGN_STYLE: Automatic
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SWIFT_EMIT_LOC_STRINGS: YES
+        LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+        STRING_CATALOG_GENERATE_SYMBOLS: NO
+      configs:
+        Debug:
+          CODE_SIGN_ENTITLEMENTS: KKaraoke/KKaraoke-Debug.entitlements
+  KKaraokeWidget:
+    type: app-extension
+    platform: macOS
+    sources: [KKaraokeWidget, Shared]
+    info:
+      path: KKaraokeWidget/Info.plist
+      properties:
+        CFBundleDisplayName: KKaraoke
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.kkaraoke.KKaraoke.widget
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_ENTITLEMENTS: KKaraokeWidget/KKaraokeWidget.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
+        CODE_SIGN_STYLE: Automatic
+        SKIP_INSTALL: YES
+  KKaraokeTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources: [Tests]
+    dependencies:
+      - target: KKaraoke
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        BUNDLE_LOADER: $(TEST_HOST)
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/KKaraoke.app/Contents/MacOS/KKaraoke
+schemes:
+  KKaraoke:
+    build:
+      targets:
+        KKaraoke: all
+    test:
+      targets: [KKaraokeTests]

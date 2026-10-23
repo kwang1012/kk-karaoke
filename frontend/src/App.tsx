@@ -35,6 +35,7 @@ import { authEnabled, openLogin, useAuthStore } from './lib/auth';
 const JoinView = lazy(() => import('./pages/join'));
 const RemoteView = lazy(() => import('./pages/remote'));
 const TvView = lazy(() => import('./pages/tv'));
+const DownloadView = lazy(() => import('./pages/download'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -113,6 +114,7 @@ const AppRouters = () => {
           <Route path="storage" element={<AdminStorage />} />
         </Route>
         <Route path="join" element={<JoinView />} />
+        <Route path="download" element={<DownloadView />} />
         <Route path="tv" element={<TvView />} />
         <Route path="remote" element={isLoggedIn ? <RemoteView /> : <Navigate to="/join" replace />} />
       </Routes>

@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Lyrics } from 'src/models/spotify';
 import WordLine from './WordLine';
+import LyricGap from './LyricGap';
+import { countdown, gapAfter } from 'src/lyricGap';
 
 /** Keep each line mounted as it moves into and out of the singing position. */
 export default function TvLyrics({ lyrics, lineIndex, delay, progress, playing, seeking }: {
@@ -37,6 +39,10 @@ export default function TvLyrics({ lyrics, lineIndex, delay, progress, playing, 
     return () => observer.disconnect();
   }, [first, last, lyrics]);
 
+  // a long wait before the next line: the countdown takes the place of the line just sung
+  const wait = gapAfter(lyrics, lineIndex, delay);
+  const waiting = wait && progress >= wait.start && progress < wait.end ? wait : null;
+
   const sizes = new Map<number, { height: number; scale: number }>();
   for (let index = first; index <= last; index++) {
     const height = measurements.lines.get(index) || measurements.width * 0.064;
@@ -64,7 +70,7 @@ export default function TvLyrics({ lyrics, lineIndex, delay, progress, playing, 
         const active = relative === 0;
         const y = positions.get(index) || 0;
         const scale = sizes.get(index)?.scale || 1;
-        const opacity = active ? 1 : relative === 1 ? 0.6 : Math.abs(relative) <= 2 ? 0.3 : 0;
+        const opacity = active ? (waiting ? (index < 0 ? 0 : 0.25) : 1) : relative === 1 ? 0.6 : Math.abs(relative) <= 2 ? 0.3 : 0;
         return (
           <div
             key={index}
@@ -85,6 +91,12 @@ export default function TvLyrics({ lyrics, lineIndex, delay, progress, playing, 
           </div>
         );
       })}
+      {waiting && (
+        <LyricGap
+          seconds={countdown(waiting, progress)}
+          className="absolute inset-x-0 top-[45%] -translate-y-1/2 justify-center text-[6vw]"
+        />
+      )}
     </div>
   );
 }

@@ -48,6 +48,8 @@ export default function VideoBackdrop({ videoId, visible = true }: { videoId: st
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const { progress, playing, seeking, loading } = usePlayer();
+  const clock = useRef({ progress, playing, seeking, loading });
+  clock.current = { progress, playing, seeking, loading };
 
   useEffect(() => {
     let cancelled = false;
@@ -66,11 +68,21 @@ export default function VideoBackdrop({ videoId, visible = true }: { videoId: st
         if (cancelled) return;
         playerRef.current = new YT.Player(mount, {
           videoId,
-          playerVars: { controls: 0, disablekb: 1, fs: 0, modestbranding: 1, rel: 0, iv_load_policy: 3, playsinline: 1 },
+          playerVars: { controls: 0, disablekb: 1, fs: 0, modestbranding: 1, rel: 0, iv_load_policy: 3, playsinline: 1, mute: 1 },
           events: {
             onReady: (e: any) => {
+              if (cancelled) return;
               e.target.mute(); // the sound is ours
-              if (!cancelled) setReady(true);
+              // Cueing only loads metadata. Start muted to request media before the audio is ready;
+              // onStateChange holds the first buffered frame if our audio is still stopped.
+              e.target.playVideo();
+              setReady(true);
+            },
+            onStateChange: (e: any) => {
+              if (cancelled || e.data !== 1) return;
+              const { progress, playing, seeking, loading } = clock.current;
+              if (!seeking && Math.abs(e.target.getCurrentTime() - progress) > DRIFT_S) e.target.seekTo(progress, true);
+              if (!playing || loading || seeking) e.target.pauseVideo();
             },
             onError: () => !cancelled && setFailed(true),
           },
@@ -93,18 +105,20 @@ export default function VideoBackdrop({ videoId, visible = true }: { videoId: st
     try {
       // Hold the picture until the audio really runs: while the next song is still loading the video
       // would otherwise play ahead of it and then have to jump back.
+      if (!loading && Math.abs(player.getCurrentTime() - progress) > DRIFT_S) player.seekTo(progress, true);
+      const state = player.getPlayerState();
       if (!playing || loading) {
-        player.pauseVideo();
+        // Let the initial muted buffer finish; pause as soon as frames arrive.
+        if (state === 1) player.pauseVideo();
         return;
       }
-      if (Math.abs(player.getCurrentTime() - progress) > DRIFT_S) player.seekTo(progress, true);
-      player.playVideo();
+      if (state !== 1 && state !== 3) player.playVideo();
     } catch {}
   }, [ready, playing, seeking, loading, progress]);
 
   return (
-    // Kept mounted while hidden (not display:none, which stalls the iframe) so switching to it is instant.
-    <div className={cn('pointer-events-none absolute inset-0 overflow-hidden bg-black [container-type:size]', !visible && 'invisible')}>
+    // Keep layout and visibility intact so the iframe can buffer while the lyrics cover it.
+    <div aria-hidden={!visible} className={cn('pointer-events-none absolute inset-0 overflow-hidden bg-black [container-type:size]', !visible && 'opacity-0')}>
       {/* Fit the whole frame: the video may carry its own lyrics, so none of it can be cropped. */}
       <div
         ref={hostRef}
@@ -116,7 +130,8 @@ export default function VideoBackdrop({ videoId, visible = true }: { videoId: st
           href={`https://www.youtube.com/watch?v=${videoId}`}
           target="_blank"
           rel="noreferrer"
-          className="pointer-events-auto absolute top-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/70 px-4 py-2 text-sm text-white backdrop-blur"
+          tabIndex={visible ? undefined : -1}
+          className={cn('absolute top-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/70 px-4 py-2 text-sm text-white backdrop-blur', visible && 'pointer-events-auto')}
         >
           <ExternalLink className="size-4" /> {t('lyrics.videoBlocked')}
         </a>

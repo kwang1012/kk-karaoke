@@ -28,3 +28,9 @@ backend/data/
 .local-api.log
 .local-frontend.log
 backend/scripts/*.resolved.json
+
+# macOS app (the project is generated: cd macos && xcodegen)
+macos/KKaraoke.xcodeproj
+macos/build/
+
+dist/

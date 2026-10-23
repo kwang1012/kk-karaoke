@@ -1,6 +1,6 @@
 import { useLyricsColors } from 'src/hooks/lyricsColors';
 import { usePageTitle } from 'src/hooks/documentTitle';
-import { useEffect, useMemo, useRef } from 'react';
+import { Fragment, useEffect, useMemo, useRef } from 'react';
 import AppScrollbar from 'src/components/Scrollbar';
 import { usePlayer } from 'src/store/player';
 import { useTrackStore } from 'src/store';
@@ -18,6 +18,8 @@ import LyricsSkeleton from 'src/components/LyricsSkeleton';
 import PlainLyrics from 'src/components/PlainLyrics';
 import VideoBackdrop from 'src/components/VideoBackdrop';
 import WordLine from 'src/components/WordLine';
+import LyricGap from 'src/components/LyricGap';
+import { countdown, gapAfter } from 'src/lyricGap';
 import { useLyricsOffset } from 'src/hooks/lyricsOffset';
 import { useVideoMode } from 'src/hooks/videoMode';
 import { useT } from 'src/i18n';
@@ -93,6 +95,20 @@ export default function LyricsView() {
       setCurrentLine(index);
     }
   }, [progress, seeking, syncedLyrics]);
+
+  // the long waits between lines: the music icon always, the countdown while it is the current wait
+  const gapMarker = (index: number) => {
+    const gap = gapAfter(syncedLyrics, index, lyricsDelay);
+    if (!gap) return null;
+    const waiting = currentLine === index && progress >= gap.start && progress < gap.end;
+    return (
+      <LyricGap
+        key={`gap-${index}`}
+        seconds={waiting ? countdown(gap, progress) : null}
+        className={cn('my-6 mx-16 text-[2.5vw]', isFullscreen && 'justify-center text-[3vw]')}
+      />
+    );
+  };
 
   const handleLineClick = async (index: number) => {
     const seekTime = syncedLyrics[index].time;
@@ -184,8 +200,11 @@ export default function LyricsView() {
               style={{ color, backgroundColor: bgColor }}
             >
               {syncedLyrics.length > 0 ? (
-                syncedLyrics.map((line, i) => (
-                  <div key={i} className={['my-6 mx-16', isFullscreen ? 'text-center' : ''].join(' ')}>
+                <>
+                {gapMarker(-1)}
+                {syncedLyrics.map((line, i) => (
+                  <Fragment key={i}>
+                  <div className={['my-6 mx-16', isFullscreen ? 'text-center' : ''].join(' ')}>
                     <span
                       className={[
                         'origin-left cursor-pointer text-[2.5vw] leading-snug font-bold transition-all duration-300 hover:opacity-100',
@@ -215,7 +234,10 @@ export default function LyricsView() {
                       )}
                     </span>
                   </div>
-                ))
+                  {gapMarker(i)}
+                  </Fragment>
+                ))}
+                </>
               ) : plain ? (
                 <PlainLyrics text={plain} className="mx-16 my-10 text-[2vw]" />
               ) : (

@@ -1,3 +1,4 @@
+import { publicUrl } from 'src/utils/publicUrl';
 import { useLyricsColors } from 'src/hooks/lyricsColors';
 import { usePageTitle } from 'src/hooks/documentTitle';
 import { Fragment, useEffect, useMemo, useRef } from 'react';
@@ -147,7 +148,7 @@ export default function LyricsView() {
           {currentTrack?.orderedBy && (
             <div className="absolute top-4 right-4 z-10 flex items-center gap-2 rounded-full bg-black/30 py-1 pr-4 pl-1 backdrop-blur">
               <img
-                src={currentTrack.orderedBy.avatar}
+                src={publicUrl(currentTrack.orderedBy.avatar)}
                 className="size-9 rounded-full"
                 alt={currentTrack.orderedBy.name}
               />

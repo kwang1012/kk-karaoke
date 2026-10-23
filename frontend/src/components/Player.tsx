@@ -309,6 +309,19 @@ export const Player = () => {
     }
   }, [index, tracks]);
 
+  // Media keys and the tray menu of the desktop app (see electron.js)
+  const mediaKeyActions = useRef({ playAudio, pauseAudio, next, previous });
+  mediaKeyActions.current = { playAudio, pauseAudio, next, previous };
+  useEffect(() => {
+    return globalThis.window?.kkaraoke?.onMediaKey((action) => {
+      const actions = mediaKeyActions.current;
+      if (action === 'next') actions.next();
+      else if (action === 'previous') actions.previous();
+      else if (usePlayerStore.getState().playing) actions.pauseAudio();
+      else actions.playAudio();
+    });
+  }, []);
+
   // =============== useEffect ===============
 
   // update progress every 200ms

@@ -599,8 +599,8 @@ export const en = {
   'setup.unreachable': 'Nothing is answering at that address yet. Checking again every few seconds.',
   'setup.noWorker': 'No worker is running, so new songs cannot be processed. Songs that are already processed still play.',
   'setup.continueAnyway': 'Continue without a worker',
-  'download.pageTitle': 'Download for Mac',
-  'download.title': 'KKaraoke for Mac',
+  'download.pageTitle': 'Download the app',
+  'download.title': 'KKaraoke for Mac and Windows',
   'download.subtitle': 'The same library and rooms as the web app, plus any microphone, media keys and songs saved for offline singing.',
   'download.button': 'Download for Mac',
   'download.requirements': 'macOS 15 or later · Apple silicon and Intel',
@@ -608,8 +608,13 @@ export const en = {
   'download.step1': 'Open the downloaded KKaraoke.dmg.',
   'download.step2': 'Drag KKaraoke into Applications and open it.',
   'download.step3': 'After that the app updates itself: use KKaraoke → Check for Updates… any time.',
-  'download.notMac': 'This download is for Mac. On other devices, use KKaraoke in the browser.',
+  'download.notMac': 'These downloads are for Mac and Windows. On other devices, use KKaraoke in the browser.',
   'download.openWeb': 'Open the web app',
+  'download.buttonWindows': 'Download for Windows',
+  'download.requirementsWindows': 'Windows 10 or later · 64-bit',
+  'download.step1Windows': 'Run the downloaded KKaraoke-Setup.exe. If Windows SmartScreen warns about an unknown publisher, choose More info → Run anyway.',
+  'download.step2Windows': 'Pick where to install it and finish the installer.',
+  'download.step3Windows': 'Closing the window keeps KKaraoke in the tray so songs keep playing; media keys work from anywhere. Quit from the tray icon.',
 } as const;
 
 export type TranslationKey = keyof typeof en;

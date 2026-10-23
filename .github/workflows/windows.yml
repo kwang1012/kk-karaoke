@@ -1,0 +1,41 @@
+name: Windows app
+
+# Builds KKaraoke-Setup.exe (the Electron app). Run it by hand: Actions -> Windows app -> Run workflow,
+# then download the installer from the run's artifacts. Pushing a tag like `windows-v0.1.0` also
+# attaches the installer to a GitHub release.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['windows-v*']
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+      - run: yarn install --immutable
+      - run: yarn package-windows
+        env:
+          VITE_API_ADDR: api.kkaraoke.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KKaraoke-Setup
+          path: frontend/dist/KKaraoke-Setup.exe
+          if-no-files-found: error
+      - if: startsWith(github.ref, 'refs/tags/windows-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: frontend/dist/KKaraoke-Setup.exe

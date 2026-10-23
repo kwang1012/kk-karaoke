@@ -15,6 +15,9 @@ import { useRemoteMessageQueue } from 'src/hooks/queue';
 import { useT } from 'src/i18n';
 
 const isElectron = navigator.userAgent.toLowerCase().includes('electron');
+/** Windows draws minimize/maximize/close over the top right of the window; the Mac puts its buttons on the left. */
+const isElectronWindows = isElectron && /Windows/i.test(navigator.userAgent);
+const isElectronMac = isElectron && !isElectronWindows;
 
 export default function TopBar() {
   const t = useT();
@@ -50,11 +53,11 @@ export default function TopBar() {
     setSearching(value !== '');
   };
   return (
-    <header className="flex h-12 shrink-0 touch-none items-center gap-3 [-webkit-app-region:drag] max-md:hidden [&_button]:[-webkit-app-region:no-drag] [&_input]:[-webkit-app-region:no-drag]">
+    <header className={cn('flex h-12 shrink-0 touch-none items-center gap-3 [-webkit-app-region:drag] max-md:hidden [&_button]:[-webkit-app-region:no-drag] [&_input]:[-webkit-app-region:no-drag]', isElectronWindows && 'pr-36')}>
       <div className="flex items-center gap-1">
-        {/* the logo doubles as the home button; hidden in electron to leave room for the window controls */}
+        {/* the logo doubles as the home button; hidden in the Mac app to leave room for the window controls */}
         <Tooltip title={t('nav.home')} side="bottom">
-          <Link to="/" aria-label={t('nav.home')} className={isElectron ? 'invisible' : 'mr-2 shrink-0'}>
+          <Link to="/" aria-label={t('nav.home')} className={isElectronMac ? 'invisible' : 'mr-2 shrink-0'}>
             <Logo className="size-9" />
           </Link>
         </Tooltip>

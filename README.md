@@ -316,6 +316,22 @@ A native macOS app (SwiftUI) lives in [`macos/`](macos/README.md): the same libr
 any microphone, media keys, a menu bar item and songs downloaded for offline use. Build it with `xcodegen` and Xcode, or
 make a DMG with `macos/scripts/release.sh`.
 
+## Windows app
+
+An Electron app in [`frontend/`](frontend/electron.js) wraps the web app: the same library, rooms and queues, plus media keys,
+a tray icon (closing the window keeps the song playing) and a native title bar. On a Windows PC:
+
+```bash
+cd frontend
+yarn install
+set VITE_API_ADDR=api.kkaraoke.app   # PowerShell: $env:VITE_API_ADDR="api.kkaraoke.app"
+yarn package-windows                 # frontend/dist/KKaraoke-Setup.exe
+```
+
+Or run the **Windows app** workflow in GitHub Actions and download the installer from its artifacts. The installer is not
+code-signed, so SmartScreen shows an "unknown publisher" warning the first time. `yarn build:electron && yarn electron`
+runs it without packaging.
+
 ## Disclaimer
 
 KKaraoke is designed to work from copyrighted music for

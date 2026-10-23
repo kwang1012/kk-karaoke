@@ -48,7 +48,7 @@ export default function TopBar() {
     setSearching(value !== '');
   };
   return (
-    <header className={cn('flex h-12 shrink-0 touch-none items-center gap-3 [-webkit-app-region:drag] max-md:hidden [&_button]:[-webkit-app-region:no-drag] [&_input]:[-webkit-app-region:no-drag]', isElectronWindows && 'pr-36')}>
+    <header className={cn('flex h-12 shrink-0 touch-none items-center gap-3 [-webkit-app-region:drag] max-md:hidden [&_a]:[-webkit-app-region:no-drag] [&_button]:[-webkit-app-region:no-drag] [&_input]:[-webkit-app-region:no-drag]', isElectronWindows && 'pr-36')}>
       <div className="flex items-center gap-1">
         {/* the logo doubles as the home button; hidden in the Mac app to leave room for the window controls */}
         <Tooltip title={t('nav.home')} side="bottom">

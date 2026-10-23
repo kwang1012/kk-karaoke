@@ -166,7 +166,8 @@ function setupUpdates() {
     });
     if (response === 0) {
       quitting = true;
-      updater.quitAndInstall();
+      // silent: no installer window, and the app reopens by itself
+      updater.quitAndInstall(true, true);
     }
   });
   const check = () => updater.checkForUpdates().catch(() => {});

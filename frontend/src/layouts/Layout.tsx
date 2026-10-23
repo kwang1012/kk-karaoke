@@ -9,7 +9,6 @@ import PlayerTabNotice from 'src/components/PlayerTabNotice';
 import { useBreakpointDown } from 'src/hooks/media';
 import { useSettingStore } from 'src/store/setting';
 import WindowControls from 'src/components/WindowControls';
-import { cn } from 'src/lib/utils';
 import { isElectronWindows } from 'src/utils/platform';
 
 // lazy import mobile components
@@ -44,8 +43,8 @@ export default function Layout() {
     );
   }
   return (
-    <div className={cn('flex h-full w-full flex-col gap-3 p-3', isElectronWindows && !isFullScreen && 'pt-0')}>
-      {isElectronWindows && <WindowControls className="fixed top-0 right-0 z-50" />}
+    <div className="flex h-full w-full flex-col gap-3 p-3">
+      {isElectronWindows && <WindowControls className="fixed top-3 right-3 z-50" />}
       {!isFullScreen && <TopBar />}
       <div className="flex min-h-0 flex-1 gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-3">

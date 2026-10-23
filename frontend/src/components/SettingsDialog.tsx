@@ -13,6 +13,7 @@ import { useSettingStore } from 'src/store/setting';
 import { useRoomStore } from 'src/store/room';
 import { asDetail } from 'src/melodyDetail';
 import { PRESET_AVATARS } from 'src/utils';
+import { publicUrl } from 'src/utils/publicUrl';
 import AppSlider from 'src/components/Slider';
 import { canChooseOutput, canUseMic, useInputDevices, useOutputDevices } from 'src/hooks/audioDevices';
 import { LANGUAGES, useLanguageStore, useT, type Language } from 'src/i18n';
@@ -253,7 +254,7 @@ export default function SettingsDialog() {
             </Button>
           </Row>
           <Row title={t('settings.avatar')} description={t('settings.avatarHint')}>
-            {!editAvatar && localAvatar && <img src={localAvatar} className="mr-3 size-9 rounded-full" alt="avatar" />}
+            {!editAvatar && localAvatar && <img src={publicUrl(localAvatar)} className="mr-3 size-9 rounded-full" alt="avatar" />}
             <Button
               variant="outline"
               size="sm"

@@ -41,9 +41,9 @@ export default function Layout() {
   }
   return (
     <div className="flex h-full w-full flex-col gap-3 p-3">
+      {!isFullScreen && <TopBar />}
       <div className="flex min-h-0 flex-1 gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-3">
-          {!isFullScreen && <TopBar />}
           <PlayerTabNotice />
           <main className="min-h-0 flex-1 overflow-hidden rounded-2xl border bg-card">
             <Outlet />

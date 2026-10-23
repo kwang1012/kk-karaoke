@@ -78,12 +78,12 @@ test('the preview shows each line from its current time to the proposed one', ()
   assert.equal(changedCount(diff), 1); // 0.02s is the same time; an untimed line is a change
 });
 
-test('editing a line drops what alignment knew about its old time or text', () => {
+test('retiming a line moves its words with it; changing its text drops what alignment knew', () => {
   const rows: Row[] = [{ ...newRow('hi', 1), words: [w('hi', 1)], guess: true }];
-  assert.equal(setTime(rows, 0, 2)[0].words, undefined);
+  assert.equal(setTime(rows, 0, 2)[0].words?.[0].start, w('hi', 1).start + 1);
   assert.equal(setTime(rows, 0, 2)[0].guess, undefined);
+  assert.ok(nudge(rows, 0, 0.1)[0].words);
   assert.equal(setText(rows, 0, 'ho')[0].words, undefined);
-  assert.equal(nudge(rows, 0, 0.1)[0].words, undefined);
   assert.equal(mapText(rows, (t) => t + '!')[0].words, undefined);
 });
 

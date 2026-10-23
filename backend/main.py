@@ -145,6 +145,12 @@ def get_top_categories(keyword: str):
     )
 
 
+@app.get("/charts")
+def get_charts():
+    from services import charts
+    return JSONResponse(content={"sources": charts.listing()})
+
+
 @app.get("/playlist/{playlist_id}/tracks")
 def get_playlist_tracks(playlist_id: str):
     collection, tracks = collection_tracks("playlists", playlist_id)

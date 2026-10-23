@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>SUFeedURL</key>
+  <string>$(KARAOKE_UPDATE_FEED_URL)</string>
+  <key>SUPublicEDKey</key>
+  <string>$(KARAOKE_UPDATE_PUBLIC_KEY)</string>
+  <key>SUEnableAutomaticChecks</key>
+  <true/>
+  <key>SUScheduledCheckInterval</key>
+  <integer>14400</integer>
+  <key>SUEnableInstallerLauncherService</key>
+  <true/>
+  <key>SUAllowsAutomaticUpdates</key>
+  <false/>
+  <key>NSBonjourServices</key>
+  <array>
+    <string>_googlecast._tcp</string>
+  </array>
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>KKaraoke looks for TVs and speakers on your network that you can play to.</string>
+</dict>
+</plist>

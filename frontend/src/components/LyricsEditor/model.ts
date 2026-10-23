@@ -120,11 +120,26 @@ const forgetAlignment = (r: Row): Row => {
   return rest;
 };
 
+/**
+ * The row at a new time. Its words move with it, so a line that is put somewhere else keeps how it is
+ * sung; only a line that is no longer timed (or was never) has none to keep. A guessed time stops being
+ * a guess once a person has chosen it.
+ */
+const retime = (r: Row, time: number | null): Row => {
+  const { guess: _guess, ...rest } = r;
+  if (time === null || r.time === null || !r.words) {
+    const { words: _words, ...bare } = rest;
+    return { ...bare, time };
+  }
+  const moved = round2(time - r.time);
+  return { ...rest, time, words: r.words.map((w) => ({ ...w, start: round2(w.start + moved), end: round2(w.end + moved) })) };
+};
+
 export const setTime = (rows: Row[], i: number, time: number | null): Row[] =>
   rows.map((r, j) => {
     if (j !== i) return r;
     const next = time === null ? null : round2(Math.max(0, time));
-    return next === r.time ? r : { ...forgetAlignment(r), time: next };
+    return next === r.time ? r : retime(r, next);
   });
 
 export const setText = (rows: Row[], i: number, text: string): Row[] =>
@@ -132,7 +147,7 @@ export const setText = (rows: Row[], i: number, text: string): Row[] =>
 
 export const nudge = (rows: Row[], i: number, delta: number): Row[] =>
   rows.map((r, j) =>
-    j === i && r.time !== null ? { ...forgetAlignment(r), time: round2(Math.max(0, r.time + delta)) } : r
+    j === i && r.time !== null ? retime(r, round2(Math.max(0, r.time + delta))) : r
   );
 
 /** Move every timed line by `delta` seconds (never before zero). Words move with their line. */

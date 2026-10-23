@@ -310,6 +310,12 @@ each update.
 ### Can I run KKaraoke on my device?
 KKaraoke is designed to be run on all devices. However, we highly recommend you to run KKaraoke on a device with the GPU access. KKaraoke also supports Apple GPUs with `torch.backends.mps`.
 
+## Mac app
+
+A native macOS app (SwiftUI) lives in [`macos/`](macos/README.md): the same library, rooms and queues as the web app, plus
+any microphone, media keys, a menu bar item and songs downloaded for offline use. Build it with `xcodegen` and Xcode, or
+make a DMG with `macos/scripts/release.sh`.
+
 ## Disclaimer
 
 KKaraoke is designed to work from copyrighted music for

@@ -18,6 +18,7 @@ import TvLyrics from 'src/components/TvLyrics';
 import { useInvite } from 'src/hooks/invite';
 import { authEnabled, openLogin, useAuthStore } from 'src/lib/auth';
 import { useLyricsOffset } from 'src/hooks/lyricsOffset';
+import { useVideoMode } from 'src/hooks/videoMode';
 import { useRemoteMessageQueue } from 'src/hooks/queue';
 import { useT } from 'src/i18n';
 import { cn } from 'src/lib/utils';
@@ -182,7 +183,7 @@ export default function TvView() {
   });
   const { videoId } = useLyricsOffset();
   // Same as the normal lyrics view: the video takes the place of the lyrics, and the setting is shared
-  const showVideo = useSettingStore((state) => state.showVideo);
+  const { showVideo, setShowVideo } = useVideoMode();
   const showMelody = useSettingStore((state) => state.showMelody);
   const overVideo = showVideo && !!videoId;
   const hasRoom = activeRoomId !== 'default';
@@ -255,8 +256,8 @@ export default function TvView() {
 
   // ---- remote keys ------------------------------------------------------------------------
   // Always call the latest player functions without re-binding the listener on every tick.
-  const latest = useRef({ p, started, showVideo });
-  latest.current = { p, started, showVideo };
+  const latest = useRef({ p, started, showVideo, setShowVideo });
+  latest.current = { p, started, showVideo, setShowVideo };
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (document.querySelector('[role="dialog"]')) return;
@@ -278,7 +279,7 @@ export default function TvView() {
         }
         return;
       }
-      const { p, started, showVideo } = latest.current;
+      const { p, started, showVideo, setShowVideo } = latest.current;
       const confirm = event.key === 'Enter' || event.key === ' ';
       if (!started) {
         if (confirm) {
@@ -325,7 +326,7 @@ export default function TvView() {
         case 'v':
         case 'V': {
           const next = !showVideo;
-          useSettingStore.getState().setShowVideo(next);
+          setShowVideo(next);
           break;
         }
         default:

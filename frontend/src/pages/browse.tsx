@@ -19,6 +19,7 @@ import { useBreakpointDown } from 'src/hooks/media';
 import { cn } from 'src/lib/utils';
 import { useJam, useRoomStore } from 'src/store/room';
 import { useT, type TranslationKey } from 'src/i18n';
+import { chartLabels, PROVIDER_COLOR, PROVIDER_LOGO, type ChartSource } from 'src/utils/charts';
 
 function PlaylistCard({
   playlist,
@@ -78,6 +79,23 @@ const fetchTopCategories = async (): Promise<Categories> => {
     });
 };
 
+const fetchCharts = async (): Promise<ChartSource[]> =>
+  api.get('/charts').then(({ data }) => data.sources || []);
+
+function ProviderMark({ source, className }: { source: string; className?: string }) {
+  const logo = PROVIDER_LOGO[source];
+  return logo ? (
+    <img src={logo} alt="" className={cn('size-6 shrink-0', className)} />
+  ) : (
+    <span
+      className={cn('flex size-6 shrink-0 items-center justify-center rounded-md text-sm font-extrabold text-white', className)}
+      style={{ background: PROVIDER_COLOR[source] }}
+    >
+      K
+    </span>
+  );
+}
+
 export const topCategoriesQuery = { queryKey: ['categories'], queryFn: fetchTopCategories };
 
 const greetingKey = (): TranslationKey => {
@@ -92,6 +110,8 @@ export function MainView() {
   const t = useT();
   usePageTitle(t('nav.browse'));
   const { data: categories, isLoading } = useQuery(topCategoriesQuery);
+  const { data: chartSources } = useQuery({ queryKey: ['charts'], queryFn: fetchCharts, staleTime: 60 * 60 * 1000 });
+  const [chartSource, setChartSource] = useState<string>(() => localStorage.getItem('chartSource') || 'kkbox');
 
   const navigate = useNavigate();
   const mobile = useBreakpointDown('md');
@@ -201,6 +221,54 @@ export function MainView() {
               {readyList.map((track) => (
                 <SongCard key={track.id} track={track} className="px-1" onAdd={onAdd} onInsert={onInsert} />
               ))}
+            </div>
+          </section>
+        )}
+
+        {/* Charts from other services */}
+        {chartSources && chartSources.length > 0 && (
+          <section className="mt-8 px-4 md:px-8">
+            <h2 className="mb-3 text-lg font-semibold tracking-tight">{t('chart.title')}</h2>
+            <div className="no-scrollbar flex gap-2 overflow-x-auto">
+              {chartSources.map((source) => {
+                const selected = (chartSources.some((s) => s.id === chartSource) ? chartSource : chartSources[0].id) === source.id;
+                return (
+                  <button
+                    key={source.id}
+                    onClick={() => {
+                      setChartSource(source.id);
+                      localStorage.setItem('chartSource', source.id);
+                    }}
+                    className={cn(
+                      'flex shrink-0 items-center gap-2 rounded-full border px-4 py-1.5 text-sm font-medium transition-colors',
+                      selected ? 'border-transparent bg-foreground text-background' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                    )}
+                  >
+                    <ProviderMark source={source.id} className="size-4 text-[10px]" />
+                    {source.name}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {(chartSources.find((s) => s.id === chartSource) ?? chartSources[0]).charts.map((chart) => {
+                const sourceId = (chartSources.find((s) => s.id === chartSource) ?? chartSources[0]).id;
+                const { title, subtitle } = chartLabels(sourceId, chart.id);
+                return (
+                  <Link
+                    key={chart.id}
+                    to={`/playlist/${chart.id}`}
+                    state={{ collection: chart }}
+                    className="flex h-[60px] items-center gap-3 rounded-xl border bg-foreground/[0.04] px-3.5 transition-colors hover:bg-foreground/[0.08]"
+                  >
+                    <ProviderMark source={sourceId} className="size-7" />
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold">{title ? t(title) : chart.name}</span>
+                      <span className="block truncate text-xs text-muted-foreground">{t(subtitle)}</span>
+                    </span>
+                  </Link>
+                );
+              })}
             </div>
           </section>
         )}

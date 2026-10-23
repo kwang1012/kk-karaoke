@@ -44,8 +44,9 @@ export default function Layout() {
   }
   return (
     <div className="flex h-full w-full flex-col gap-3 p-3">
-      {isElectronWindows && <WindowControls className="fixed top-3 right-3 z-50" />}
       {!isFullScreen && <TopBar />}
+      {/* after the header in the DOM: where drag regions overlap, the later element wins, so the buttons stay clickable */}
+      {isElectronWindows && <WindowControls className="fixed top-3 right-3 z-50 [-webkit-app-region:no-drag]" />}
       <div className="flex min-h-0 flex-1 gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-3">
           <PlayerTabNotice />

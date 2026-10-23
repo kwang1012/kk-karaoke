@@ -5,7 +5,7 @@ import { useSettingStore } from 'src/store/setting';
 
 /** Desktop app only: tells the floating lyrics window (public/mini-lyrics.html) what is being sung. */
 export default function MiniLyricsBridge() {
-  const { currentTrack, lyrics, progress, playing, loading, volume, setVolume } = usePlayer();
+  const { currentTrack, lyrics, progress, playing, loading, volume, setVolume, vocalOn, toggleVocal } = usePlayer();
   const trackDelay = useTrackStore((state) => state.lyricsDelays[currentTrack?.id || ''] || 0);
   const lyricsLead = useSettingStore((state) => state.lyricsLead);
   const time = progress + lyricsLead - trackDelay; // the same offset the lyrics page applies
@@ -21,15 +21,16 @@ export default function MiniLyricsBridge() {
   const artist = currentTrack?.artists?.map((a) => a.name).join(', ');
 
   useEffect(() => {
-    window.kkaraoke?.publishMini({ title, artist, line, next, message, playing, current: index >= 0, volume });
-  }, [title, artist, line, next, message, playing, index >= 0, volume]);
+    window.kkaraoke?.publishMini({ title, artist, line, next, message, playing, current: index >= 0, volume, vocalOn });
+  }, [title, artist, line, next, message, playing, index >= 0, volume, vocalOn]);
 
-  // the floating window's volume slider
-  const setVolumeRef = useRef(setVolume);
-  setVolumeRef.current = setVolume;
+  // the floating window's volume slider and karaoke toggle
+  const actions = useRef({ setVolume, toggleVocal });
+  actions.current = { setVolume, toggleVocal };
   useEffect(() => {
     return window.kkaraoke?.onMiniCommand((command) => {
-      if (command.type === 'volume') setVolumeRef.current(command.value);
+      if (command.type === 'volume') actions.current.setVolume(command.value);
+      else if (command.type === 'karaoke') actions.current.toggleVocal();
     });
   }, []);
   return null;

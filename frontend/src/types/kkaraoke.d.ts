@@ -11,13 +11,15 @@ interface MiniLyricsState {
   playing: boolean;
   /** 0 to 1 */
   volume: number;
+  /** True when the original vocal is on (the toggle then reads "Vocal"; otherwise "Karaoke"). */
+  vocalOn: boolean;
 }
 
 interface Window {
   kkaraoke?: {
     onMediaKey: (callback: (action: 'toggle' | 'next' | 'previous') => void) => () => void;
     version: () => Promise<string>;
-    onMiniCommand: (callback: (command: { type: 'volume'; value: number }) => void) => () => void;
+    onMiniCommand: (callback: (command: { type: 'volume'; value: number } | { type: 'karaoke' }) => void) => () => void;
     publishMini: (state: MiniLyricsState) => void;
     toggleMini: () => void;
     windowControl: (action: 'minimize' | 'maximize' | 'close') => void;

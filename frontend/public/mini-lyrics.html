@@ -32,6 +32,8 @@
         background: transparent; opacity: 0.85;
       }
       button svg { display: block; }
+      .pill { width: auto; height: 26px; padding: 0 10px; gap: 5px; border-radius: 13px; font: 600 11px system-ui, 'Segoe UI', sans-serif; white-space: nowrap; background: rgba(255, 255, 255, 0.16); opacity: 1; }
+      .pill:hover { background: rgba(255, 255, 255, 0.26); }
       .volume { display: flex; align-items: center; flex: none; gap: 2px; }
       #mute { width: 26px; height: 26px; }
       input[type='range'] {
@@ -56,6 +58,7 @@
       <button id="toggle" aria-label="Play or pause" title="Play / Pause"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></svg></button>
       <button id="next-song" aria-label="Next song" title="Next song"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 4v16"/><path d="M6.029 4.285A2 2 0 0 0 3 6v12a2 2 0 0 0 3.029 1.715l9.997-5.998a2 2 0 0 0 .003-3.432z"/></svg></button>
       <div class="info"><div id="title"></div><div id="artist"></div></div>
+      <button id="karaoke" class="pill" title="Toggle original vocal"></button>
       <div class="volume">
         <button id="mute" aria-label="Mute" title="Mute"></button>
         <input id="volume" type="range" min="0" max="100" step="1" aria-label="Volume" />
@@ -66,6 +69,7 @@
       const api = window.kkaraoke;
       const $ = (id) => document.getElementById(id);
       const wrap = (inner) => '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + inner + '</svg>';
+      const MIC_ICONS = {"on": "<svg viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 19v3\"/><path d=\"M19 10v2a7 7 0 0 1-14 0v-2\"/><rect x=\"9\" y=\"2\" width=\"6\" height=\"13\" rx=\"3\"/></svg>", "off": "<svg viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 19v3\"/><path d=\"M15 9.34V5a3 3 0 0 0-5.68-1.33\"/><path d=\"M16.95 16.95A7 7 0 0 1 5 12v-2\"/><path d=\"M18.89 13.23A7 7 0 0 0 19 12v-2\"/><path d=\"m2 2 20 20\"/><path d=\"M9 9v3a3 3 0 0 0 5.12 2.12\"/></svg>"};
       const VOLUME_ICONS = {"x": "<svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M11 4.702a.7.7 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.7.7 0 0 0 11 19.298z\"/><path d=\"m16.5 14.5 5-5\"/><path d=\"m16.5 9.5 5 5\"/></svg>", "low": "<svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z\"/><path d=\"M16 9a5 5 0 0 1 0 6\"/></svg>", "high": "<svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z\"/><path d=\"M16 9a5 5 0 0 1 0 6\"/><path d=\"M19.364 18.364a9 9 0 0 0 0-12.728\"/></svg>"};
       const ICONS = { play: wrap('<path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/>'), pause: wrap('<rect x="14" y="3" width="5" height="18" rx="1"/><rect x="5" y="3" width="5" height="18" rx="1"/>') };
       if (api) {
@@ -79,6 +83,8 @@
           $('next').textContent = s.message ? '' : s.next || '';
           $('toggle').innerHTML = s.playing ? ICONS.pause : ICONS.play;
           if (typeof s.volume === 'number') showVolume(s.volume);
+          const vocal = !!s.vocalOn;
+          $('karaoke').innerHTML = (vocal ? MIC_ICONS.on : MIC_ICONS.off) + '<span>' + (vocal ? 'Vocal' : 'Karaoke') + '</span>';
         });
         let volume = 0.8;
         let lastAudible = 0.8;
@@ -102,6 +108,7 @@
           showVolume(value);
           api.miniCommand({ type: 'volume', value });
         };
+        $('karaoke').onclick = () => api.miniCommand({ type: 'karaoke' });
         $('previous').onclick = () => api.mediaKey('previous');
         $('toggle').onclick = () => api.mediaKey('toggle');
         $('next-song').onclick = () => api.mediaKey('next');

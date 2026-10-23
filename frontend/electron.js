@@ -104,14 +104,14 @@ function toggleMini() {
     return;
   }
   const { workArea } = require('electron').screen.getPrimaryDisplay();
-  const width = 480;
+  const width = 580;
   const height = 170;
   mini = new BrowserWindow({
     width,
     height,
     x: Math.round(workArea.x + (workArea.width - width) / 2),
     y: workArea.y + workArea.height - height - 24,
-    minWidth: 360,
+    minWidth: 500,
     minHeight: 130,
     frame: false,
     alwaysOnTop: true,
@@ -252,9 +252,11 @@ ipcMain.on('mini-ready', () => {
 });
 ipcMain.on('mini-toggle', toggleMini);
 ipcMain.on('mini-command', (_event, command) => {
-  const volume = command && command.type === 'volume' ? Number(command.value) : NaN;
-  if (Number.isFinite(volume) && win && !win.isDestroyed()) {
-    win.webContents.send('mini-command', { type: 'volume', value: Math.min(1, Math.max(0, volume)) });
+  if (!command || !win || win.isDestroyed()) return;
+  if (command.type === 'karaoke') {
+    win.webContents.send('mini-command', { type: 'karaoke' });
+  } else if (command.type === 'volume' && Number.isFinite(Number(command.value))) {
+    win.webContents.send('mini-command', { type: 'volume', value: Math.min(1, Math.max(0, Number(command.value))) });
   }
 });
 // The page's own window buttons (Windows).

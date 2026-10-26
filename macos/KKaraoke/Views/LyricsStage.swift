@@ -190,7 +190,8 @@ private struct KaraokeFillRenderer: TextRenderer {
   }
 }
 
-/// The music icon of a long wait, with the seconds left once it is the current one.
+/// The lead-in after a long wait: three dots that light up one by one over the last seconds, all lit as
+/// the line starts. Nothing shows before that, but the room is kept so the lines around it do not jump.
 struct LyricGapMarker: View {
     @Environment(PlayerModel.self) private var player
     var gap: LyricGap
@@ -199,19 +200,22 @@ struct LyricGapMarker: View {
     var centered = false
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 0.25, paused: !active || !player.isPlaying)) { _ in
-            let seconds = active ? gap.countdown(at: player.currentTime) : nil
-            HStack(spacing: size * 0.4) {
-                LucideIcon("music", size: size)
-                if let seconds, seconds <= LyricGap.countdownSeconds {
-                    Text("\(seconds)").font(.system(size: size, weight: .bold).monospacedDigit())
-                        .contentTransition(.numericText())
+        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !active || !player.isPlaying)) { _ in
+            let remaining = active ? gap.countdown(at: player.currentTime) : nil
+            HStack(spacing: size * 0.5) {
+                ForEach(0..<3, id: \.self) { dot in
+                    let lit = remaining.map {
+                        min(1, max(0, (LyricGap.countdownSeconds - $0) / (LyricGap.countdownSeconds / 3) - Double(dot) + 0.5))
+                    } ?? 0
+                    Circle().frame(width: size * 0.55, height: size * 0.55)
+                        .scaleEffect(0.8 + 0.2 * lit).opacity(0.25 + 0.75 * lit)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: centered ? .center : .leading)
-            .opacity(seconds == nil ? 0.3 : 1)
-            .accessibilityHidden(seconds == nil)
-            .accessibilityLabel(seconds.map { $0 <= LyricGap.countdownSeconds ? "\($0)" : "" } ?? "")
+            .frame(maxWidth: .infinity, minHeight: size, alignment: centered ? .center : .leading)
+            .opacity(remaining == nil ? 0 : 1)
+            .animation(.easeOut(duration: 0.3), value: remaining == nil)
+            .accessibilityHidden(remaining == nil)
+            .accessibilityLabel("Next line starting")
         }
     }
 }

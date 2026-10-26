@@ -95,7 +95,8 @@ def import_manifests(records):
 
 
 def migrate():
-    execute((Path(__file__).parents[1] / "migrations/0001_catalog.sql").read_text())
+    for migration in sorted((Path(__file__).parents[1] / "migrations").glob("*.sql")):
+        execute(migration.read_text())
 
 
 def save_song(data: dict, revive=False):

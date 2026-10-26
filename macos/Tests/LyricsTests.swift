@@ -76,17 +76,20 @@ struct StemCacheTests {
     @Test func longWaitsGetACountdown() {
         let lines = [
             LyricLine(time: 20, text: "a", words: [LyricWord(start: 20, end: 22, text: "a")]),
-            LyricLine(time: 24, text: "b"), LyricLine(time: 60, text: ""), LyricLine(time: 80, text: "c"),
+            LyricLine(time: 24, text: "b"), LyricLine(time: 60, text: "c"), LyricLine(time: 80, text: ""),
+            LyricLine(time: 100, text: "d"),
         ]
         #expect(LyricGap.after(lines, index: -1, delay: 0) == LyricGap(start: 0, end: 20))
         #expect(LyricGap.after(lines, index: 0, delay: 0) == nil)
         #expect(LyricGap.after(lines, index: 1, delay: 0) == LyricGap(start: 26, end: 60))
-        #expect(LyricGap.after(lines, index: 2, delay: 1) == LyricGap(start: 61, end: 81))
+        // no countdown into or after an instrumental line
+        #expect(LyricGap.after(lines, index: 2, delay: 1) == nil)
         #expect(LyricGap.after(lines, index: 3, delay: 0) == nil)
+        #expect(LyricGap.after(lines, index: 4, delay: 0) == nil)
         let gap = LyricGap(start: 22, end: 40)
         #expect(gap.countdown(at: 21) == nil)
-        #expect(gap.countdown(at: 36.2) == 4)
-        #expect(gap.countdown(at: 39.99) == 1)
+        #expect(gap.countdown(at: 30) == nil)
+        #expect(gap.countdown(at: 37.5) == 2.5)
         #expect(gap.countdown(at: 40) == nil)
     }
 }

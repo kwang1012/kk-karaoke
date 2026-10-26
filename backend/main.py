@@ -22,6 +22,8 @@ from routes.lyrics import router as lyrics_router
 from routes.queue import resume_pending_tracks, router as queue_router
 from routes.room import router as room_router
 from routes.admin import router as admin_router
+from routes.registration import router as registration_router, admin_router as registration_admin_router
+from routes.scores import router as scores_router
 from redis_keys import RedisKeys
 from auth import require_host
 from config import CORS_ORIGINS
@@ -108,7 +110,10 @@ app.include_router(track_router, prefix="/tracks", tags=["tracks"])
 app.include_router(lyrics_router, prefix="/lyrics", tags=["lyrics"])
 app.include_router(queue_router, prefix="/queue", tags=["queue"])
 app.include_router(room_router, prefix="/room", tags=["room"])
+app.include_router(scores_router, prefix="/scores", tags=["scores"])
 app.include_router(admin_router, prefix="/admin", tags=["admin"], dependencies=[Depends(require_host)])
+app.include_router(registration_router, prefix="/auth", tags=["registration"])
+app.include_router(registration_admin_router, prefix="/admin", tags=["registration"])
 
 
 @app.get("/network")

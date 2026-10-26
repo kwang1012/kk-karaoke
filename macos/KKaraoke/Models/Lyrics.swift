@@ -73,37 +73,41 @@ enum LyricsTiming {
     }
 }
 
-/// A silent stretch between two lines, long enough to get a music icon and a countdown.
+/// A silent stretch between two lines, long enough to get a countdown for its last seconds.
 struct LyricGap: Equatable, Sendable {
     /// A wait at least this long (seconds) is marked.
     static let minimum = 5.0
-    /// The number is shown only for the last seconds of the wait.
-    static let countdownSeconds = 3
+    /// Only the last seconds of the wait are counted out.
+    static let countdownSeconds = 3.0
 
     var start: Double
     var end: Double
 
     /// The wait after line `index` (-1 for the intro before the first line), or nil when it is short.
+    /// An instrumental (empty) line is its own marker, so no wait is counted out into or after one.
     static func after(_ lines: [LyricLine], index: Int, delay: Double) -> LyricGap? {
         guard index >= -1, index + 1 < lines.count else { return nil }
+        guard !lines[index + 1].text.isEmpty else { return nil }
         let next = lines[index + 1].time + delay
         var start = 0.0
         if index >= 0 {
             let line = lines[index]
+            guard !line.text.isEmpty else { return nil }
             let sung: Double
             if let last = line.words?.last {
                 sung = last.end + delay
             } else {
                 // No word timing: a rough guess at how long the line takes to sing.
-                sung = line.time + delay + (line.text.isEmpty ? 0 : max(2, Double(line.text.count) * 0.3))
+                sung = line.time + delay + max(2, Double(line.text.count) * 0.3)
             }
             start = min(sung, next)
         }
         return next - start >= minimum ? LyricGap(start: start, end: next) : nil
     }
 
-    /// Whole seconds left until the next line while the wait is under way, never below 1.
-    func countdown(at time: Double) -> Int? {
-        time >= start && time < end ? max(1, Int((end - time).rounded(.up))) : nil
+    /// Seconds left until the next line once the wait is down to its last `countdownSeconds`, else nil.
+    func countdown(at time: Double) -> Double? {
+        let left = end - time
+        return time >= start && left > 0 && left <= Self.countdownSeconds ? left : nil
     }
 }

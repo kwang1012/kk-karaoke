@@ -10,14 +10,14 @@ def catalog_db(monkeypatch, tmp_path_factory):
 
     isolated = tmp_path_factory.mktemp("catalog")
     database = isolated / "catalog.sqlite3"
-    schema = Path(__file__).parents[1] / "migrations/0001_catalog.sql"
     with sqlite3.connect(database) as connection:
-        connection.executescript(schema.read_text())
+        for schema in sorted((Path(__file__).parents[1] / "migrations").glob("*.sql")):
+            connection.executescript(schema.read_text())
 
     def execute(sql, params=()):
         with sqlite3.connect(database, timeout=10) as connection:
             connection.row_factory = sqlite3.Row
-            if "CREATE TABLE IF NOT EXISTS songs" in sql:
+            if "CREATE TABLE IF NOT EXISTS" in sql:
                 connection.executescript(sql)
                 return []
             return [dict(row) for row in connection.execute(sql, params).fetchall()]

@@ -115,3 +115,42 @@ def transcribe_vocals(path: str) -> Optional[list[HeardLine]]:
         words = [(round(w.start, 2), round(w.end, 2), convert(w.word)) for w in (seg.words or []) if w.word.strip()]
         lines.append(HeardLine(round(seg.start, 2), round(seg.end, 2), text, words))
     return lines if len(lines) >= MIN_LINES else None
+
+
+LANGUAGE_MODEL = "small"  # plenty to tell Korean from Japanese, and cheap next to the transcription model
+LANGUAGE_WINDOWS_S = (30, 60, 90, 120)
+LANGUAGE_WINDOW_LEN_S = 30
+MIN_LANGUAGE_PROB = 0.6
+_language_model = None
+
+
+def sung_language(path: str) -> Optional[str]:
+    """
+    The language sung in a vocal stem ("ko", "ja", ...): what Whisper hears in a few 30-second
+    windows, the most common one among those it is sure of. None when the stem is too short
+    or nothing is clear. Lyrics are judged against this, not against the title, which may be Latin.
+    """
+    if not os.path.exists(path):
+        return None
+    global _language_model
+    try:
+        from collections import Counter
+
+        from faster_whisper import WhisperModel
+        from faster_whisper.audio import decode_audio
+
+        if _language_model is None:
+            _language_model = WhisperModel(LANGUAGE_MODEL, device="cpu", compute_type="int8")
+        audio = decode_audio(path, sampling_rate=16000)
+        votes: Counter = Counter()
+        for start in LANGUAGE_WINDOWS_S:
+            window = audio[start * 16000:(start + LANGUAGE_WINDOW_LEN_S) * 16000]
+            if len(window) < 5 * 16000:
+                continue
+            language, prob, _ = _language_model.detect_language(window)
+            if prob >= MIN_LANGUAGE_PROB:
+                votes[language] += 1
+        return votes.most_common(1)[0][0] if votes else None
+    except Exception as e:  # noqa: BLE001 - a language check is a bonus
+        log.warning("Language detection failed for %s: %r", path, e)
+        return None

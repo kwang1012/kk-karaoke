@@ -101,6 +101,19 @@ function createWindow() {
   });
 }
 
+// The floating window's saved position and size, or null when there is none or it would be off every screen now
+// (a monitor that has been unplugged).
+function savedMiniBounds() {
+  const bounds = readSettings().miniBounds;
+  if (!bounds || ![bounds.x, bounds.y, bounds.width, bounds.height].every(Number.isFinite)) return null;
+  if (bounds.width < 500 || bounds.height < 130) return null;
+  const { screen } = require('electron');
+  const onScreen = screen.getAllDisplays().some(({ workArea: w }) =>
+    bounds.x < w.x + w.width - 80 && bounds.x + bounds.width > w.x + 80 &&
+    bounds.y < w.y + w.height - 40 && bounds.y + bounds.height > w.y);
+  return onScreen ? bounds : null;
+}
+
 // Floating lyrics: a small always-on-top window. The main window owns the player and sends it the state.
 // Only one of the two is on screen at a time: opening floating lyrics tucks the main window away (it keeps
 // playing), and closing them, or opening the app, swaps back.
@@ -109,14 +122,17 @@ function toggleMini() {
     showWindow();
     return;
   }
-  const { workArea } = require('electron').screen.getPrimaryDisplay();
+  const { screen } = require('electron');
+  const { workArea } = screen.getPrimaryDisplay();
   const width = 580;
   const height = 170;
+  // Where it was left last time, if that spot is still on a connected screen; else bottom center.
+  const saved = savedMiniBounds();
   mini = new BrowserWindow({
-    width,
-    height,
-    x: Math.round(workArea.x + (workArea.width - width) / 2),
-    y: workArea.y + workArea.height - height - 24,
+    width: saved ? saved.width : width,
+    height: saved ? saved.height : height,
+    x: saved ? saved.x : Math.round(workArea.x + (workArea.width - width) / 2),
+    y: saved ? saved.y : workArea.y + workArea.height - height - 24,
     minWidth: 500,
     minHeight: 130,
     frame: false,
@@ -129,7 +145,21 @@ function toggleMini() {
   });
   mini.setAlwaysOnTop(true, 'floating');
   mini.loadFile(path.join(__dirname, 'build', 'mini-lyrics.html'));
+  // remember where it is: after the user stops moving or resizing it, and when it closes
+  let saveTimer = null;
+  const saveBounds = () => {
+    clearTimeout(saveTimer);
+    if (mini && !mini.isDestroyed() && !mini.isMinimized()) writeSettings({ miniBounds: mini.getBounds() });
+  };
+  const saveSoon = () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveBounds, 400);
+  };
+  mini.on('move', saveSoon);
+  mini.on('resize', saveSoon);
+  mini.on('close', saveBounds);
   mini.on('closed', () => {
+    clearTimeout(saveTimer);
     mini = null;
     if (!quitting && win && !win.isDestroyed() && !win.isVisible()) showWindow();
   });

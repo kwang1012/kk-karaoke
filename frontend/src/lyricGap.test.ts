@@ -24,20 +24,21 @@ test('the intro waits from the start of the song', () => {
   assert.deepEqual(gapAfter(lines, -1, 0), { start: 0, end: 20 });
 });
 
-test('an instrumental line is all wait, and the last line has none', () => {
-  assert.deepEqual(gapAfter(lines, 3, 0), { start: 60, end: 80 });
+test('an instrumental line is its own marker: no wait into or after it', () => {
+  assert.equal(gapAfter(lines, 2, 0), null);
+  assert.equal(gapAfter(lines, 3, 0), null);
   assert.equal(gapAfter(lines, 4, 0), null);
 });
 
 test('lines without word timing are guessed', () => {
-  assert.deepEqual(gapAfter(lines, 2, 0), { start: 43 + 2, end: 60 });
+  assert.deepEqual(gapAfter([{ time: 43, text: 'c' }, { time: 60, text: 'd' }], 0, 0), { start: 43 + 2, end: 60 });
 });
 
-test('the countdown rounds up and never shows zero', () => {
-  assert.equal(countdown({ end: 40 }, 36.2), 4);
-  assert.equal(countdown({ end: 40 }, 39.99), 1);
-});
-
-test('only the last seconds are counted out', () => {
+test('the countdown starts only for the last seconds', () => {
+  const gap = { start: 22, end: 40 };
+  assert.equal(countdown(gap, 30), null);
+  assert.equal(countdown(gap, 36.2), null);
+  assert.ok(Math.abs((countdown(gap, 37.5) ?? 0) - 2.5) < 1e-9);
+  assert.equal(countdown(gap, 40), null);
   assert.equal(COUNTDOWN_S, 3);
 });

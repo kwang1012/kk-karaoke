@@ -31,6 +31,7 @@ import { useWebSocketStore } from 'src/store/ws';
 import { PRESET_AVATARS, uuid } from 'src/utils';
 import { publicUrl } from 'src/utils/publicUrl';
 import { api } from 'src/utils/api';
+import { enterFullscreen, toggleFullscreen } from 'src/lib/fullscreen';
 
 const SEEK_STEP_S = 5;
 const VOLUME_STEP = 0.1;
@@ -248,6 +249,8 @@ export default function TvView() {
   // ---- starting: the first key press unlocks audio and fullscreen -----------------------
   const start = useCallback(() => {
     // The keyboard listener is mounted once; read the player created after that mount.
+    // Ask first: the browser only allows it within this key press, even if the player is not ready yet.
+    void enterFullscreen();
     const player = usePlayerStore.getState().syncedPlayer;
     if (!player) return;
     if (!usePlayerTabStore.getState().isPlayerTab) takeOverPlayback();
@@ -256,7 +259,6 @@ export default function TvView() {
       usePlayerStore.getState().setPlaybackReady(true);
       setStarted(true);
     }).catch(() => {});
-    document.documentElement.requestFullscreen?.().catch(() => {});
   }, []);
   useWakeLock(started);
   const controlsIdle = useIdle(3000, started);
@@ -281,9 +283,7 @@ export default function TvView() {
       }
       if (event.key.toLowerCase() === 'f' && !event.ctrlKey && !event.metaKey && !event.altKey) {
         event.preventDefault();
-        if (!document.fullscreenElement) {
-          document.documentElement.requestFullscreen?.().catch(() => {});
-        }
+        void toggleFullscreen();
         return;
       }
       const { p, started, showVideo, setShowVideo } = latest.current;

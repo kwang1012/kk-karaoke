@@ -16,11 +16,13 @@ export type AdminSong = {
     source: string | null;
     confidence: string | null;
     edited: boolean;
+    check: 'confirmed' | 'corrected' | 'mismatch' | 'inconclusive' | null;
+    offset: number | null;
   };
   updated: number;
 };
 
-export type SongFilter = 'all' | 'notReady' | 'noLyrics' | 'noMelody';
+export type SongFilter = 'all' | 'notReady' | 'noLyrics' | 'noMelody' | 'badTiming';
 export type AdminSongPage = {
   songs: AdminSong[];
   nextCursor: string | null;
@@ -57,6 +59,7 @@ export const admin = {
     api.get<AdminSongPage>('admin/songs', { params, signal }).then((r) => r.data),
   rebuildMelody: (id: string) => api.post(`admin/songs/${id}/melody`),
   rebuildAllMelodies: () => api.post<{ queued: number }>('admin/melodies/rebuild').then((r) => r.data.queued),
+  auditLyrics: () => api.post<{ queued: number }>('admin/lyrics/audit').then((r) => r.data.queued),
   reprocess: (id: string) => api.post(`admin/songs/${id}/reprocess`),
   remove: (id: string) => api.delete(`admin/songs/${id}`),
   /** Resolves `edited` (409) as a value instead of an error: the caller asks before replacing hand edits. */

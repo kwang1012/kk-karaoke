@@ -5,7 +5,11 @@ import { remotePitch } from 'src/remotePitch';
 import { asDetail, simplifyMelody } from 'src/melodyDetail';
 import { hzToMidi } from 'src/pitchDetect';
 import { ease, isBlackKey, octaveLabel, viewFor, type View } from 'src/rollView';
-import { Scorer, noteUnder, semitonesOff } from 'src/scoring';
+import { submitScore } from 'src/apis/scores';
+import ScoreDialog, { type Finished } from 'src/components/ScoreDialog';
+import { MIN_COVERAGE, Scorer, noteUnder, semitonesOff } from 'src/scoring';
+import { useRoomStore } from 'src/store/room';
+import type { Track } from 'src/models/spotify';
 import { usePlayer, usePlayerStore } from 'src/store/player';
 import { useSettingStore } from 'src/store/setting';
 import { useT } from 'src/i18n';
@@ -41,7 +45,12 @@ export default function PitchRoll({ className, tv }: { className?: string; tv?: 
   const melody = useMemo(() => simplifyMelody(found, detail), [found, detail]);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [score, setScore] = useState<number | null>(null);
+  const [run, setRun] = useState(0);
   const scorer = useRef(new Scorer());
+  const [finished, setFinished] = useState<Finished | null>(null);
+  const submitted = useRef(false);
+  // The song being scored, kept by the effect that resets the scorer so a track change can still read the last one
+  const scoring = useRef<{ track: Track | null; noteTime: number; endAt: number }>({ track: null, noteTime: 0, endAt: Infinity });
 
   // What the loop below needs, without restarting it on every change
   const live = useRef({ melody, progress, playing, semitone, micOn, localMic, showMelody });
@@ -54,7 +63,44 @@ export default function PitchRoll({ className, tv }: { className?: string; tv?: 
   useEffect(() => {
     scorer.current.reset();
     setScore(null);
+    setRun(0);
+    submitted.current = false;
+    const last = melody.reduce((end, n) => Math.max(end, n.end), 0);
+    const length = currentTrack?.durationMs ? currentTrack.durationMs / 1000 : Infinity;
+    scoring.current = {
+      track: currentTrack ?? null,
+      noteTime: melody.reduce((sum, n) => sum + n.end - n.start, 0),
+      endAt: Math.min(last + 3, length - 0.5),
+    };
   }, [currentTrack?.id, melody]);
+
+  /** Rank the song just sung: a full take is shown on a report card, a partial one when you leave is saved quietly. */
+  const finish = (show: boolean) => {
+    const { track, noteTime } = scoring.current;
+    const result = scorer.current.result();
+    if (!track || !result || submitted.current || result.scoredS < MIN_COVERAGE * noteTime) return;
+    submitted.current = true;
+    const room = useRoomStore.getState();
+    const who = track.orderedBy ?? { id: room.roomId, name: room.nickname, avatar: room.avatar };
+    if (!who.id || !who.name) return;
+    const song = track.name;
+    if (show) setFinished({ song, result, outcome: null });
+    submitScore(
+      { id: who.id, name: who.name.slice(0, 24), avatar: who.avatar ?? '' },
+      { id: track.id, name: song, artists: track.artists.map((a) => a.name), cover: track.album?.images?.[0]?.url ?? '' },
+      result,
+    )
+      .then((outcome) => show && setFinished((f) => (f && f.song === song ? { ...f, outcome } : f)))
+      .catch(() => undefined);
+  };
+  const finishRef = useRef(finish);
+  finishRef.current = finish;
+  // Leaving a song (next track, or this page) ranks what was sung of it
+  useEffect(() => () => finishRef.current(false), [currentTrack?.id]);
+  // The last note and a moment after: the song is over
+  useEffect(() => {
+    if (playing && progress >= scoring.current.endAt) finishRef.current(true);
+  }, [progress, playing]);
 
   // One vertical range for the whole song, from its middle 90% of notes, so the roll does not
   // jump as it scrolls and a stray high or low note cannot squash everything else flat
@@ -100,6 +146,7 @@ export default function PitchRoll({ className, tv }: { className?: string; tv?: 
         if (now - lastScoreShown > 300) {
           lastScoreShown = now;
           setScore(scorer.current.score);
+          setRun(Math.floor(scorer.current.run));
         }
       }
 
@@ -176,7 +223,8 @@ export default function PitchRoll({ className, tv }: { className?: string; tv?: 
   }, [active, currentTrack?.id]);
 
   const waiting = showMelody && !visible && !!currentTrack; // with no song there is nothing to look for
-  if (!active && !waiting) return null;
+  const report = <ScoreDialog finished={finished} onClose={() => setFinished(null)} />;
+  if (!active && !waiting) return report;
   if (waiting) {
     return (
       <div className={cn(
@@ -189,6 +237,8 @@ export default function PitchRoll({ className, tv }: { className?: string; tv?: 
     );
   }
   return (
+    <>
+    {report}
     <div className={cn(
       'pointer-events-none relative overflow-hidden bg-black/35 backdrop-blur',
       tv ? 'h-[13vw] rounded-[1vw]' : 'h-36 rounded-xl md:h-44',
@@ -203,8 +253,10 @@ export default function PitchRoll({ className, tv }: { className?: string; tv?: 
           visible && (tv ? 'absolute top-[0.8vw] right-[1.2vw]' : 'absolute top-2 right-3'),
         )}>
           {score === null ? t('melody.sing') : t('melody.score', { value: score })}
+          {run >= 3 && <span className="ml-2 text-orange-300">{t('melody.combo', { value: run })}</span>}
         </div>
       )}
     </div>
+    </>
   );
 }

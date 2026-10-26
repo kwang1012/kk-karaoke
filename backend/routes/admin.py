@@ -10,7 +10,7 @@ router = APIRouter()
 
 @router.get("/songs")
 def songs(limit: int = Query(50, ge=1, le=100), cursor: str | None = Query(None, max_length=2048),
-          q: str = Query("", max_length=200), filter: Literal["all", "notReady", "noLyrics", "noMelody"] = "all"):
+          q: str = Query("", max_length=200), filter: Literal["all", "notReady", "noLyrics", "noMelody", "badTiming"] = "all"):
     try:
         return admin.song_page(limit, cursor, q, filter)
     except ValueError as exc:
@@ -27,6 +27,12 @@ def rebuild_melody(track_id: str):
 def rebuild_all_melodies():
     """After the melody finder changes: every ready song gets a new melody, queued for the worker."""
     return {"queued": admin.rebuild_all_melodies()}
+
+
+@router.post("/lyrics/audit")
+def audit_lyrics():
+    """Songs whose lyrics predate the audio check: each is checked against its vocals on the worker."""
+    return {"queued": admin.audit_lyrics_all()}
 
 
 @router.post("/songs/{track_id}/reprocess")

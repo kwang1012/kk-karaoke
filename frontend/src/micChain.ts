@@ -1,3 +1,4 @@
+import { BleedGate } from './bleedGate';
 import { detectPitch, type Pitch } from './pitchDetect';
 
 /** Seconds of tail and how fast it dies away, for the generated room impulse. */
@@ -30,9 +31,17 @@ export default class MicChain {
   private wet: GainNode;
   private analyser: AnalyserNode;
   private samples: Float32Array<ArrayBuffer>;
+  private songAnalyser: AnalyserNode;
+  private songSamples: Float32Array<ArrayBuffer>;
+  private bleed = new BleedGate();
   private version = 0;
 
-  constructor(private context: AudioContext) {
+  /** `song` are the nodes the song plays through: listened to (not heard) to tell it from a voice in the mic. */
+  constructor(private context: AudioContext, song: AudioNode[] = []) {
+    this.songAnalyser = context.createAnalyser();
+    this.songAnalyser.fftSize = 2048;
+    this.songSamples = new Float32Array(this.songAnalyser.fftSize);
+    for (const node of song) node.connect(this.songAnalyser);
     this.dry = context.createGain();
     this.send = context.createGain();
     this.reverb = context.createConvolver();
@@ -93,15 +102,19 @@ export default class MicChain {
     this.wet.gain.setTargetAtTime(reverb, now, 0.01);
   }
 
-  /** The pitch being sung right now, or null for silence or noise. */
+  /** The pitch being sung right now, or null for silence, noise, or the song itself leaking in from the speakers. */
   readPitch(): Pitch | null {
     if (!this.stream) return null;
     this.analyser.getFloatTimeDomainData(this.samples);
-    return detectPitch(this.samples, this.context.sampleRate);
+    const mic = detectPitch(this.samples, this.context.sampleRate);
+    this.songAnalyser.getFloatTimeDomainData(this.songSamples);
+    const song = detectPitch(this.songSamples, this.context.sampleRate);
+    return this.bleed.filter(mic?.hz ?? null, song?.hz ?? null) === null ? null : mic;
   }
 
   destroy() {
     this.stop();
+    this.songAnalyser.disconnect();
     this.dry.disconnect();
     this.send.disconnect();
     this.reverb.disconnect();

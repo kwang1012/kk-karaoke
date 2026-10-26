@@ -193,7 +193,7 @@ struct TVView: View {
           let current = LyricsTiming.lineIndex(in: lines, at: time, delay: player.lyricsDelay) ?? -1
           TVCarousel(
             lines: lines, current: current, delay: player.lyricsDelay, unit: unit,
-            waiting: LyricGap.after(lines, index: current, delay: player.lyricsDelay)?
+            counting: LyricGap.after(lines, index: current, delay: player.lyricsDelay)?
               .countdown(at: time) != nil
           ).equatable().id(player.track?.id)
         }
@@ -303,26 +303,28 @@ private struct TVCarousel: View, Equatable {
   var current: Int
   var delay: Double
   var unit: CGFloat
-  /// A long wait is under way, so the countdown stands in for the line just sung.
-  var waiting = false
+  /// The wait before the next line is in its last seconds: that line takes the singing position and
+  /// the countdown dots take the room above it.
+  var counting = false
   @State private var previous: Int?
   @State private var heights: [Int: CGFloat] = [:]
 
   nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
     lhs.current == rhs.current && lhs.delay == rhs.delay && lhs.unit == rhs.unit
-      && lhs.waiting == rhs.waiting && lhs.lines == rhs.lines
+      && lhs.counting == rhs.counting && lhs.lines == rhs.lines
   }
 
   var body: some View {
     GeometryReader { viewport in
-      let visible = Array(max(0, current - 3)..<min(lines.count, current + 4))
+      let focus = counting ? current + 1 : current
+      let visible = Array(max(0, focus - 3)..<min(lines.count, focus + 4))
       let placement = TVLyricsPlacement(
-        current: current, visible: visible, heights: heights,
+        current: focus, visible: visible, heights: heights,
         availableHeight: viewport.size.height, fallbackHeight: unit * 6.4, gap: unit * 1.6)
       let wait = LyricGap.after(lines, index: current, delay: delay)
       ZStack {
         ForEach(visible, id: \.self) { index in
-          let distance = abs(index - current)
+          let distance = abs(index - focus)
           PlaybackLyricLine(
             line: lines[index], active: index == current,
             completed: index < current, delay: delay, dim: .white.opacity(0.55)
@@ -345,15 +347,15 @@ private struct TVCarousel: View, Equatable {
           )
           .opacity(
             distance == 0
-              ? (waiting ? (current < 0 ? 0 : 0.25) : 1)
-              : index == current + 1 ? 0.6 : distance <= 2 ? 0.3 : 0
+              ? 1
+              : index == focus + 1 ? 0.6 : index == focus - 1 && counting ? 0 : distance <= 2 ? 0.3 : 0
           )
           .transition(.identity)
         }
-        if let wait, waiting {
-          LyricGapMarker(gap: wait, active: true, size: unit * 6, centered: true)
+        if let wait, counting {
+          LyricGapMarker(gap: wait, active: true, size: unit * 3, centered: true)
             .frame(width: viewport.size.width)
-            .position(x: viewport.size.width / 2, y: viewport.size.height * 0.45)
+            .position(x: viewport.size.width / 2, y: viewport.size.height * 0.45 + placement.offset(for: focus - 1))
         }
       }
       .animation(

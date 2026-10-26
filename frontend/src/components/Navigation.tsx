@@ -1,5 +1,5 @@
 import { useTvMode } from 'src/hooks/tvMode';
-import { Home, LibraryBig, ListMusic, MicVocal, Search, Tv } from 'lucide-react';
+import { Home, LibraryBig, ListMusic, MicVocal, Search, Trophy, Tv } from 'lucide-react';
 import { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from 'src/lib/utils';
@@ -11,6 +11,7 @@ const items: { label: TranslationKey; path: string; icon: typeof Home }[] = [
   { label: 'nav.library', path: '/library', icon: LibraryBig },
   { label: 'nav.queue', path: '/play', icon: ListMusic },
   { label: 'nav.lyrics', path: '/lyrics', icon: MicVocal },
+  { label: 'nav.ranking', path: '/ranking', icon: Trophy },
   { label: 'tv.title', path: '/tv', icon: Tv },
 ];
 
@@ -27,6 +28,7 @@ export default function AppNavigation() {
     if (pathname.startsWith('/library')) return 2;
     if (pathname.startsWith('/play')) return 3;
     if (pathname.startsWith('/lyrics')) return 4;
+    if (pathname.startsWith('/ranking')) return 5;
   }, [location.pathname]);
 
   return (

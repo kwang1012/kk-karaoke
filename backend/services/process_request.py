@@ -14,9 +14,9 @@ from utils import NO_VOCALS_DIR, LYRICS_DIR, VOCALS_DIR, RAW_AUDIO_DIR
 from models.track import Artist, Track, is_video_id
 from managers.websocket import WebSocketManager
 from services.downloader import download_audio
-from services import admin, candidates, library, lyrics_align
+from services import admin, audio_check, candidates, library, lyrics_align
 from services.library import save_track
-from services.lyrics_sources import Recording, add_heard_lyrics, add_word_timing, artist_aliases, discard_lyrics, find_lyrics, find_plain_lyrics, lyrics_summary, read_meta, save_plain, save_result, verify_against_audio, video_duration_s, write_meta
+from services.lyrics_sources import Recording, add_heard_lyrics, add_word_timing, artist_aliases, discard_lyrics, find_lyrics, find_plain_lyrics, lyrics_summary, parse_lrc, _norm, read_meta, save_plain, save_result, sheet_is_wrong_language, verify_against_audio, video_duration_s, write_meta
 from services.pitcher import extract_melody
 from services import modal_separate
 from services.voice_remover import separate_vocals
@@ -116,12 +116,12 @@ def _schedule_lyrics_retry(track_id: str, attempt: int) -> None:
         print(f"Could not schedule a lyrics retry for {track_id}: {e!r}")
 
 
-def _find_lyrics(track: Track, who: _Identity) -> None:
+def _find_lyrics(track: Track, who: _Identity, korean: Optional[bool] = None) -> None:
     """Timed lyrics from the providers, else their plain words, saved next to the track."""
     album_name = track.album.get("name") if track.album else None
     try:
         names = artist_aliases(who.title, [a.name for a in track.artists], who.duration_s, who.recording)
-        result = find_lyrics(who.title, names, album_name, who.duration_s, who.recording)
+        result = find_lyrics(who.title, names, album_name, who.duration_s, who.recording, korean)
         if result:
             save_result(track.id, result)
             print(f"Lyrics for {track.id}: {result.source} ({result.confidence})")
@@ -129,7 +129,7 @@ def _find_lyrics(track: Track, who: _Identity) -> None:
             if words:
                 print(f"Word timing for {track.id}: {words} lines")
         else:
-            plain = find_plain_lyrics(who.title, names, album_name, who.duration_s, who.recording)
+            plain = find_plain_lyrics(who.title, names, album_name, who.duration_s, who.recording, korean)
             if plain:
                 save_plain(track.id, plain)
             print(f"No timed lyrics found for {track.id}" + (" (kept the words only)" if plain else ""))
@@ -143,6 +143,14 @@ def _find_lyrics(track: Track, who: _Identity) -> None:
 def _listen_and_verify(track: Track, who: _Identity) -> None:
     """With the vocal stem on disk: transcribe when nothing has the song, then check the timing."""
     vocal = str(r2.local("vocal", track.id))
+    # A Latin title can hide that the song is Korean: the singing cannot. Swap a Japanese version's sheet.
+    try:
+        if sheet_is_wrong_language(track.id, vocal):
+            print(f"{track.id} is sung in Korean but its lyrics are Japanese; looking again")
+            discard_lyrics(track.id)
+            _find_lyrics(track, who, korean=True)
+    except Exception as e:
+        print(f"Language check failed for {track.id}: {e!r}")
     # Nothing verified has these lyrics: listen to the vocals instead of showing nothing (or another song's).
     try:
         heard = add_heard_lyrics(track.id, vocal, who.video_id)
@@ -334,6 +342,58 @@ def refresh_lyrics(track_id: str) -> dict:
     if saved is None:
         raise RuntimeError(f"Unknown track {track_id}")
     return refresh_lyrics_for(saved)
+
+
+def audit_lyrics_for(track: Track) -> dict:
+    """
+    Check lyrics saved before the audio check existed. Fitting ones are only recorded; ones the singing
+    does not fit are replaced when the providers now offer a sheet that does, and flagged otherwise.
+    """
+    meta = read_meta(track.id)
+    vocal = r2.local("vocal", track.id)
+    lrc_path = r2.local("lyrics", track.id)
+    if (not meta or meta.get("edited") or meta.get("source") == "whisper" or "audio_check" in meta
+            or not lrc_path.exists() or not vocal.exists()):
+        return {"status": "skipped"}
+    check = verify_against_audio(track.id, str(vocal))
+    if check is None:
+        return {"status": "skipped"}
+    if check.status in ("confirmed", "corrected"):
+        return {"status": "ok", "check": check.status}
+
+    who = _identify(track)
+    names = artist_aliases(who.title, [a.name for a in track.artists], who.duration_s, who.recording)
+    album_name = track.album.get("name") if track.album else None
+    found = find_lyrics(who.title, names, album_name, who.duration_s, who.recording)
+    fits = None
+    if found:
+        fits = audio_check.check_file(str(vocal), [t for t, _ in parse_lrc(found.lrc)])
+    if (found and _norm(found.lrc) != _norm(lrc_path.read_text(encoding="utf-8"))
+            and fits and fits.status in ("confirmed", "corrected")):
+        discard_lyrics(track.id)
+        save_result(track.id, found)
+        add_word_timing(track.id, who.title, names, who.duration_s)
+        verify_against_audio(track.id, str(vocal))
+        r2.upload_track(track.id)
+        return {"status": "replaced", "source": found.source}
+    flagged = read_meta(track.id)
+    flagged["audit"] = "flagged"
+    write_meta(track.id, flagged)
+    return {"status": "flagged", "check": check.status}
+
+
+@celery.task(name="audit_lyrics")
+def audit_lyrics(track_id: str) -> dict:
+    saved = library.load_track(track_id)
+    if saved is None:
+        return {"status": "skipped"}
+    try:
+        result = audit_lyrics_for(saved)
+    except Exception as e:
+        admin.record_failure(track_id, "audit", str(e))
+        raise
+    print(f"Lyrics audit for {track_id}: {result}")
+    return result
 
 
 @celery.task(name="retry_lyrics")

@@ -13,12 +13,12 @@ import { useT } from 'src/i18n';
 import { cn } from 'src/lib/utils';
 
 type Filter = SongFilter;
-type Pending = { kind: 'reprocess' | 'delete' | 'replaceLyrics'; song: AdminSong } | { kind: 'rebuildAll' };
+type Pending = { kind: 'reprocess' | 'delete' | 'replaceLyrics'; song: AdminSong } | { kind: 'rebuildAll' } | { kind: 'auditLyrics' };
 
 const COLUMNS = 'grid-cols-[minmax(0,2.2fr)_minmax(0,1fr)_minmax(0,1.4fr)_4.5rem_9rem_2.5rem]';
 const hasLyrics = (s: AdminSong) => s.lyrics.synced || s.lyrics.plain;
-const FILTERS: Filter[] = ['all', 'notReady', 'noLyrics', 'noMelody'];
-const EMPTY_COUNTS = { all: 0, notReady: 0, noLyrics: 0, noMelody: 0 };
+const FILTERS: Filter[] = ['all', 'notReady', 'noLyrics', 'noMelody', 'badTiming'];
+const EMPTY_COUNTS = { all: 0, notReady: 0, noLyrics: 0, noMelody: 0, badTiming: 0 };
 
 /** Search and filter the shared catalog, fetching another page as the list scrolls. */
 export default function AdminSongs() {
@@ -38,6 +38,7 @@ export default function AdminSongs() {
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [pending, setPending] = useState<Pending | null>(null);
   const [rebuilding, setRebuilding] = useState(false);
+  const [auditing, setAuditing] = useState(false);
 
   const songQuery = useInfiniteQuery({
     queryKey: ['admin-songs', search, filter, revision],
@@ -101,8 +102,24 @@ export default function AdminSongs() {
     }
   };
 
+  const auditAll = async () => {
+    setAuditing(true);
+    try {
+      setMessage(t('admin.queued.audit', { count: await admin.auditLyrics() }));
+    } catch (e) {
+      setMessage(errorText(e));
+    } finally {
+      setAuditing(false);
+    }
+  };
+
   const confirm = () => {
     if (!pending) return;
+    if (pending.kind === 'auditLyrics') {
+      setPending(null);
+      auditAll();
+      return;
+    }
     if (pending.kind === 'rebuildAll') {
       setPending(null);
       rebuildAll();
@@ -143,6 +160,9 @@ export default function AdminSongs() {
           ))}
         </div>
         <div className="ml-auto flex gap-2">
+          <Button variant="outline" size="sm" disabled={auditing} onClick={() => setPending({ kind: 'auditLyrics' })}>
+            {auditing ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} {t('admin.auditLyrics')}
+          </Button>
           <Button variant="outline" size="sm" disabled={rebuilding} onClick={() => setPending({ kind: 'rebuildAll' })}>
             {rebuilding ? <Loader2 className="size-4 animate-spin" /> : <Music className="size-4" />} {t('admin.rebuildAll')}
           </Button>
@@ -208,6 +228,10 @@ export default function AdminSongs() {
                       {s.lyrics.source ?? '—'}
                       {s.lyrics.confidence && <span className="text-muted-foreground"> · {s.lyrics.confidence}</span>}
                       {!s.lyrics.synced && s.lyrics.confidence !== 'unsynced' && <span className="text-amber-500"> · {t('admin.lyrics.unsynced')}</span>}
+                      {s.lyrics.check === 'mismatch' && <span className="text-destructive"> · {t('admin.lyrics.mismatch')}</span>}
+                      {s.lyrics.check === 'corrected' && (
+                        <span className="text-amber-500"> · {t('admin.lyrics.shifted', { seconds: (s.lyrics.offset ?? 0).toFixed(1) })}</span>
+                      )}
                       {s.lyrics.edited && <span className="text-muted-foreground"> · {t('admin.lyrics.edited')}</span>}
                     </>
                   ) : (

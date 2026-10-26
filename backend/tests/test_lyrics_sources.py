@@ -522,3 +522,15 @@ def test_provider_words_kept_through_an_edit_are_filed_as_aligned_but_remember_w
     assert again["word_origin"] == "kugou"  # a second save does not forget it
     cleared = ls.set_aligned(again, None, [])
     assert "words" not in cleared and "word_origin" not in cleared
+
+
+def test_japanese_sheet_over_korean_vocals_is_the_wrong_sheet(monkeypatch, tmp_path):
+    from services import transcribe
+    lrc = tmp_path / "t.lrc"
+    lrc.write_text("[00:01.00]君のことが好き\n[00:05.00]ずっと一緒にいたい", encoding="utf-8")
+    monkeypatch.setattr(ls, "read_meta", lambda tid: {"source": "netease"})
+    monkeypatch.setattr(ls.r2, "local", lambda kind, tid: lrc)
+    monkeypatch.setattr(transcribe, "sung_language", lambda path: "ko")
+    assert ls.sheet_is_wrong_language("t", "vocal.mp3")
+    monkeypatch.setattr(transcribe, "sung_language", lambda path: "ja")
+    assert not ls.sheet_is_wrong_language("t", "vocal.mp3")

@@ -19,8 +19,13 @@ export default function TvLyrics({ lyrics, lineIndex, delay, progress, playing, 
   const container = useRef<HTMLDivElement>(null);
   const lines = useRef(new Map<number, HTMLDivElement>());
   const [measurements, setMeasurements] = useState({ height: 0, width: 0, lines: new Map<number, number>() });
-  const first = Math.max(-1, lineIndex - 3);
-  const last = Math.min(lyrics.length - 1, lineIndex + 3);
+  // a long wait before the next line: once it is down to its last seconds the next line moves into
+  // the singing position, with the countdown dots in the room it leaves above
+  const wait = gapAfter(lyrics, lineIndex, delay);
+  const remaining = wait ? countdown(wait, progress) : null;
+  const focus = remaining === null ? lineIndex : lineIndex + 1;
+  const first = Math.max(-1, focus - 3);
+  const last = Math.min(lyrics.length - 1, focus + 3);
 
   // Measure unscaled text, including wrapping, before positioning neighbouring lines.
   useLayoutEffect(() => {
@@ -39,21 +44,17 @@ export default function TvLyrics({ lyrics, lineIndex, delay, progress, playing, 
     return () => observer.disconnect();
   }, [first, last, lyrics]);
 
-  // a long wait before the next line: the countdown takes the place of the line just sung
-  const wait = gapAfter(lyrics, lineIndex, delay);
-  const waiting = wait && progress >= wait.start && progress < wait.end ? wait : null;
-
   const sizes = new Map<number, { height: number; scale: number }>();
   for (let index = first; index <= last; index++) {
     const height = measurements.lines.get(index) || measurements.width * 0.064;
-    const emphasis = index === lineIndex ? 1 : index === lineIndex + 1 ? 0.65 : 0.55;
+    const emphasis = index === focus ? 1 : index === focus + 1 ? 0.65 : 0.55;
     const scale = Math.min(emphasis, measurements.height ? measurements.height * 0.42 / height : emphasis);
     sizes.set(index, { height: height * scale, scale });
   }
   const gap = measurements.width * 0.016;
-  const positions = new Map([[lineIndex, 0]]);
+  const positions = new Map([[focus, 0]]);
   for (const direction of [-1, 1]) {
-    for (let index = lineIndex + direction; index >= first && index <= last; index += direction) {
+    for (let index = focus + direction; index >= first && index <= last; index += direction) {
       const neighbour = index - direction;
       positions.set(index, (positions.get(neighbour) || 0) + direction * (
         (sizes.get(neighbour)?.height || 0) / 2 + gap + (sizes.get(index)?.height || 0) / 2
@@ -65,12 +66,14 @@ export default function TvLyrics({ lyrics, lineIndex, delay, progress, playing, 
     <div ref={container} className="relative h-[34vw] max-h-full w-full overflow-hidden [mask-image:linear-gradient(to_bottom,transparent,black_8%,black_88%,transparent)]">
       {Array.from({ length: last - first + 1 }, (_, offset) => {
         const index = first + offset;
-        const relative = index - lineIndex;
+        const relative = index - focus;
         const line = lyrics[index];
-        const active = relative === 0;
+        const active = index === lineIndex;
         const y = positions.get(index) || 0;
         const scale = sizes.get(index)?.scale || 1;
-        const opacity = active ? (waiting ? (index < 0 ? 0 : 0.25) : 1) : relative === 1 ? 0.6 : Math.abs(relative) <= 2 ? 0.3 : 0;
+        const opacity = relative === 0 ? 1 : relative === 1 ? 0.6
+          : relative === -1 && remaining !== null ? 0 // the dots' room
+          : Math.abs(relative) <= 2 ? 0.3 : 0;
         return (
           <div
             key={index}
@@ -91,10 +94,11 @@ export default function TvLyrics({ lyrics, lineIndex, delay, progress, playing, 
           </div>
         );
       })}
-      {waiting && (
+      {remaining !== null && (
         <LyricGap
-          seconds={countdown(waiting, progress)}
-          className="absolute inset-x-0 top-[45%] -translate-y-1/2 justify-center text-[6vw]"
+          remaining={remaining}
+          className="absolute inset-x-0 top-[45%] justify-center text-[3.2vw] transition-transform"
+          style={{ transform: `translate3d(0, calc(-50% + ${(positions.get(focus - 1) || 0)}px), 0)` }}
         />
       )}
     </div>

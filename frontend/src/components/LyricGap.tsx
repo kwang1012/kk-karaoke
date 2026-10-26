@@ -1,25 +1,36 @@
-import { Music } from 'lucide-react';
 import { cn } from 'src/lib/utils';
 import { COUNTDOWN_S } from 'src/lyricGap';
 
-/** The wait between two lines: a music icon, with the seconds left once it is the current wait. */
-export default function LyricGap({ seconds, className, iconClassName }: {
-  /** Seconds until the next line, or null while it is not time yet. */
-  seconds: number | null;
+/**
+ * The lead-in to a line after a long wait: three dots that light up one by one over the last
+ * seconds, all lit as the line starts. Nothing shows before that, but the room is kept so the
+ * lines around it do not jump.
+ */
+export default function LyricGap({ remaining, className, style }: {
+  /** Seconds until the next line once the countdown has begun, else null. */
+  remaining: number | null;
   className?: string;
-  iconClassName?: string;
+  style?: React.CSSProperties;
 }) {
-  const active = seconds !== null;
-  const counting = active && seconds <= COUNTDOWN_S;
+  const active = remaining !== null;
   return (
     <div
       role={active ? 'timer' : undefined}
-      aria-label={counting ? `${seconds}` : undefined}
       aria-hidden={active ? undefined : true}
-      className={cn('flex items-center gap-[0.4em] font-bold tabular-nums transition-opacity duration-300', active ? 'opacity-100' : 'opacity-30', className)}
+      style={style}
+      className={cn('flex h-[1em] items-center gap-[0.5em] transition-opacity duration-300', active ? 'opacity-100' : 'opacity-0', className)}
     >
-      <Music className={cn('size-[1em]', active && 'animate-pulse motion-reduce:animate-none', iconClassName)} />
-      {counting && <span>{seconds}</span>}
+      {[0, 1, 2].map((dot) => {
+        // dot 0 lights first; the last one lights as the line begins
+        const lit = active ? Math.min(1, Math.max(0, (COUNTDOWN_S - remaining) / (COUNTDOWN_S / 3) - dot + 0.5)) : 0;
+        return (
+          <span
+            key={dot}
+            className="size-[0.55em] rounded-full bg-current transition-[opacity,transform] duration-200 motion-reduce:transition-none"
+            style={{ opacity: 0.25 + 0.75 * lit, transform: `scale(${0.8 + 0.2 * lit})` }}
+          />
+        );
+      })}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSettingStore } from 'src/store/setting';
+import { exitFullscreen, isFullscreen } from 'src/lib/fullscreen';
 
 export function useTvMode() {
   const location = useLocation();
@@ -10,10 +11,8 @@ export function useTvMode() {
   });
   const returnTo = location.state?.tvReturnTo;
   const exitTv = useCallback(async () => {
-    if (document.fullscreenElement) {
-      try { await document.exitFullscreen(); } catch { /* Still allow leaving TV mode. */ }
-    }
-    useSettingStore.getState().setFullScreen(!!document.fullscreenElement);
+    await exitFullscreen();
+    useSettingStore.getState().setFullScreen(isFullscreen());
     navigate(typeof returnTo === 'string' && returnTo.startsWith('/') && !returnTo.startsWith('//') && !/^\/tv(?:[/?#]|$)/.test(returnTo) ? returnTo : '/', { replace: true });
   }, [navigate, returnTo]);
   return { enterTv, exitTv };

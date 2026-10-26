@@ -36,6 +36,12 @@ _SONG_SUMMARY = """WITH summary AS (
             THEN json_extract(a.metadata,'$.confidence') END) AS confidence,
         MAX(CASE WHEN a.kind='lyrics-meta' AND a.state IN ('ready','pending')
             THEN COALESCE(json_extract(a.metadata,'$.edited'),0) ELSE 0 END) AS edited,
+        MAX(CASE WHEN a.kind='lyrics-meta' AND a.state IN ('ready','pending')
+            THEN json_extract(a.metadata,'$.audio_check.status') END) AS check_status,
+        MAX(CASE WHEN a.kind='lyrics-meta' AND a.state IN ('ready','pending')
+            THEN json_extract(a.metadata,'$.audio_check.offset_s') END) AS check_offset,
+        MAX(CASE WHEN a.kind='lyrics-meta' AND a.state IN ('ready','pending')
+            THEN json_extract(a.metadata,'$.audit') END) AS audit,
         COALESCE(MAX(a.updated),s.created) AS updated
     FROM songs s LEFT JOIN assets a ON a.song_id=s.id WHERE s.deleted=0 GROUP BY s.id
 ), playable AS (
@@ -45,7 +51,10 @@ _SONG_SUMMARY = """WITH summary AS (
         COALESCE((SELECT GROUP_CONCAT(json_extract(value,'$.name'),' ') FROM json_each(artists)),'')),LOWER(?))>0
 ) """
 _SONG_FILTERS = {"all": "1", "notReady": "ready=0", "noLyrics": "synced=0 AND plain=0",
-                 "noMelody": "ready=1 AND melody=0"}
+                 "noMelody": "ready=1 AND melody=0",
+                 # Lyrics the vocal stem disagreed with: shifted to fit, no fit at all (likely the wrong song's
+                 # lyrics), or too uncertain to trust.
+                 "badTiming": "synced=1 AND (check_status IN ('corrected','mismatch') OR confidence='approximate' OR audit='flagged')"}
 
 
 def song_page(limit=50, cursor=None, q="", filter="all"):
@@ -71,13 +80,14 @@ def song_page(limit=50, cursor=None, q="", filter="all"):
     results = catalog.execute_batch([
         (_SONG_SUMMARY + """SELECT COUNT(*) AS all_count,
             COALESCE(SUM(ready=0),0) AS not_ready, COALESCE(SUM(synced=0 AND plain=0),0) AS no_lyrics,
-            COALESCE(SUM(ready=1 AND melody=0),0) AS no_melody FROM searched""", [q, q]),
+            COALESCE(SUM(ready=1 AND melody=0),0) AS no_melody,
+            COALESCE(SUM(synced=1 AND (check_status IN ('corrected','mismatch') OR confidence='approximate' OR audit='flagged')),0) AS bad_timing FROM searched""", [q, q]),
         (_SONG_SUMMARY + f"SELECT * FROM searched WHERE {_SONG_FILTERS[filter]}{seek} ORDER BY updated DESC,id DESC LIMIT ?",
          params + [limit + 1]),
     ])
     count = results[0]["results"][0]
     counts = {"all": count["all_count"], "notReady": count["not_ready"],
-              "noLyrics": count["no_lyrics"], "noMelody": count["no_melody"]}
+              "noLyrics": count["no_lyrics"], "noMelody": count["no_melody"], "badTiming": count["bad_timing"]}
     page = results[1]["results"]
     next_cursor = None
     if len(page) > limit:
@@ -89,7 +99,8 @@ def song_page(limit=50, cursor=None, q="", filter="all"):
               "ready": bool(row["ready"]), "vocal_bytes": row["vocal_bytes"],
               "instrumental_bytes": row["instrumental_bytes"], "melody": bool(row["melody"]),
               "lyrics": {"synced": bool(row["synced"]), "plain": bool(row["plain"]), "words": bool(row["words"]),
-                         "source": row["source"], "confidence": row["confidence"], "edited": bool(row["edited"])},
+                         "source": row["source"], "confidence": row["confidence"], "edited": bool(row["edited"]),
+                         "check": row["check_status"], "offset": row["check_offset"]},
               "updated": int(row["updated"] * 1000)} for row in page[:limit]]
     return {"songs": songs, "next_cursor": next_cursor, "total": counts[filter], "counts": counts}
 
@@ -191,6 +202,25 @@ def rebuild_all_melodies() -> int:
     for track_id in ids:
         rebuild_melody(track_id)
     return len(ids)
+
+
+def audit_lyrics_all() -> int:
+    """Queue an audio check for every song whose lyrics were never checked. Returns how many."""
+    from services.tasks import celery
+    from managers import catalog
+
+    queued = 0
+    for record in catalog.records(fresh=True):
+        assets = record["assets"]
+        meta = assets.get("lyrics-meta", {})
+        m = meta.get("metadata") or {}
+        if (assets.get("lyrics", {}).get("state") != "ready" or assets.get("vocal", {}).get("state") != "ready"
+                or meta.get("state") != "ready" or m.get("edited") or m.get("source") == "whisper"
+                or "audio_check" in m):
+            continue
+        celery.send_task("audit_lyrics", args=[record["id"]])
+        queued += 1
+    return queued
 
 
 def reprocess(track_id: str) -> bool:

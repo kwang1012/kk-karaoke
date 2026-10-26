@@ -1,5 +1,5 @@
 import { useTvMode } from 'src/hooks/tvMode';
-import { ChevronLeft, ChevronRight, LibraryBig, Settings, Tv, UserPlus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LibraryBig, Settings, Trophy, Tv, UserPlus } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from 'src/lib/utils';
 import Logo from './Logo';
@@ -22,6 +22,7 @@ export default function TopBar() {
   const { enterTv } = useTvMode();
   const navigate = useNavigate();
   const onLibrary = useLocation().pathname.startsWith('/library');
+  const onRanking = useLocation().pathname.startsWith('/ranking');
   const { isTop, isBottom } = useHistoryBoundaries();
 
   const setSearching = useAppStore((state) => state.setSearching);
@@ -73,6 +74,18 @@ export default function TopBar() {
             )}
           >
             <LibraryBig className="size-5" />
+          </Link>
+        </Tooltip>
+        <Tooltip title={t('nav.ranking')} side="bottom">
+          <Link
+            to="/ranking"
+            aria-label={t('nav.ranking')}
+            className={cn(
+              'inline-flex items-center justify-center rounded-full p-2 transition-colors hover:bg-accent',
+              onRanking && 'bg-primary/15 text-primary'
+            )}
+          >
+            <Trophy className="size-5" />
           </Link>
         </Tooltip>
       </div>

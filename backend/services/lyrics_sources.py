@@ -226,6 +226,36 @@ def sibling_songs(
     return found
 
 
+KOREAN_HINT_DIFF_S = 10
+
+
+def is_korean_song(title: str, names: list[str], duration_s: Optional[float]) -> bool:
+    """
+    Whether this song is Korean. Hangul in the title or artist says so; "BIGBANG - Haru Haru" does
+    not, but YouTube Music lists the same recording as "하루하루 Haru Haru".
+    """
+    if providers.wants_korean(title, names):
+        return True
+    if not names:
+        return False
+    try:
+        hits = _client().search(f"{names[0]} {title}", filter="songs", limit=6)
+    except Exception as e:  # noqa: BLE001
+        log.warning("YT Music language lookup failed for %r: %r", title, e)
+        return False
+    wanted = providers.title_variants(title)
+    for hit in hits:
+        got = hit.get("duration_seconds")
+        if duration_s and got and abs(got - duration_s) > KOREAN_HINT_DIFF_S:
+            continue
+        hit_names = [a["name"] for a in hit.get("artists") or [] if a.get("name")]
+        if (providers.wants_korean(hit.get("title") or "", [])
+                and providers._title_fits(wanted, hit.get("title") or "", _norm)
+                and _same_artist(names, hit_names)):
+            return True
+    return False
+
+
 def video_duration_s(video_id: str) -> Optional[int]:
     """A recording's length from YouTube Music, for tracks queued without one."""
     try:
@@ -326,14 +356,17 @@ def find_lyrics(
     album: Optional[str],
     duration_s: Optional[float],
     recording: Optional[Recording],
+    korean: Optional[bool] = None,
 ) -> Optional[LyricsResult]:
-    """Walk the ladder. Returns None when no source has timed lyrics."""
+    """Walk the ladder. Returns None when no source has timed lyrics. `korean`: known from the audio."""
     names = [n for n in _names(artist) if n]
     video_id = recording.video_id if recording else None
+    if korean is None:
+        korean = is_korean_song(title, names, duration_s)
 
     # The finest sync first: a provider that times every word, if it has this recording.
     word_entry = providers.find_word_entry(title, names, duration_s, fold=_norm, same_artist=_same_artist,
-                                           other_script=_artist_in_other_script, video_id=video_id)
+                                           other_script=_artist_in_other_script, video_id=video_id, korean=korean)
     if word_entry:
         return _word_result(word_entry, video_id, title, names)
 
@@ -349,8 +382,8 @@ def find_lyrics(
                 break
         if lrclib_text:
             break
-    if lrclib_text and providers.is_unusable_lyrics(lrclib_text):
-        log.info("LRCLib has %r as unusable words (romanized, or an instrumental notice); looking elsewhere", title)
+    if lrclib_text and providers.is_unusable_lyrics(lrclib_text, korean):
+        log.info("LRCLib has %r as unusable words (romanized, Japanese, or an instrumental notice); looking elsewhere", title)
         lrclib_text = None
     lrclib_lines = parse_lrc(lrclib_text) if lrclib_text else None
 
@@ -370,8 +403,8 @@ def find_lyrics(
         confidence: Confidence = "synced" if duration_s else "approximate"
         return _finish(LyricsResult(lrclib_text, "lrclib", confidence, video_id))
 
-    entry = providers.find_entry(title, names, duration_s, fold=_norm,
-                                 same_artist=_same_artist, other_script=_artist_in_other_script)
+    entry = providers.find_entry(title, names, duration_s, fold=_norm, same_artist=_same_artist,
+                                 other_script=_artist_in_other_script, korean=korean)
     if entry and entry.synced and parse_lrc(entry.synced):
         note = f"Matched on {entry.source} by title, artist and length"
         if entry.loose_artist:
@@ -404,6 +437,7 @@ def find_plain_lyrics(
     album: Optional[str],
     duration_s: Optional[float],
     recording: Optional[Recording],
+    korean: Optional[bool] = None,
 ) -> Optional[PlainLyrics]:
     """Last resort when nothing is timed: the words alone are still worth showing."""
     video_id = recording.video_id if recording else None
@@ -411,22 +445,24 @@ def find_plain_lyrics(
     if video_id:
         text, source = fetch_ytmusic_plain(video_id), "ytmusic"
     names = [n for n in _names(artist) if n]
+    if korean is None:
+        korean = is_korean_song(title, names, duration_s)
     for variant in providers.title_variants(title):
         for name in names:
             if text:
                 break
             record = fetch_lrclib_record(variant, name, album, round(duration_s) if duration_s else None)
             text, source = (record or {}).get("plainLyrics"), "lrclib"
-            if text and providers.is_unusable_lyrics(text):
+            if text and providers.is_unusable_lyrics(text, korean):
                 text = None
     if not text:
         entry = providers.find_entry(title, names, duration_s, fold=_norm, same_artist=_same_artist,
-                                     other_script=_artist_in_other_script, want="plain")
+                                     other_script=_artist_in_other_script, want="plain", korean=korean)
         if entry:
             text, source = entry.plain or None, entry.source
     if not text:
         text, source = providers.lyrics_ovh_plain(title, names), "ovh"
-    if not text or not text.strip() or providers.is_unusable_lyrics(text):
+    if not text or not text.strip() or providers.is_unusable_lyrics(text, korean):
         return None
     text = text.strip()
     if _has_simplified_chinese(text):
@@ -720,6 +756,23 @@ def _shift_words(words: dict, offset_s: float) -> dict:
         _cs(int(k) / 100 + offset_s): [[round(s + offset_s, 2), round(e + offset_s, 2), t] for s, e, t in v]
         for k, v in words.items()
     }
+
+
+# --- the language that is sung ---------------------------------------------------
+
+def sheet_is_wrong_language(track_id: str, vocal_path: str) -> bool:
+    """
+    A provider filed the Japanese version of a Korean song under the same name. Metadata cannot
+    always tell (a Latin title, a Latin artist), but the singing can: a saved sheet that is mostly
+    Japanese over vocals that are Korean is the wrong sheet. Only fetched sheets are judged.
+    """
+    meta = read_meta(track_id)
+    lrc_path = r2.local("lyrics", track_id)
+    if not meta or meta.get("edited") or meta.get("source") == "whisper" or not lrc_path.exists():
+        return False
+    if not providers.is_japanese_version(lrc_path.read_text(encoding="utf-8")):
+        return False
+    return transcribe.sung_language(vocal_path) == "ko"
 
 
 # --- lyrics heard from the audio ------------------------------------------------

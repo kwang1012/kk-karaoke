@@ -20,6 +20,7 @@ import PlainLyrics from 'src/components/PlainLyrics';
 import VideoBackdrop from 'src/components/VideoBackdrop';
 import WordLine from 'src/components/WordLine';
 import LyricGap from 'src/components/LyricGap';
+import { toggleFullscreen } from 'src/lib/fullscreen';
 import { countdown, gapAfter } from 'src/lyricGap';
 import { useLyricsOffset } from 'src/hooks/lyricsOffset';
 import { useVideoMode } from 'src/hooks/videoMode';
@@ -97,16 +98,15 @@ export default function LyricsView() {
     }
   }, [progress, seeking, syncedLyrics]);
 
-  // the long waits between lines: the music icon always, the countdown while it is the current wait
+  // the long waits between lines: the dots light up over the last seconds of the current wait
   const gapMarker = (index: number) => {
     const gap = gapAfter(syncedLyrics, index, lyricsDelay);
     if (!gap) return null;
-    const waiting = currentLine === index && progress >= gap.start && progress < gap.end;
     return (
       <LyricGap
         key={`gap-${index}`}
-        seconds={waiting ? countdown(gap, progress) : null}
-        className={cn('my-6 mx-16 text-[2.5vw]', isFullscreen && 'justify-center text-[3vw]')}
+        remaining={currentLine === index ? countdown(gap, progress) : null}
+        className={cn('my-2 mx-16 text-[2vw]', isFullscreen && 'justify-center text-[2.4vw]')}
       />
     );
   };
@@ -117,23 +117,6 @@ export default function LyricsView() {
   };
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const toggleFullscreen = () => {
-    if (containerRef.current) {
-      if (isFullscreen) {
-        document.exitFullscreen();
-      } else {
-        const el = document.documentElement;
-
-        if (el.requestFullscreen) {
-          el.requestFullscreen();
-        } else if ((el as any).webkitRequestFullscreen) {
-          (el as any).webkitRequestFullscreen(); // Safari
-        } else if ((el as any).msRequestFullscreen) {
-          (el as any).msRequestFullscreen(); // IE11
-        }
-      }
-    }
-  };
   return (
     <>
       <div className={cn(isFullscreen ? 'fixed inset-0 z-11' : 'h-full w-full', isFullscreen && idle && 'cursor-none')}>
@@ -161,7 +144,7 @@ export default function LyricsView() {
               <IconButton
                 aria-label={t('lyrics.fullscreen')}
                 className="bg-black/30 text-white backdrop-blur hover:bg-black/50"
-                onClick={toggleFullscreen}
+                onClick={() => void toggleFullscreen()}
               >
                 <Maximize className="size-6" />
               </IconButton>
@@ -182,7 +165,7 @@ export default function LyricsView() {
                     <IconButton
                       aria-label={t('lyrics.exitFullscreen')}
                       className="bg-black/40 text-white backdrop-blur hover:bg-black/60"
-                      onClick={toggleFullscreen}
+                      onClick={() => void toggleFullscreen()}
                     >
                       <Minimize className="size-6" />
                     </IconButton>

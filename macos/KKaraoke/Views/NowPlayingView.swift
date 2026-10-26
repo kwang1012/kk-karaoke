@@ -213,8 +213,8 @@ private struct ScrollingLyricLines: View, Equatable {
 
   @ViewBuilder private func gapMarker(after index: Int) -> some View {
     if let gap = LyricGap.after(lines, index: index, delay: delay) {
-      LyricGapMarker(gap: gap, active: (current ?? -1) == index, size: fontSize * 0.9)
-        .padding(.vertical, 18)
+      LyricGapMarker(gap: gap, active: (current ?? -1) == index, size: fontSize * 0.7)
+        .padding(.vertical, 8)
     }
   }
 

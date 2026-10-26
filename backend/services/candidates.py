@@ -108,11 +108,15 @@ def _check_audio(env, lrc: str) -> Optional[dict]:
     return {"status": check.status, "offset_s": round(check.offset_s, 2), "z": round(check.z, 1)}
 
 
-def _flag_romanized(candidate: Candidate) -> None:
+def _flag_romanized(candidate: Candidate, korean: bool = False) -> None:
     """The right song in the wrong script: listed, because it may be all there is, but not recommended."""
-    if providers.is_unusable_lyrics(candidate.lrc or candidate.plain or ""):
+    text = candidate.lrc or candidate.plain or ""
+    if providers.is_unusable_lyrics(text):
         candidate.fit = "poor"
         candidate.notes.insert(0, "Korean written in Latin letters, not Hangul")
+    elif korean and providers.is_japanese_version(text):
+        candidate.fit = "poor"
+        candidate.notes.insert(0, "The Japanese version of the song, not the Korean one")
 
 
 def _apply_audio(candidate: Candidate) -> None:
@@ -231,7 +235,7 @@ def gather(
         if c.lrc:
             c.audio = _check_audio(env, c.lrc)
             _apply_audio(c)
-        _flag_romanized(c)
+        _flag_romanized(c, ls.is_korean_song(title, names, duration_s))
 
     candidates.sort(key=lambda c: (
         _FIT_RANK[c.fit], not c.timed, not c.words, _AUDIO_RANK[(c.audio or {}).get("status")],

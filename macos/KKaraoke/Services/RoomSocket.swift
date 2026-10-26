@@ -17,7 +17,8 @@ final class RoomSocket {
     /// Controls sent while the socket was down are replayed on reconnect, if they are this recent.
     static let pendingMaxAge: TimeInterval = 10
     static let pendingMax = 20
-    private static let keepAlive = Duration.seconds(25)
+    private static let keepAlive = Duration.seconds(15)
+    private static let pingTimeout = Duration.seconds(8)
 
     private let session: URLSession
     private var url: URL?
@@ -89,7 +90,13 @@ final class RoomSocket {
                     while !Task.isCancelled {
                         try? await Task.sleep(for: Self.keepAlive)
                         if Task.isCancelled || self?.generation != mine { return }
-                        try? await Self.ping(task)
+                        // A half-open connection (Mac slept, Wi-Fi changed) never errors by itself: sends vanish and
+                        // receive waits forever. A ping that fails or goes unanswered cancels the task, which ends
+                        // the receive loop below and reconnects.
+                        do { try await Self.ping(task, timeout: Self.pingTimeout) } catch {
+                            if self?.generation == mine { task.cancel(with: .abnormalClosure, reason: nil) }
+                            return
+                        }
                     }
                 }
                 defer { beat.cancel() }
@@ -134,6 +141,20 @@ final class RoomSocket {
     nonisolated private static func transmit(_ message: SocketMessage, on task: URLSessionWebSocketTask) {
         guard let data = try? JSONEncoder().encode(message), let text = String(data: data, encoding: .utf8) else { return }
         task.send(.string(text)) { _ in }
+    }
+
+    nonisolated private static func ping(_ task: URLSessionWebSocketTask, timeout: Duration) async throws {
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask { try await ping(task) }
+            group.addTask {
+                try await Task.sleep(for: timeout)
+                // the pending ping can't be cancelled, only failed: closing the socket makes its handler fire
+                task.cancel(with: .abnormalClosure, reason: nil)
+                throw URLError(.timedOut)
+            }
+            defer { group.cancelAll() }
+            _ = try await group.next()
+        }
     }
 
     nonisolated private static func ping(_ task: URLSessionWebSocketTask) async throws {

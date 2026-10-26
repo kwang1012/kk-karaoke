@@ -37,6 +37,9 @@ AUTH_REQUIRED = os.getenv("AUTH_REQUIRED", "").strip().lower() in ("1", "true", 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
 # Only for projects still on the legacy shared secret; new projects sign with asymmetric keys (JWKS).
 SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "").strip()
+# Server only: used to email account invitations after an access request is approved.
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+PUBLIC_APP_URL = os.getenv("PUBLIC_APP_URL", "").strip().rstrip("/")
 
 # yt-dlp: YouTube asks datacenter IPs to sign in. Give it a cookies.txt (Netscape format, from a
 # signed-in browser; yt-dlp rewrites it, so it must be writable) and/or a proxy URL. In the proxy URL,

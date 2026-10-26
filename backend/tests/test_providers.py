@@ -563,3 +563,13 @@ def test_an_entry_whose_lyrics_are_a_notice_is_skipped_for_the_next(net):
     net["lrclib"] = [lrclib_row(1, "說了再見", "周杰倫", 283, synced="[00:00.00]纯音乐，请欣赏"),
                      lrclib_row(2, "說了再見", "周杰倫", 284)]
     assert find("說了再見", ["周杰倫"], 283).synced == LRC
+
+
+def test_japanese_version_is_unusable_for_a_korean_song():
+    japanese = "[00:01.00]君のことが好き\n[00:05.00]ずっと一緒にいたい"
+    korean = "[00:01.00]너를 좋아해\n[00:05.00]계속 함께하고 싶어"
+    assert pv.is_unusable_lyrics(japanese, korean=True)
+    assert not pv.is_unusable_lyrics(korean, korean=True)
+    assert not pv.is_unusable_lyrics(japanese)  # a Japanese song keeps its own words
+    assert pv.wants_korean("사랑해", ["아이유"])
+    assert not pv.wants_korean("Dynamite", ["BTS"])

@@ -1,3 +1,4 @@
+import { isFullscreen } from 'src/lib/fullscreen';
 import React, { Suspense, lazy, useEffect, useRef } from 'react';
 import { useSettingStore } from 'src/store/setting';
 import { Route, Routes, HashRouter, BrowserRouter, Navigate, useLocation, useParams } from 'react-router-dom';
@@ -25,13 +26,16 @@ import AdminLayout from './pages/admin/AdminLayout';
 import AdminSongs from './pages/admin/songs';
 import AdminWorker from './pages/admin/worker';
 import AdminStorage from './pages/admin/storage';
+import AdminRequests from './pages/admin/requests';
 import MobileLyricsView from './pages/mobile-lyrics';
 import { useLanguageStore, useT } from 'src/i18n';
 import BackendGate from './components/BackendGate';
 import LoginDialog from './components/LoginDialog';
+import PasswordSetupDialog from './components/PasswordSetupDialog';
 import { authEnabled, openLogin, useAuthStore } from './lib/auth';
 
 // lazily loaded components
+const RankingView = lazy(() => import('./pages/ranking'));
 const JoinView = lazy(() => import('./pages/join'));
 const RemoteView = lazy(() => import('./pages/remote'));
 const TvView = lazy(() => import('./pages/tv'));
@@ -102,6 +106,7 @@ const AppRouters = () => {
             <Route path="album/:id" element={<PlaylistView />} />
             <Route path="search/*" element={<SearchView />} />
             <Route path="library" element={<LibraryView />} />
+            <Route path="ranking" element={<RankingView />} />
             <Route path="lyrics" element={mobile ? <MobileLyricsView /> : <LyricsView />} />
             <Route path="play" element={<PlayView />} />
           </Route>
@@ -112,6 +117,7 @@ const AppRouters = () => {
           <Route path="lyrics/:trackId?" element={<LyricsEditView />} />
           <Route path="worker" element={<AdminWorker />} />
           <Route path="storage" element={<AdminStorage />} />
+          <Route path="requests" element={<AdminRequests />} />
         </Route>
         <Route path="join" element={<JoinView />} />
         <Route path="download" element={<DownloadView />} />
@@ -233,14 +239,15 @@ function App() {
 
   useEffect(() => {
     document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange); // Safari
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
     };
   }, []);
 
   const handleFullscreenChange = () => {
-    const isFullscreen = !!document.fullscreenElement;
-    setFullScreen(isFullscreen);
+    setFullScreen(isFullscreen());
   };
 
   return (
@@ -249,6 +256,7 @@ function App() {
       <BackendGate>
         <AppRouters />
         <LoginDialog />
+        <PasswordSetupDialog />
       </BackendGate>
     </Providers>
     // </div>

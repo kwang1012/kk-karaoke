@@ -158,10 +158,31 @@ final class RoomModel {
         if let client = clientProvider?() { defaults.removeObject(forKey: "hostedRoom-" + client.baseURL.absoluteString) }
         rejoin()
         Task {
-            if old == deviceId, let client = clientProvider?() { _ = try? await client.migrateRoom(from: old) }
+            if old == deviceId, let client = clientProvider?() {
+                _ = try? await client.migrateRoom(from: old)
+                await Self.carryQueue(from: old, to: new, client: client)
+            }
             if wasHosting { await openRoom() }
             await refreshAll()
         }
+    }
+
+    /// The songs people ordered, in order, and where the current one lands once the suggestions are left out.
+    static func carried(_ snapshot: QueueSnapshot) -> (tracks: [Track], index: Int) {
+        let own = snapshot.tracks.filter { !$0.recommended }
+        let before = snapshot.tracks.prefix(max(snapshot.index, 0) + 1).filter { !$0.recommended }.count
+        return (own, max(before - 1, 0))
+    }
+
+    /// The server moves a room only if the account opened it as a jam; otherwise this Mac re-adds its own songs, once,
+    /// into an account room that has none.
+    private static func carryQueue(from old: String, to new: String, client: APIClient) async {
+        guard let mine = try? await client.queue(room: new), mine.tracks.isEmpty,
+              let previous = try? await client.queue(room: old) else { return }
+        let (tracks, index) = carried(previous)
+        guard !tracks.isEmpty else { return }
+        for track in tracks { try? await client.addToQueue(room: new, track: track, next: false) }
+        if index > 0 { try? await client.setQueueIndex(room: new, index: index) }
     }
 
     /// Opens this Mac's room so others can join with its code.

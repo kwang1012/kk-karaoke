@@ -4,6 +4,7 @@ import { api } from 'src/utils/api';
 import { useAuthStore } from 'src/lib/auth';
 import { uuid } from 'src/utils';
 import { roomForAccount } from 'src/accountRoom';
+import { carryQueue } from 'src/carryQueue';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { usePlayerTabStore } from './playerTab';
@@ -154,6 +155,18 @@ useAuthStore.subscribe((state, previous) => {
   if (!change) return;
   const { migrateFrom, ...rooms } = change;
   useRoomStore.setState({ ...rooms, currentTime: 0, isOn: false, playing: false, code: undefined });
-  // the old queue arrives over the websocket once the server has moved it
-  if (migrateFrom) api.post('room/migrate', { source: migrateFrom }).catch(() => {});
+  if (!migrateFrom) return;
+  // The server moves the old room if this account opened it as a jam (the queue then arrives over the websocket);
+  // otherwise this device re-adds its own songs. Either way the account room is never added to once it has songs.
+  api
+    .post('room/migrate', { source: migrateFrom })
+    .catch(() => {})
+    .then(() =>
+      carryQueue(migrateFrom, userId!, {
+        queue: (room) => api.get(`queue/${room}/tracks`).then(({ data }) => data),
+        add: (room, track) => api.post(`queue/${room}/add`, track),
+        setIndex: (room, index) => api.post(`queue/${room}/update_queue_idx`, { index }),
+      })
+    )
+    .catch((error) => console.error('Could not carry the queue over:', error));
 });

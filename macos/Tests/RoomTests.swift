@@ -136,6 +136,14 @@ struct RoomModelTests {
         #expect(second.activeRoomId == second.userId && !second.isGuest)
     }
 
+    @Test func aQueueCarriedToTheAccountKeepsOrderedSongsAndTheCurrentOne() {
+        let tracks = [Track(id: "a", name: "A", timeAdded: 1), Track(id: "s", name: "S", timeAdded: 2, recommended: true),
+                      Track(id: "b", name: "B", timeAdded: 3), Track(id: "c", name: "C", timeAdded: 4)]
+        let carried = RoomModel.carried(QueueSnapshot(tracks: tracks, index: 2))
+        #expect(carried.tracks.map(\.id) == ["a", "b", "c"] && carried.index == 1)
+        #expect(RoomModel.carried(QueueSnapshot(tracks: [], index: -1)).tracks.isEmpty)
+    }
+
     @Test func theQueueSplitsIntoCurrentAndUpcoming() {
         let (room, _) = makeRoom()
         room.apply(queue: queue(4))

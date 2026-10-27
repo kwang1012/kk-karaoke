@@ -199,32 +199,39 @@ struct LyricsTimingControls: View {
   var body: some View {
     HStack(spacing: 4) {
       if showTitle {
-        LucideIcon("timer", size: 16)
-        Text("This song's timing").font(.caption.weight(.medium))
+        if player.confidence == "approximate" {
+          LucideIcon("triangle-alert", size: 16).foregroundStyle(.yellow)
+            .help("Timing may be off: these lyrics might be for a different version. Nudge them here.")
+            .accessibilityLabel("Approximate lyrics timing")
+        } else {
+          LucideIcon("timer", size: 16).opacity(0.8)
+        }
+        Text("Sync").font(.system(size: 12, weight: .medium)).opacity(0.8)
+          .padding(.trailing, 4)
       }
       Button {
         set(player.ahead - 0.1)
       } label: {
-        LucideIcon("minus", size: 14)
+        LucideIcon("minus", size: 16)
       }
-      .buttonStyle(WebIconButtonStyle()).help("Later").accessibilityLabel("Later")
+      .buttonStyle(WebIconButtonStyle(size: 28)).help("Later").accessibilityLabel("Later")
       .disabled(player.ahead <= -30)
-      Text(String(format: "%+.1f s", player.ahead)).font(.system(size: 13).monospacedDigit())
-        .frame(width: 58)
+      Text(LyricsSync.label(player.ahead)).font(.system(size: 14, weight: .semibold).monospacedDigit())
+        .frame(width: 48)
         .accessibilityLabel("This song's timing")
       Button {
         set(player.ahead + 0.1)
       } label: {
-        LucideIcon("plus", size: 14)
+        LucideIcon("plus", size: 16)
       }
-      .buttonStyle(WebIconButtonStyle()).help("Earlier").accessibilityLabel("Earlier")
+      .buttonStyle(WebIconButtonStyle(size: 28)).help("Earlier").accessibilityLabel("Earlier")
       .disabled(player.ahead >= 30)
       Button {
         set(0)
       } label: {
         LucideIcon("rotate-ccw", size: 14)
       }
-      .buttonStyle(WebIconButtonStyle()).help("Reset lyrics timing").accessibilityLabel("Reset lyrics timing")
+      .buttonStyle(WebIconButtonStyle(size: 28)).help("Reset lyrics timing").accessibilityLabel("Reset lyrics timing")
       .disabled(player.ahead == 0)
     }
     .disabled(player.track == nil)
@@ -232,7 +239,35 @@ struct LyricsTimingControls: View {
   }
 
   private func set(_ seconds: Double) {
-    player.setAhead((min(30, max(-30, seconds)) * 10).rounded() / 10)
+    player.setAhead(seconds)
+  }
+}
+
+struct ReportLyricsButton: View {
+  @Environment(PlayerModel.self) private var player
+
+  var body: some View {
+    Button {
+      Task { await player.reportLyrics() }
+    } label: {
+      if player.isReportingLyrics {
+        ProgressView().controlSize(.mini).frame(width: 16, height: 16)
+      } else {
+        LucideIcon(player.lyricsReported ? "check" : "flag", size: 16)
+      }
+    }
+    .buttonStyle(WebIconButtonStyle(size: 28))
+    .disabled(player.track == nil || player.lyricsReported || player.isReportingLyrics)
+    .help(player.lyricsReported ? tr("Reported, thanks") : tr("Report lyrics"))
+    .accessibilityLabel(player.lyricsReported ? tr("Reported, thanks") : tr("Report lyrics"))
+    .alert("Couldn’t report lyrics", isPresented: Binding(
+      get: { player.lyricsReportError != nil },
+      set: { if !$0 { player.lyricsReportError = nil } }
+    )) {
+      Button("OK", role: .cancel) { player.lyricsReportError = nil }
+    } message: {
+      Text(player.lyricsReportError ?? "")
+    }
   }
 }
 

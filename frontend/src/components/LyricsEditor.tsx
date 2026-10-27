@@ -1,3 +1,5 @@
+import { useQueryClient } from '@tanstack/react-query';
+import { editorLyricsQuery, lyricsInfoQuery, invalidateEditorLyrics } from 'src/apis/lyrics';
 import {
   ArrowDownUp, AudioLines, ClipboardPaste, ListMusic, Languages, Loader2, LocateFixed, Minus, Plus, Redo2, RefreshCw, Undo2,
 } from 'lucide-react';
@@ -21,7 +23,7 @@ import { useRowHistory } from 'src/components/LyricsEditor/useRowHistory';
 import { Button, IconButton } from 'src/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from 'src/components/ui/dialog';
 import { Input } from 'src/components/ui/input';
-import { Skeleton } from 'src/components/ui/skeleton';
+import { EditorRowsSkeleton } from 'src/components/AdminSkeleton';
 import { Tooltip } from 'src/components/ui/tooltip';
 import { useT, type TranslationKey } from 'src/i18n';
 import { cn } from 'src/lib/utils';
@@ -54,6 +56,8 @@ export default function LyricsEditor({
   onChanged?: () => void;
 }) {
   const t = useT();
+  const client = useQueryClient();
+  const loadVersion = useRef(0);
   const { rows, commit, undo, redo, reset, canUndo, canRedo } = useRowHistory([]);
   const [headers, setHeaders] = useState<string[]>([]);
   const [baseline, setBaseline] = useState('');
@@ -103,15 +107,18 @@ export default function LyricsEditor({
 
   // ---- loading ------------------------------------------------------------------------
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (force = false) => {
     if (!track.id) return;
+    const version = ++loadVersion.current;
     setLoading(true);
+    if (force) await invalidateEditorLyrics(client, track.id);
     const [lyrics, details] = await Promise.allSettled([
-      api.get(`/lyrics/${track.id}`),
-      api.get(`/lyrics/${track.id}/info`),
+      client.fetchQuery(editorLyricsQuery(track.id)),
+      client.fetchQuery(lyricsInfoQuery(track.id)),
     ]);
-    const content: string = lyrics.status === 'fulfilled' ? lyrics.value.data.content ?? '' : '';
-    const loaded: LyricsInfo | null = details.status === 'fulfilled' ? details.value.data : null;
+    if (version !== loadVersion.current) return;
+    const content = lyrics.status === 'fulfilled' ? lyrics.value.content ?? '' : '';
+    const loaded: LyricsInfo | null = details.status === 'fulfilled' ? details.value : null;
     const parsed = parseLrc(content);
     // Words without timing open ready to be timed, instead of as an empty editor.
     // A provider's words are kept for the lines left alone, the same as aligned ones.
@@ -120,7 +127,7 @@ export default function LyricsEditor({
       parsed.rows.length === 0 && loaded?.plain
         ? splitPlain(loaded.plain)
         : tracked && lyrics.status === 'fulfilled'
-          ? attachSaved(parsed.rows, lyrics.value.data.lyrics ?? [])
+          ? attachSaved(parsed.rows, lyrics.value.lyrics ?? [])
           : parsed.rows;
     reset(initial);
     setAlignKnown(tracked);
@@ -133,7 +140,7 @@ export default function LyricsEditor({
     setInfo(loaded);
     setSelected(0);
     setLoading(false);
-  }, [track.id, reset]);
+  }, [track.id, reset, client]);
 
   useEffect(() => {
     setNote(null);
@@ -146,6 +153,7 @@ export default function LyricsEditor({
     setProposal(null);
     load();
     return () => {
+      loadVersion.current += 1;
       if (poller.current) clearInterval(poller.current);
       if (alignPoller.current) clearInterval(alignPoller.current);
     };
@@ -276,6 +284,7 @@ export default function LyricsEditor({
     try {
       const aligned = alignKnown && view === 'lines' ? alignedPayload(toSave, alignScore) : undefined;
       await api.post(`/lyrics/${track.id}/update`, { content, ...(aligned ? { aligned } : {}), ...(origin ? { origin } : {}) });
+      await invalidateEditorLyrics(client, track.id);
       setOrigin(null);
       const sorted = parseLrc(content);
       const restored = aligned ? attachSaved(sorted.rows, aligned.lines) : sorted.rows;
@@ -286,12 +295,15 @@ export default function LyricsEditor({
       setRawText(content);
       say('ok', t('editor.saved'));
       onChanged?.();
-      api.get(`/lyrics/${track.id}/info`).then(({ data }) => setInfo(data)).catch(() => {});
+      const version = loadVersion.current;
+      client.fetchQuery(lyricsInfoQuery(track.id)).then((details) => {
+        if (version === loadVersion.current) setInfo(details);
+      }).catch(() => {});
     } catch (err) {
       console.error(err);
       say('error', t('editor.failed'));
     }
-  }, [view, rawText, headers, track.id, reset, say, t, onChanged, alignKnown, alignScore, origin]);
+  }, [view, rawText, headers, track.id, reset, say, t, onChanged, alignKnown, alignScore, origin, client]);
 
   const revert = () => {
     load(); // what was last loaded or saved, including its alignment
@@ -302,7 +314,7 @@ export default function LyricsEditor({
   const finishRefresh = useCallback(
     async (result: Record<string, any>) => {
       setRefreshing(false);
-      await load();
+      await load(true);
       onChanged?.();
       if (result?.hasLyrics) {
         const source = result.source ? t(`editor.source.${result.source}` as TranslationKey) : t('editor.source.unknown');
@@ -598,7 +610,7 @@ export default function LyricsEditor({
 
       <div className="min-h-0 flex-1 overflow-hidden rounded-xl border bg-background">
         {loading ? (
-          <div className="space-y-2 p-4">{Array.from({ length: 8 }, (_, i) => <Skeleton key={i} className="h-9 w-full" />)}</div>
+          <EditorRowsSkeleton />
         ) : empty ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
             <h2 className="text-lg font-semibold">{t('editor.empty.title')}</h2>

@@ -1,5 +1,6 @@
+import { AdminListSkeleton } from 'src/components/AdminSkeleton';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronDown, ChevronUp, Loader2, RefreshCw, Trash2, Users, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, RefreshCw, Trash2, Users, X } from 'lucide-react';
 import { useState } from 'react';
 import { admin, errorText, type AdminRoom, type AdminRoomTrack } from 'src/apis/admin';
 import ConfirmDialog from 'src/components/LyricsEditor/ConfirmDialog';
@@ -50,14 +51,14 @@ export default function AdminRooms() {
   };
 
   return (
-    <div className="mx-auto flex h-full max-w-4xl flex-col gap-4 overflow-y-auto p-4">
+    <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col gap-4 p-4">
       <div className="flex items-start justify-between gap-4">
         <div><h2 className="text-xl font-semibold">{t('admin.rooms.title')}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{t('admin.rooms.hint')}</p></div>
-        <Button variant="outline" size="sm" onClick={refresh} aria-label={t('admin.refresh')}><RefreshCw className="size-4" /></Button>
+        <Button variant="outline" size="sm" onClick={refresh} aria-label={t('admin.refresh')} disabled={rooms.isFetching}><RefreshCw className={rooms.isFetching ? 'size-4 animate-spin motion-reduce:animate-none' : 'size-4'} /></Button>
       </div>
       {(rooms.error || error) && <p role="alert" className="text-sm text-destructive">{error ?? t('admin.rooms.failed')}</p>}
-      {rooms.isPending ? <Loader2 className="size-6 animate-spin" /> : rooms.data && (
+      {rooms.isPending ? <AdminListSkeleton rows={3} lines={4} actions={3} /> : rooms.data && (
         rooms.data.length === 0
           ? <p className="rounded-xl border p-8 text-center text-muted-foreground">{t('admin.rooms.empty')}</p>
           : <ul className="shrink-0 divide-y overflow-hidden rounded-xl border bg-card">
@@ -114,7 +115,8 @@ export default function AdminRooms() {
                         onClick={() => run.mutate(() => admin.removeRoomTrack(room.id, track))}>{t('admin.rooms.remove')}</Button>
                     </li>)}
                   </ol>
-                  : <Loader2 className="mt-3 size-5 animate-spin" />
+                  : detail.isPending ? <AdminListSkeleton rows={3} lines={1} actions={1} className="mt-3" />
+                    : detail.error ? <p role="alert" className="mt-3 text-sm text-destructive">{errorText(detail.error)}</p> : null
               )}
             </li>)}
           </ul>

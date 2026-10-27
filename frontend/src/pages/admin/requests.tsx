@@ -1,3 +1,4 @@
+import { AdminListSkeleton } from 'src/components/AdminSkeleton';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Loader2, RefreshCw, X } from 'lucide-react';
@@ -33,11 +34,11 @@ export default function AdminRequests() {
     }
   };
   return (
-    <div className="mx-auto flex h-full max-w-4xl flex-col gap-4 overflow-y-auto p-4">
+    <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col gap-4 p-4">
       <div className="flex items-start justify-between gap-4">
         <div><h2 className="text-xl font-semibold">{t('registration.adminTitle')}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{t('registration.adminHint')}</p></div>
-        <Button variant="outline" size="sm" onClick={() => query.refetch()} aria-label={t('admin.refresh')}><RefreshCw className="size-4" /></Button>
+        <Button variant="outline" size="sm" onClick={() => query.refetch()} aria-label={t('admin.refresh')} disabled={query.isFetching}><RefreshCw className={query.isFetching ? 'size-4 animate-spin motion-reduce:animate-none' : 'size-4'} /></Button>
       </div>
       <div className="flex flex-wrap gap-2">
         {(['pending', 'approved', 'rejected', 'all'] as const).map((filter) => (
@@ -49,7 +50,7 @@ export default function AdminRequests() {
       {query.data && !query.data.configured && <p role="alert" className="rounded-xl border p-4 text-sm">{t('registration.unconfigured')}</p>}
       {(error || query.error) && <p role="alert" className="text-sm text-destructive">{error || registrationError(query.error, t('registration.failed'))}</p>}
       {message && <p role="status" className="text-sm text-success">{message}</p>}
-      {query.isPending ? <Loader2 className="size-6 animate-spin" /> : query.data && (
+      {query.isPending ? <AdminListSkeleton /> : query.data && (
         <>
           {query.data.requests.length === 0 && <p className="rounded-xl border p-8 text-center text-muted-foreground">{t('registration.empty')}</p>}
           <ul className="divide-y overflow-hidden rounded-xl border bg-card empty:hidden">

@@ -2,8 +2,8 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { DEFAULT_MELODY_DETAIL } from 'src/melodyDetail';
 
-/** Lyrics appear this much before the singing by default; the player's time lags the sound a little, and a singer reads ahead. */
-export const DEFAULT_LYRICS_LEAD_S = 0.4;
+/** No automatic lyrics lead by default; users can adjust it for their setup. */
+export const DEFAULT_LYRICS_LEAD_S = 0;
 
 export interface SettingState {
   // settings

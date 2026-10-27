@@ -64,15 +64,17 @@ struct AppEmptyState: View {
 }
 
 struct WebIconButtonStyle: ButtonStyle {
+  var size: CGFloat = 34
   func makeBody(configuration: Configuration) -> some View {
-    IconBody(configuration: configuration)
+    IconBody(configuration: configuration, size: size)
   }
   private struct IconBody: View {
     let configuration: Configuration
+    let size: CGFloat
     @State private var hovered = false
     @Environment(\.isEnabled) private var enabled
     var body: some View {
-      configuration.label.frame(width: 34, height: 34)
+      configuration.label.frame(width: size, height: size)
         .background(
           .primary.opacity(configuration.isPressed ? 0.12 : hovered ? 0.06 : 0), in: Circle()
         )

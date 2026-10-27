@@ -41,25 +41,28 @@ struct NowPlayingView: View {
           }
           Spacer()
           HStack(alignment: .bottom) {
-            if hasTimedLyrics && !videoShown {
-              LyricsTimingControls(showTitle: true)
-                .padding(.horizontal, 12).padding(.vertical, 6)
-                .background(.black.opacity(0.4), in: Capsule())
+            if player.track != nil {
+              HStack(spacing: 4) {
+                if hasTimedLyrics { LyricsTimingControls(showTitle: true) }
+                ReportLyricsButton()
+                if videoId != nil {
+                  Button {
+                    showVideo.toggle()
+                  } label: {
+                    LucideIcon(showVideo ? "video" : "video-off", size: 16)
+                  }
+                  .buttonStyle(WebIconButtonStyle(size: 28))
+                  .background(.white.opacity(showVideo ? 0.25 : 0), in: Circle())
+                  .help(showVideo ? tr("Hide video") : tr("Show video"))
+                  .accessibilityLabel(showVideo ? tr("Hide video") : tr("Show video"))
+                  .accessibilityValue(showVideo ? "On" : "Off")
+                  .padding(.leading, 4)
+                }
+              }
+              .padding(.leading, hasTimedLyrics ? 12 : 4).padding(.trailing, 4).padding(.vertical, 4)
+              .background(.black.opacity(0.4), in: Capsule())
             }
             Spacer()
-            if videoId != nil {
-              Button {
-                showVideo.toggle()
-              } label: {
-                LucideIcon(showVideo ? "video-off" : "video", size: 22)
-              }
-              .buttonStyle(WebIconButtonStyle()).padding(6)
-              .background(.white.opacity(showVideo ? 0.2 : 0), in: Circle())
-              .background(.black.opacity(0.3), in: Circle())
-              .help(showVideo ? "Show lyrics" : "Show video")
-              .accessibilityLabel("Video")
-              .accessibilityValue(showVideo ? "On" : "Off")
-            }
             if hasRomanizedLyrics && !videoShown {
               Button {
                 showRomanized.toggle()

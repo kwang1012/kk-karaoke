@@ -1,10 +1,11 @@
+import { AdminSongRowsSkeleton } from 'src/components/AdminSkeleton';
 import { usePageTitle } from 'src/hooks/documentTitle';
 import { Check, Loader2, MoreHorizontal, Music, RefreshCw, Search, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { Virtuoso } from 'react-virtuoso';
-import { admin, errorText, formatBytes, type AdminSong, type SongFilter } from 'src/apis/admin';
+import { admin, adminSongsQuery, errorText, formatBytes, type AdminSong, type SongFilter } from 'src/apis/admin';
 import ConfirmDialog from 'src/components/LyricsEditor/ConfirmDialog';
 import { Button, IconButton } from 'src/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from 'src/components/ui/dropdown-menu';
@@ -25,6 +26,7 @@ export default function AdminSongs() {
   const t = useT();
   usePageTitle(`${t('admin.songs')} - ${t('admin.title')}`);
   const navigate = useNavigate();
+  const client = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [search, setSearch] = useState('');
@@ -40,16 +42,11 @@ export default function AdminSongs() {
   const [rebuilding, setRebuilding] = useState(false);
   const [auditing, setAuditing] = useState(false);
 
-  const songQuery = useInfiniteQuery({
-    queryKey: ['admin-songs', search, filter, revision],
-    queryFn: ({ pageParam, signal }) => admin.songs({ limit: 30, cursor: pageParam, q: search, filter }, signal),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (page) => page.nextCursor ?? undefined,
-    refetchOnWindowFocus: false,
-    gcTime: 0,
-    retry: false,
-  });
-  const load = useCallback(() => setRevision((r) => r + 1), []);
+  const songQuery = useInfiniteQuery(adminSongsQuery(search, filter));
+  const load = useCallback(() => {
+    setRevision((r) => r + 1);
+    void client.invalidateQueries({ queryKey: ['admin-songs'] });
+  }, [client]);
   useEffect(() => {
     setError(songQuery.error ? errorText(songQuery.error) : null);
   }, [songQuery.error]);
@@ -68,6 +65,8 @@ export default function AdminSongs() {
     setBusy((b) => new Set(b).add(song.id));
     try {
       await action();
+      await client.invalidateQueries({ queryKey: ['lyrics-editor', song.id], refetchType: 'none' });
+      await client.invalidateQueries({ queryKey: ['lyrics-status'] });
       setMessage(t(done as any, { name: label(song) }));
     } catch (e) {
       setMessage(t('admin.failed', { name: label(song), error: errorText(e) }));
@@ -82,7 +81,12 @@ export default function AdminSongs() {
     try {
       const res = await admin.refreshLyrics(song.id, force);
       if (res.status === 409) setPending({ kind: 'replaceLyrics', song });
-      else setMessage(t('admin.queued.lyrics', { name: label(song) }));
+      else {
+        await client.invalidateQueries({ queryKey: ['lyrics-editor', song.id], refetchType: 'none' });
+        await client.invalidateQueries({ queryKey: ['lyrics-status'] });
+        load();
+        setMessage(t('admin.queued.lyrics', { name: label(song) }));
+      }
     } catch (e) {
       setMessage(t('admin.failed', { name: label(song), error: errorText(e) }));
     } finally {
@@ -166,8 +170,8 @@ export default function AdminSongs() {
           <Button variant="outline" size="sm" disabled={rebuilding} onClick={() => setPending({ kind: 'rebuildAll' })}>
             {rebuilding ? <Loader2 className="size-4 animate-spin" /> : <Music className="size-4" />} {t('admin.rebuildAll')}
           </Button>
-          <Button variant="outline" size="sm" onClick={load}>
-            <RefreshCw className="size-4" /> {t('admin.refresh')}
+          <Button variant="outline" size="sm" onClick={load} disabled={songQuery.isFetching}>
+            <RefreshCw className={cn('size-4', songQuery.isRefetching && 'animate-spin motion-reduce:animate-none')} /> {t('admin.refresh')}
           </Button>
         </div>
       </div>
@@ -185,7 +189,7 @@ export default function AdminSongs() {
           <span>{t('admin.col.melody')}</span><span>{t('admin.col.updated')}</span><span />
         </div>
         {songQuery.isPending ? (
-          <div className="grid flex-1 place-items-center text-muted-foreground"><Loader2 className="size-6 animate-spin" /></div>
+          <AdminSongRowsSkeleton columns={COLUMNS} />
         ) : !songQuery.data ? (
           <div className="grid flex-1 place-items-center">
             <Button variant="outline" onClick={load}>{t('common.retry')}</Button>

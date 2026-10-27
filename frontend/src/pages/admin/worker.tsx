@@ -1,5 +1,6 @@
+import { AdminListSkeleton, WorkerStatusSkeleton } from 'src/components/AdminSkeleton';
 import { usePageTitle } from 'src/hooks/documentTitle';
-import { CircleAlert, Loader2 } from 'lucide-react';
+import { CircleAlert } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { admin, errorText, type TaskInfo } from 'src/apis/admin';
 import { Button } from 'src/components/ui/button';
@@ -29,7 +30,7 @@ function TaskList({ tasks, empty }: { tasks: TaskInfo[]; empty: string }) {
 
 function Card({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <section className="overflow-hidden rounded-2xl border bg-card">
+    <section className="shrink-0 overflow-hidden rounded-2xl border bg-card">
       <div className="flex items-center justify-between border-b px-4 py-2">
         <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{title}</h2>
         {action}
@@ -60,12 +61,12 @@ export default function AdminWorker() {
   const error = statusQuery.error ?? failuresQuery.error;
 
   return (
-    <div className="mx-auto flex h-full max-w-4xl flex-col gap-4 overflow-y-auto p-4">
+    <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col gap-4 p-4">
       {error && <div role="alert" className="rounded-lg border border-destructive px-3 py-2 text-sm text-destructive">{errorText(error)}</div>}
-      {statusQuery.isPending && <Loader2 className="m-4 size-6 animate-spin text-muted-foreground" />}
+      {statusQuery.isPending && <WorkerStatusSkeleton />}
       {status && (
         <>
-          <div className="flex items-center gap-3 rounded-2xl border bg-card px-4 py-3">
+          <div className="flex shrink-0 items-center gap-3 rounded-2xl border bg-card px-4 py-3">
             <span className={cn('size-3 rounded-full', status.online ? 'bg-success' : 'bg-destructive')} />
             <div>
               <div className="font-medium">{status.online ? t('admin.worker.online') : t('admin.worker.offline')}</div>
@@ -81,14 +82,14 @@ export default function AdminWorker() {
         </>
       )}
       <Card
-        title={`${t('admin.worker.failures')} · ${failures.length}`}
+        title={`${t('admin.worker.failures')} · ${failuresQuery.isPending ? '…' : failures.length}`}
         action={failures.length > 0 && (
           <Button variant="outline" size="sm" onClick={() => admin.clearFailures().then(() => failuresQuery.refetch())}>{t('common.clear')}</Button>
         )}
       >
         {failuresQuery.isPending ? (
-          <Loader2 className="m-4 size-4 animate-spin text-muted-foreground" />
-        ) : failures.length === 0 ? (
+          <AdminListSkeleton rows={3} lines={2} actions={0} framed={false} />
+        ) : failuresQuery.isError && !failuresQuery.data ? null : failures.length === 0 ? (
           <p className="px-4 py-3 text-sm text-muted-foreground">{t('admin.worker.noFailures')}</p>
         ) : (
           <ul className="divide-y">

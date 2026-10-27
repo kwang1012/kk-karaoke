@@ -1,3 +1,5 @@
+import { AdminListSkeleton, EditorRowsSkeleton, LoadingSkeleton } from 'src/components/AdminSkeleton';
+import { Skeleton } from 'src/components/ui/skeleton';
 import { usePageTitle } from 'src/hooks/documentTitle';
 import { Home, Search, X } from 'lucide-react';
 import { IconButton } from 'src/components/ui/button';
@@ -8,12 +10,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import LyricsEditor from 'src/components/LyricsEditor';
 import ConfirmDialog from 'src/components/LyricsEditor/ConfirmDialog';
-import { needsAttention, toneClass, toneOf, type LyricsStatus } from 'src/components/LyricsEditor/info';
+import { needsAttention, toneClass, toneOf } from 'src/components/LyricsEditor/info';
 import AppScrollbar from 'src/components/Scrollbar';
 import { useTrackStore } from 'src/store';
 import LyricsEditorPlayer, { type PlayerHandle } from 'src/components/LyricsEditor/Player';
 import { useT } from 'src/i18n';
-import { api } from 'src/utils/api';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { lyricsStatusesQuery } from 'src/apis/lyrics';
 
 type Filter = 'all' | 'attention';
 
@@ -24,23 +27,22 @@ export default function LyricsEditView() {
   const t = useT();
   const { trackId } = useParams();
   const navigate = useNavigate();
+  const readyLoaded = useTrackStore((state) => state.readyLoaded);
   const readyTracks = useTrackStore((state) => state.readyTracks);
   const itemRefs = useRef<Record<string, HTMLLIElement | null>>({});
   const playerRef = useRef<PlayerHandle | null>(null);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
-  const [statuses, setStatuses] = useState<Record<string, LyricsStatus>>({});
+  const client = useQueryClient();
+  const { data: statuses = {}, isPending: statusesPending } = useQuery(lyricsStatusesQuery);
   const [dirty, setDirty] = useState(false);
   // Where the person wanted to go while edits were unsaved, until they say whether to leave.
   const [pendingTrack, setPendingTrack] = useState<string | null>(null);
 
   const loadStatuses = useCallback(() => {
-    api
-      .get('/lyrics/status')
-      .then(({ data }) => setStatuses(data))
-      .catch((err) => console.error('Error fetching lyrics status:', err));
-  }, []);
-  useEffect(loadStatuses, [loadStatuses]);
+    void client.invalidateQueries({ queryKey: lyricsStatusesQuery.queryKey });
+    void client.invalidateQueries({ queryKey: ['admin-songs'] });
+  }, [client]);
 
   const allTracks = useMemo(() => {
     const seen = new Set<string>();
@@ -120,15 +122,15 @@ export default function LyricsEditView() {
                   filter === f ? 'border-primary bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-accent'
                 )}
               >
-                {f === 'all' ? t('editor.filter.all') : `${t('editor.filter.attention')} · ${attentionCount}`}
+                {f === 'all' ? t('editor.filter.all') : `${t('editor.filter.attention')} · ${statusesPending ? '…' : attentionCount}`}
               </button>
             ))}
-            <span className="ml-auto text-xs text-muted-foreground">{t('editor.songs', { count: uniqueTracks.length })}</span>
+            <span className="ml-auto text-xs text-muted-foreground">{readyLoaded ? t('editor.songs', { count: uniqueTracks.length }) : t('player.loading')}</span>
           </div>
         </div>
         <Separator />
         <AppScrollbar className="h-full">
-          <ul>
+          {!readyLoaded ? <AdminListSkeleton rows={6} lines={2} actions={0} framed={false} /> : <ul>
             {uniqueTracks.map((item) => (
               <li
                 ref={(el) => {
@@ -144,10 +146,10 @@ export default function LyricsEditView() {
                   )}
                   onClick={() => open(item.id)}
                 >
-                  <span
+                  {statusesPending ? <Skeleton className="size-2.5 shrink-0 rounded-full" aria-label={t('player.loading')} /> : <span
                     className={cn('size-2.5 shrink-0 rounded-full', toneClass[toneOf(statuses[item.id])])}
                     title={statuses[item.id]?.confidence ? t(`editor.confidence.${statuses[item.id].confidence}` as any) : t('editor.confidence.none')}
-                  />
+                  />}
                   <span className="min-w-0">
                     <span className="block truncate">{item.name}</span>
                     <span className="block truncate text-sm text-muted-foreground">
@@ -157,19 +159,21 @@ export default function LyricsEditView() {
                 </button>
               </li>
             ))}
-          </ul>
+          </ul>}
         </AppScrollbar>
       </div>
       <div className="grid h-full w-full grid-rows-[1fr_auto] overflow-hidden rounded-2xl border bg-card px-10 py-5">
-        <LyricsEditor
+        {!readyLoaded ? <EditorRowsSkeleton /> : <LyricsEditor
           track={track}
           progress={progress}
           playing={playing}
           playerRef={playerRef}
           onDirtyChange={setDirty}
           onChanged={loadStatuses}
-        />
-        <LyricsEditorPlayer ref={playerRef} track={track} onProgress={setProgress} onPlayingChange={setPlaying} />
+        />}
+        {!readyLoaded ? <LoadingSkeleton className="flex items-center gap-4 py-3">
+          <Skeleton className="size-9 shrink-0 rounded-full" /><Skeleton className="h-2 flex-1 rounded-full" />
+        </LoadingSkeleton> : <LyricsEditorPlayer ref={playerRef} track={track} onProgress={setProgress} onPlayingChange={setPlaying} />}
       </div>
 
       <ConfirmDialog

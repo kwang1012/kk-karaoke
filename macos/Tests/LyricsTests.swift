@@ -42,6 +42,16 @@ struct LyricsTests {
         #expect(LyricsTiming.wordFill(word, next: nil, delay: 0, progress: 1.06) == 1)
     }
 
+    @Test func syncUsesTheWebsLimitsAndLabels() {
+        #expect(LyricsSync.clampedAhead(0.1 + 0.2) == 0.3)
+        #expect(LyricsSync.clampedAhead(35) == 30)
+        #expect(LyricsSync.clampedAhead(-35) == -30)
+        #expect(LyricsSync.label(0) == "0.0s")
+        #expect(LyricsSync.label(-0.0) == "0.0s")
+        #expect(LyricsSync.label(0.1) == "+0.1s")
+        #expect(LyricsSync.label(-0.1) == "-0.1s")
+    }
+
     @Test func decodesLyricsResponse() throws {
         let json = """
         {"lyrics":[{"time":12.5,"text":"hello","romanized":null,"words":[{"start":12.5,"end":13,"text":"hello"}]},
@@ -91,5 +101,57 @@ struct StemCacheTests {
         #expect(gap.countdown(at: 30) == nil)
         #expect(gap.countdown(at: 37.5) == 2.5)
         #expect(gap.countdown(at: 40) == nil)
+    }
+}
+
+private final class LyricsReportProtocol: URLProtocol, @unchecked Sendable {
+    nonisolated(unsafe) static var status = 200
+    nonisolated(unsafe) static var reports: [String] = []
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let reporting = request.httpMethod == "POST"
+        if reporting { Self.reports.append(request.url!.path) }
+        let response = HTTPURLResponse(url: request.url!, statusCode: reporting ? Self.status : 200,
+            httpVersion: nil, headerFields: ["Content-Type": "application/json"])!
+        let json = reporting ? (Self.status == 200 ? #"{"reported":true}"# : #"{"detail":"Try again"}"#) : #"{"lyrics":[]}"#
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(json.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
+}
+
+@MainActor @Suite(.serialized) struct LyricsReportTests {
+    @Test func reportsOncePerSongAndRetriesFailures() async {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [LyricsReportProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        LyricsReportProtocol.status = 200
+        LyricsReportProtocol.reports = []
+        let client = APIClient(baseURL: URL(string: "https://karaoke.example/api")!, session: session)
+        let player = PlayerModel()
+        player.setFollower(true)
+        player.follow(Track(id: "song-a", name: "A"), using: client)
+        await player.reportLyrics()
+        #expect(player.lyricsReported)
+        #expect(!player.isReportingLyrics)
+        await player.reportLyrics()
+        #expect(LyricsReportProtocol.reports == ["/api/lyrics/song-a/report"])
+
+        player.follow(Track(id: "song-b", name: "B"), using: client)
+        #expect(!player.lyricsReported)
+        LyricsReportProtocol.status = 503
+        await player.reportLyrics()
+        #expect(!player.lyricsReported)
+        #expect(!player.isReportingLyrics)
+        #expect(player.lyricsReportError != nil)
+        LyricsReportProtocol.status = 200
+        await player.reportLyrics()
+        #expect(player.lyricsReported)
+        #expect(player.lyricsReportError == nil)
+        #expect(Array(LyricsReportProtocol.reports.suffix(2)) == ["/api/lyrics/song-b/report", "/api/lyrics/song-b/report"])
+        player.stop()
     }
 }

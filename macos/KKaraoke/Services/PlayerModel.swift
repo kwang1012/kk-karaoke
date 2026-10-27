@@ -14,7 +14,18 @@ final class PlayerModel {
         case failed(String)
     }
 
-    private(set) var track: Track?
+    private(set) var track: Track? {
+        didSet {
+            if oldValue?.id != track?.id {
+                lyricsReported = false
+                isReportingLyrics = false
+                lyricsReportError = nil
+            }
+        }
+    }
+    private(set) var lyricsReported = false
+    private(set) var isReportingLyrics = false
+    var lyricsReportError: String?
     private(set) var status: Status = .idle
     private(set) var isPlaying = false
     private(set) var duration: TimeInterval = 0
@@ -250,13 +261,30 @@ final class PlayerModel {
     /// Show the lyrics `seconds` earlier (negative: later), and save it for everyone who sings this song.
     func setAhead(_ seconds: Double) {
         guard let track, let client else { return }
-        trackDelay = -seconds
+        trackDelay = -LyricsSync.clampedAhead(seconds)
         let delay = trackDelay
         delayTask?.cancel()
         delayTask = Task {
             try? await Task.sleep(for: .milliseconds(400))
             guard !Task.isCancelled else { return }
             _ = try? await client.setLyricsDelay(trackId: track.id, delay: delay)
+        }
+    }
+
+    /// Acknowledge only the song that was reported, even if playback changes during the request.
+    func reportLyrics() async {
+        guard let track, let client, !lyricsReported, !isReportingLyrics else { return }
+        isReportingLyrics = true
+        lyricsReportError = nil
+        do {
+            try await client.reportLyrics(trackId: track.id)
+            guard self.track?.id == track.id else { return }
+            isReportingLyrics = false
+            lyricsReported = true
+        } catch {
+            guard self.track?.id == track.id else { return }
+            isReportingLyrics = false
+            lyricsReportError = error.localizedDescription
         }
     }
 

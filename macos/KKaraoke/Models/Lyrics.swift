@@ -47,6 +47,19 @@ enum LyricsState: Equatable, Sendable {
     case failed
 }
 
+/// The same tenth-second steps, limits and display used by the web sync control.
+enum LyricsSync {
+    static func clampedAhead(_ seconds: Double) -> Double {
+        (min(30, max(-30, seconds)) * 10).rounded() / 10
+    }
+
+    static func label(_ seconds: Double) -> String {
+        let value = clampedAhead(seconds)
+        let normalized: Double = value == 0 ? 0.0 : value
+        return (value > 0 ? "+" : "") + String(format: "%.1fs", normalized)
+    }
+}
+
 enum LyricsTiming {
     /// Shortest fill, so a word with a zero-length timing still lights up.
     static let minFill = 0.05

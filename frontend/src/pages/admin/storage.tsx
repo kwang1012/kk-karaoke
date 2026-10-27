@@ -1,3 +1,4 @@
+import { StorageSkeleton } from 'src/components/AdminSkeleton';
 import { usePageTitle } from 'src/hooks/documentTitle';
 import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -10,6 +11,7 @@ import { useT } from 'src/i18n';
 export default function AdminStorage() {
   const t = useT();
   usePageTitle(`${t('admin.storage')} - ${t('admin.title')}`);
+  const [loading, setLoading] = useState(true);
   const [usage, setUsage] = useState<StorageUsage | null>(null);
   const [compare, setCompare] = useState<R2Compare | null>(null);
   const [working, setWorking] = useState<'compare' | 'sync' | null>(null);
@@ -17,7 +19,9 @@ export default function AdminStorage() {
   const [message, setMessage] = useState<string | null>(null);
 
   const load = useCallback(() => {
-    admin.storage().then(setUsage).catch((e) => setMessage(errorText(e)));
+    setLoading(true);
+    setMessage(null);
+    admin.storage().then(setUsage).catch((e) => setMessage(errorText(e))).finally(() => setLoading(false));
   }, []);
   useEffect(load, [load]);
 
@@ -33,19 +37,26 @@ export default function AdminStorage() {
     try {
       const { downloaded, uploaded } = await admin.r2Sync();
       setMessage(t('admin.storage.synced', { down: downloaded, up: uploaded }));
-      load();
+      setUsage(await admin.storage());
       setCompare(await admin.r2());
     } catch (e) { setMessage(errorText(e)); }
     setWorking(null);
   };
 
-  if (!usage) return <div className="grid h-full place-items-center"><Loader2 className="size-6 animate-spin text-muted-foreground" /></div>;
+  if (!usage) return (
+    <div className="mx-auto min-h-full w-full max-w-4xl p-4">
+      {loading ? <StorageSkeleton /> : <div role="alert" className="space-y-3 rounded-xl border p-4">
+        <p className="text-sm text-destructive">{message}</p>
+        <Button variant="outline" onClick={load}>{t('common.retry')}</Button>
+      </div>}
+    </div>
+  );
   const { disk } = usage;
   const pct = Math.round((100 * disk.used) / disk.total);
   const differing = compare ? Object.entries(compare.kinds).filter(([, k]) => k.localOnly.length || k.remoteOnly.length) : [];
 
   return (
-    <div className="mx-auto flex h-full max-w-4xl flex-col gap-4 overflow-y-auto p-4">
+    <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col gap-4 p-4">
       {message && <div role="status" className="rounded-lg border px-3 py-2 text-sm">{message}</div>}
 
       <section className="rounded-2xl border bg-card p-4">

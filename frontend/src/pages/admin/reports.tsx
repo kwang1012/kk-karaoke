@@ -1,5 +1,6 @@
+import { AdminListSkeleton } from 'src/components/AdminSkeleton';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Loader2, Pencil, RefreshCw, X } from 'lucide-react';
+import { Pencil, RefreshCw, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { admin } from 'src/apis/admin';
 import { Button } from 'src/components/ui/button';
@@ -25,14 +26,14 @@ export default function AdminReports() {
     onSettled: () => client.invalidateQueries({ queryKey: ['lyrics-reports'] }),
   });
   return (
-    <div className="mx-auto flex h-full max-w-4xl flex-col gap-4 overflow-y-auto p-4">
+    <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col gap-4 p-4">
       <div className="flex items-start justify-between gap-4">
         <div><h2 className="text-xl font-semibold">{t('admin.reports.title')}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{t('admin.reports.hint')}</p></div>
-        <Button variant="outline" size="sm" onClick={() => query.refetch()} aria-label={t('admin.refresh')}><RefreshCw className="size-4" /></Button>
+        <Button variant="outline" size="sm" onClick={() => query.refetch()} aria-label={t('admin.refresh')} disabled={query.isFetching}><RefreshCw className={query.isFetching ? 'size-4 animate-spin motion-reduce:animate-none' : 'size-4'} /></Button>
       </div>
       {(query.error || dismiss.error) && <p role="alert" className="text-sm text-destructive">{t('admin.reports.failed')}</p>}
-      {query.isPending ? <Loader2 className="size-6 animate-spin" /> : query.data && (
+      {query.isPending ? <AdminListSkeleton /> : query.data && (
         query.data.length === 0
           ? <p className="rounded-xl border p-8 text-center text-muted-foreground">{t('admin.reports.empty')}</p>
           : <ul className="shrink-0 divide-y overflow-hidden rounded-xl border bg-card">

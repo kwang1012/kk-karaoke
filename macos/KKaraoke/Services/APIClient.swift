@@ -146,6 +146,11 @@ extension APIClient {
 
     struct Ignored: Decodable { init(from decoder: Decoder) throws {} }
 
+    /// Uses the same one-report-per-song endpoint as the web app.
+    func reportLyrics(trackId: String) async throws {
+        _ = try await post(Ignored.self, "lyrics/\(trackId)/report", body: [String: String]())
+    }
+
     /// Saves the song's lyrics offset for everyone: seconds added to every line time.
     func setLyricsDelay(trackId: String, delay: Double) async throws {
         struct Body: Encodable { var id: String; var delay: Double }

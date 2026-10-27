@@ -1,3 +1,4 @@
+import { infiniteQueryOptions } from '@tanstack/react-query';
 import { api } from 'src/utils/api';
 
 // The API camel-cases every JSON key (backend/middlewares/format.py), so these are not the Python names.
@@ -128,3 +129,15 @@ export function formatBytes(bytes: number | null | undefined): string {
   }
   return `${value >= 100 || unit === 0 ? Math.round(value) : value.toFixed(1)} ${units[unit]}`;
 }
+
+/** Stable keys keep every loaded page when switching admin tabs or filters. */
+export const adminSongsQuery = (search = '', filter: SongFilter = 'all') => infiniteQueryOptions({
+  queryKey: ['admin-songs', search, filter],
+  queryFn: ({ pageParam, signal }) => admin.songs({ limit: 30, cursor: pageParam, q: search, filter }, signal),
+  initialPageParam: undefined as string | undefined,
+  getNextPageParam: (page) => page.nextCursor ?? undefined,
+  staleTime: 10 * 60 * 1000,
+  gcTime: 30 * 60 * 1000,
+  refetchOnWindowFocus: false,
+  retry: false,
+});

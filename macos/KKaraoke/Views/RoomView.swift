@@ -270,6 +270,16 @@ struct RoomBanner: View {
       }
       .padding(.horizontal, 24).padding(.vertical, 8)
       .foregroundStyle(.white).background(AppTheme.accent)
+    } else if !room.isPlayerDevice {
+      HStack(spacing: 10) {
+        LucideIcon("antenna.radiowaves.left.and.right")
+        Text(room.nobodyPlays ? "Nothing is playing on your devices" : "Playing on another device. This Mac is a remote.")
+          .font(.callout)
+        Spacer()
+        Button("Play here") { room.playHere() }.buttonStyle(.borderless).foregroundStyle(.white).bold()
+      }
+      .padding(.horizontal, 24).padding(.vertical, 8)
+      .foregroundStyle(.white).background(AppTheme.accent)
     } else if room.socketState == .disconnected {
       HStack(spacing: 10) {
         LucideIcon("wifi.exclamationmark")

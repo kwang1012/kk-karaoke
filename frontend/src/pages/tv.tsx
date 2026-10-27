@@ -29,6 +29,8 @@ import { useActiveRoomId, useJam, useRoomStore } from 'src/store/room';
 import { takeOverPlayback, usePlayerTabStore } from 'src/store/playerTab';
 import { useWebSocketStore } from 'src/store/ws';
 import { PRESET_AVATARS, uuid } from 'src/utils';
+import { getDeviceId } from 'src/deviceId';
+import { isActiveDevice } from 'src/activePlayer';
 import { publicUrl } from 'src/utils/publicUrl';
 import { api } from 'src/utils/api';
 import { enterFullscreen, toggleFullscreen } from 'src/lib/fullscreen';
@@ -60,6 +62,7 @@ function useTvRoom() {
     const room = useRoomStore.getState();
     // Changing the view must keep a joined room and its queue.
     if (room.joinedRoom && room.joinedRoom !== room.roomId) return;
+    usePlayerTabStore.setState({ preferThisDevice: true }); // a TV exists to play: it takes the room
     if (!room.nickname) room.setNickname('TV');
     if (!room.avatar) room.setAvatar(PRESET_AVATARS[0]);
     if (!room.roomId) room.setRoomId(uuid());
@@ -253,7 +256,8 @@ export default function TvView() {
     void enterFullscreen();
     const player = usePlayerStore.getState().syncedPlayer;
     if (!player) return;
-    if (!usePlayerTabStore.getState().isPlayerTab) takeOverPlayback();
+    const tab = usePlayerTabStore.getState();
+    if (!tab.isPlayerTab || !isActiveDevice(tab.activeDevice, getDeviceId())) takeOverPlayback();
     player.resume().then(() => {
       if (!mounted.current || usePlayerStore.getState().syncedPlayer !== player || !player.isAudioReady) return;
       usePlayerStore.getState().setPlaybackReady(true);

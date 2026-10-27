@@ -158,6 +158,8 @@ struct TVView: View {
       }
     }
     .onAppear {
+      room.preferThisDevice = true // a TV exists to play: it takes the room
+      room.playHere()
       displayActivity = ProcessInfo.processInfo.beginActivity(
         options: [.idleDisplaySleepDisabled], reason: "Karaoke TV display")
     }

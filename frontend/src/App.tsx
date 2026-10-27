@@ -13,6 +13,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Message, useWebSocketStore } from './store/ws';
 import { useTrackStore } from './store';
 import { useRemoteMessageQueue } from './hooks/queue';
+import { useActivePlayer } from './hooks/activePlayer';
+import { getDeviceId } from './deviceId';
 import { useBreakpointDown } from 'src/hooks/media';
 import { TooltipProvider } from 'src/components/ui/tooltip';
 import PlayView from './pages/play';
@@ -198,10 +200,12 @@ function App() {
           id: roomId,
           name: nickName,
           avatar,
+          deviceId: getDeviceId(),
         },
       });
     }
   }, [activeRoomId, connected]);
+  useActivePlayer();
   useEffect(() => {
     if (connected) return;
     connect();

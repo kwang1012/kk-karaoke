@@ -159,6 +159,8 @@ export const en = {
   'player.loadFailed': "Couldn't load this song.",
   'common.retry': 'Retry',
   'player.currentKey': 'Current Key: {value}',
+  'tab.otherDevice': 'Playing on another device. This one is a remote.',
+  'tab.nobody': 'Nothing is playing on your devices.',
 
   // queue + jam
   'queue.title': 'Queue',

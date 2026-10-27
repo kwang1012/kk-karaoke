@@ -15,9 +15,24 @@ const supported = typeof navigator !== 'undefined' && 'locks' in navigator;
 interface PlayerTabState {
   /** whether this tab is the one that plays audio for its room */
   isPlayerTab: boolean;
+  /** The device of this account that plays: its id, nobody (null), or not heard from the server yet (undefined). */
+  activeDevice: string | null | undefined;
+  /** A screen that exists to play (the TV page) takes the room instead of waiting for nobody to be playing. */
+  preferThisDevice: boolean;
 }
 
-export const usePlayerTabStore = create<PlayerTabState>(() => ({ isPlayerTab: !supported }));
+export const usePlayerTabStore = create<PlayerTabState>(() => ({
+  isPlayerTab: !supported,
+  activeDevice: undefined,
+  preferThisDevice: false,
+}));
+
+let claimDevice: (() => void) | null = null;
+
+/** How this tab asks the server to make this device the player (set by `useActivePlayer`). */
+export function setDeviceClaimer(claimer: (() => void) | null) {
+  claimDevice = claimer;
+}
 
 let release: (() => void) | null = null;
 let currentRoom: string | null = null;
@@ -59,7 +74,8 @@ export function claimPlayerTab(roomId: string | null) {
   };
 }
 
-/** Make this tab the player, taking over from whichever tab has it now. */
+/** Make this tab the player, taking over from whichever tab, and whichever device, has it now. */
 export function takeOverPlayback() {
   if (currentRoom) request(currentRoom, true);
+  claimDevice?.();
 }

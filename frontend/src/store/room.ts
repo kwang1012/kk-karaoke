@@ -8,6 +8,8 @@ import { carryQueue } from 'src/carryQueue';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { usePlayerTabStore } from './playerTab';
+import { getDeviceId } from 'src/deviceId';
+import { isActiveDevice } from 'src/activePlayer';
 
 export interface RoomState {
   roomId?: string; // The ID of the room
@@ -124,11 +126,15 @@ export const useJam = () => {
   // The room's owner, and (when it has several tabs) the one tab that plays: only that tab handles
   // audio and reports the position. The owner's other tabs behave like remotes.
   const isRoomOwner = !isInJam;
-  const isOwner = isRoomOwner && isPlayerTab;
+  // ...and across the account's devices, the one the server named
+  const activeDevice = usePlayerTabStore((state) => state.activeDevice);
+  const isPlayerDevice = isActiveDevice(activeDevice, getDeviceId(), roomId);
+  const isOwner = isRoomOwner && isPlayerTab && isPlayerDevice;
   return {
     isInJam,
     isRoomOwner,
     isOwner,
+    isPlayerDevice,
     participants,
   };
 };

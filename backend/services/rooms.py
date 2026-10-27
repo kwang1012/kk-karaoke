@@ -93,7 +93,8 @@ def close(r: redis.Redis, room_id: str) -> bool:
         return False
     code = r.get(RedisKeys.room_code_of(room_id))
     keys = [RedisKeys.room(room_id), RedisKeys.room_queue(room_id), RedisKeys.room_queue_idx(room_id),
-            RedisKeys.jam(room_id), RedisKeys.room_host(room_id), RedisKeys.room_code_of(room_id)]
+            RedisKeys.jam(room_id), RedisKeys.room_host(room_id), RedisKeys.room_code_of(room_id),
+            RedisKeys.room_player(room_id)]
     if code and r.get(RedisKeys.room_code(code)) == room_id:
         keys.append(RedisKeys.room_code(code))
     r.delete(*keys)
@@ -120,7 +121,8 @@ def adopt(r: redis.Redis, old_id: str, new_id: str, host_id: str) -> bool:
     if moved and "id" in r.hgetall(RedisKeys.jam(new_id)):
         r.hset(RedisKeys.jam(new_id), mapping={"id": json.dumps(new_id)})
     code = r.get(RedisKeys.room_code_of(old_id))
-    leftovers = [RedisKeys.room(old_id), RedisKeys.room_host(old_id), RedisKeys.room_code_of(old_id)]
+    leftovers = [RedisKeys.room(old_id), RedisKeys.room_host(old_id), RedisKeys.room_code_of(old_id),
+                 RedisKeys.room_player(old_id)]
     if code and r.get(RedisKeys.room_code(code)) == old_id:
         leftovers.append(RedisKeys.room_code(code))
     r.delete(*leftovers)

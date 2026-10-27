@@ -153,6 +153,8 @@ export const zhTW: Record<TranslationKey, string> = {
   'player.loadFailed': '無法載入這首歌。',
   'common.retry': '重試',
   'player.currentKey': '目前 Key：{value}',
+  'tab.otherDevice': '正在另一台裝置播放，這台僅作遙控。',
+  'tab.nobody': '你的裝置目前都沒有在播放。',
 
   'queue.title': '待播清單',
   'queue.shuffle': '隨機排序',

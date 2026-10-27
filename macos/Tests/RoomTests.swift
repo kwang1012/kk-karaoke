@@ -61,6 +61,11 @@ struct SocketMessageTests {
         try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(message)) as? [String: Any])
     }
 
+    @Test func joinNamesTheDevice() throws {
+        let json = try object(.join(room: "r1", user: User(id: "u", name: "Kai", avatar: "a"), deviceId: "mac-1"))
+        #expect((json["data"] as? [String: Any])?["deviceId"] as? String == "mac-1")
+    }
+
     @Test func joinCarriesTheUserAsTheServerReadsIt() throws {
         let json = try object(.join(room: "r1", user: User(id: "u", name: "Kai", avatar: "/avatars/cat.svg")))
         #expect(json["type"] as? String == "join")
@@ -142,6 +147,25 @@ struct RoomModelTests {
         let carried = RoomModel.carried(QueueSnapshot(tracks: tracks, index: 2))
         #expect(carried.tracks.map(\.id) == ["a", "b", "c"] && carried.index == 1)
         #expect(RoomModel.carried(QueueSnapshot(tracks: [], index: -1)).tracks.isEmpty)
+    }
+
+    @Test func onlyTheDeviceTheServerNamesPlaysAndTheOthersFollow() {
+        let (room, _) = makeRoom()
+        func hear(_ id: JSON) { room.receive(SocketMessage(type: "jam", action: "player", data: .object(["deviceId": id]))) }
+        #expect(!room.isFollowing) // until the server says, this Mac plays as before
+        hear(.string("another-device"))
+        #expect(room.isFollowing && !room.isGuest && !room.isPlayerDevice && !room.nobodyPlays)
+        hear(.null)
+        #expect(room.isFollowing && room.nobodyPlays)
+        hear(.string(room.deviceId))
+        #expect(!room.isFollowing && room.isPlayerDevice)
+    }
+
+    @Test func aFollowingMacAppliesTheRoomsUpdatesButRunsNoControls() {
+        let (room, player) = makeRoom()
+        room.receive(SocketMessage(type: "jam", action: "player", data: .object(["deviceId": .string("another-device")])))
+        room.receive(SocketMessage(type: "jam", action: "update", data: .object(["currentTime": .number(42), "playing": .bool(true)])))
+        #expect(player.isFollower && player.isPlaying)
     }
 
     @Test func theQueueSplitsIntoCurrentAndUpcoming() {

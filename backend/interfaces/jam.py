@@ -13,6 +13,7 @@ from config import JAM_STATE_SYNC_INTERVAL
 CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ"
 CODE_LENGTH = 4
 CODE_TTL_S = 7 * 24 * 60 * 60
+PLAYER_TTL_S = 24 * 60 * 60
 
 
 def normalize_code(code: str) -> str:
@@ -100,6 +101,26 @@ class RedisJamInterface:
         if not self.redis.exists(key):
             return False
         self.redis.expire(key, CODE_TTL_S)  # in use: keep it
+        return True
+
+    def player_of(self, room_id: str) -> Optional[str]:
+        """The device that plays the audio for this room, if one has claimed it."""
+        return self.redis.get(RedisKeys.room_player(room_id))  # type: ignore
+
+    def claim_player(self, room_id: str, device_id: str, only_if_free: bool = False) -> str:
+        """Make `device_id` the room's player (or, `only_if_free`, only when nobody is). Answers who plays now."""
+        key = RedisKeys.room_player(room_id)
+        if only_if_free:
+            self.redis.set(key, device_id, nx=True, ex=PLAYER_TTL_S)
+        else:
+            self.redis.set(key, device_id, ex=PLAYER_TTL_S)
+        return self.redis.get(key)  # type: ignore
+
+    def release_player(self, room_id: str, device_id: str) -> bool:
+        """Give up the claim, but only if it is still this device's."""
+        if self.player_of(room_id) != device_id:
+            return False
+        self.redis.delete(RedisKeys.room_player(room_id))
         return True
 
     def room_for_code(self, code: str) -> Optional[str]:

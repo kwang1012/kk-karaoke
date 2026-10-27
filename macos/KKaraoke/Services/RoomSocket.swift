@@ -9,6 +9,10 @@ final class RoomSocket {
 
     var onMessage: ((SocketMessage) -> Void)?
     var onState: ((State) -> Void)?
+    /// Names this device to the server, so it knows which of a person's devices is which.
+    var deviceId: String?
+    /// What to say right after joining `room` (asking to be the player): sent after the join, not before it.
+    var afterJoin: ((String) -> SocketMessage?)?
 
     private(set) var state: State = .disconnected {
         didSet { if state != oldValue { onState?(state) } }
@@ -37,7 +41,8 @@ final class RoomSocket {
         self.url = url
         join = (room, user)
         if sameServer, state == .connected {
-            send(.join(room: room, user: user)) // a socket is in one room at a time: this moves it
+            send(.join(room: room, user: user, deviceId: deviceId)) // a socket is in one room at a time: this moves it
+            if let next = afterJoin?(room) { send(next) }
         } else if !sameServer || state == .disconnected {
             open()
         }
@@ -81,7 +86,10 @@ final class RoomSocket {
                 guard let self, self.generation == mine else { return }
                 self.state = .connected
                 self.retry = 0
-                if let join = self.join { Self.transmit(.join(room: join.room, user: join.user), on: task) }
+                if let join = self.join {
+                    Self.transmit(.join(room: join.room, user: join.user, deviceId: self.deviceId), on: task)
+                    if let next = self.afterJoin?(join.room) { Self.transmit(next, on: task) }
+                }
                 let now = Date()
                 let replay = self.pending.filter { now.timeIntervalSince($0.at) <= Self.pendingMaxAge }
                 self.pending = []

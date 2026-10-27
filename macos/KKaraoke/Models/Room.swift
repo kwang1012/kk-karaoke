@@ -76,8 +76,15 @@ struct SocketMessage: Codable, Sendable, Equatable {
         self.data = data
     }
 
-    static func join(room: String, user: User) -> SocketMessage {
-        SocketMessage(type: "join", roomId: room, data: JSON.from(user))
+    static func join(room: String, user: User, deviceId: String? = nil) -> SocketMessage {
+        var data = JSON.from(user)
+        if let deviceId, case .object(var fields) = data { fields["deviceId"] = .string(deviceId); data = .object(fields) }
+        return SocketMessage(type: "join", roomId: room, data: data)
+    }
+
+    /// Asks to be the device that plays the room's audio; `ifFree` only when no device does.
+    static func player(room: String, deviceId: String, ifFree: Bool) -> SocketMessage {
+        SocketMessage(type: "jam", action: "player", roomId: room, data: .object(["deviceId": .string(deviceId), "ifFree": .bool(ifFree)]))
     }
 
     static func control(_ op: String, room: String, data: JSON? = nil) -> SocketMessage {

@@ -16,7 +16,7 @@ final class RoomModel {
 
     /// Random per Mac, used while signed out. A signed-in host's room is their account id instead, so every device they
     /// sign in on shares one queue and jam.
-    private let deviceId: String
+    let deviceId: String
     var userId: String { auth?.session?.user.id ?? deviceId }
     var name: String { didSet { defaults.set(name, forKey: Keys.name); rejoin() } }
     var avatar: String { didSet { defaults.set(avatar, forKey: Keys.avatar); rejoin() } }
@@ -26,6 +26,16 @@ final class RoomModel {
         didSet { auth?.onAccountChange = { [weak self] old, new in self?.accountChanged(from: old ?? self?.deviceId, to: new ?? self?.deviceId) } }
     }
     private(set) var isHosting = false
+
+    /// Which of this person's devices plays the room's audio: the server says. A device that does not is a remote, like a
+    /// guest: it shows the same queue, lyrics and position, and its controls go to the one that plays.
+    private(set) var playerKnown = false
+    private(set) var activePlayer: String?
+    /// A screen that exists to play (the TV window) takes the room instead of waiting for nobody to be playing.
+    var preferThisDevice = false
+    var isPlayerDevice: Bool { !playerKnown || activePlayer == deviceId }
+    var isFollowing: Bool { isGuest || !isPlayerDevice }
+    var nobodyPlays: Bool { !isGuest && playerKnown && activePlayer == nil }
     var isInJam: Bool { isGuest || isHosting }
 
     // MARK: Where
@@ -72,6 +82,8 @@ final class RoomModel {
     @ObservationIgnored private var remotePitch: (hz: Double, at: TimeInterval)?
     @ObservationIgnored private var lastControlAt = Date.distantPast
     @ObservationIgnored private var tick = 0
+    /// Where in the song to start once its audio is ready, when this Mac took over from another device.
+    @ObservationIgnored private var resumeAt: TimeInterval?
 
     /// A pitch heard from a phone is good for this long, and singing counts as going on for this long after it.
     static let remotePitchFresh = 0.3
@@ -87,6 +99,11 @@ final class RoomModel {
         }
         name = defaults.string(forKey: Keys.name) ?? NSFullUserName()
         avatar = defaults.string(forKey: Keys.avatar) ?? Self.avatars[0]
+        socket.deviceId = deviceId
+        socket.afterJoin = { [weak self] room in
+            guard let self, room == self.userId else { return nil }
+            return .player(room: room, deviceId: self.deviceId, ifFree: !self.preferThisDevice)
+        }
     }
 
     // MARK: Wiring
@@ -97,7 +114,11 @@ final class RoomModel {
         clientProvider = client
         player.onControl = { [weak self] in self?.playerControl($0) }
         player.onEnded = { [weak self] in self?.songEnded() }
-        player.onAudioReady = { [weak self] in self?.preloadNeighbors() }
+        player.onAudioReady = { [weak self] in
+            self?.preloadNeighbors()
+            if let self, let time = self.resumeAt, !self.isFollowing { self.player?.perform(.seek(time), fromRemote: true) }
+            self?.resumeAt = nil
+        }
         socket.onMessage = { [weak self] in self?.handle($0) }
         socket.onState = { [weak self] state in
             self?.socketState = state
@@ -156,6 +177,8 @@ final class RoomModel {
         joinURL = nil
         isHosting = false
         if let client = clientProvider?() { defaults.removeObject(forKey: "hostedRoom-" + client.baseURL.absoluteString) }
+        forgetPlayer()
+        player?.setFollower(false)
         rejoin()
         Task {
             if old == deviceId, let client = clientProvider?() {
@@ -183,6 +206,35 @@ final class RoomModel {
         guard !tracks.isEmpty else { return }
         for track in tracks { try? await client.addToQueue(room: new, track: track, next: false) }
         if index > 0 { try? await client.setQueueIndex(room: new, index: index) }
+    }
+
+    private func forgetPlayer() {
+        playerKnown = false
+        activePlayer = nil
+    }
+
+    /// Asks the server to make this Mac the device that plays. The answer (to everyone in the room) is `applyPlayer`.
+    func playHere() {
+        guard !isGuest else { return }
+        socket.send(.player(room: activeRoomId, deviceId: deviceId, ifFree: false))
+    }
+
+    /// The server says which device plays. This Mac stops and follows when it is not the one, and takes over when it is.
+    private func applyPlayer(_ id: String?) {
+        let wasFollowing = isFollowing
+        let state = (time: player?.currentTime ?? 0, playing: player?.isPlaying ?? false)
+        playerKnown = true
+        activePlayer = id
+        guard wasFollowing != isFollowing, !isGuest else { return }
+        if isFollowing {
+            wantsPlay = false
+        } else {
+            // picks up where the other device was
+            wantsPlay = state.playing
+            resumeAt = state.time > 1 ? state.time : nil
+        }
+        player?.setFollower(isFollowing)
+        Task { await refreshAll() }
     }
 
     /// Opens this Mac's room so others can join with its code.
@@ -229,6 +281,7 @@ final class RoomModel {
         code = nil
         joinURL = nil
         wantsPlay = false
+        forgetPlayer()
         player?.setFollower(true)
         queue = []
         queueIdx = -1
@@ -251,7 +304,8 @@ final class RoomModel {
         joinedRoomId = nil
         code = nil
         joinURL = nil
-        player?.setFollower(false)
+        forgetPlayer()
+        player?.setFollower(isFollowing)
         queue = []
         queueIdx = -1
         participants = []
@@ -286,17 +340,17 @@ final class RoomModel {
         entry.status = nil
         entry.progress = nil
         message = nil
-        if (thenPlay || wasEmpty), !isGuest { wantsPlay = true } // so the song starts as it loads
+        if (thenPlay || wasEmpty), !isFollowing { wantsPlay = true } // so the song starts as it loads
         if offline { localAdd(entry, next: next, thenPlay: thenPlay); return }
         do {
             try await client.addToQueue(room: activeRoomId, track: entry, next: next)
             await refreshQueue()
-            if thenPlay, !isGuest, queue.indices.contains(landing) {
+            if thenPlay, !isFollowing, queue.indices.contains(landing) {
                 wantsPlay = true
                 await setIndex(landing, announce: .next)
-            } else if currentTrack == nil, !isGuest, !queue.isEmpty {
+            } else if currentTrack == nil, !isFollowing, !queue.isEmpty {
                 await setIndex(0, announce: nil) // the first song is made ready, paused
-            } else if wasEmpty, isGuest, !queue.isEmpty {
+            } else if wasEmpty, isFollowing, !queue.isEmpty {
                 socket.send(.control("play", room: activeRoomId)) // the room's player starts it
             }
         } catch APIError.status(403, let detail) {
@@ -378,7 +432,7 @@ final class RoomModel {
     func skip(to offset: Int) {
         let target = queueIdx + 1 + offset
         guard queue.indices.contains(target) else { return }
-        if isGuest { socket.send(.control("next", room: activeRoomId, data: .object(["index": .number(Double(target))]))); return }
+        if isFollowing { socket.send(.control("next", room: activeRoomId, data: .object(["index": .number(Double(target))]))); return }
         wantsPlay = true
         Task { await setIndex(target, announce: .next) }
     }
@@ -401,7 +455,7 @@ final class RoomModel {
     func apply(queue snapshot: QueueSnapshot) {
         queue = snapshot.tracks
         queueIdx = snapshot.tracks.isEmpty ? -1 : min(max(snapshot.index, -1), snapshot.tracks.count - 1)
-        if queueIdx == -1 && !queue.isEmpty && !isGuest { queueIdx = 0 }
+        if queueIdx == -1 && !queue.isEmpty && !isFollowing { queueIdx = 0 }
         queueChanged()
     }
 
@@ -415,7 +469,7 @@ final class RoomModel {
             joinURL = joinLink(room: room)
             guard room == activeRoomId else { return }
         }
-        if isGuest {
+        if isFollowing {
             if let index = info.queueIdx, index != queueIdx, queue.indices.contains(index) { queueIdx = index; queueChanged() }
             player?.applyRemote(time: info.currentTime, playing: info.playing, duration: info.duration, volume: info.volume,
                                 vocalOn: info.vocalOn, guideLevel: info.guideLevel)
@@ -426,7 +480,7 @@ final class RoomModel {
     private func queueChanged() {
         guard let player, let client = clientProvider?() else { return }
         defer { preloadNeighbors() }
-        if isGuest { player.follow(currentTrack, using: client); return }
+        if isFollowing { player.follow(currentTrack, using: client); return }
         guard let target = currentTrack else { if player.track != nil { player.stop() }; return }
         if target.isSameEntry(as: player.track) {
             if target.status == "ready" { player.retryAfterProcessing(trackId: target.id, using: client) }
@@ -438,7 +492,7 @@ final class RoomModel {
 
     private func preloadNeighbors() {
         guard let player, let client = clientProvider?() else { return }
-        let neighbors = !isGuest && currentTrack != nil
+        let neighbors = !isFollowing && currentTrack != nil
             ? [queueIdx + 1, queueIdx - 1].filter { queue.indices.contains($0) }.map { queue[$0] }
             : []
         player.preload(neighbors, using: client)
@@ -471,7 +525,7 @@ final class RoomModel {
     }
 
     private func songEnded() {
-        guard !isGuest else { return }
+        guard !isFollowing else { return }
         wantsPlay = true
         Task { await goNext() }
     }
@@ -480,7 +534,7 @@ final class RoomModel {
 
     private func playerControl(_ control: PlayerModel.Control) {
         lastControlAt = Date()
-        if isGuest {
+        if isFollowing {
             sendToOwner(control)
             return
         }
@@ -542,7 +596,7 @@ final class RoomModel {
         case "jam": handleJam(message)
         case "queue":
             // the first song into an empty queue starts by itself, on the screen that plays
-            if message.data?["autoplay"]?.bool == true, !isGuest { wantsPlay = true }
+            if message.data?["autoplay"]?.bool == true, !isFollowing { wantsPlay = true }
             scheduleQueueRefresh()
         case "notify": handleNotify(message)
         default: break
@@ -585,8 +639,9 @@ final class RoomModel {
                 remotePitch = (hz, ProcessInfo.processInfo.systemUptime)
                 singing?.wake()
             }
-        case "update": if isGuest { applyUpdate(data) }
-        case "control": if !isGuest { runControl(message.op, data) }
+        case "update": if isFollowing { applyUpdate(data) }
+        case "control": if !isFollowing { runControl(message.op, data) }
+        case "player": applyPlayer(data?["deviceId"]?.string)
         default: break
         }
     }
@@ -647,7 +702,7 @@ final class RoomModel {
                 try? await Task.sleep(for: .milliseconds(200))
                 guard let self else { return }
                 self.tick += 1
-                guard !self.isGuest, self.socketState == .connected, self.player?.isPlaying == true else { continue }
+                guard !self.isFollowing, self.socketState == .connected, self.player?.isPlaying == true else { continue }
                 if self.tick % 5 == 0 { self.publish(force: false, full: self.tick % 25 == 0) } // each second, the whole state every five
             }
         }
@@ -655,7 +710,7 @@ final class RoomModel {
 
     /// Tells everyone in the room how things stand: the time and whether it plays, and (`full`) everything a remote shows.
     private func publish(force: Bool, full: Bool, extra: [String: JSON] = [:]) {
-        guard !isGuest, let player, socketState == .connected else { return }
+        guard !isFollowing, let player, socketState == .connected else { return }
         var data: [String: JSON] = ["currentTime": .number(player.currentTime), "playing": .bool(player.isPlaying)]
         if full {
             data["queueIdx"] = .number(Double(queueIdx))
@@ -688,7 +743,7 @@ final class RoomModel {
 
     /// A guest sends what its own microphone hears to the room's owner, who draws and scores it.
     func sendPitch(hz: Double) {
-        guard isGuest else { return }
+        guard isFollowing else { return }
         socket.send(SocketMessage(type: "jam", action: "pitch", roomId: activeRoomId, data: .object(["hz": .number((hz * 10).rounded() / 10)])))
     }
 }

@@ -104,7 +104,7 @@ struct MenuBarContent: View {
       Image("AppLogo").resizable().frame(width: 26, height: 26)
       VStack(alignment: .leading, spacing: 2) {
         Text("KKaraoke").font(.system(size: 13, weight: .semibold))
-        Text(room.isGuest ? "Remote control" : "Menu player").font(.system(size: 10))
+        Text(room.isFollowing ? "Remote control" : "Menu player").font(.system(size: 10))
           .foregroundStyle(.secondary)
       }
       Spacer()

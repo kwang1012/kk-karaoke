@@ -8,7 +8,9 @@ import httpx
 import opencc
 
 
-from config import YTDLP_COOKIES_FILE, YTDLP_PROXY
+import time
+
+from config import DOWNLOAD_MAX_S, DOWNLOAD_MIN_KIBPS, DOWNLOAD_SLOW_FOR_S, YTDLP_COOKIES_FILE, YTDLP_PROXY
 from utils import RAW_AUDIO_DIR
 
 _s2t_converter = opencc.OpenCC('s2t')
@@ -164,6 +166,31 @@ def _search_best_url(search_term: str, target_duration_s: float | None, title: s
 DOWNLOAD_ATTEMPTS = 4
 
 
+class SlowDownload(yt_dlp.utils.DownloadError):
+    """A transfer too slow to wait for."""
+
+
+def _abort_if_slow(clock=time.monotonic):
+    """A yt-dlp progress hook that raises once the transfer crawls for a while, or takes too long."""
+    began = clock()
+    slow_since: list[float | None] = [None]
+
+    def hook(progress: dict) -> None:
+        if progress.get("status") != "downloading":
+            return
+        now = clock()
+        if now - began > DOWNLOAD_MAX_S:
+            raise SlowDownload(f"download took longer than {DOWNLOAD_MAX_S:.0f}s")
+        speed = progress.get("speed")  # bytes/s; None until yt-dlp has measured one
+        if speed is None or speed / 1024 >= DOWNLOAD_MIN_KIBPS:
+            slow_since[0] = None
+        elif slow_since[0] is None:
+            slow_since[0] = now
+        elif now - slow_since[0] >= DOWNLOAD_SLOW_FOR_S:
+            raise SlowDownload(f"download stuck at {speed / 1024:.0f} KiB/s for {DOWNLOAD_SLOW_FOR_S:.0f}s")
+    return hook
+
+
 def _download(sid: str, search_term: str, url: str) -> None:
     audio_path = os.path.join(RAW_AUDIO_DIR, sid + ".%(ext)s")
     for attempt in range(1, DOWNLOAD_ATTEMPTS + 1):
@@ -185,6 +212,8 @@ def _download(sid: str, search_term: str, url: str) -> None:
             # built per attempt: a rotating proxy gives each attempt a new IP
             **_network_opts(),
         }
+        if YTDLP_PROXY:  # without one the next attempt has the same IP: waiting is all there is
+            ydl_opts["progress_hooks"] = [_abort_if_slow()]
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])

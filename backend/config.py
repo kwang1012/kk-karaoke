@@ -46,6 +46,11 @@ PUBLIC_APP_URL = os.getenv("PUBLIC_APP_URL", "").strip().rstrip("/")
 # {session} becomes a new random id per fetch, for providers that keep one IP per session id.
 YTDLP_COOKIES_FILE = os.getenv("YTDLP_COOKIES_FILE", "").strip()
 YTDLP_PROXY = os.getenv("YTDLP_PROXY", "").strip()
+# With a proxy, a download slower than this for DOWNLOAD_SLOW_FOR_S in a row, or longer than
+# DOWNLOAD_MAX_S in all, is dropped and retried on another IP: a crawl holds up every song behind it.
+DOWNLOAD_MIN_KIBPS = float(os.getenv("DOWNLOAD_MIN_KIBPS", "100"))
+DOWNLOAD_SLOW_FOR_S = float(os.getenv("DOWNLOAD_SLOW_FOR_S", "20"))
+DOWNLOAD_MAX_S = float(os.getenv("DOWNLOAD_MAX_S", "180"))
 
 # Jam state
 JAM_STATE_SYNC_INTERVAL = float(os.getenv("JAM_STATE_SYNC_INTERVAL", "1.0"))

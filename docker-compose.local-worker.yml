@@ -4,7 +4,7 @@
 #   docker compose -f docker-compose.yml -f docker-compose.local-worker.yml up -d --build
 #   docker compose stop worker        # a Docker worker that was already running would take jobs
 #   cd backend && uv sync
-#   REDIS_AUTOSTART=0 uv run celery -A services.process_request.celery worker -l info --concurrency=1 --pool=solo
+#   REDIS_AUTOSTART=0 uv run celery -A services.process_request.celery worker -l info -Q urgent,celery --concurrency=1 --pool=solo
 #
 # This starts redis, api and web in Docker and publishes Redis on localhost:6379 for the host
 # worker (so nothing else may use that port). The host worker shares ./backend/storage with the

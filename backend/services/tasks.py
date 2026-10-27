@@ -139,8 +139,33 @@ def is_ready(track: Track) -> bool:
     return catalog.is_ready(track.id)
 
 
-def send_process_request(track: Track):
-    return celery.send_task("process_request", args=[track.model_dump()])
+# Redis hands a worker the first non-empty queue it listens to, so a worker started with
+# `-Q urgent,celery` always takes an urgent job before any other waiting one.
+URGENT_QUEUE = "urgent"
+
+
+def send_process_request(track: Track, urgent: bool = False):
+    """Queue a song for processing; `urgent` for the one being sung now, which must not wait behind others."""
+    options = {"queue": URGENT_QUEUE} if urgent else {}
+    return celery.send_task("process_request", args=[track.model_dump()], **options)
+
+
+def promote_process_request(track: Track) -> bool:
+    """
+    Move a song that is still waiting in the normal queue to the urgent one (its turn came). The old
+    message stays where it is: whichever copy a worker takes first runs the job, the other finds it
+    started and does nothing. Returns whether anything was promoted.
+    """
+    job = catalog.queued_job(track.id, "process_request")
+    if job is None:
+        return False  # not queued (running, done or never sent): nothing to bring forward
+    try:
+        Celery.send_task(celery, "process_request", args=json.loads(job["args"]), retry=False,
+                         task_id=job["id"], queue=URGENT_QUEUE)
+    except Exception as exc:  # the job is still in its place in the queue
+        print(f"Could not promote {track.id}: {exc!r}")
+        return False
+    return True
 
 
 def request_melody(track_id: str):

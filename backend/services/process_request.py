@@ -21,7 +21,7 @@ from services.pitcher import extract_melody
 from services import modal_separate
 from services.voice_remover import separate_vocals
 from managers import r2
-from services.tasks import celery, is_ready, send_process_request, request_melody, record_progress, r
+from services.tasks import URGENT_QUEUE, celery, is_ready, send_process_request, request_melody, record_progress, r
 
 ws_manager = WebSocketManager()
 
@@ -177,6 +177,11 @@ def _listen_and_verify(track: Track, who: _Identity) -> None:
         print(f"Audio check failed for {track.id}: {e!r}")
 
 
+# With WORKER_CONCURRENCY above 1 several songs wait on Modal GPUs together; this machine's own
+# Demucs is too heavy for that, so a fallback to it takes turns.
+_local_separation = threading.Lock()
+
+
 def _separate(track_id: str, on_progress) -> None:
     """On a Modal GPU when configured; this machine's Demucs otherwise, or if Modal is unreachable."""
     if modal_separate.enabled():
@@ -185,7 +190,8 @@ def _separate(track_id: str, on_progress) -> None:
             return
         except Exception as e:
             print(f"Modal separation failed for {track_id}, separating locally: {e!r}")
-    separate_vocals(track_id, on_progress=on_progress)
+    with _local_separation:
+        separate_vocals(track_id, on_progress=on_progress)
 
 
 # What a song goes through before it can be sung, in the order the UI lists them. Several run at once:
@@ -500,19 +506,21 @@ def queued_tracks(limit: int) -> list[dict]:
     from services.worker_status import broker
 
     found = list(_reserved.values())
-    # Celery pushes new messages on the left and takes the next one from the right.
-    for raw in reversed(broker.lrange("celery", -limit * 4, -1)):
-        try:
-            message = json.loads(raw)
-            if message.get("headers", {}).get("task") != "process_request":
+    # The urgent queue is read first by the worker, so it is first here. Celery pushes new messages
+    # on the left and takes the next one from the right.
+    for queue_name in (URGENT_QUEUE, "celery"):
+        for raw in reversed(broker.lrange(queue_name, -limit * 4, -1)):
+            try:
+                message = json.loads(raw)
+                if message.get("headers", {}).get("task") != "process_request":
+                    continue
+                args = json.loads(base64.b64decode(message["body"]))[0]
+                if args and isinstance(args[0], dict) and all(args[0].get("id") != t.get("id") for t in found):
+                    found.append(args[0])
+            except (ValueError, KeyError, TypeError, IndexError):
                 continue
-            args = json.loads(base64.b64decode(message["body"]))[0]
-            if args and isinstance(args[0], dict):
-                found.append(args[0])
-        except (ValueError, KeyError, TypeError, IndexError):
-            continue
-        if len(found) >= limit:
-            break
+            if len(found) >= limit:
+                break
     return found[:limit]
 
 

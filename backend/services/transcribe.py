@@ -8,6 +8,7 @@ verified source, and never used when a provider has the song.
 """
 import logging
 import os
+import threading
 from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Optional
@@ -36,6 +37,9 @@ class HeardLine:
     words: list[tuple[float, float, str]]  # (start_s, end_s, text)
 
 
+_local_model_lock = threading.Lock()
+
+
 def _load_model():
     """Loaded once per process: it takes seconds and a gigabyte or so of memory."""
     global _model
@@ -56,8 +60,9 @@ def _transcribe(path: str):
             return _transcribe_remote(path)
         except Exception as e:  # noqa: BLE001 - the local model is the fallback
             log.warning("Modal transcription failed for %s, transcribing locally: %r", path, e)
-    segments, info = _load_model().transcribe(path, beam_size=5, vad_filter=True, word_timestamps=True)
-    return list(segments), info
+    with _local_model_lock:  # songs may be processed side by side; one model, one at a time
+        segments, info = _load_model().transcribe(path, beam_size=5, vad_filter=True, word_timestamps=True)
+        return list(segments), info
 
 
 def _transcribe_remote(path: str):

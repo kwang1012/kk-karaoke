@@ -53,9 +53,11 @@ services:
       - ./backend/storage:/app/storage
       - ./backend/data:/app/data
       - model-cache:/models
-    # Single concurrent job: separation is memory- and GPU-hungry. Scale with
-    # `docker compose up --scale worker=N` if you have the hardware.
-    command: ["celery", "-A", "services.process_request.celery", "worker", "-l", "info", "--concurrency=1", "--pool=solo"]
+    # One job at a time by default: separation on this machine is memory- and GPU-hungry. With
+    # USE_MODAL the GPU work happens on Modal, so set WORKER_CONCURRENCY=3 (or more) in backend/.env to process
+    # several songs at once; a fallback to local Demucs still takes turns.
+    # `-Q urgent,celery`: the song being sung is taken before the ones waiting.
+    command: ["sh", "-c", "exec celery -A services.process_request.celery worker -l info -Q urgent,celery --pool=threads --concurrency=$${WORKER_CONCURRENCY:-1}"]
 
   web:
     build: ./frontend

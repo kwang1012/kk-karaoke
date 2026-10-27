@@ -237,6 +237,12 @@ def job(job_id: str) -> dict | None:
     return rows[0] if rows else None
 
 
+def queued_job(song_id: str, kind: str) -> dict | None:
+    """The job of this kind for the song that no worker has started yet."""
+    rows = execute("SELECT * FROM jobs WHERE song_id=? AND kind=? AND state='queued'", (song_id, kind))
+    return rows[0] if rows else None
+
+
 def claim_dispatch(job_id: str, stale_s: float = 300) -> bool:
     return bool(execute("""UPDATE jobs SET dispatched=? WHERE id=? AND state IN ('queued','retry')
         AND (dispatched IS NULL OR dispatched<?) RETURNING id""", (time.time(), job_id, time.time() - stale_s)))

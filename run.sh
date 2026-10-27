@@ -12,7 +12,7 @@ sleep 1 # wait briefly
 cd backend
 . .venv/bin/activate
 uvicorn main:app --host 0.0.0.0 --port 8000 &
-celery -A services.process_request.celery worker -l info --concurrency=1 --pool=solo &
+celery -A services.process_request.celery worker -l info -Q urgent,celery --concurrency=1 --pool=solo &
 
 # Start Nginx (serving frontend)
 nginx -g 'daemon off;' &

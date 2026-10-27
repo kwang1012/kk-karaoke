@@ -133,7 +133,7 @@ docker compose -f docker-compose.yml -f docker-compose.local-worker.yml up -d --
 docker compose stop worker
 # 3. the worker, on your Mac (REDIS_AUTOSTART=0: fail instead of starting a second Redis)
 cd backend && uv sync
-REDIS_AUTOSTART=0 uv run celery -A services.process_request.celery worker -l info --concurrency=1 --pool=solo
+REDIS_AUTOSTART=0 uv run celery -A services.process_request.celery worker -l info -Q urgent,celery --concurrency=1 --pool=solo
 ```
 
 Start the worker only after step 1, and use it with the same `backend/` folder (the Docker API
@@ -254,7 +254,7 @@ uv run uvicorn main:app --reload --port 8000
 ```bash
 # 2. Celery worker (downloads audio and removes the vocals)
 cd backend
-uv run celery -A services.process_request.celery worker -l info --concurrency=1 --pool=solo
+uv run celery -A services.process_request.celery worker -l info -Q urgent,celery --concurrency=1 --pool=solo
 ```
 
 ```bash

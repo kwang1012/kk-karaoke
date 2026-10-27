@@ -27,7 +27,7 @@ case "$1:$2" in
     docker compose "${files[@]}" -f docker-compose.local-worker.yml stop worker >/dev/null 2>&1
     (cd backend && uv sync) || exit 1
     set -m
-    (cd backend && REDIS_AUTOSTART=0 exec uv run celery -A services.process_request.celery worker -l info --concurrency=1 --pool=solo) </dev/null >.local-worker.log 2>&1 &
+    (cd backend && REDIS_AUTOSTART=0 exec uv run celery -A services.process_request.celery worker -l info -Q urgent,celery --concurrency=1 --pool=solo) </dev/null >.local-worker.log 2>&1 &
     echo $! >"$pidfile"
     echo "Host worker started (pid $!, log: .local-worker.log)"
     ;;

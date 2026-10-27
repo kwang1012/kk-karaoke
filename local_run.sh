@@ -27,4 +27,4 @@ yarn preview --host &
 cd ../backend
 source .venv/bin/activate
 uvicorn main:app --host 0.0.0.0 --port 8080 &
-celery -A services.process_request.celery worker -l info --concurrency=1
+celery -A services.process_request.celery worker -l info -Q urgent,celery --concurrency=1

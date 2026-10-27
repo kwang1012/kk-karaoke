@@ -66,7 +66,7 @@ def nothing_to_recommend(monkeypatch):
 @pytest.fixture
 def unprocessed(monkeypatch):
     monkeypatch.setattr(queue, "is_ready", lambda t: False)
-    monkeypatch.setattr(queue, "send_process_request", lambda t: type("T", (), {"id": "task"})())
+    monkeypatch.setattr(queue, "send_process_request", lambda t, **kw: type("T", (), {"id": "task"})())
 
     async def noop(*_a, **_k):
         pass

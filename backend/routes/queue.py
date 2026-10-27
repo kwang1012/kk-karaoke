@@ -11,7 +11,7 @@ from managers.db import get_db
 from models.track import Track, is_retired_track_id
 from models.requests import ReorderRequest, UpdateQueueIdxRequest
 from redis_keys import RedisKeys
-from services.tasks import send_process_request, is_ready
+from services.tasks import send_process_request, promote_process_request, is_ready
 from managers import catalog
 from services.queue_order import QueueOrder
 from services.recommend import recommend
@@ -136,7 +136,9 @@ async def _add_and_process_track(
 
     if is_track_ready:
         return JSONResponse(content={"is_ready": True, "task": None}, status_code=200)
-    task = await _start_processing(room_id, track, redis_interface)
+    # The song being sung right now goes ahead of everything waiting; later ones queue in order.
+    urgent = idx <= redis_interface.get_current_idx(room_id)
+    task = await _start_processing(room_id, track, redis_interface, urgent)
     return JSONResponse(content={"is_ready": False, "task": task.id}, status_code=200)
 
 
@@ -148,6 +150,15 @@ def _in_background(coroutine) -> None:
     task = asyncio.ensure_future(coroutine)
     _background.add(task)
     task.add_done_callback(_background.discard)
+
+
+async def _promote_if_waiting(track: Track) -> None:
+    """The song now being sung is not processed yet: move its job to the front of the queue."""
+    try:
+        if not await asyncio.to_thread(is_ready, track):
+            await asyncio.to_thread(promote_process_request, track)
+    except Exception as e:  # noqa: BLE001 - the job is still queued in its old place
+        print(f"Could not bring {track.id} forward: {e!r}")
 
 
 # Rooms being topped up, so a burst of index updates asks for one batch.
@@ -172,10 +183,12 @@ async def _fill_and_announce(room_id: str, redis_interface: RedisQueueInterface,
         print(f"Could not queue suggestions for {room_id}: {e!r}")
 
 
-async def _start_processing(room_id: str, track: Track, redis_interface: RedisQueueInterface):
+async def _start_processing(room_id: str, track: Track, redis_interface: RedisQueueInterface, urgent: bool = False):
     loop = asyncio.get_event_loop()
     callback = create_track_progress_callback(track, room_id, redis_interface, loop)
     redis_interface.subscribe_to_channel(track.id, callback)
+    if urgent:
+        return await asyncio.to_thread(send_process_request, track, urgent=True)
     return await asyncio.to_thread(send_process_request, track)
 
 
@@ -320,6 +333,8 @@ async def store_current_idx(
     redis_interface.set_current_idx(room_id, data.index)
     queue = redis_interface.get_queue(room_id)
     upcoming = queue[data.index + 1:]
+    if 0 <= data.index < len(queue):
+        _in_background(_promote_if_waiting(queue[data.index]))
     # Playing the last of the suggestions (or the last song at all): suggest more, so the queue keeps going.
     if (0 <= data.index < len(queue) and len(upcoming) <= REFILL_AT and all(t.recommended for t in upcoming)
             and room_id not in _filling):

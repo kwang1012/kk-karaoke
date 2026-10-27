@@ -56,7 +56,7 @@ set -m
 
 (cd backend && exec uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000) </dev/null &
 pids+=($!)
-(cd backend && exec uv run celery -A services.process_request.celery worker -l info --concurrency=1 --pool=solo) </dev/null >.local-worker.log 2>&1 &
+(cd backend && exec uv run celery -A services.process_request.celery worker -l info -Q urgent,celery --concurrency=1 --pool=solo) </dev/null >.local-worker.log 2>&1 &
 pids+=($!)
 echo "Worker output: $(pwd)/.local-worker.log"
 (cd frontend && [ -d node_modules ] || yarn install; exec yarn start) </dev/null &

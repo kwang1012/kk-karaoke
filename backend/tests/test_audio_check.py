@@ -61,3 +61,17 @@ def test_flat_vocal_with_no_pauses_is_inconclusive():
     flat = np.full(N, -20.0) + np.random.default_rng(2).normal(0, 1.5, N)
     r = ac.check_timing(flat, STARTS)
     assert r.status == "inconclusive" and r.offset_s == 0
+
+
+@pytest.mark.parametrize("shift", [0.4, -0.4])
+def test_an_offset_between_confirm_and_correct_is_not_acted_on_but_is_recorded(shift):
+    sheet = [t - shift for t in STARTS]
+    r = ac.check_timing(stem(STARTS), sheet)
+    assert r.status == "inconclusive" and r.offset_s == 0  # thresholds unchanged
+    assert r.measured_s == pytest.approx(shift, abs=0.1) and r.hit is not None
+
+
+def test_the_measured_offset_is_recorded_for_every_verdict_that_fitted():
+    assert ac.check_timing(stem(STARTS), STARTS).measured_s == pytest.approx(0, abs=0.1)
+    assert ac.check_timing(stem(STARTS), [t - 2.0 for t in STARTS]).measured_s == pytest.approx(2.0, abs=0.1)
+    assert ac.check_timing(stem(STARTS), STARTS[:3]).measured_s is None  # too few lines to fit

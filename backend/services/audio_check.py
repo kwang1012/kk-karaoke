@@ -57,6 +57,10 @@ class AudioCheck:
     z: float           # how clearly that offset beats the rest
     sung: float        # share of line starts where the singer is actually singing
     lines: int
+    # What the fit found whatever the verdict (offset_s is 0 unless the sheet is to be moved), so a
+    # result that was not acted on can still be read later. None when nothing could be fitted.
+    measured_s: Optional[float] = None
+    hit: Optional[float] = None   # share of line starts that sit on a real onset after that shift
 
 
 def load_envelope(path: str) -> np.ndarray:
@@ -140,14 +144,14 @@ def check_timing(env_db: np.ndarray, starts: Sequence[float], search_s: float = 
     sung = sung_fraction(env_db, starts, offset)
     if sung < MIN_SUNG:
         # Most lines fall where nobody is singing, wherever we slide them: wrong lyrics.
-        return AudioCheck("mismatch", 0.0, z, sung, n)
+        return AudioCheck("mismatch", 0.0, z, sung, n, offset, hit)
     if z < min_z or hit < MIN_HIT:
-        return AudioCheck("inconclusive", 0.0, z, sung, n)
+        return AudioCheck("inconclusive", 0.0, z, sung, n, offset, hit)
     if abs(offset) <= CONFIRM_S:
-        return AudioCheck("confirmed", 0.0, z, sung, n)
+        return AudioCheck("confirmed", 0.0, z, sung, n, offset, hit)
     if abs(offset) >= CORRECT_S:
-        return AudioCheck("corrected", offset, z, sung, n)
-    return AudioCheck("inconclusive", 0.0, z, sung, n)
+        return AudioCheck("corrected", offset, z, sung, n, offset, hit)
+    return AudioCheck("inconclusive", 0.0, z, sung, n, offset, hit)
 
 
 def check_file(vocal_path: str, starts: Sequence[float], search_s: float = SEARCH_S, min_z: float = MIN_Z) -> Optional[AudioCheck]:

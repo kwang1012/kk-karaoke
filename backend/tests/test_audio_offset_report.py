@@ -70,3 +70,55 @@ def test_measure_reads_the_files_on_disk_and_skips_songs_whose_files_are_elsewhe
         "inconclusive", 0.0, 7.0, 0.9, len(starts), 0.4, 0.8))
     row = report.measure(song)
     assert row["measured_s"] == 0.4 and row["reliable"] is True and row["lines"] == 2
+
+
+# --- windowed mode ---------------------------------------------------------------------------------
+
+def _phrases(seed=3, n=40):
+    import numpy as np
+    from services import audio_check as ac
+    gaps = np.random.default_rng(seed).uniform(3.5, 6.0, n)
+    starts = list(np.cumsum([10.0, *gaps]))
+    env = -70 + np.random.default_rng(0).normal(0, 1.5, int(260 / ac.HOP_S))
+    for t in starts:
+        a = int(t / ac.HOP_S)
+        env[a:a + int(3.0 / ac.HOP_S)] = -20 + np.random.default_rng(a).normal(0, 1.5, int(3.0 / ac.HOP_S))
+    return starts, ac.onset_strength(env)
+
+
+def test_a_sheet_that_is_early_by_one_amount_is_uniform():
+    starts, onsets = _phrases()
+    verdict = report.classify_windows(report.window_offsets(onsets, [t - 1.5 for t in starts]))
+    assert verdict["shape"] == "uniform" and abs(verdict["shift_s"] - 1.5) <= 0.1
+
+
+def test_a_sheet_whose_error_changes_part_way_is_drifting():
+    starts, onsets = _phrases()
+    sheet = [t - (1.0 if i < 20 else 3.0) for i, t in enumerate(starts)]
+    assert report.classify_windows(report.window_offsets(onsets, sheet))["shape"] == "drifting"
+
+
+def test_too_few_lines_for_a_window_is_unclear():
+    starts, onsets = _phrases()
+    assert report.window_offsets(onsets, starts[:5]) == []
+    assert report.classify_windows([])["shape"] == "unclear"
+
+
+def test_windows_that_cannot_tell_are_ignored_not_counted_as_disagreement():
+    windows = [(0, 1.0, 6.0), (4, 0.95, 5.0), (8, -3.0, 2.0), (12, 1.05, 4.5), (16, 0.9, 1.0)]
+    verdict = report.classify_windows(windows)
+    assert verdict["shape"] == "uniform" and verdict["clear_windows"] == 3
+
+
+def test_when_most_windows_are_unclear_there_is_no_verdict():
+    windows = [(0, 1.0, 6.0)] + [(i * 4, 0.0, 1.0) for i in range(1, 8)]
+    assert report.classify_windows(windows)["shape"] == "unclear"
+
+
+def test_the_windowed_summary_separates_shifts_from_per_line_cases():
+    rows = [{"shape": "uniform", "shift_s": 0.1}, {"shape": "uniform", "shift_s": 1.8},
+            {"shape": "uniform", "shift_s": -0.6}, {"shape": "drifting", "shift_s": 0.5},
+            {"shape": "unclear", "shift_s": None}]
+    text = report.summarize_windows(rows)
+    assert "3  uniform" in text and "1 already right" in text and "2 need one shift" in text and "> 1s: 1" in text
+    assert "1  drifting" in text and "1  unclear" in text

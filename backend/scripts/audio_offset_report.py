@@ -9,6 +9,7 @@ lyrics are read from this machine's disk only (songs whose files are not here ar
   python scripts/audio_offset_report.py                      # songs that have no audio_check yet
   python scripts/audio_offset_report.py --include-checked    # all songs, to compare with stored results
   python scripts/audio_offset_report.py --limit 20 --csv offsets.csv
+  python scripts/audio_offset_report.py --windows            # is each song's offset the same all the way through?
 
 On the server (needs the code that records `measured_s`; `nice` keeps it out of the worker's way):
   docker compose exec api nice -n 19 python scripts/audio_offset_report.py --csv /tmp/offsets.csv
@@ -68,6 +69,64 @@ def summarize(rows: list[dict]) -> str:
     return "\n".join(out)
 
 
+# Windowed mode: fit the shift on 8 lines at a time. A song whose clear windows all agree is off by one
+# amount (a single shift fixes it); one whose windows disagree needs its lines placed one by one.
+WINDOW_LINES = 8
+WINDOW_STEP = 4
+WINDOW_SEARCH_S = 4.0
+WINDOW_MIN_Z = 4.0     # below this a window cannot tell which shift is right: it is ignored
+WINDOW_AGREE_S = 0.3   # clear windows within this of the median offset "agree"
+UNIFORM_SHARE = 0.8    # share of clear windows that must agree for the song to count as uniform
+MIN_CLEAR_SHARE = 0.4  # share of windows that must be clear for any verdict at all
+
+
+def window_offsets(onsets, starts, size: int = WINDOW_LINES, step: int = WINDOW_STEP) -> list[tuple[int, float, float]]:
+    """(first line, best shift, z) for each window of `size` lines, the last window ending on the last line."""
+    from services import audio_check
+
+    if len(starts) < size:
+        return []
+    firsts = list(range(0, len(starts) - size + 1, step))
+    if firsts[-1] != len(starts) - size:
+        firsts.append(len(starts) - size)
+    out = []
+    for first in firsts:
+        offset, z, _ = audio_check.fit_offset(onsets, starts[first:first + size], WINDOW_SEARCH_S)
+        out.append((first, offset, z))
+    return out
+
+
+def classify_windows(windows: list[tuple[int, float, float]]) -> dict:
+    """
+    "uniform": the clear windows agree on one shift (`shift_s`); "drifting": clear windows disagree, so
+    one shift cannot fix the song; "unclear": too few windows are clear to say either way.
+    """
+    import statistics
+
+    clear = [offset for _, offset, z in windows if z >= WINDOW_MIN_Z]
+    info = {"windows": len(windows), "clear_windows": len(clear), "shift_s": None, "spread_s": None}
+    if not windows or len(clear) < max(2, round(MIN_CLEAR_SHARE * len(windows))):
+        return {**info, "shape": "unclear"}
+    median = statistics.median(clear)
+    agreeing = sum(1 for o in clear if abs(o - median) <= WINDOW_AGREE_S) / len(clear)
+    info.update(shift_s=round(median, 2), spread_s=round(max(clear) - min(clear), 2))
+    return {**info, "shape": "uniform" if agreeing >= UNIFORM_SHARE else "drifting"}
+
+
+def summarize_windows(rows: list[dict]) -> str:
+    """The report text for rows that carry a `shape` (and `shift_s` for uniform ones)."""
+    out = ["", "Is the offset the same all the way through the song? (8-line windows)", ""]
+    shapes = Counter(r["shape"] for r in rows)
+    uniform = [r for r in rows if r["shape"] == "uniform"]
+    fixed = [r for r in uniform if abs(r["shift_s"]) > 0.3]
+    out.append(f"  {shapes['uniform']:4d}  uniform: one shift describes the whole song")
+    out.append(f"          {len(uniform) - len(fixed):4d} already right (within 0.3s)")
+    out.append(f"          {len(fixed):4d} need one shift  (> 0.3s; > 1s: {sum(1 for r in fixed if abs(r['shift_s']) > 1)})")
+    out.append(f"  {shapes['drifting']:4d}  drifting: windows disagree, one shift cannot fix it  <- per-line alignment")
+    out.append(f"  {shapes['unclear']:4d}  unclear: too few windows could tell, so no verdict")
+    return "\n".join(out)
+
+
 def songs_to_measure(include_checked: bool) -> list[dict]:
     from managers import catalog
 
@@ -86,7 +145,7 @@ def songs_to_measure(include_checked: bool) -> list[dict]:
     return songs
 
 
-def measure(song: dict) -> Optional[dict]:
+def measure(song: dict, windowed: bool = False) -> Optional[dict]:
     from managers import r2
     from services import audio_check
     from services.lyrics_sources import SIBLING_SEARCH_S, parse_lrc
@@ -97,10 +156,19 @@ def measure(song: dict) -> Optional[dict]:
     starts = [t for t, _ in parse_lrc(lrc.read_text(encoding="utf-8"))]
     wide = bool(song["meta"].get("timed_for"))
     search_s, min_z = (SIBLING_SEARCH_S, audio_check.MIN_Z_WIDE) if wide else (audio_check.SEARCH_S, audio_check.MIN_Z)
-    check = audio_check.check_file(str(vocal), starts, search_s, min_z)
+    windows = None
+    if windowed:
+        try:
+            env = audio_check.load_envelope(str(vocal))
+        except Exception:  # noqa: BLE001 - undecodable stem: the same as check_file() giving None
+            return None
+        check = audio_check.check_timing(env, starts, search_s, min_z)
+        windows = classify_windows(window_offsets(audio_check.onset_strength(env), starts))
+    else:
+        check = audio_check.check_file(str(vocal), starts, search_s, min_z)
     if check is None:
         return None
-    return {"id": song["id"], "title": song["title"], "source": song["meta"].get("source"),
+    return {**(windows or {}), "id": song["id"], "title": song["title"], "source": song["meta"].get("source"),
             "status": check.status, "measured_s": check.measured_s, "z": round(check.z, 1),
             "hit": check.hit, "sung": round(check.sung, 2), "lines": check.lines,
             "reliable": is_reliable(check, min_z, audio_check.MIN_HIT, audio_check.MIN_SUNG)}
@@ -110,6 +178,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--include-checked", action="store_true", help="also measure songs that already have a stored result")
     parser.add_argument("--limit", type=int, help="measure at most this many songs")
+    parser.add_argument("--windows", action="store_true", help="also fit 8-line windows to tell uniform offsets from drifting ones")
     parser.add_argument("--csv", help="write one row per song here")
     args = parser.parse_args()
 
@@ -118,7 +187,7 @@ def main() -> None:
     for i, song in enumerate(songs, 1):
         print(f"\r{i}/{len(songs)}", end="", file=sys.stderr, flush=True)
         try:
-            row = measure(song)
+            row = measure(song, args.windows)
         except Exception as e:  # noqa: BLE001 - one unreadable song must not stop the report
             print(f"\n{song['id']}: {e!r}", file=sys.stderr)
             row = None
@@ -134,6 +203,8 @@ def main() -> None:
             writer.writerows(rows)
         print(f"Wrote {args.csv}", file=sys.stderr)
     print(summarize(rows))
+    if args.windows:
+        print(summarize_windows(rows))
     if skipped:
         print(f"\n{skipped} songs skipped (lyrics or stem not on this disk, or the stem could not be decoded)")
 

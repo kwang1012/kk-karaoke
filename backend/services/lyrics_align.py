@@ -109,7 +109,7 @@ def align_sheet(sheet: Sequence[tuple[Optional[float], str]], heard: Heard) -> d
 
 
 def align_track(track_id: str, sheet: Sequence[tuple[Optional[float], str]]) -> dict:
-    return align_sheet(sheet, listen(track_id, str(r2.local("vocal", track_id))))
+    return align_sheet(sheet, listen(track_id, str(r2.working_copy("vocal", track_id))))
 
 
 # A sheet is timed without asking only when the audio vouches for most of it.

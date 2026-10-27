@@ -567,6 +567,7 @@ def verify_against_audio(track_id: str, vocal_path: str) -> Optional[audio_check
     check = audio_check.check_file(vocal_path, [t for t, _ in parse_lrc(lrc)],
                                    *((SIBLING_SEARCH_S, audio_check.MIN_Z_WIDE) if meta.get("timed_for") else ()))
     if check is None:
+        print(f"WARNING: could not read the vocal stem {vocal_path} for {track_id}: lyric timing was not checked")
         return None
 
     meta["audio_check"] = asdict(check)

@@ -142,7 +142,11 @@ def _find_lyrics(track: Track, who: _Identity, korean: Optional[bool] = None) ->
 
 def _listen_and_verify(track: Track, who: _Identity) -> None:
     """With the vocal stem on disk: transcribe when nothing has the song, then check the timing."""
-    vocal = str(r2.local("vocal", track.id))
+    # The stems are being saved in the background: read the file on disk, not what the catalog lists so far.
+    vocal = str(r2.working_copy("vocal", track.id))
+    if not Path(vocal).exists():
+        print(f"WARNING: no vocal stem for {track.id} at {vocal}: lyric language, transcription, timing and audio checks are skipped")
+        return
     # A Latin title can hide that the song is Korean: the singing cannot. Swap a Japanese version's sheet.
     try:
         if sheet_is_wrong_language(track.id, vocal):

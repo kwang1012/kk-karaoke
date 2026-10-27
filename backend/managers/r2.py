@@ -263,6 +263,20 @@ def local(prefix, track_id):
     return path
 
 
+def working_copy(prefix, track_id):
+    """
+    The file to read for analysis: `local()`, or the bytes already on disk when the catalog does not list
+    the asset yet. A worker that has just produced a stem (and is saving it in the background) must not
+    have to wait for the catalog to catch up before listening to it. Never use this to decide whether an
+    asset is available: `local()` and `exists()` do that.
+    """
+    path = local(prefix, track_id)
+    if path.exists():
+        return path
+    own = _path(prefix, track_id)
+    return own if own.exists() else path
+
+
 def exists(prefix, track_id):
     manifest = catalog.asset(track_id, prefix)
     return bool(manifest and manifest["state"] == "ready")

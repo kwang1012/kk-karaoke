@@ -330,6 +330,23 @@ export default function TvView() {
           p.previous();
           showFlash(<SkipBack className="size-full" />, t('remote.previous'));
           break;
+        case 'o':
+        case 'O':
+          p.toggleVocal();
+          break;
+        case '+':
+        case '=':
+          p.increaseSemitone();
+          break;
+        case '-':
+          p.decreaseSemitone();
+          break;
+        case 'm':
+        case 'M': {
+          const { showMelody, setShowMelody } = useSettingStore.getState();
+          setShowMelody(!showMelody);
+          break;
+        }
         case 'v':
         case 'V': {
           const next = !showVideo;

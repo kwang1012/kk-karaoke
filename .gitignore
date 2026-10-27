@@ -34,3 +34,6 @@ macos/KKaraoke.xcodeproj
 macos/build/
 
 dist/
+
+# Temporary operator credentials (never commit).
+/temp

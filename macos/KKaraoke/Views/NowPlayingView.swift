@@ -41,6 +41,11 @@ struct NowPlayingView: View {
           }
           Spacer()
           HStack(alignment: .bottom) {
+            if hasTimedLyrics && !videoShown {
+              LyricsTimingControls(showTitle: true)
+                .padding(.horizontal, 12).padding(.vertical, 6)
+                .background(.black.opacity(0.4), in: Capsule())
+            }
             Spacer()
             if videoId != nil {
               Button {
@@ -90,6 +95,11 @@ struct NowPlayingView: View {
 
   private var videoId: String? { player.track.map { $0.videoId ?? $0.id } }
   private var videoShown: Bool { showVideo && videoId != nil }
+
+  private var hasTimedLyrics: Bool {
+    guard case .synced(let lines) = player.lyrics else { return false }
+    return !lines.isEmpty
+  }
 
   private var hasRomanizedLyrics: Bool {
     guard case .synced(let lines) = player.lyrics else { return false }

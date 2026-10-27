@@ -1,10 +1,11 @@
 import os
 from typing import Union
-from fastapi import APIRouter, Depends
+import hashlib
+from fastapi import APIRouter, Depends, Request
 from models.track import LyricsDelay
 from models.requests import AlignRequest, UpdateLyricsRequest
 from managers import r2
-from services import library
+from services import library, lyrics_reports
 from services.lyrics_sources import is_guess, lyrics_summary, read_meta, set_aligned, words_for_line, write_meta
 from services.tasks import celery
 from managers import catalog
@@ -12,7 +13,7 @@ from utils import LYRICS_DIR, get_lyrics_path
 import re
 from fastapi.responses import JSONResponse, PlainTextResponse
 from interfaces.queue import RedisQueueInterface
-from managers.db import get_db
+from managers.db import get_db, get_redis
 from managers.websocket import WebSocketManager
 import cutlet
 from hangul_romanize import Transliter
@@ -237,6 +238,19 @@ def get_lyrics(
         )
     except FileNotFoundError:
         return JSONResponse(status_code=404, content={"error": "Lyrics not found"})
+
+
+@router.post("/{track_id}/report")
+def report_lyrics(track_id: str, request: Request):
+    """A singer says these lyrics look wrong: the admin's report list shows the song. Guests can report too."""
+    if library.load_track(track_id) is None:
+        return JSONResponse(status_code=404, content={"error": "Unknown track"})
+    # One report per connection per song per day, so pressing the button again changes nothing.
+    address = request.client.host if request.client else "unknown"
+    key = "lyrics_report:" + hashlib.sha256(f"{address}:{track_id}".encode()).hexdigest()
+    if get_redis().set(key, 1, nx=True, ex=86400):
+        lyrics_reports.report(track_id)
+    return JSONResponse(content={"reported": True})
 
 
 @router.get("/{track_id}/plain")

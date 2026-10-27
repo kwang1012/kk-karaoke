@@ -36,12 +36,12 @@ class AccessRequest(BaseModel):
 
 @router.get("/registration")
 def availability():
-    return {"enabled": registration.configured()}
+    # Collecting requests does not need the credentials used later to send approved invitations.
+    return {"enabled": True}
 
 
 @router.post("/registration", status_code=202)
 def submit(body: AccessRequest, request: Request):
-    registration.require_configured()
     # Use the connection's address, never an arbitrary forwarded header. Redis shares limits across API processes.
     address = request.client.host if request.client else "unknown"
     key = "registration:rate:" + hashlib.sha256(address.encode()).hexdigest()

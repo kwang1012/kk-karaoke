@@ -196,12 +196,19 @@ def test_paginated_inbox_counts_and_filters_include_in_flight_requests(client):
     assert client.get("/admin/registrations?status=approved", headers=ADMIN).json()["requests"] == []
 
 
-def test_missing_config_is_visible_and_prevents_new_requests(client, monkeypatch):
-    monkeypatch.setattr(registration, "SUPABASE_SERVICE_ROLE_KEY", "")
-    assert client.get("/auth/registration").json() == {"enabled": False}
+@pytest.mark.parametrize("setting", ["SUPABASE_SERVICE_ROLE_KEY", "PUBLIC_APP_URL", "SUPABASE_URL"])
+def test_missing_invitation_config_does_not_hide_or_block_requests(client, monkeypatch, setting):
+    monkeypatch.setattr(registration, setting, "")
+    calls = mock_invite(monkeypatch)
+    assert client.get("/auth/registration").json() == {"enabled": True}
     assert not client.get("/admin/registrations", headers=ADMIN).json()["configured"]
-    assert client.post("/auth/registration", json={"email": "x@a.com", "name": "Singer"}).status_code == 503
-    assert not catalog.execute("SELECT * FROM registration_requests")
+    assert client.post("/auth/registration", json={"email": "x@a.com", "name": "Singer"}).status_code == 202
+    row = catalog.execute("SELECT * FROM registration_requests")[0]
+    assert row["status"] == "pending"
+    # Missing email credentials must still prevent account creation and report the setup problem to the admin.
+    assert client.post(f"/admin/registrations/{row['id']}/approve", headers=ADMIN).status_code == 503
+    assert catalog.execute("SELECT status FROM registration_requests")[0]["status"] == "pending"
+    assert not calls
 
 
 def test_schema_migrations_are_idempotent():

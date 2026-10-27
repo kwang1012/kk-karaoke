@@ -1,7 +1,7 @@
 import { ChevronDown, Crown, Flame, Trophy } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { fetchLeaderboard, fetchSongBoard, type Board, type BoardRow, type Scope, type SongBoard } from 'src/apis/scores';
-import ScoreBars from 'src/components/ScoreBars';
+import ScoreBars, { ScoreChips } from 'src/components/ScoreBars';
 import { Skeleton } from 'src/components/ui/skeleton';
 import { usePageTitle } from 'src/hooks/documentTitle';
 import { useT } from 'src/i18n';
@@ -12,7 +12,11 @@ import { publicUrl } from 'src/utils/publicUrl';
 
 type View = 'singers' | 'song';
 
-const MEDAL = ['text-amber-400', 'text-zinc-300', 'text-orange-400'];
+const MEDAL = [
+  { ring: 'ring-amber-400', col: 'from-amber-400/50 to-amber-400/5', text: 'text-amber-400' },
+  { ring: 'ring-zinc-300', col: 'from-zinc-300/40 to-zinc-300/5', text: 'text-zinc-300' },
+  { ring: 'ring-orange-500', col: 'from-orange-500/40 to-orange-500/5', text: 'text-orange-500' },
+];
 
 /** One person on a board; `value` is the big number, the rest opens on click. */
 type Entry = Pick<BoardRow, 'userId' | 'name' | 'avatar' | 'rank' | 'pitch' | 'precision' | 'timing' | 'technique' | 'streakS'> & {
@@ -26,35 +30,34 @@ function Face({ entry, className }: { entry: Pick<Entry, 'avatar' | 'name'>; cla
       {entry.avatar ? (
         <img src={publicUrl(entry.avatar)} alt="" className="size-full object-cover" />
       ) : (
-        <div className="flex size-full items-center justify-center text-sm font-semibold">{entry.name.slice(0, 1)}</div>
+        <div className="flex size-full items-center justify-center bg-primary/15 font-semibold text-primary">{entry.name.slice(0, 1).toUpperCase()}</div>
       )}
     </div>
   );
 }
 
 function Podium({ entries, me }: { entries: Entry[]; me: string }) {
-  const t = useT();
   // Second, first, third: the winner stands in the middle and tallest
   const order = [entries[1], entries[0], entries[2]];
   return (
-    <div className="mx-auto mb-6 grid max-w-xl grid-cols-3 items-end gap-3">
+    <div className="mx-auto grid max-w-md grid-cols-3 items-end gap-2 pt-10">
       {order.map((entry, slot) =>
         entry ? (
-          <div key={entry.userId} className="flex flex-col items-center text-center">
+          <div key={entry.userId} className="flex min-w-0 flex-col items-center">
             <div className="relative">
-              {entry.rank === 1 && <Crown className="absolute -top-6 left-1/2 size-6 -translate-x-1/2 text-amber-400" />}
-              <Face entry={entry} className={cn('ring-2 ring-offset-2 ring-offset-background', entry.rank === 1 ? 'size-20 ring-amber-400' : 'size-14 ring-border')} />
+              {entry.rank === 1 && <Crown className="absolute -top-7 left-1/2 size-7 -translate-x-1/2 fill-amber-400 text-amber-400" />}
+              <Face entry={entry} className={cn('ring-[3px] ring-offset-2 ring-offset-background', MEDAL[entry.rank - 1].ring, entry.rank === 1 ? 'size-20 text-2xl' : 'size-14 text-lg')} />
             </div>
-            <div className={cn('mt-2 max-w-full truncate text-sm font-semibold', entry.userId === me && 'text-primary')}>{entry.name}</div>
+            <div className={cn('mt-2 max-w-full truncate px-1 text-sm font-semibold', entry.userId === me && 'text-primary')}>{entry.name}</div>
             <div
               className={cn(
-                'mt-2 flex w-full flex-col items-center justify-start rounded-t-2xl bg-gradient-to-b from-primary/25 to-primary/5 pt-2',
-                slot === 1 ? 'h-24' : slot === 0 ? 'h-16' : 'h-12',
+                'mt-2 flex w-full flex-col items-center rounded-t-2xl bg-gradient-to-b pt-3',
+                MEDAL[entry.rank - 1].col,
+                slot === 1 ? 'h-28' : slot === 0 ? 'h-20' : 'h-16',
               )}
             >
-              <Trophy className={cn('size-5', MEDAL[entry.rank - 1])} />
-              <div className="text-lg font-bold tabular-nums">{entry.value}</div>
-              <div className="text-[11px] text-muted-foreground">{t('ranking.rank', { value: entry.rank })}</div>
+              <div className={cn('text-2xl leading-none font-black', MEDAL[entry.rank - 1].text)}>{entry.rank}</div>
+              <div className="mt-1 text-base font-bold tabular-nums">{entry.value}</div>
             </div>
           </div>
         ) : (
@@ -69,36 +72,55 @@ function Row({ entry, me, unit }: { entry: Entry; me: boolean; unit: string }) {
   const t = useT();
   const [open, setOpen] = useState(false);
   return (
-    <li className={cn('rounded-2xl border bg-card/60 transition-colors', me && 'border-primary/60 bg-primary/10')}>
-      <button type="button" className="flex w-full items-center gap-3 px-3 py-2.5 text-left" onClick={() => setOpen(!open)} aria-expanded={open}>
-        <span className={cn('w-7 text-center text-sm font-bold tabular-nums', MEDAL[entry.rank - 1] ?? 'text-muted-foreground')}>{entry.rank}</span>
-        <Face entry={entry} className="size-9" />
+    <li className={cn('overflow-hidden rounded-2xl border bg-card transition-colors', me && 'border-primary/50 bg-primary/10')}>
+      <button type="button" className="flex w-full items-center gap-3 p-3 text-left hover:bg-foreground/5" onClick={() => setOpen(!open)} aria-expanded={open}>
+        <span className="w-6 text-center text-sm font-bold text-muted-foreground tabular-nums">{entry.rank}</span>
+        <Face entry={entry} className="size-11" />
         <div className="min-w-0 flex-1">
-          <div className="truncate font-medium">
-            {entry.name}
-            {me && <span className="ml-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">{t('ranking.you')}</span>}
+          <div className="flex items-center gap-2">
+            <span className="truncate font-semibold">{entry.name}</span>
+            {me && <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-primary-foreground">{t('ranking.you')}</span>}
           </div>
           {entry.detail && <div className="truncate text-xs text-muted-foreground">{entry.detail}</div>}
-        </div>
-        <div className="hidden w-56 shrink-0 @xl:block">
-          <ScoreBars compact values={entry} className="gap-1 [&>div]:grid-cols-[4.5rem_1fr_2rem]" />
+          <ScoreChips values={entry} className="mt-1.5 hidden @md:flex" />
         </div>
         <div className="shrink-0 text-right">
-          <div className="text-lg font-bold tabular-nums">{entry.value}</div>
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{unit}</div>
+          <div className="text-xl leading-none font-bold tabular-nums">{entry.value}</div>
+          <div className="mt-1 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">{unit}</div>
         </div>
-        <ChevronDown className={cn('size-4 text-muted-foreground transition-transform @xl:hidden', open && 'rotate-180')} />
+        <ChevronDown className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
       </button>
       {open && (
-        <div className="grid gap-3 border-t px-4 py-3 @xl:hidden">
+        <div className="grid gap-4 border-t bg-background/40 px-4 py-4">
           <ScoreBars values={entry} />
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Flame className="size-3.5 text-orange-500" />
             {t('score.streak', { value: Math.round(entry.streakS) })}
           </div>
         </div>
       )}
     </li>
+  );
+}
+
+/** Where you stand, as the first thing on the page. */
+function Standing({ entry, unit }: { entry: Entry; unit: string }) {
+  const t = useT();
+  return (
+    <div className="mb-6 rounded-3xl bg-gradient-to-br from-primary to-fuchsia-600 p-5 text-primary-foreground shadow-lg">
+      <div className="flex items-center gap-4">
+        <Face entry={entry} className="size-14 ring-2 ring-white/60" />
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-medium text-white/75">{t('ranking.yourRank')}</div>
+          <div className="truncate text-lg font-bold">{entry.name}</div>
+        </div>
+        <div className="text-right">
+          <div className="text-4xl leading-none font-black">#{entry.rank}</div>
+          <div className="mt-1 text-sm font-medium text-white/85">{entry.value} {unit}</div>
+        </div>
+      </div>
+      <ScoreChips values={entry} className="mt-4 [&>span]:bg-black/20 [&_span]:!text-white" />
+    </div>
   );
 }
 
@@ -152,7 +174,10 @@ export default function RankingView() {
     return null;
   }, [board, songBoard, view, t]);
 
-  const outside = view === 'singers' && board?.me && !board.singers.some((s) => s.userId === me) ? board.me : null;
+  // Your own line, even when you are further down than the page shows
+  const mine: Entry | null =
+    entries?.find((e) => e.userId === me) ??
+    (view === 'singers' && board?.me ? { ...board.me, value: board.me.points } : null);
   const unit = view === 'song' ? t('ranking.unitScore') : t('ranking.unitPoints');
 
   return (
@@ -169,7 +194,7 @@ export default function RankingView() {
             options={[{ value: 'all', label: t('ranking.allTime') }, { value: 'week', label: t('ranking.week') }]}
           />
         </div>
-        <p className="mt-1 mb-4 text-sm text-muted-foreground">{t('ranking.hint')}</p>
+        <p className="mt-1 mb-5 text-sm text-muted-foreground">{t('ranking.hint')}</p>
         {song && (
           <div className="mb-5">
             <Segmented
@@ -192,21 +217,13 @@ export default function RankingView() {
           </div>
         ) : (
           <>
+            {mine && <Standing entry={mine} unit={unit} />}
             {entries.length >= 3 && <Podium entries={entries.slice(0, 3)} me={me} />}
-            <ul className="grid grid-cols-1 gap-2">
+            <ul className="mt-6 grid grid-cols-1 gap-2">
               {entries.slice(entries.length >= 3 ? 3 : 0).map((entry) => (
                 <Row key={entry.userId} entry={entry} me={entry.userId === me} unit={unit} />
               ))}
             </ul>
-            {outside && (
-              <ul className="mt-4 grid grid-cols-1 gap-2 border-t pt-4">
-                <Row
-                  entry={{ ...outside, value: outside.points, detail: t('ranking.songs', { value: outside.songs }) }}
-                  me
-                  unit={unit}
-                />
-              </ul>
-            )}
           </>
         )}
         {view === 'singers' && board && board.totalSingers > 0 && (

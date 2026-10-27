@@ -178,6 +178,38 @@ struct TVView: View {
       player.seek(to: max(0, player.currentTime - 5))
       return .handled
     }
+    .onKeyPress(.upArrow) {
+      player.perform(.volume(player.masterVolume + 0.05))
+      return .handled
+    }
+    .onKeyPress(.downArrow) {
+      player.perform(.volume(player.masterVolume - 0.05))
+      return .handled
+    }
+    .onKeyPress(.pageDown) {
+      player.perform(.next)
+      return .handled
+    }
+    .onKeyPress(.pageUp) {
+      player.perform(.previous)
+      return .handled
+    }
+    .onKeyPress("m") {
+      singing.showMelody.toggle()
+      return .handled
+    }
+    .onKeyPress("o") {
+      player.perform(.toggleVocal)
+      return .handled
+    }
+    .onKeyPress(characters: CharacterSet(charactersIn: "+=")) { _ in
+      player.perform(.increaseSemitone)
+      return .handled
+    }
+    .onKeyPress("-") {
+      player.perform(.decreaseSemitone)
+      return .handled
+    }
   }
 
   @ViewBuilder private func lyrics(unit: CGFloat) -> some View {

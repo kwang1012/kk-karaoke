@@ -9,6 +9,7 @@ import { registration } from 'src/apis/registration';
 const TABS = [
   { to: '/admin', end: true, label: 'admin.songs' },
   { to: '/admin/lyrics', end: false, label: 'admin.lyrics' },
+  { to: '/admin/reports', end: false, label: 'admin.reports' },
   { to: '/admin/worker', end: false, label: 'admin.worker' },
   { to: '/admin/storage', end: false, label: 'admin.storage' },
   { to: '/admin/requests', end: false, label: 'registration.adminTab' },

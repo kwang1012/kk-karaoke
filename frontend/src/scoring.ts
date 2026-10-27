@@ -67,8 +67,8 @@ export type Result = {
   scoredS: number;
 };
 
-/** Weights of the indicators in the total; one that is missing hands its share to the others. */
-export const WEIGHTS = { pitch: 0.5, precision: 0.2, timing: 0.15, technique: 0.15 } as const;
+/** How much of the total is the quality of the singing (precision, timing, technique) rather than being on pitch. */
+export const QUALITY_SHARE = 0.3;
 
 type Swing = { time: number; off: number };
 type NoteState = { first: number | null; swings: Swing[]; start: number; end: number };
@@ -181,17 +181,13 @@ export class Scorer {
       long.length >= MIN_LONG_NOTES
         ? Math.min(100, (100 * long.filter((s) => hasVibrato(s.swings)).length) / long.length / VIBRATO_FULL_SHARE)
         : null;
-    const parts = { pitch, precision, timing, technique };
-    let weight = 0;
-    let sum = 0;
-    for (const [key, value] of Object.entries(parts) as [keyof typeof WEIGHTS, number | null][]) {
-      if (value === null) continue;
-      weight += WEIGHTS[key];
-      sum += WEIGHTS[key] * value;
-    }
+    // Quality can only polish a take that is on pitch: with nothing sung right, a crisp timing is worth nothing
+    const quality = [precision, timing, technique].filter((v): v is number => v !== null);
+    const polish = quality.reduce((a, b) => a + b, 0) / quality.length / 100;
+    const total = pitch * (1 - QUALITY_SHARE + QUALITY_SHARE * polish);
     const round = (n: number) => Math.max(0, Math.min(100, Math.round(n)));
     return {
-      total: round(sum / weight),
+      total: round(total),
       pitch: round(pitch),
       precision: round(precision),
       timing: round(timing),
@@ -203,6 +199,15 @@ export class Scorer {
 }
 
 export type Grade = 'S' | 'A' | 'B' | 'C' | 'D';
+
+/** The colours a grade is drawn in, as a Tailwind gradient. */
+export const GRADE_TINT: Record<Grade, string> = {
+  S: 'from-amber-400 to-orange-600',
+  A: 'from-emerald-400 to-teal-600',
+  B: 'from-sky-400 to-blue-600',
+  C: 'from-violet-400 to-purple-600',
+  D: 'from-zinc-400 to-zinc-600',
+};
 
 /** The letter a total earns. */
 export function grade(total: number): Grade {

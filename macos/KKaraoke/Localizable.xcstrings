@@ -3596,6 +3596,23 @@
         }
       }
     },
+    "Reset lyrics timing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重置歌词时间"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重設歌詞時間"
+          }
+        }
+      }
+    },
     "Saved for everyone who sings this song." : {
       "extractionState" : "manual",
       "localizations" : {

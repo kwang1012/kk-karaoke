@@ -191,6 +191,51 @@ struct PlayerBar: View {
   }
 }
 
+/// Shared by the lyrics page and mixer. Positive values show lyrics earlier, matching the web app.
+struct LyricsTimingControls: View {
+  @Environment(PlayerModel.self) private var player
+  var showTitle = false
+
+  var body: some View {
+    HStack(spacing: 4) {
+      if showTitle {
+        LucideIcon("timer", size: 16)
+        Text("This song's timing").font(.caption.weight(.medium))
+      }
+      Button {
+        set(player.ahead - 0.1)
+      } label: {
+        LucideIcon("minus", size: 14)
+      }
+      .buttonStyle(WebIconButtonStyle()).help("Later").accessibilityLabel("Later")
+      .disabled(player.ahead <= -30)
+      Text(String(format: "%+.1f s", player.ahead)).font(.system(size: 13).monospacedDigit())
+        .frame(width: 58)
+        .accessibilityLabel("This song's timing")
+      Button {
+        set(player.ahead + 0.1)
+      } label: {
+        LucideIcon("plus", size: 14)
+      }
+      .buttonStyle(WebIconButtonStyle()).help("Earlier").accessibilityLabel("Earlier")
+      .disabled(player.ahead >= 30)
+      Button {
+        set(0)
+      } label: {
+        LucideIcon("rotate-ccw", size: 14)
+      }
+      .buttonStyle(WebIconButtonStyle()).help("Reset lyrics timing").accessibilityLabel("Reset lyrics timing")
+      .disabled(player.ahead == 0)
+    }
+    .disabled(player.track == nil)
+    .accessibilityElement(children: .contain)
+  }
+
+  private func set(_ seconds: Double) {
+    player.setAhead((min(30, max(-30, seconds)) * 10).rounded() / 10)
+  }
+}
+
 struct MixerView: View {
   @State private var showOutputs = false
   @Environment(PlayerModel.self) private var player
@@ -232,22 +277,7 @@ struct MixerView: View {
       )
       .font(.caption).foregroundStyle(.secondary)
       LabeledContent("This song's timing") {
-        HStack(spacing: 4) {
-          Button {
-            player.setAhead(max(-5, player.ahead - 0.1))
-          } label: {
-            LucideIcon("minus", size: 14)
-          }
-          .buttonStyle(WebIconButtonStyle()).accessibilityLabel("Earlier")
-          Text(String(format: "%+.1f s", player.ahead)).font(.system(size: 13).monospacedDigit())
-            .frame(width: 52)
-          Button {
-            player.setAhead(min(5, player.ahead + 0.1))
-          } label: {
-            LucideIcon("plus", size: 14)
-          }
-          .buttonStyle(WebIconButtonStyle()).accessibilityLabel("Later")
-        }
+        LyricsTimingControls()
       }
       Text("Saved for everyone who sings this song.").font(.caption).foregroundStyle(.secondary)
       Divider()

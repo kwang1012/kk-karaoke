@@ -2,13 +2,15 @@ import { usePageTitle } from 'src/hooks/documentTitle';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { Captions, Check, ChevronLeft, ListMusic, LogOut, Mic, MicOff, Minus, Music, Pause, Play, Plus, RotateCcw, Search, SkipBack, SkipForward, Video, Volume2 } from 'lucide-react';
+import { Check, ChevronLeft, ListMusic, LogOut, Mic, Minus, Music, Pause, Play, Plus, RotateCcw, Search, SkipBack, SkipForward, Video, Volume2 } from 'lucide-react';
 import placeholder from 'src/assets/placeholder.png';
 import AppScrollbar from 'src/components/Scrollbar';
 import Queue from 'src/components/Queue';
 import AppSlider from 'src/components/Slider';
 import SongCard from 'src/components/SongCard';
 import TrackQueue from 'src/components/TrackQueue';
+import ReportLyrics from 'src/components/ReportLyrics';
+import ProfileDialog from 'src/components/ProfileDialog';
 import QueueOrderControls from 'src/components/QueueOrderControls';
 import { Button, IconButton } from 'src/components/ui/button';
 import { CircularProgress } from 'src/components/ui/progress';
@@ -27,6 +29,7 @@ import { useActiveRoomId, useJam, useRoomStore } from 'src/store/room';
 import { useSettingStore } from 'src/store/setting';
 import { useWebSocketStore } from 'src/store/ws';
 import { getUniqueId } from 'src/utils';
+import { publicUrl } from 'src/utils/publicUrl';
 import { api } from 'src/utils/api';
 
 type Tab = 'now' | 'queue' | 'add';
@@ -42,7 +45,7 @@ const SLIDER = 'h-8 [&_[data-slot=thumb]]:size-5 [&_[data-slot=thumb]]:opacity-1
 function NowPlaying({ onAdd }: { onAdd: () => void }) {
   const t = useT();
   const p = usePlayer();
-  const { currentTrack, playing, loading, progress, duration, seeking, vocalOn, volume } = p;
+  const { currentTrack, playing, loading, progress, duration, seeking } = p;
   const [dragValue, setDragValue] = useState(0);
   const image = currentTrack?.album?.images?.[0]?.url;
 
@@ -120,56 +123,37 @@ function NowPlaying({ onAdd }: { onAdd: () => void }) {
           </IconButton>
         </div>
 
-        <Segmented
-          label={t('remote.vocals')}
-          value={vocalOn ? 'original' : 'karaoke'}
-          onChange={(mode) => (mode === 'original') !== vocalOn && p.toggleVocal()}
-          options={[
-            { id: 'karaoke', label: t('remote.karaoke'), icon: <MicOff className="size-4" /> },
-            { id: 'original', label: t('remote.vocals'), icon: <Mic className="size-4" /> },
-          ]}
-        />
-
-        <RemoteLevel label={t('remote.volume')} value={volume} onChange={p.setVolume} icon={<Volume2 className="size-4" />} />
         <RemoteAdjustments />
       </div>
     </AppScrollbar>
   );
 }
 
-/** Two or three labelled choices, one of which is always selected. */
-function Segmented<T extends string>({
-  label,
-  options,
-  value,
-  onChange,
-}: {
+/** An on/off switch as a tile: lit when on. */
+function ToggleChip({ label, icon, pressed, onClick, disabled }: {
   label: string;
-  options: { id: T; label: string; icon?: React.ReactNode }[];
-  value: T;
-  onChange: (id: T) => void;
+  icon: React.ReactNode;
+  pressed: boolean;
+  onClick: () => void;
+  disabled?: boolean;
 }) {
   return (
-    <div role="group" aria-label={label} className="grid auto-cols-fr grid-flow-col rounded-2xl border bg-card p-1">
-      {options.map((option) => (
-        <button
-          key={option.id}
-          aria-pressed={value === option.id}
-          onClick={() => onChange(option.id)}
-          className={cn(
-            'flex h-11 items-center justify-center gap-2 rounded-xl text-sm font-medium transition-colors',
-            value === option.id ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground'
-          )}
-        >
-          {option.icon}
-          {option.label}
-        </button>
-      ))}
-    </div>
+    <button
+      aria-pressed={pressed}
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        'flex h-14 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl border text-xs font-medium transition-colors disabled:opacity-40',
+        pressed ? 'border-primary bg-primary/15 text-primary' : 'bg-card text-muted-foreground'
+      )}
+    >
+      {icon}
+      <span className="max-w-full truncate px-1">{label}</span>
+    </button>
   );
 }
 
-/** A value changed in small steps: − value +, with an optional reset. */
+/** A value changed in small steps: − value +. Tapping the value resets it, when it can be reset. */
 function Stepper({
   label,
   hint,
@@ -182,6 +166,7 @@ function Stepper({
   plusDisabled,
   onReset,
   resetDisabled,
+  className,
 }: {
   label: string;
   hint?: string;
@@ -194,26 +179,27 @@ function Stepper({
   plusDisabled?: boolean;
   onReset?: () => void;
   resetDisabled?: boolean;
+  className?: string;
 }) {
   const t = useT();
   return (
-    <div className="rounded-xl border bg-card px-3 py-1">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium">{label}</span>
-        <div className="flex items-center">
-          <IconButton className="size-11" aria-label={minusLabel} disabled={minusDisabled} onClick={onMinus}>
-            <Minus className="size-5" />
-          </IconButton>
-          <span className="w-16 text-center text-base font-semibold tabular-nums">{value}</span>
-          <IconButton className="size-11" aria-label={plusLabel} disabled={plusDisabled} onClick={onPlus}>
-            <Plus className="size-5" />
-          </IconButton>
-          {onReset && (
-            <IconButton className="size-11" aria-label={t('common.reset')} disabled={resetDisabled} onClick={onReset}>
-              <RotateCcw className="size-4" />
-            </IconButton>
-          )}
-        </div>
+    <div className={cn('rounded-xl border bg-card px-1 pt-1.5 pb-0.5', className)} title={hint}>
+      <p className="px-2 text-xs font-medium text-muted-foreground">{label}</p>
+      <div className="flex items-center">
+        <IconButton className="size-10" aria-label={minusLabel} disabled={minusDisabled} onClick={onMinus}>
+          <Minus className="size-5" />
+        </IconButton>
+        <button
+          className="h-10 flex-1 text-center text-base font-semibold tabular-nums disabled:cursor-default"
+          aria-label={onReset ? `${t('common.reset')}: ${value}` : undefined}
+          disabled={!onReset || resetDisabled}
+          onClick={onReset}
+        >
+          {value}
+        </button>
+        <IconButton className="size-10" aria-label={plusLabel} disabled={plusDisabled} onClick={onPlus}>
+          <Plus className="size-5" />
+        </IconButton>
       </div>
       {hint && <p className="sr-only">{hint}</p>}
     </div>
@@ -239,44 +225,15 @@ function usePitchBroadcast() {
   }, [micOn, roomId]);
 }
 
-/** Show the melody on the TV, and sing into this phone to be scored there. */
-function SingingControls() {
-  const t = useT();
+/** Singing: show the melody on the TV, and sing into this phone to be scored there. */
+function useSinging() {
   const { showMelody, setShowMelody } = useMelodyMode();
   const micOn = useSettingStore((state) => state.micOn);
   const setMicOn = useSettingStore((state) => state.setMicOn);
   usePitchBroadcast();
   // leaving the remote must not leave the microphone open
   useEffect(() => () => useSettingStore.getState().setMicOn(false), []);
-  return (
-    <>
-      <Segmented
-        label={t('remote.melody')}
-        value={showMelody ? 'show' : 'hide'}
-        onChange={(mode) => setShowMelody(mode === 'show')}
-        options={[
-          { id: 'hide', label: t('remote.melodyHide') },
-          { id: 'show', label: t('remote.melodyShow'), icon: <Music className="size-4" /> },
-        ]}
-      />
-      {canUseMic ? (
-        <>
-          <Segmented
-            label={t('remote.sing')}
-            value={micOn ? 'on' : 'off'}
-            onChange={(mode) => setMicOn(mode === 'on')}
-            options={[
-              { id: 'off', label: t('remote.singOff'), icon: <MicOff className="size-4" /> },
-              { id: 'on', label: t('remote.singOn'), icon: <Mic className="size-4" /> },
-            ]}
-          />
-          <p className="px-1 text-xs text-muted-foreground">{t('remote.singHint')}</p>
-        </>
-      ) : (
-        <p className="px-1 text-xs text-muted-foreground">{t('remote.micUnavailable')}</p>
-      )}
-    </>
-  );
+  return { showMelody, setShowMelody, micOn, setMicOn };
 }
 
 const SYNC_STEP = 0.1;
@@ -286,54 +243,61 @@ const SYNC_LIMIT = 30;
 function RemoteAdjustments() {
   const t = useT();
   const p = usePlayer();
-  const { vocalOn, guideLevel, semitone, hostPitchShift } = p;
+  const { vocalOn, guideLevel, semitone, hostPitchShift, volume } = p;
   const { ahead, setAhead, approximate, videoId } = useLyricsOffset();
   const { showVideo, setShowVideo } = useVideoMode();
+  const { showMelody, setShowMelody, micOn, setMicOn } = useSinging();
   const setSync = (next: number) => setAhead(Math.round(Math.max(-SYNC_LIMIT, Math.min(SYNC_LIMIT, next)) * 10) / 10);
   return (
-    <div className="space-y-1">
-      <RemoteLevel
-        label={t('player.guide')}
-        value={guideLevel}
-        onChange={p.setGuideLevel}
-        icon={<Mic className="size-4" />}
-        hint={vocalOn ? t('remote.guideOnly') : t('player.guideHint')}
-      />
-      {hostPitchShift && (
+    <div className="space-y-2 pt-1">
+      <div className={cn('grid gap-2', videoId ? 'grid-cols-4' : 'grid-cols-3')}>
+        <ToggleChip label={t('remote.vocals')} icon={<Mic className="size-5" />} pressed={vocalOn} onClick={() => p.toggleVocal()} />
+        <ToggleChip label={t('remote.melody')} icon={<Music className="size-5" />} pressed={showMelody} onClick={() => setShowMelody(!showMelody)} />
+        <ToggleChip label={t('remote.sing')} icon={<Mic className="size-5" />} pressed={micOn} disabled={!canUseMic} onClick={() => setMicOn(!micOn)} />
+        {videoId && <ToggleChip label={t('remote.video')} icon={<Video className="size-5" />} pressed={showVideo} onClick={() => setShowVideo(!showVideo)} />}
+      </div>
+      {!canUseMic ? (
+        <p role="status" className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">{t('remote.micUnavailable')}</p>
+      ) : (
+        micOn && <p className="px-1 text-xs text-muted-foreground">{t('remote.singHint')}</p>
+      )}
+      <div className="divide-y rounded-xl border bg-card px-3">
+        <RemoteLevel label={t('remote.volume')} value={volume} onChange={p.setVolume} icon={<Volume2 className="size-4" />} />
+        <RemoteLevel
+          label={t('player.guide')}
+          value={guideLevel}
+          onChange={p.setGuideLevel}
+          icon={<Mic className="size-4" />}
+          hint={vocalOn ? t('remote.guideOnly') : t('player.guideHint')}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {hostPitchShift && (
+          <Stepper
+            label={t('remote.key')}
+            value={semitone > 0 ? `+${semitone}` : `${semitone}`}
+            minusLabel={`${t('remote.key')} −`}
+            plusLabel={`${t('remote.key')} +`}
+            minusDisabled={semitone <= -12}
+            plusDisabled={semitone >= 12}
+            onMinus={() => p.decreaseSemitone()}
+            onPlus={() => p.increaseSemitone()}
+          />
+        )}
         <Stepper
-          label={t('remote.key')}
-          value={semitone > 0 ? `+${semitone}` : `${semitone}`}
-          minusLabel={`${t('remote.key')} −`}
-          plusLabel={`${t('remote.key')} +`}
-          minusDisabled={semitone <= -12}
-          plusDisabled={semitone >= 12}
-          onMinus={() => p.decreaseSemitone()}
-          onPlus={() => p.increaseSemitone()}
+          className={hostPitchShift ? undefined : 'col-span-2'}
+          label={t('lyrics.sync')}
+          hint={approximate ? t('lyrics.approximate') : t('remote.syncHint')}
+          value={`${ahead > 0 ? '+' : ''}${ahead.toFixed(1)}s`}
+          minusLabel={t('lyrics.later')}
+          plusLabel={t('lyrics.earlier')}
+          onMinus={() => setSync(ahead - SYNC_STEP)}
+          onPlus={() => setSync(ahead + SYNC_STEP)}
+          onReset={() => setSync(0)}
+          resetDisabled={ahead === 0}
         />
-      )}
-      <Stepper
-        label={t('lyrics.sync')}
-        hint={approximate ? t('lyrics.approximate') : t('remote.syncHint')}
-        value={`${ahead > 0 ? '+' : ''}${ahead.toFixed(1)}s`}
-        minusLabel={t('lyrics.later')}
-        plusLabel={t('lyrics.earlier')}
-        onMinus={() => setSync(ahead - SYNC_STEP)}
-        onPlus={() => setSync(ahead + SYNC_STEP)}
-        onReset={() => setSync(0)}
-        resetDisabled={ahead === 0}
-      />
-      {videoId && (
-        <Segmented
-          label={t('remote.lyrics')}
-          value={showVideo ? 'video' : 'lyrics'}
-          onChange={(mode) => setShowVideo(mode === 'video')}
-          options={[
-            { id: 'lyrics', label: t('nav.lyrics'), icon: <Captions className="size-4" /> },
-            { id: 'video', label: t('remote.video'), icon: <Video className="size-4" /> },
-          ]}
-        />
-      )}
-      <SingingControls />
+      </div>
+      <ReportLyrics labeled />
     </div>
   );
 }
@@ -346,10 +310,10 @@ function RemoteLevel({ label, value, onChange, icon, hint }: {
   hint?: string;
 }) {
   return (
-    <div className="grid grid-cols-[6.5rem_minmax(0,1fr)_2.5rem] items-center gap-2 rounded-xl border bg-card px-3 py-1">
+    <div className="grid grid-cols-[6.5rem_minmax(0,1fr)_2.5rem] items-center gap-2">
       <span className="flex items-center gap-2 text-xs font-medium" title={hint}>{icon}{label}</span>
       <AppSlider
-        className={cn(SLIDER, 'h-11')}
+        className={cn(SLIDER, 'h-10')}
         min={0}
         max={100}
         value={value * 100}
@@ -609,6 +573,8 @@ export default function RemoteView() {
   const leaveRoom = useRoomStore((state) => state.leaveRoom);
   const queueLength = usePlayerStore((state) => Math.max(0, state.queue.length - state.queueIdx - 1));
   const [tab, setTab] = useState<Tab>('now');
+  const [profileOpen, setProfileOpen] = useState(false);
+  const avatar = useRoomStore((state) => state.avatar);
 
   const { currentTrack } = useQueue();
   usePageTitle(t('remote.title'), currentTrack);
@@ -631,6 +597,9 @@ export default function RemoteView() {
         <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
           {t('remote.fullApp')}
         </Button>
+        <button aria-label={t('remote.profile')} className="size-9 shrink-0 overflow-hidden rounded-full bg-secondary" onClick={() => setProfileOpen(true)}>
+          {avatar && <img src={publicUrl(avatar)} alt="" className="size-full object-cover" />}
+        </button>
         <IconButton aria-label={t('remote.leave')} onClick={leaveRoom}>
           <LogOut className="size-5" />
         </IconButton>
@@ -660,6 +629,7 @@ export default function RemoteView() {
           </button>
         ))}
       </nav>
+      <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
       {/* owns the websocket queue listener, so it has to stay mounted even though it is not shown */}
       <Queue hidden />
     </div>

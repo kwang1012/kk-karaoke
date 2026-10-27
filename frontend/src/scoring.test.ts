@@ -134,3 +134,13 @@ test('technique is judged only when there are long notes, and counts the ones wi
 test('grades by total', () => {
   assert.deepEqual([95, 85, 70, 55, 10].map(grade), ['S', 'A', 'B', 'C', 'D']);
 });
+
+test('crisp timing cannot rescue a take that was almost never on pitch', () => {
+  const scorer = new Scorer();
+  sing(scorer, 0, 0.1, 60);
+  sing(scorer, 0.15, 2, 66);
+  assert.ok(scorer.score! < 15, `got ${scorer.score}`);
+  const good = new Scorer();
+  sing(good, 0, 2, 60);
+  assert.equal(good.score, 100);
+});

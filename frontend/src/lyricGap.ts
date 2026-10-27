@@ -3,10 +3,16 @@ export const GAP_MIN_S = 5;
 
 type GapLine = { time: number; text: string; words?: { end: number }[] | null };
 
-/** Seconds a line without word timing is guessed to take to sing. */
+/**
+ * Seconds a line without word timing is guessed to take to sing. Generous on purpose: a countdown
+ * that starts while the line is still being sung is worse than one that starts a little late.
+ */
 function guessedDuration(text: string): number {
-  return Math.max(2, text.length * 0.3);
+  return Math.max(3, text.length * 0.5);
 }
+
+/** Aligned word ends run early (the last word is often held), so the wait starts a moment after it. */
+export const WORD_END_GRACE_S = 0.8;
 
 /**
  * The silent stretch after line `index` (-1 for the intro before the first line), or null when it is
@@ -21,7 +27,7 @@ export function gapAfter(lines: GapLine[], index: number, delay: number): { star
     const line = lines[index];
     if (!line.text) return null;
     const words = line.words;
-    const sung = words?.length ? words[words.length - 1].end + delay : line.time + guessedDuration(line.text);
+    const sung = words?.length ? words[words.length - 1].end + delay + WORD_END_GRACE_S : line.time + guessedDuration(line.text);
     start = Math.min(sung, next.time);
   }
   return next.time - start >= GAP_MIN_S ? { start, end: next.time } : null;

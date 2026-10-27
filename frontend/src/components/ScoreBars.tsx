@@ -2,33 +2,47 @@ import { useT, type TranslationKey } from 'src/i18n';
 import { cn } from 'src/lib/utils';
 import type { Indicators } from 'src/apis/scores';
 
-const ROWS: { key: keyof Indicators; label: TranslationKey; tint: string }[] = [
-  { key: 'pitch', label: 'score.pitch', tint: 'bg-emerald-500' },
-  { key: 'precision', label: 'score.precision', tint: 'bg-sky-500' },
-  { key: 'timing', label: 'score.timing', tint: 'bg-amber-500' },
-  { key: 'technique', label: 'score.technique', tint: 'bg-fuchsia-500' },
+export const INDICATORS: { key: keyof Indicators; label: TranslationKey; bar: string; text: string; tint: string }[] = [
+  { key: 'pitch', label: 'score.pitch', bar: 'bg-emerald-500', text: 'text-emerald-500', tint: 'bg-emerald-500/10' },
+  { key: 'precision', label: 'score.precision', bar: 'bg-sky-500', text: 'text-sky-500', tint: 'bg-sky-500/10' },
+  { key: 'timing', label: 'score.timing', bar: 'bg-amber-500', text: 'text-amber-500', tint: 'bg-amber-500/10' },
+  { key: 'technique', label: 'score.technique', bar: 'bg-fuchsia-500', text: 'text-fuchsia-500', tint: 'bg-fuchsia-500/10' },
 ];
 
-/** The indicators a song is judged on as labelled bars; technique reads "n/a" for a song with no long notes. */
-export default function ScoreBars({ values, compact, className }: { values: Indicators; compact?: boolean; className?: string }) {
+/** The indicators as labelled bars; technique reads "–" for a song with no long notes. */
+export default function ScoreBars({ values, className }: { values: Indicators; className?: string }) {
   const t = useT();
   return (
-    <div className={cn('grid gap-2', className)}>
-      {ROWS.map(({ key, label, tint }) => {
+    <div className={cn('grid gap-3', className)}>
+      {INDICATORS.map(({ key, label, bar }) => {
         const value = values[key];
         return (
-          <div key={key} className="grid grid-cols-[5.5rem_1fr_2.25rem] items-center gap-3 text-sm">
-            <span className={cn('truncate text-muted-foreground', compact && 'text-xs')}>{t(label)}</span>
-            <div className={cn('overflow-hidden rounded-full bg-secondary', compact ? 'h-1.5' : 'h-2.5')}>
-              <div
-                className={cn('h-full rounded-full transition-[width] duration-700 ease-out', tint)}
-                style={{ width: `${value ?? 0}%` }}
-              />
+          <div key={key}>
+            <div className="mb-1 flex items-baseline justify-between text-sm">
+              <span className="font-medium">{t(label)}</span>
+              <span className="font-semibold tabular-nums">{value ?? t('score.na')}</span>
             </div>
-            <span className="text-right font-semibold tabular-nums">{value ?? t('score.na')}</span>
+            <div className="h-2 overflow-hidden rounded-full bg-foreground/10">
+              <div className={cn('h-full rounded-full transition-[width] duration-700 ease-out', bar)} style={{ width: `${value ?? 0}%` }} />
+            </div>
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** The indicators as four small coloured numbers, for a row that has little room. */
+export function ScoreChips({ values, className }: { values: Indicators; className?: string }) {
+  const t = useT();
+  return (
+    <div className={cn('flex flex-wrap gap-1.5', className)}>
+      {INDICATORS.map(({ key, label, text, tint }) => (
+        <span key={key} title={t(label)} className={cn('inline-flex items-baseline gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium', tint)}>
+          <span className="text-muted-foreground">{t(label)}</span>
+          <span className={cn('font-bold tabular-nums', text)}>{values[key] ?? t('score.na')}</span>
+        </span>
+      ))}
     </div>
   );
 }

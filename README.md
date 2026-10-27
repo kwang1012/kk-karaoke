@@ -60,14 +60,18 @@ Open **Admin → Requests** to approve or decline. Approval emails an invitation
 sets their password in the app. Pending requests do not create an account or grant host access. Requests are deduplicated
 by email; submitting again does not undo an admin decision. **Forgot your password?** also handles expired invitation links.
 The app's existing permission model applies: signed-in hosts can use admin pages and review requests.
+Users can submit requests before invitation email credentials are configured. Requests stay pending until an admin
+completes invitation setup; missing email settings do not hide the request form.
 
 One-time server setup (daily approvals require no Supabase dashboard):
 
 1. In `backend/.env`, set `AUTH_REQUIRED=1`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `PUBLIC_APP_URL`
    (the public web app origin, e.g. `https://kkaraoke.app`). The service key stays on the backend; never add it to a frontend build.
 2. Configure frontend `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as for existing host sign-in.
-3. Keep public Supabase sign-ups disabled. Configure Supabase email delivery and allow `PUBLIC_APP_URL/?setup=1`
+3. Keep public Supabase sign-ups disabled. Configure a custom SMTP provider for Supabase email delivery and allow `PUBLIC_APP_URL/?setup=1`
    in Auth redirect URLs. Invitation emails must use the confirmation link. Use a web URL even when users normally use the desktop app.
+   Supabase's default email service only sends to project team members; it cannot deliver invitations to other users.
+   See [custom SMTP setup](https://supabase.com/docs/guides/auth/auth-smtp).
 4. Run `cd backend && uv run python scripts/catalog_db.py init` to apply the registration table migration, then restart the API
    and rebuild the frontend. Existing host accounts continue to work.
 

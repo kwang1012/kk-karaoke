@@ -3,6 +3,7 @@ import { useVideoMode } from 'src/hooks/videoMode';
 import { IconButton } from 'src/components/ui/button';
 import { Tooltip } from 'src/components/ui/tooltip';
 import { useT } from 'src/i18n';
+import ReportLyrics from 'src/components/ReportLyrics';
 
 const STEP = 0.1;
 const LIMIT = 30;
@@ -60,6 +61,7 @@ export default function LyricsOffset({
           <RotateCcw className="size-3.5" />
         </IconButton>
       </Tooltip>
+      <ReportLyrics />
       {hasVideo && (
         <Tooltip title={showVideo ? t('lyrics.hideVideo') : t('lyrics.showVideo')} side="top">
           <IconButton

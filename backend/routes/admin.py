@@ -3,7 +3,7 @@ from typing import Literal
 from fastapi.responses import JSONResponse
 
 from managers import r2
-from services import admin
+from services import admin, lyrics_reports
 
 router = APIRouter()
 
@@ -33,6 +33,17 @@ def rebuild_all_melodies():
 def audit_lyrics():
     """Songs whose lyrics predate the audio check: each is checked against its vocals on the worker."""
     return {"queued": admin.audit_lyrics_all()}
+
+
+@router.get("/lyrics-reports")
+def lyrics_report_list():
+    return {"reports": lyrics_reports.listing()}
+
+
+@router.delete("/lyrics-reports/{track_id}")
+def dismiss_lyrics_report(track_id: str):
+    lyrics_reports.dismiss(track_id)
+    return {"dismissed": True}
 
 
 @router.post("/songs/{track_id}/reprocess")

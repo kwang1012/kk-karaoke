@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { COUNTDOWN_S, GAP_MIN_S, countdown, gapAfter } from './lyricGap.ts';
+import { COUNTDOWN_S, GAP_MIN_S, WORD_END_GRACE_S, countdown, gapAfter } from './lyricGap.ts';
 
 const lines = [
   { time: 20, text: 'a', words: [{ end: 4 }, { end: 22 }] },
@@ -10,9 +10,9 @@ const lines = [
   { time: 80, text: 'd' },
 ];
 
-test('the wait starts when the last word ends', () => {
-  assert.deepEqual(gapAfter(lines, 0, 0), { start: 22, end: 40 });
-  assert.deepEqual(gapAfter(lines, 0, 1), { start: 23, end: 40 });
+test('the wait starts just after the last word ends', () => {
+  assert.deepEqual(gapAfter(lines, 0, 0), { start: 22 + WORD_END_GRACE_S, end: 40 });
+  assert.deepEqual(gapAfter(lines, 0, 1), { start: 23 + WORD_END_GRACE_S, end: 40 });
 });
 
 test('a short wait has no marker', () => {
@@ -31,7 +31,7 @@ test('an instrumental line is its own marker: no wait into or after it', () => {
 });
 
 test('lines without word timing are guessed', () => {
-  assert.deepEqual(gapAfter([{ time: 43, text: 'c' }, { time: 60, text: 'd' }], 0, 0), { start: 43 + 2, end: 60 });
+  assert.deepEqual(gapAfter([{ time: 43, text: 'c' }, { time: 60, text: 'd' }], 0, 0), { start: 43 + 3, end: 60 });
 });
 
 test('the countdown starts only for the last seconds', () => {

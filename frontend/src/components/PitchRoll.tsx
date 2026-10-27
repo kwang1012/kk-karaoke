@@ -7,7 +7,7 @@ import { hzToMidi } from 'src/pitchDetect';
 import { ease, isBlackKey, octaveLabel, viewFor, type View } from 'src/rollView';
 import { submitScore } from 'src/apis/scores';
 import ScoreDialog, { type Finished } from 'src/components/ScoreDialog';
-import { MIN_COVERAGE, Scorer, noteUnder, semitonesOff } from 'src/scoring';
+import { GRADE_TINT, MIN_COVERAGE, Scorer, grade, noteUnder, semitonesOff } from 'src/scoring';
 import { useRoomStore } from 'src/store/room';
 import type { Track } from 'src/models/spotify';
 import { usePlayer, usePlayerStore } from 'src/store/player';
@@ -248,12 +248,19 @@ export default function PitchRoll({ className, tv }: { className?: string; tv?: 
       {visible && <canvas ref={canvas} className="size-full" aria-label={t('melody.label')} />}
       {micOn && (
         <div className={cn(
-          'rounded-full bg-black/50 font-semibold text-white tabular-nums',
-          tv ? 'px-[1.4vw] py-[0.4vw] text-[1.8vw]' : 'px-3 py-1 text-sm',
+          'flex items-center gap-2 rounded-full bg-black/60 text-white tabular-nums backdrop-blur',
+          tv ? 'gap-[0.8vw] px-[1.2vw] py-[0.4vw] text-[1.8vw]' : 'px-3 py-1 text-sm',
           visible && (tv ? 'absolute top-[0.8vw] right-[1.2vw]' : 'absolute top-2 right-3'),
         )}>
-          {score === null ? t('melody.sing') : t('melody.score', { value: score })}
-          {run >= 3 && <span className="ml-2 text-orange-300">{t('melody.combo', { value: run })}</span>}
+          {score === null ? (
+            <span className="font-semibold">{t('melody.sing')}</span>
+          ) : (
+            <>
+              <span className={cn('rounded-full bg-gradient-to-br px-2 font-black', GRADE_TINT[grade(score)])}>{grade(score)}</span>
+              <span className="font-bold">{score}</span>
+            </>
+          )}
+          {run >= 3 && <span className="font-semibold text-orange-300">{t('melody.combo', { value: run })}</span>}
         </div>
       )}
     </div>

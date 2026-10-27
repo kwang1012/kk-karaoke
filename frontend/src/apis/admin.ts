@@ -54,6 +54,15 @@ export type R2Compare = {
 // R2 listings and syncs walk the whole bucket, far past the app's usual 10 seconds
 const SLOW = { timeout: 5 * 60 * 1000 };
 
+export type LyricsReport = {
+  trackId: string;
+  name: string | null;
+  artists: string[];
+  count: number;
+  firstReported: number;
+  lastReported: number;
+};
+
 export const admin = {
   songs: (params: { limit?: number; cursor?: string; q?: string; filter?: SongFilter } = {}, signal?: AbortSignal) =>
     api.get<AdminSongPage>('admin/songs', { params, signal }).then((r) => r.data),
@@ -65,6 +74,9 @@ export const admin = {
   /** Resolves `edited` (409) as a value instead of an error: the caller asks before replacing hand edits. */
   refreshLyrics: (id: string, force = false) =>
     api.post(`lyrics/${id}/refresh`, null, { params: { force }, validateStatus: (s) => s === 200 || s === 409 }),
+  lyricsReports: (signal?: AbortSignal) =>
+    api.get<{ reports: LyricsReport[] }>('admin/lyrics-reports', { signal }).then((r) => r.data.reports),
+  dismissLyricsReport: (id: string) => api.delete(`admin/lyrics-reports/${id}`),
   worker: (signal?: AbortSignal) => api.get<WorkerStatus>('admin/worker', { signal }).then((r) => r.data),
   failures: (signal?: AbortSignal) => api.get<{ failures: Failure[] }>('admin/failures', { signal }).then((r) => r.data.failures),
   clearFailures: () => api.delete('admin/failures'),

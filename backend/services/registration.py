@@ -21,7 +21,6 @@ def require_configured():
 
 
 def submit(email: str, name: str):
-    require_configured()
     now = time.time()
     # Duplicate submissions never reset an approval or rejection, or change the request an admin is reviewing.
     catalog.execute("""INSERT INTO registration_requests(id,email,name,created,updated) VALUES(?,?,?,?,?)

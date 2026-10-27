@@ -27,6 +27,7 @@ import AdminSongs from './pages/admin/songs';
 import AdminWorker from './pages/admin/worker';
 import AdminStorage from './pages/admin/storage';
 import AdminRequests from './pages/admin/requests';
+import AdminReports from './pages/admin/reports';
 import MobileLyricsView from './pages/mobile-lyrics';
 import { useLanguageStore, useT } from 'src/i18n';
 import BackendGate from './components/BackendGate';
@@ -117,6 +118,7 @@ const AppRouters = () => {
           <Route path="lyrics/:trackId?" element={<LyricsEditView />} />
           <Route path="worker" element={<AdminWorker />} />
           <Route path="storage" element={<AdminStorage />} />
+          <Route path="reports" element={<AdminReports />} />
           <Route path="requests" element={<AdminRequests />} />
         </Route>
         <Route path="join" element={<JoinView />} />

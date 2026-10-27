@@ -226,7 +226,7 @@ class SyncedAudioPlayer {
 
   /** Open the microphone: heard through the speakers only if `monitor`, but always listened to for pitch. `deviceId` '' is the default input; resolves false if the mic could not be opened. */
   startMic(deviceId: string, volume: number, reverb: number, monitor: boolean): Promise<boolean> {
-    this.mic ??= new MicChain(this.context, [this.vocalGain, this.instrumentalGain]);
+    this.mic ??= new MicChain(this.context);
     this.mic.setLevels(volume, reverb, monitor);
     return this.mic.start(deviceId);
   }

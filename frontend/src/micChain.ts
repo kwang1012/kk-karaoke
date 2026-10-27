@@ -1,4 +1,3 @@
-import { BleedGate } from './bleedGate';
 import { detectPitch, type Pitch } from './pitchDetect';
 
 /** Seconds of tail and how fast it dies away, for the generated room impulse. */
@@ -20,7 +19,8 @@ function roomImpulse(context: BaseAudioContext): AudioBuffer {
  * The microphone inside the same AudioContext as the song, so both share one clock. It is always
  * listened to for pitch; it is only played back (mic -> gain -> destination, with a reverb send in
  * parallel) while `monitor` is on.
- * Echo cancellation, noise suppression and auto gain are off because they mangle sustained notes.
+ * Echo cancellation is on, so the song coming out of the speakers is taken out of what the mic hears
+ * instead of being scored as singing. Noise suppression and auto gain are off: they mangle sustained notes.
  */
 export default class MicChain {
   private stream?: MediaStream;
@@ -31,17 +31,9 @@ export default class MicChain {
   private wet: GainNode;
   private analyser: AnalyserNode;
   private samples: Float32Array<ArrayBuffer>;
-  private songAnalyser: AnalyserNode;
-  private songSamples: Float32Array<ArrayBuffer>;
-  private bleed = new BleedGate();
   private version = 0;
 
-  /** `song` are the nodes the song plays through: listened to (not heard) to tell it from a voice in the mic. */
-  constructor(private context: AudioContext, song: AudioNode[] = []) {
-    this.songAnalyser = context.createAnalyser();
-    this.songAnalyser.fftSize = 2048;
-    this.songSamples = new Float32Array(this.songAnalyser.fftSize);
-    for (const node of song) node.connect(this.songAnalyser);
+  constructor(private context: AudioContext) {
     this.dry = context.createGain();
     this.send = context.createGain();
     this.reverb = context.createConvolver();
@@ -66,7 +58,7 @@ export default class MicChain {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           deviceId: deviceId ? { exact: deviceId } : undefined,
-          echoCancellation: false,
+          echoCancellation: true,
           noiseSuppression: false,
           autoGainControl: false,
         },
@@ -102,19 +94,15 @@ export default class MicChain {
     this.wet.gain.setTargetAtTime(reverb, now, 0.01);
   }
 
-  /** The pitch being sung right now, or null for silence, noise, or the song itself leaking in from the speakers. */
+  /** The pitch being sung right now, or null for silence or noise. */
   readPitch(): Pitch | null {
     if (!this.stream) return null;
     this.analyser.getFloatTimeDomainData(this.samples);
-    const mic = detectPitch(this.samples, this.context.sampleRate);
-    this.songAnalyser.getFloatTimeDomainData(this.songSamples);
-    const song = detectPitch(this.songSamples, this.context.sampleRate);
-    return this.bleed.filter(mic?.hz ?? null, song?.hz ?? null) === null ? null : mic;
+    return detectPitch(this.samples, this.context.sampleRate);
   }
 
   destroy() {
     this.stop();
-    this.songAnalyser.disconnect();
     this.dry.disconnect();
     this.send.disconnect();
     this.reverb.disconnect();

@@ -1,20 +1,12 @@
 import { Flame, Trophy } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { Outcome, SongResult } from 'src/apis/scores';
-import ScoreBars from 'src/components/ScoreBars';
+import { INDICATORS } from 'src/components/ScoreBars';
 import { Button } from 'src/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from 'src/components/ui/dialog';
 import { useT } from 'src/i18n';
 import { cn } from 'src/lib/utils';
-import { grade, type Grade } from 'src/scoring';
-
-const TINT: Record<Grade, string> = {
-  S: 'from-amber-300 to-orange-500',
-  A: 'from-emerald-300 to-teal-500',
-  B: 'from-sky-300 to-blue-500',
-  C: 'from-violet-300 to-purple-500',
-  D: 'from-zinc-300 to-zinc-500',
-};
+import { GRADE_TINT, grade } from 'src/scoring';
 
 export type Finished = { song: string; result: SongResult; outcome: Outcome | null };
 
@@ -25,44 +17,51 @@ export default function ScoreDialog({ finished, onClose }: { finished: Finished 
   const outcome = finished?.outcome;
   return (
     <Dialog open={!!finished} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md items-stretch p-6">
+      <DialogContent className="max-w-sm gap-0 p-0">
         {finished && (
           <>
-            <DialogTitle className="sr-only">{t('score.title')}</DialogTitle>
-            <DialogDescription className="truncate text-center">{finished.song}</DialogDescription>
-            <div className="mt-2 flex items-center justify-center gap-5">
-              <div className={cn('flex size-24 items-center justify-center rounded-3xl bg-gradient-to-br text-6xl font-black text-white shadow-lg', TINT[letter])}>
-                {letter}
+            <div className={cn('flex flex-col items-center bg-gradient-to-br px-6 pt-8 pb-6 text-white', GRADE_TINT[letter])}>
+              <DialogTitle className="sr-only">{t('score.title')}</DialogTitle>
+              <DialogDescription className="max-w-full truncate text-sm font-medium text-white/85">{finished.song}</DialogDescription>
+              <div className="mt-3 text-8xl leading-none font-black drop-shadow">{letter}</div>
+              <div className="mt-2 text-3xl font-bold tabular-nums">
+                {finished.result.total}
+                <span className="ml-1 text-base font-medium text-white/80">/ 100</span>
               </div>
-              <div>
-                <div className="text-5xl font-bold tabular-nums">{finished.result.total}</div>
-                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <Flame className="size-4 text-orange-500" />
-                  {t('score.streak', { value: Math.round(finished.result.streakS) })}
-                </div>
+              <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-black/20 px-3 py-1 text-xs font-medium">
+                <Flame className="size-3.5" />
+                {t('score.streak', { value: Math.round(finished.result.streakS) })}
               </div>
             </div>
-            <ScoreBars className="mt-6" values={finished.result} />
-            <div className="mt-6 rounded-xl bg-secondary/60 p-3 text-center text-sm">
+            <div className="grid grid-cols-2 gap-2 p-4">
+              {INDICATORS.map(({ key, label, text, tint }) => (
+                <div key={key} className={cn('rounded-2xl px-4 py-3', tint)}>
+                  <div className="text-xs font-medium text-muted-foreground">{t(label)}</div>
+                  <div className={cn('text-2xl font-bold tabular-nums', text)}>{finished.result[key] ?? t('score.na')}</div>
+                </div>
+              ))}
+            </div>
+            <div className="mx-4 flex items-center gap-3 rounded-2xl bg-secondary px-4 py-3 text-sm">
+              <Trophy className="size-6 shrink-0 text-amber-400" />
               {outcome ? (
-                <>
+                <div>
                   <div className="font-semibold">
                     {outcome.newBest
                       ? outcome.previousBest === null ? t('score.firstTake') : t('score.newBest', { value: outcome.previousBest })
                       : t('score.notBest', { value: outcome.previousBest ?? 0 })}
                   </div>
-                  <div className="mt-1 text-muted-foreground">
+                  <div className="text-xs text-muted-foreground">
                     {t('score.standing', { song: outcome.songRank, of: outcome.songSingers, rank: outcome.rank, points: outcome.points })}
                   </div>
-                </>
+                </div>
               ) : (
                 <span className="text-muted-foreground">{t('score.saving')}</span>
               )}
             </div>
-            <div className="mt-4 flex justify-center gap-2">
-              <Button variant="outline" onClick={onClose}>{t('score.close')}</Button>
+            <div className="flex justify-end gap-2 p-4">
+              <Button variant="ghost" onClick={onClose}>{t('score.close')}</Button>
               <Button asChild onClick={onClose}>
-                <Link to="/ranking"><Trophy />{t('score.viewRanking')}</Link>
+                <Link to="/ranking">{t('score.viewRanking')}</Link>
               </Button>
             </div>
           </>

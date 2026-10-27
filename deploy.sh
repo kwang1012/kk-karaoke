@@ -55,6 +55,7 @@ deploy_backend() {
     fi
   fi
   run rsync -az \
+    --exclude /temp \
     --exclude node_modules --exclude .venv --exclude venv --exclude __pycache__ \
     --exclude build --exclude dist --exclude .git \
     --exclude backend/storage --exclude backend/data --exclude backend/.env \

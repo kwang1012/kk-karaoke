@@ -3,13 +3,15 @@ import threading
 from typing import Callable, Optional, List, Any, Union
 import redis
 from managers.db import DatabaseManager
+from managers.catalog import CatalogUnavailable
+from services import history
 from models.track import Track, is_retired_track_id
 from redis_keys import RedisKeys
 from services.queue_order import QueueOrder, order_queue
 import time
 
 
-HISTORY_SIZE = 100
+HISTORY_SIZE = history.HISTORY_SIZE
 
 
 def _same_entry(stored: Track, other: Track) -> bool:
@@ -277,25 +279,16 @@ class RedisQueueInterface:
 
     # --- Order history ---
     def record_history(self, user_id: str, track: Track) -> None:
-        """Remember that a user ordered a song: newest first, once per song, the last HISTORY_SIZE kept."""
-        key = RedisKeys.user_history(user_id)
-        entry = Track(
+        """Remember that a user ordered a song (kept in the catalog DB, not Redis)."""
+        history.record(user_id, Track(
             id=track.id, name=track.name, artists=track.artists, album=track.album,
             duration_ms=track.duration_ms, video_id=track.video_id, kind=track.kind,
-        )
-        with self.redis.pipeline() as pipe:
-            for raw in self.redis.lrange(key, 0, -1):  # type: ignore
-                if json.loads(raw).get("id") == track.id:
-                    pipe.lrem(key, 0, raw)
-            pipe.lpush(key, json.dumps(entry.model_dump()))
-            pipe.ltrim(key, 0, HISTORY_SIZE - 1)
-            pipe.execute()
+        ).model_dump())
 
     def get_history(self, user_id: str, limit: int = HISTORY_SIZE) -> List[Track]:
         try:
-            raw: list[Any] = self.redis.lrange(RedisKeys.user_history(user_id), 0, limit - 1)  # type: ignore
-            return [Track(**json.loads(item)) for item in raw]
-        except redis.RedisError as e:
+            return [Track(**item) for item in history.recent(user_id, limit)]
+        except CatalogUnavailable as e:
             print(f"Error getting history of {user_id}: {e}")
             return []
 

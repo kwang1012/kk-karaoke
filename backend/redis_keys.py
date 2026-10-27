@@ -20,15 +20,6 @@ class RedisKeys:
     TRACK_DATA = "track_data:{track_id}"
     TRACK_DELAY = "track_delay:{track_id}"
 
-    # Songs a signed-in user ordered, newest first
-    USER_HISTORY = "user_history:{user_id}"
-
-    # Singing scores: one board per scope ("all" or an ISO week), each singer's best result per song
-    BOARD = "board:{scope}"
-    BOARD_SONG = "board:{scope}:song:{song_id}"
-    BOARD_BESTS = "board:{scope}:bests:{user_id}"
-    SINGER = "singer:{user_id}"
-
     # Lyrics keys
     ROMANIZED = "romanized:{track_id}"
 
@@ -61,10 +52,6 @@ class RedisKeys:
         return RedisKeys.ROOM_CODE_OF.format(room_id=room_id)
 
     @staticmethod
-    def user_history(user_id: str) -> str:
-        return RedisKeys.USER_HISTORY.format(user_id=user_id)
-
-    @staticmethod
     def track_data(track_id: str) -> str:
         return RedisKeys.TRACK_DATA.format(track_id=track_id)
 
@@ -75,19 +62,3 @@ class RedisKeys:
     @staticmethod
     def romanized(track_id: str) -> str:
         return RedisKeys.ROMANIZED.format(track_id=track_id)
-
-    @staticmethod
-    def board(scope: str) -> str:
-        return RedisKeys.BOARD.format(scope=scope)
-
-    @staticmethod
-    def board_song(scope: str, song_id: str) -> str:
-        return RedisKeys.BOARD_SONG.format(scope=scope, song_id=song_id)
-
-    @staticmethod
-    def board_bests(scope: str, user_id: str) -> str:
-        return RedisKeys.BOARD_BESTS.format(scope=scope, user_id=user_id)
-
-    @staticmethod
-    def singer(user_id: str) -> str:
-        return RedisKeys.SINGER.format(user_id=user_id)

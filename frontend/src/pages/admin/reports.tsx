@@ -14,7 +14,11 @@ export default function AdminReports() {
   const query = useQuery({
     queryKey: ['lyrics-reports'],
     queryFn: ({ signal }) => admin.lyricsReports(signal),
-    refetchInterval: 30000, refetchOnWindowFocus: true, retry: false,
+    // Reuse recent results between visits instead of polling the API.
+    staleTime: 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: true,
+    retry: false,
   });
   const dismiss = useMutation({
     mutationFn: admin.dismissLyricsReport,
@@ -31,7 +35,7 @@ export default function AdminReports() {
       {query.isPending ? <Loader2 className="size-6 animate-spin" /> : query.data && (
         query.data.length === 0
           ? <p className="rounded-xl border p-8 text-center text-muted-foreground">{t('admin.reports.empty')}</p>
-          : <ul className="divide-y overflow-hidden rounded-xl border bg-card">
+          : <ul className="shrink-0 divide-y overflow-hidden rounded-xl border bg-card">
             {query.data.map((report) => <li key={report.trackId} className="flex flex-wrap items-center gap-3 p-4">
               <div className="min-w-0 flex-1 basis-48">
                 <p className="break-words font-medium">{report.name ?? report.trackId}</p>

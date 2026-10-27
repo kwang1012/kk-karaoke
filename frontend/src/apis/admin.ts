@@ -63,6 +63,29 @@ export type LyricsReport = {
   lastReported: number;
 };
 
+export type AdminRoomTrack = {
+  id: string;
+  name: string;
+  artists: { name: string }[];
+  status: string | null;
+  recommended: boolean;
+  timeAdded: number | null;
+  orderedBy: { id: string; name: string } | null;
+};
+
+export type AdminRoom = {
+  id: string;
+  isOn: boolean;
+  playing: boolean;
+  code: string | null;
+  hosted: boolean;
+  queueLength: number;
+  currentIdx: number;
+  current: { id: string; name: string; artists: string[] } | null;
+  participants: { id: string; name: string; avatar: string }[];
+  owner: { id: string; name: string | null } | null;
+};
+
 export const admin = {
   songs: (params: { limit?: number; cursor?: string; q?: string; filter?: SongFilter } = {}, signal?: AbortSignal) =>
     api.get<AdminSongPage>('admin/songs', { params, signal }).then((r) => r.data),
@@ -77,6 +100,13 @@ export const admin = {
   lyricsReports: (signal?: AbortSignal) =>
     api.get<{ reports: LyricsReport[] }>('admin/lyrics-reports', { signal }).then((r) => r.data.reports),
   dismissLyricsReport: (id: string) => api.delete(`admin/lyrics-reports/${id}`),
+  rooms: (signal?: AbortSignal) => api.get<{ rooms: AdminRoom[] }>('admin/rooms', { signal }).then((r) => r.data.rooms),
+  room: (id: string) =>
+    api.get<AdminRoom & { tracks: AdminRoomTrack[] }>(`admin/rooms/${encodeURIComponent(id)}`).then((r) => r.data),
+  clearRoomQueue: (id: string) => api.delete(`admin/rooms/${encodeURIComponent(id)}/queue`),
+  removeRoomTrack: (id: string, track: AdminRoomTrack) =>
+    api.post(`admin/rooms/${encodeURIComponent(id)}/queue/remove`, track),
+  closeRoom: (id: string) => api.delete(`admin/rooms/${encodeURIComponent(id)}`),
   worker: (signal?: AbortSignal) => api.get<WorkerStatus>('admin/worker', { signal }).then((r) => r.data),
   failures: (signal?: AbortSignal) => api.get<{ failures: Failure[] }>('admin/failures', { signal }).then((r) => r.data.failures),
   clearFailures: () => api.delete('admin/failures'),

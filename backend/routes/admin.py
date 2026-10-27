@@ -2,8 +2,12 @@ from fastapi import APIRouter, HTTPException, Query
 from typing import Literal
 from fastapi.responses import JSONResponse
 
+from interfaces.queue import RedisQueueInterface
 from managers import r2
-from services import admin, lyrics_reports
+from managers.db import get_db
+from models.track import Track
+from routes.queue import _to_room
+from services import admin, lyrics_reports, rooms
 
 router = APIRouter()
 
@@ -92,3 +96,40 @@ def r2_compare():
 def r2_sync():
     downloaded, uploaded = r2.sync()
     return {"downloaded": downloaded, "uploaded": uploaded}
+
+
+@router.get("/rooms")
+def room_list():
+    return {"rooms": rooms.listing(get_db())}
+
+
+@router.get("/rooms/{room_id}")
+def room_detail(room_id: str):
+    room = rooms.detail(get_db(), room_id)
+    if room is None:
+        raise HTTPException(status_code=404, detail="No such room")
+    return room
+
+
+@router.delete("/rooms/{room_id}/queue")
+async def clear_room_queue(room_id: str):
+    """Drop everything after the song that is playing."""
+    RedisQueueInterface(get_db()).clear_queue(room_id)
+    await _to_room(room_id, {"type": "queue", "data": {"action": "cleared", "room_id": room_id}})
+    return {"cleared": True}
+
+
+@router.post("/rooms/{room_id}/queue/remove")
+async def remove_room_track(room_id: str, track: Track):
+    removed = RedisQueueInterface(get_db()).remove_track_from_queue(room_id, track)
+    if removed is None:
+        raise HTTPException(status_code=404, detail="That song is no longer in the queue")
+    await _to_room(room_id, {"type": "queue", "data": {"action": "removed", "track": track.model_dump()}})
+    return {"track": removed}
+
+
+@router.delete("/rooms/{room_id}")
+def close_room(room_id: str):
+    if not rooms.close(get_db(), room_id):
+        raise HTTPException(status_code=409, detail="Someone is still in this room")
+    return {"closed": True}

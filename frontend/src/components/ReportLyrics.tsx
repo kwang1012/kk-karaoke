@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Check, Flag } from 'lucide-react';
 import { Button, IconButton } from 'src/components/ui/button';
 import { Tooltip } from 'src/components/ui/tooltip';
@@ -9,6 +10,7 @@ import { useT } from 'src/i18n';
 /** One press tells the admins this song's lyrics look wrong; the song is all they get, so there is nothing to fill in. */
 export default function ReportLyrics({ labeled = false }: { labeled?: boolean }) {
   const t = useT();
+  const client = useQueryClient();
   const id = usePlayer().currentTrack?.id;
   const [sent, setSent] = useState(false);
   useEffect(() => setSent(false), [id]);
@@ -16,7 +18,9 @@ export default function ReportLyrics({ labeled = false }: { labeled?: boolean })
   const label = sent ? t('lyrics.reported') : t('lyrics.report');
   const send = () => {
     setSent(true);
-    api.post(`lyrics/${id}/report`).catch(() => setSent(false));
+    api.post(`lyrics/${id}/report`)
+      .then(() => client.invalidateQueries({ queryKey: ['lyrics-reports'] }))
+      .catch(() => setSent(false));
   };
   const icon = sent ? <Check className="size-4" /> : <Flag className="size-4" />;
   if (labeled) {

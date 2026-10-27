@@ -103,7 +103,7 @@ async def _add_and_process_track(
     track.status = "ready" if is_track_ready else "submitted"
     track.recommended = False
     if host:
-        redis_interface.record_history(host["sub"], track)
+        await asyncio.to_thread(redis_interface.record_history, host["sub"], track)
 
     # Nothing is waiting after the current song: keep the queue going with suggestions after this one.
     before = redis_interface.get_queue(room_id)
@@ -193,7 +193,7 @@ async def _fill_recommendations(
     With `radio`, they follow on from the songs that have been playing instead of the jam's latest orders.
     """
     jam = redis_interface.get_queue(room_id)
-    history = redis_interface.get_history(host["sub"]) if host else []
+    history = await asyncio.to_thread(redis_interface.get_history, host["sub"]) if host else []
     played = jam[: redis_interface.get_current_idx(room_id) + 1][::-1] if radio else None
     _, picks = await asyncio.to_thread(recommend, jam, history, count, played)
     ready = await asyncio.to_thread(catalog.ready_among, [p["id"] for p in picks])
@@ -280,7 +280,7 @@ async def get_recommendations(
 ):
     """Songs like the jam's, else like the signed-in user's own history, else popular ones."""
     jam = redis_interface.get_queue(room_id)
-    history = redis_interface.get_history(host["sub"]) if host else []
+    history = await asyncio.to_thread(redis_interface.get_history, host["sub"]) if host else []
     source, tracks = await asyncio.to_thread(recommend, jam, history, limit)
     return {"source": source, "tracks": tracks}
 

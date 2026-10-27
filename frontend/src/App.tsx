@@ -28,6 +28,7 @@ import AdminWorker from './pages/admin/worker';
 import AdminStorage from './pages/admin/storage';
 import AdminRequests from './pages/admin/requests';
 import AdminReports from './pages/admin/reports';
+import AdminRooms from './pages/admin/rooms';
 import MobileLyricsView from './pages/mobile-lyrics';
 import { useLanguageStore, useT } from 'src/i18n';
 import BackendGate from './components/BackendGate';
@@ -119,6 +120,7 @@ const AppRouters = () => {
           <Route path="worker" element={<AdminWorker />} />
           <Route path="storage" element={<AdminStorage />} />
           <Route path="reports" element={<AdminReports />} />
+          <Route path="rooms" element={<AdminRooms />} />
           <Route path="requests" element={<AdminRequests />} />
         </Route>
         <Route path="join" element={<JoinView />} />

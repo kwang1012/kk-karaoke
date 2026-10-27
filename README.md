@@ -205,6 +205,11 @@ worker. `init` applies the schema to an already configured database. Import is r
 preserves existing manifests and deletion tombstones. It reads small legacy metadata files but
 never downloads audio. Omit `--skip-redis` to recover additional old song titles from Redis.
 
+Singing scores (rankings) and each user's order history also live in D1. After `init` has applied
+the new tables, copy what Redis already holds once with
+`uv run python scripts/redis_to_db.py` (add `--delete` to drop the copied Redis keys afterwards).
+Rooms, queues, jam state and join codes stay in Redis; the admin Rooms tab shows them.
+
 D1 stores song metadata, asset availability/versions/sizes, lyric provenance and line counts,
 and durable job status/progress/results. Playback readiness requires published vocal and
 instrumental assets; lyrics and melody are independent. Lists and status checks query D1,

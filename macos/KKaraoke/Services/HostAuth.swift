@@ -116,7 +116,14 @@ enum HostAuthError: LocalizedError {
 
 @MainActor @Observable final class HostAuth {
   enum Reason { case account, host, addSong }
-  private(set) var session: HostSession?
+  private(set) var session: HostSession? {
+    didSet {
+      // a refreshed token is the same account
+      if oldValue?.user.id != session?.user.id { onAccountChange?(oldValue?.user.id, session?.user.id) }
+    }
+  }
+  /// Told when the signed-in account changes: its previous and new id, nil when signed out.
+  @ObservationIgnored var onAccountChange: ((String?, String?) -> Void)?
   private(set) var sending = false
   private(set) var error: String?
   var showLogin = false

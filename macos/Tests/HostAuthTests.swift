@@ -158,4 +158,20 @@ private final class AuthURLProtocol: URLProtocol, @unchecked Sendable {
     #expect(local.requireSignIn(.host, retry: {}))
     #expect(!local.showLogin)
   }
+
+  @Test func theHostsRoomIsTheirAccountOnEveryDevice() async {
+    let store = MemoryHostSessionStore()
+    store.value = HostSession(
+      accessToken: "a", refreshToken: "r", expiresAt: Date().timeIntervalSince1970 + 3600,
+      user: HostUser(id: "host-1", email: nil))
+    let auth = HostAuth(configuration: configuration, transport: transport(), store: store)
+    let room = RoomModel(defaults: UserDefaults(suiteName: "test.account.\(UUID().uuidString)")!)
+    room.auth = auth
+    let device = room.userId
+    #expect(room.activeRoomId == device)
+    await auth.restore()
+    #expect(room.userId == "host-1" && room.activeRoomId == "host-1")
+    auth.signOut()
+    #expect(room.userId == device && room.activeRoomId == device)
+  }
 }

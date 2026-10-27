@@ -1,11 +1,16 @@
 import redis
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from auth import require_host
+from config import AUTH_REQUIRED
+from interfaces.queue import RedisQueueInterface
+import services.rooms as rooms_service
 from models.user import User
 from interfaces.jam import RedisJamInterface
 from managers.websocket import WebSocketManager
 from managers.db import get_db
 from models.jam import Room
+from redis_keys import RedisKeys
 
 router = APIRouter()
 ws_manager = WebSocketManager()
@@ -19,10 +24,37 @@ async def create_room(
         lambda: RedisJamInterface(get_db())
     ),
 ):
+    owner = redis_interface.redis.get(RedisKeys.room_host(room.id))
+    if owner and owner != host["sub"]:
+        raise HTTPException(status_code=403, detail="That room belongs to another host")
     redis_interface.create_or_update_jam_state(room.id, {**room.model_dump(), "is_on": True})
     redis_interface.mark_hosted(room.id, host["sub"])
     code = redis_interface.get_or_create_code(room.id)
     return {"message": f"Room {room.id} created successfully.", "code": code}
+
+
+class Migration(BaseModel):
+    source: str  # the device-made room id this host used before their room became their account id
+
+
+@router.post("/migrate")
+async def migrate_room(
+    body: Migration,
+    host: dict = Depends(require_host),
+    redis_interface: RedisJamInterface = Depends(
+        lambda: RedisJamInterface(get_db())
+    ),
+):
+    """Bring the queue of this host's old device room into their account room."""
+    if not AUTH_REQUIRED:  # without sign-in there are no accounts, and every host would be "local"
+        return {"moved": False}
+    account = host["sub"]
+    moved = rooms_service.adopt(redis_interface.redis, body.source, account, account)
+    if moved:
+        tracks = RedisQueueInterface(redis_interface.redis).get_queue(account)
+        await ws_manager.multicast(account, {"type": "queue", "data": {
+            "action": "arranged", "room_id": account, "tracks": [t.model_dump() for t in tracks]}})
+    return {"moved": moved}
 
 
 @router.get("/code/{code}")

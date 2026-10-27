@@ -14,12 +14,17 @@ final class RoomModel {
 
     // MARK: Who
 
-    let userId: String
+    /// Random per Mac, used while signed out. A signed-in host's room is their account id instead, so every device they
+    /// sign in on shares one queue and jam.
+    private let deviceId: String
+    var userId: String { auth?.session?.user.id ?? deviceId }
     var name: String { didSet { defaults.set(name, forKey: Keys.name); rejoin() } }
     var avatar: String { didSet { defaults.set(avatar, forKey: Keys.avatar); rejoin() } }
     var user: User { User(id: userId, name: name, avatar: avatar) }
 
-    @ObservationIgnored weak var auth: HostAuth?
+    @ObservationIgnored weak var auth: HostAuth? {
+        didSet { auth?.onAccountChange = { [weak self] old, new in self?.accountChanged(from: old ?? self?.deviceId, to: new ?? self?.deviceId) } }
+    }
     private(set) var isHosting = false
     var isInJam: Bool { isGuest || isHosting }
 
@@ -76,9 +81,9 @@ final class RoomModel {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        if let saved = defaults.string(forKey: Keys.userId) { userId = saved } else {
-            userId = UUID().uuidString.lowercased()
-            defaults.set(userId, forKey: Keys.userId)
+        if let saved = defaults.string(forKey: Keys.userId) { deviceId = saved } else {
+            deviceId = UUID().uuidString.lowercased()
+            defaults.set(deviceId, forKey: Keys.userId)
         }
         name = defaults.string(forKey: Keys.name) ?? NSFullUserName()
         avatar = defaults.string(forKey: Keys.avatar) ?? Self.avatars[0]
@@ -137,6 +142,27 @@ final class RoomModel {
     }
 
     // MARK: Rooms
+
+    /// Signing in or out changes whose room this Mac is in. Signing in brings the old room's queue along (the server
+    /// moves it only if this account opened it); a room joined with a code is kept, under the new identity.
+    func accountChanged(from old: String?, to new: String?) {
+        guard let old, let new, old != new else { return }
+        if isGuest { rejoin(); return }
+        let wasHosting = isHosting
+        queue = []
+        queueIdx = -1
+        participants = []
+        code = nil
+        joinURL = nil
+        isHosting = false
+        if let client = clientProvider?() { defaults.removeObject(forKey: "hostedRoom-" + client.baseURL.absoluteString) }
+        rejoin()
+        Task {
+            if old == deviceId, let client = clientProvider?() { _ = try? await client.migrateRoom(from: old) }
+            if wasHosting { await openRoom() }
+            await refreshAll()
+        }
+    }
 
     /// Opens this Mac's room so others can join with its code.
     func openRoom() async {

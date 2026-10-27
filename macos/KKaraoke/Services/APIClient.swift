@@ -194,6 +194,13 @@ extension APIClient {
         return try await post(Response.self, "room/create", body: Body(id: id)).code
     }
 
+    /// Moves the queue of the room this device used before sign-in into the account's room. False when there was nothing to move.
+    func migrateRoom(from source: String) async throws -> Bool {
+        struct Body: Encodable { var source: String }
+        struct Response: Decodable { var moved: Bool }
+        return try await post(Response.self, "room/migrate", body: Body(source: source)).moved
+    }
+
     /// The room behind a join code, or nil when no room has it.
     func room(forCode code: String) async throws -> String? {
         struct Response: Decodable { var roomId: String }

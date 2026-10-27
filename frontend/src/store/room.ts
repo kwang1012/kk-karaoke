@@ -1,6 +1,9 @@
 import { useMemo } from 'react';
 import { User } from 'src/models/user';
 import { api } from 'src/utils/api';
+import { useAuthStore } from 'src/lib/auth';
+import { uuid } from 'src/utils';
+import { roomForAccount } from 'src/accountRoom';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { usePlayerTabStore } from './playerTab';
@@ -141,3 +144,16 @@ export const useIsLoggedIn = () => {
   const avatar = useRoomStore((state) => state.avatar);
   return roomId && nickname && avatar;
 };
+
+// Follow the signed-in account: its id is the room, on every device.
+useAuthStore.subscribe((state, previous) => {
+  const userId = state.session?.user.id;
+  const previousUserId = previous.session?.user.id;
+  if (userId === previousUserId) return; // a refreshed token is the same account
+  const change = roomForAccount(useRoomStore.getState(), userId, previousUserId, uuid);
+  if (!change) return;
+  const { migrateFrom, ...rooms } = change;
+  useRoomStore.setState({ ...rooms, currentTime: 0, isOn: false, playing: false, code: undefined });
+  // the old queue arrives over the websocket once the server has moved it
+  if (migrateFrom) api.post('room/migrate', { source: migrateFrom }).catch(() => {});
+});

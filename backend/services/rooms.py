@@ -1,4 +1,6 @@
 """What the admin sees of live jams: every room that has a queue or a jam state in Redis, and who is connected to it."""
+import json
+
 import redis
 
 from managers import catalog
@@ -98,3 +100,31 @@ def close(r: redis.Redis, room_id: str) -> bool:
     live_jam.interface.states.pop(room_id, None)  # the API's own copy would write the room back
     live_jam.interface.last_redis_update.pop(room_id, None)
     return True
+
+
+def adopt(r: redis.Redis, old_id: str, new_id: str, host_id: str) -> bool:
+    """Move the queue and jam state of a device-made room into the account's own room, once.
+
+    Hosts used to get a random room per device; a signed-in host's room is now their account id. Only the
+    account that opened the old room may take it, and a room that already has a queue is never overwritten.
+    """
+    if old_id in (new_id, SHARED_ROOM) or r.get(RedisKeys.room_host(old_id)) != host_id:
+        return False
+    if r.exists(RedisKeys.room_queue(new_id)):
+        return False
+    moved = False
+    for key_of in (RedisKeys.room_queue, RedisKeys.room_queue_idx, RedisKeys.jam):
+        if r.exists(key_of(old_id)):
+            r.rename(key_of(old_id), key_of(new_id))
+            moved = True
+    if moved and "id" in r.hgetall(RedisKeys.jam(new_id)):
+        r.hset(RedisKeys.jam(new_id), mapping={"id": json.dumps(new_id)})
+    code = r.get(RedisKeys.room_code_of(old_id))
+    leftovers = [RedisKeys.room(old_id), RedisKeys.room_host(old_id), RedisKeys.room_code_of(old_id)]
+    if code and r.get(RedisKeys.room_code(code)) == old_id:
+        leftovers.append(RedisKeys.room_code(code))
+    r.delete(*leftovers)
+    for room_id in (old_id, new_id):  # the API's own copies would write the old state back
+        live_jam.interface.states.pop(room_id, None)
+        live_jam.interface.last_redis_update.pop(room_id, None)
+    return moved

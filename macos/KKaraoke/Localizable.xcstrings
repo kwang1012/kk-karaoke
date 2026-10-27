@@ -3528,6 +3528,57 @@
         }
       }
     },
+    "Nothing is playing on your devices" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的设备目前都没有在播放"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的裝置目前都沒有在播放"
+          }
+        }
+      }
+    },
+    "Play here" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "改在此播放"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "改在此播放"
+          }
+        }
+      }
+    },
+    "Playing on another device. This Mac is a remote." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在另一台设备播放，这台 Mac 仅作遥控。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在另一台裝置播放，這台 Mac 僅作遙控。"
+          }
+        }
+      }
+    },
     "Remove %@ from downloads" : {
       "extractionState" : "manual",
       "localizations" : {

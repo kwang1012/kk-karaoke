@@ -26,6 +26,7 @@ Tests: `xcodebuild -project KKaraoke.xcodeproj -scheme KKaraoke -destination 'pl
 | **Play** | Vocal and instrumental stems play together; the original vocal is a level (0 is a karaoke track). Synced lyrics fill word by word. Once the current audio is ready, the next and previous ready songs' stems and lyrics preload. |
 | **Sing** | Pick any microphone; the melody scrolls as a piano roll and you are scored as you sing. Hear yourself through the speakers with reverb (use headphones). |
 | **Rooms** | Open a room and friends join with a code or QR. Anyone can add songs and control playback. Or join someone else's room and use this Mac as the remote. |
+| **Sing together** | The people-in-a-room button in the player bar starts the song on every device in the room at the same moment, each playing it itself (so latency does not matter), and works with the web app. Mixer → **Duet sync** starts this Mac earlier or later, for output that still sounds off (Bluetooth, a TV). |
 | **TV display** | ⇧⌘T opens a window made for a second display: big lyrics, the join code, what's next. |
 | **Offline** | Download a song (the arrow on its row) to keep its audio, lyrics and melody. With no server you can still sing downloaded songs from a queue kept on the Mac. |
 | **Floating lyrics, notch** | A small always-on-top lyrics window (it also opens when the window is minimized), and an optional pill that grows out of the notch (Settings → Audio). |

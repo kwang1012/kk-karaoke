@@ -78,7 +78,17 @@ final class StemPlayer {
         return min(duration, base + max(0, Double(player.sampleTime)) / player.sampleRate)
     }
 
-    func play(from time: TimeInterval? = nil) throws {
+    /// How long after the engine renders a sample it reaches the speakers; only known once the engine runs.
+    var outputLatency: TimeInterval { engine.outputNode.presentationLatency }
+
+    /// Starts the engine without playing, so `outputLatency` is known before a start is scheduled.
+    func prepareToPlay() throws {
+        if !engine.isRunning { try engine.start() }
+    }
+
+    /// Plays from `time` (or where it was), starting `lead` seconds from now: a short lead keeps the two stems together,
+    /// a longer one is how a duet lands on the moment it shares with other devices.
+    func play(from time: TimeInterval? = nil, startingIn lead: TimeInterval = 0.1) throws {
         guard let vocalFile, let instrumentalFile else { return }
         let start = min(max(time ?? base, 0), duration)
         halt()
@@ -94,7 +104,7 @@ final class StemPlayer {
         }
         if !engine.isRunning { try engine.start() }
         // A shared start time in the near future, so neither stem gets a head start.
-        let at = AVAudioTime(hostTime: mach_absolute_time() + AVAudioTime.hostTime(forSeconds: 0.1))
+        let at = AVAudioTime(hostTime: mach_absolute_time() + AVAudioTime.hostTime(forSeconds: max(0, lead)))
         vocalNode.play(at: at)
         instrumentalNode.play(at: at)
         isPlaying = true

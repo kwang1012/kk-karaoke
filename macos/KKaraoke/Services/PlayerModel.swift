@@ -35,6 +35,11 @@ final class PlayerModel {
     /// The server's shared per-track offset: seconds added to every line time.
     private(set) var trackDelay: Double = 0
     private(set) var confidence: String?
+    /// The duet this Mac is singing in: it plays the song itself, starting at the moment the room shares.
+    private(set) var duet: DuetStart?
+    @ObservationIgnored private var pendingDuet: (start: DuetStart, clock: ClockSync)?
+    /// Milliseconds this Mac starts a duet early (negative: late), for output that still sounds off (Bluetooth, a TV).
+    static let duetEarlyKey = "duetEarlyMs"
 
     /// The level of the original singer over the instrumental (0 is a karaoke track). The room calls it the guide level.
     var vocalVolume: Double {
@@ -163,6 +168,47 @@ final class PlayerModel {
     }
 
     func toggle() { perform(isPlaying ? .pause : .play) }
+
+    // MARK: A duet
+
+    /// Plays `track` here whatever the room's player is doing, starting at the moment `start` names on the server's
+    /// clock. Nothing about the sound crosses the network: every device plays the song itself.
+    func playDuet(_ track: Track, _ start: DuetStart, clock: ClockSync, using client: APIClient?) {
+        guard let client else { return }
+        setFollower(false)
+        duet = start
+        pendingDuet = (start, clock)
+        if track.isSameEntry(as: self.track), case .ready = status {
+            stems.stop()
+            isPlaying = false
+            beginDuet()
+        } else {
+            play(track, using: client, autoplay: false) // `load` starts the duet once the stems have arrived
+        }
+    }
+
+    /// Leaves the duet: the room's own player takes over again (the room model sets that up).
+    func endDuet() {
+        guard duet != nil else { return }
+        duet = nil
+        pendingDuet = nil
+        stop()
+    }
+
+    private func beginDuet() {
+        guard let pending = pendingDuet else { return }
+        pendingDuet = nil
+        if cast.isActive { cast.disconnect() } // every device in a duet plays its own audio
+        do {
+            try stems.prepareToPlay() // the output latency is only known once the engine runs
+            let plan = DuetPlan.plan(pending.start, clock: pending.clock, nowUptime: ProcessInfo.processInfo.systemUptime,
+                                     outputLatency: stems.outputLatency,
+                                     earlyMs: UserDefaults.standard.double(forKey: Self.duetEarlyKey))
+            if plan.position >= stems.duration { onEnded?(); return } // a duet that finished long ago: the room model ends it
+            try stems.play(from: plan.position, startingIn: plan.lead)
+            isPlaying = true
+        } catch { status = .failed(error.localizedDescription) }
+    }
 
     func seek(to time: TimeInterval) { perform(.seek(time)) }
 
@@ -384,7 +430,9 @@ final class PlayerModel {
             applyVolumes()
             duration = stems.duration
             status = .ready
-            if autoplayWhenReady {
+            if pendingDuet != nil {
+                beginDuet()
+            } else if autoplayWhenReady {
                 if !cast.isActive { try stems.play() }
                 isPlaying = true
             }

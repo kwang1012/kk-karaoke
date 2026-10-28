@@ -84,6 +84,15 @@ final class RoomModel {
     @ObservationIgnored private var tick = 0
     /// Where in the song to start once its audio is ready, when this Mac took over from another device.
     @ObservationIgnored private var resumeAt: TimeInterval?
+    /// Where this Mac's clock stands against the server's, learned from pings; a duet starts on the server's clock.
+    @ObservationIgnored private(set) var clock = ClockSync()
+    @ObservationIgnored private var clockPings: [String: Double] = [:]
+    @ObservationIgnored private var clockSeq = 0
+    @ObservationIgnored private var clockTask: Task<Void, Never>?
+    /// The duet this Mac is singing in. While it lasts the room's own player is silent: every device plays the song.
+    private(set) var duet: DuetStart?
+    /// The last duet this Mac left: the room remembers a finished duet, and it must not be joined again.
+    @ObservationIgnored private var endedDuet: DuetStart?
 
     /// A pitch heard from a phone is good for this long, and singing counts as going on for this long after it.
     static let remotePitchFresh = 0.3
@@ -122,7 +131,7 @@ final class RoomModel {
         socket.onMessage = { [weak self] in self?.handle($0) }
         socket.onState = { [weak self] state in
             self?.socketState = state
-            if state == .connected { self?.reconnected() }
+            if state == .connected { self?.reconnected(); self?.startClockPings() }
         }
     }
 
@@ -150,6 +159,8 @@ final class RoomModel {
         socket.disconnect()
         publisher?.cancel()
         publisher = nil
+        clockTask?.cancel()
+        clockTask = nil
     }
 
     private func rejoin() {
@@ -469,7 +480,8 @@ final class RoomModel {
             joinURL = joinLink(room: room)
             guard room == activeRoomId else { return }
         }
-        if isFollowing {
+        if let started = info.duet, duet == nil, started != endedDuet { join(duet: started) } // joining a room mid-duet
+        if isFollowing, duet == nil {
             if let index = info.queueIdx, index != queueIdx, queue.indices.contains(index) { queueIdx = index; queueChanged() }
             player?.applyRemote(time: info.currentTime, playing: info.playing, duration: info.duration, volume: info.volume,
                                 vocalOn: info.vocalOn, guideLevel: info.guideLevel)
@@ -480,6 +492,7 @@ final class RoomModel {
     private func queueChanged() {
         guard let player, let client = clientProvider?() else { return }
         defer { preloadNeighbors() }
+        if duet != nil { return } // the duet's song stays until it ends
         if isFollowing { player.follow(currentTrack, using: client); return }
         guard let target = currentTrack else { if player.track != nil { player.stop() }; return }
         if target.isSameEntry(as: player.track) {
@@ -525,9 +538,81 @@ final class RoomModel {
     }
 
     private func songEnded() {
+        if duet != nil { endDuet(); return } // a duet is one song; the queue stays where it was
         guard !isFollowing else { return }
         wantsPlay = true
         Task { await goNext() }
+    }
+
+    // MARK: Singing together
+
+    /// Asks the room to start the current song for everyone at once. The server names the start, so every device
+    /// (this one too) hears the answer and starts together.
+    func startDuet() {
+        guard let track = currentTrack, duet == nil else { return }
+        socket.send(.duetStart(room: activeRoomId, trackId: track.id))
+    }
+
+    func stopDuet() { socket.send(.duetStop(room: activeRoomId)) }
+
+    private func applyDuet(_ message: SocketMessage) {
+        if message.op == "stop" { endDuet(); return }
+        guard let start = DuetStart(message: message.data) else { return }
+        join(duet: start)
+    }
+
+    /// Plays the duet's song here, on the shared start.
+    private func join(duet start: DuetStart) {
+        duet = start
+        wantsPlay = false
+        Task {
+            var track = queue.first { $0.id == start.trackId }
+            if track == nil { await refreshQueue(); track = queue.first { $0.id == start.trackId } }
+            guard duet == start, let player, let client = clientProvider?(), let track else { endDuet(); return }
+            // the room remembers a duet after it ends: do not download a song just to find it is over
+            let position = start.position(atServerMs: clock.serverMs(forLocal: ClockSync.nowMs))
+            if let length = track.durationMs, position >= Double(length) / 1000 { endDuet(); return }
+            player.playDuet(track, start, clock: clock, using: client)
+        }
+    }
+
+    /// Back to the room's own player, which shows or plays whatever the room is on.
+    private func endDuet() {
+        guard let started = duet else { return }
+        endedDuet = started
+        duet = nil
+        player?.endDuet()
+        player?.setFollower(isFollowing)
+        Task { await refreshAll() }
+    }
+
+    private func startClockPings() {
+        clockTask?.cancel()
+        clockPings.removeAll()
+        clockTask = Task { [weak self] in
+            for _ in 0..<6 { // a burst right after connecting, for a good estimate quickly
+                self?.sendClockPing()
+                try? await Task.sleep(for: .milliseconds(150))
+            }
+            while !Task.isCancelled { // then now and then, to follow drift
+                try? await Task.sleep(for: .seconds(15))
+                if Task.isCancelled { return }
+                self?.sendClockPing()
+            }
+        }
+    }
+
+    private func sendClockPing() {
+        guard socketState == .connected else { return }
+        clockSeq += 1
+        let id = String(clockSeq)
+        clockPings[id] = ClockSync.nowMs
+        socket.send(.clockPing(id: id))
+    }
+
+    private func handleClock(_ message: SocketMessage) {
+        guard let id = message.id, let sent = clockPings.removeValue(forKey: id), let serverTime = message.serverTime else { return }
+        clock.add(ClockSync.sample(sentAt: sent, serverTime: serverTime, receivedAt: ClockSync.nowMs))
     }
 
     // MARK: Controls from this Mac's player
@@ -594,6 +679,7 @@ final class RoomModel {
     private func handle(_ message: SocketMessage) {
         switch message.type {
         case "jam": handleJam(message)
+        case "clock": handleClock(message)
         case "queue":
             // the first song into an empty queue starts by itself, on the screen that plays
             if message.data?["autoplay"]?.bool == true, !isFollowing { wantsPlay = true }
@@ -639,9 +725,10 @@ final class RoomModel {
                 remotePitch = (hz, ProcessInfo.processInfo.systemUptime)
                 singing?.wake()
             }
-        case "update": if isFollowing { applyUpdate(data) }
-        case "control": if !isFollowing { runControl(message.op, data) }
+        case "update": if isFollowing, duet == nil { applyUpdate(data) } // in a duet this device follows the shared clock
+        case "control": if !isFollowing, duet == nil { runControl(message.op, data) }
         case "player": applyPlayer(data?["deviceId"]?.string)
+        case "duet": applyDuet(message)
         default: break
         }
     }
@@ -710,7 +797,7 @@ final class RoomModel {
 
     /// Tells everyone in the room how things stand: the time and whether it plays, and (`full`) everything a remote shows.
     private func publish(force: Bool, full: Bool, extra: [String: JSON] = [:]) {
-        guard !isFollowing, let player, socketState == .connected else { return }
+        guard !isFollowing, duet == nil, let player, socketState == .connected else { return }
         var data: [String: JSON] = ["currentTime": .number(player.currentTime), "playing": .bool(player.isPlaying)]
         if full {
             data["queueIdx"] = .number(Double(queueIdx))

@@ -1,6 +1,74 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Sing together" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一起唱"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一起唱"
+          }
+        }
+      }
+    },
+    "Stop singing together" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "结束一起唱"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "結束一起唱"
+          }
+        }
+      }
+    },
+    "Duet sync" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "合唱同步"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "合唱同步"
+          }
+        }
+      }
+    },
+    "When singing together, start this Mac earlier if it sounds behind the others (Bluetooth, a TV), or later if it sounds ahead." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一起唱时，如果这台 Mac 听起来比别人慢（蓝牙、电视），请调成提早开始；听起来比别人快则调成延后。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一起唱時，如果這台 Mac 聽起來比別人慢（藍牙、電視），請調成提早開始；聽起來比別人快則調成延後。"
+          }
+        }
+      }
+    },
     "Backing vocals" : {
       "extractionState" : "manual",
       "localizations" : {

@@ -66,15 +66,32 @@ struct SocketMessage: Codable, Sendable, Equatable {
     /// An update that must not be throttled away: a new song's length, the result of a control.
     var force: Bool?
     var data: JSON?
+    /// A `clock` ping and its answer carry the ping's id, and the answer the server's time in ms.
+    var id: String?
+    var serverTime: Double?
 
-    init(type: String, action: String? = nil, op: String? = nil, roomId: String? = nil, force: Bool? = nil, data: JSON? = nil) {
+    init(type: String, action: String? = nil, op: String? = nil, roomId: String? = nil, force: Bool? = nil, data: JSON? = nil,
+         id: String? = nil, serverTime: Double? = nil) {
         self.type = type
         self.action = action
         self.op = op
         self.roomId = roomId
         self.force = force
         self.data = data
+        self.id = id
+        self.serverTime = serverTime
     }
+
+    /// Asks the server for its time, to learn how far this Mac's clock is from it (see `ClockSync`).
+    static func clockPing(id: String) -> SocketMessage { SocketMessage(type: "clock", id: id) }
+
+    /// Starts a duet on `trackId` (the server names the start time), or stops it.
+    static func duetStart(room: String, trackId: String, from: Double = 0) -> SocketMessage {
+        SocketMessage(type: "jam", action: "duet", op: "start", roomId: room,
+                      data: .object(["trackId": .string(trackId), "from": .number(from)]))
+    }
+
+    static func duetStop(room: String) -> SocketMessage { SocketMessage(type: "jam", action: "duet", op: "stop", roomId: room) }
 
     static func join(room: String, user: User, deviceId: String? = nil) -> SocketMessage {
         var data = JSON.from(user)
@@ -108,6 +125,8 @@ struct RoomInfo: Decodable, Sendable {
     var isOn = false
     var participants: [User] = []
     var code: String?
+    /// The duet the room remembers (a device that joins late works out where the song is), if one was started.
+    var duet: DuetStart?
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -121,10 +140,14 @@ struct RoomInfo: Decodable, Sendable {
         isOn = try c.decodeIfPresent(Bool.self, forKey: .isOn) ?? false
         participants = try c.decodeIfPresent([User].self, forKey: .participants) ?? []
         code = try c.decodeIfPresent(String.self, forKey: .code)
+        duet = DuetStart(trackId: try c.decodeIfPresent(String.self, forKey: .duetTrack),
+                         from: try c.decodeIfPresent(Double.self, forKey: .duetFrom),
+                         startAt: try c.decodeIfPresent(Double.self, forKey: .duetAt))
     }
 
     private enum CodingKeys: String, CodingKey {
         case currentTime, playing, volume, vocalOn, guideLevel, duration, queueIdx, isOn, participants, code
+        case duetTrack, duetFrom, duetAt
     }
 }
 

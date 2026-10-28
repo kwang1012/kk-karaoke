@@ -5,6 +5,7 @@ import SwiftUI
 struct PlayerBar: View {
   @State private var volumeBeforeMute = 0.8
   @Environment(PlayerModel.self) private var player
+  @Environment(RoomModel.self) private var room
   @State private var scrubbing: Double?
   @State private var dragging = false
   @State private var showMixer = false
@@ -127,6 +128,15 @@ struct PlayerBar: View {
               .accessibilityLabel("Volume")
           }
           .padding(.horizontal, 6)
+          Button {
+            if room.duet == nil { room.startDuet() } else { room.stopDuet() }
+          } label: {
+            Image(systemName: "person.2").font(.system(size: 15))
+          }
+          .buttonStyle(WebIconButtonStyle()).foregroundStyle(room.duet == nil ? Color.primary : AppTheme.accent)
+          .help(room.duet == nil ? "Sing together" : "Stop singing together")
+          .accessibilityLabel(room.duet == nil ? "Sing together" : "Stop singing together")
+          .disabled(room.currentTrack == nil)
           Button {
             if WindowFocus.isVisible(MiniLyrics.windowID) {
               dismissWindow(id: MiniLyrics.windowID)
@@ -273,6 +283,7 @@ struct ReportLyricsButton: View {
 
 struct MixerView: View {
   @State private var showOutputs = false
+  @AppStorage(PlayerModel.duetEarlyKey) private var duetEarlyMs = 0.0
   @Environment(PlayerModel.self) private var player
   @Environment(SingingModel.self) private var singing
 
@@ -309,6 +320,16 @@ struct MixerView: View {
       }
       Text(
         "Shows the lyrics earlier on this Mac only, to make up for how long it takes to read and sing."
+      )
+      .font(.caption).foregroundStyle(.secondary)
+      LabeledContent("Duet sync") {
+        HStack(spacing: 8) {
+          Slider(value: $duetEarlyMs, in: -300...300, step: 5).stableCursor(.link)
+          Text("\(Int(duetEarlyMs)) ms").font(.system(size: 12).monospacedDigit()).frame(width: 52, alignment: .trailing)
+        }
+      }
+      Text(
+        "When singing together, start this Mac earlier if it sounds behind the others (Bluetooth, a TV), or later if it sounds ahead."
       )
       .font(.caption).foregroundStyle(.secondary)
       LabeledContent("This song's timing") {

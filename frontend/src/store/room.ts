@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import { User } from 'src/models/user';
 import { api } from 'src/utils/api';
-import { useAuthStore } from 'src/lib/auth';
-import { uuid } from 'src/utils';
+import { profileOf, saveProfile, useAuthStore } from 'src/lib/auth';
+import { PRESET_AVATARS, uuid } from 'src/utils';
 import { roomForAccount } from 'src/accountRoom';
 import { carryQueue } from 'src/carryQueue';
 import { create } from 'zustand';
@@ -152,11 +152,33 @@ export const useIsLoggedIn = () => {
   return roomId && nickname && avatar;
 };
 
+/** Signing in takes the account's name and face (or gives it this device's), so no device asks again. */
+function adoptProfile(session: NonNullable<ReturnType<typeof useAuthStore.getState>['session']>) {
+  const saved = profileOf(session);
+  const local = useRoomStore.getState();
+  const accountHasProfile = !!(session.user.user_metadata?.nickname && saved.avatar);
+  const nickname = accountHasProfile ? saved.nickname! : local.nickname || saved.nickname || 'Guest';
+  const avatar = accountHasProfile ? saved.avatar! : local.avatar || PRESET_AVATARS[0];
+  useRoomStore.setState({ nickname, avatar });
+  if (!accountHasProfile) saveProfile(nickname, avatar).catch(() => {});
+}
+
+// While signed in, a changed name or face follows the account to the other devices.
+useRoomStore.subscribe((state, previous) => {
+  const session = useAuthStore.getState().session;
+  if (!session || !state.nickname || !state.avatar) return;
+  if (state.nickname === previous.nickname && state.avatar === previous.avatar) return;
+  const meta = session.user.user_metadata ?? {};
+  if (meta.nickname === state.nickname && meta.avatar === state.avatar) return;
+  saveProfile(state.nickname, state.avatar).catch(() => {});
+});
+
 // Follow the signed-in account: its id is the room, on every device.
 useAuthStore.subscribe((state, previous) => {
   const userId = state.session?.user.id;
   const previousUserId = previous.session?.user.id;
   if (userId === previousUserId) return; // a refreshed token is the same account
+  if (userId) adoptProfile(state.session!);
   const change = roomForAccount(useRoomStore.getState(), userId, previousUserId, uuid);
   if (!change) return;
   const { migrateFrom, ...rooms } = change;

@@ -8,10 +8,12 @@ import { PlaylistContext } from 'src/context/playlist';
 import { TableComponents, TableVirtuoso } from 'react-virtuoso';
 import { usePlaylistStore } from 'src/store/playlist';
 import { useT } from 'src/i18n';
+import { Button } from 'src/components/ui/button';
+import { Check, ListPlus } from 'lucide-react';
 
 const VirtuosoTableComponents: TableComponents<Track> = {
   Table: (props) => {
-    const { collection, collectionType, collectionImage, color, setIsSticky, scrollTop, setHalfway, isLoading } =
+    const { collection, collectionType, collectionImage, color, setIsSticky, scrollTop, setHalfway, isLoading, trackCount, onAddAll, addAll } =
       useContext(PlaylistContext);
     const heroLoading = isLoading && !collection.name; // opened directly, nothing known about it yet
     const t = useT();
@@ -27,7 +29,7 @@ const VirtuosoTableComponents: TableComponents<Track> = {
       <>
         <div
           ref={headerRef}
-          className="grid h-[335px] grid-cols-1 place-items-center p-[5px] pt-[15px] md:h-[200px] md:grid-cols-[auto_1fr] md:p-5"
+          className="grid h-[395px] grid-cols-1 place-items-center p-[5px] pt-[15px] md:h-[200px] md:grid-cols-[auto_1fr] md:p-5"
           style={{
             backgroundImage: `linear-gradient(to bottom, ${color}, ${color}40)`,
           }}
@@ -49,7 +51,26 @@ const VirtuosoTableComponents: TableComponents<Track> = {
             ) : (
               <>
                 <span className="line-clamp-2 text-2xl font-extrabold leading-tight tracking-tight md:text-5xl">{collection.name}</span>
-                <div className="mt-2 line-clamp-1 text-sm opacity-80">{collection.description}</div>
+                <div className="mt-2 line-clamp-1 text-sm opacity-80">
+                  {collection.importStats
+                    ? t('spotify.matched', { matched: collection.importStats.matched, requested: collection.importStats.requested })
+                    : collection.description}
+                </div>
+                {trackCount > 0 && (
+                  <Button
+                    size="sm"
+                    disabled={addAll.state === 'adding'}
+                    className="mt-3 w-fit bg-white text-black shadow-none hover:bg-white/90"
+                    onClick={onAddAll}
+                  >
+                    {addAll.state === 'done' ? <Check /> : <ListPlus />}
+                    {addAll.state === 'adding'
+                      ? t('playlist.addingAll', { done: addAll.done, total: addAll.total })
+                      : addAll.state === 'done'
+                        ? t('playlist.addedAll')
+                        : t('playlist.addAll')}
+                  </Button>
+                )}
               </>
             )}
           </div>

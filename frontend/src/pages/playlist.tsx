@@ -15,7 +15,9 @@ import { PlaylistProvider } from 'src/context/playlist';
 import { useDebouncedCallback } from 'src/hooks/debounce';
 import { useT } from 'src/i18n';
 import { Button } from 'src/components/ui/button';
-import { importSpotifyPlaylist } from 'src/lib/spotify';
+import { SpotifyMark } from 'src/components/ProviderButtons';
+import { importSpotifyPlaylist, SpotifyForbidden, useImportProgress } from 'src/lib/spotify';
+import { Progress } from 'src/components/ui/progress';
 
 type ReturnType = {
   collection: Collection;
@@ -48,7 +50,7 @@ export default function PlaylistView() {
   const insertSongToQueue = usePlayerStore((state) => state.insertSongToQueue);
   const downloadSong = usePlayerStore((state) => state.downloadSong);
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: [collectionType, id],
     queryFn: () => fetchTracks(collectionType, id || ''),
   });
@@ -84,6 +86,17 @@ export default function PlaylistView() {
     }
     insertSongToQueue(track);
   }, 100);
+  const [addAll, setAddAll] = useState({ state: 'idle' as 'idle' | 'adding' | 'done', done: 0, total: 0 });
+  const onAddAll = async () => {
+    if (addAll.state === 'adding' || tracks.length === 0) return;
+    setAddAll({ state: 'adding', done: 0, total: tracks.length });
+    for (const [index, track] of tracks.entries()) {
+      await addSongToQueue(collectionType === 'album' ? { ...track, album: collection as Album } : track);
+      setAddAll({ state: 'adding', done: index + 1, total: tracks.length });
+    }
+    setAddAll({ state: 'done', done: tracks.length, total: tracks.length });
+  };
+  const progress = useImportProgress();
   const onDownload = (track: Track) => {
     downloadSong(track);
   };
@@ -134,11 +147,14 @@ export default function PlaylistView() {
           setScrollTop,
           halfway,
           setHalfway,
+          trackCount: tracks.length,
+          onAddAll,
+          addAll,
         }}
       >
         {isError ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-            <p className="text-sm text-muted-foreground">{t('playlist.failed')}</p>
+            <p className="text-sm text-muted-foreground">{error instanceof SpotifyForbidden ? t('spotify.forbidden') : t('playlist.failed')}</p>
             <Button size="sm" onClick={() => refetch()}>
               {t('common.retry')}
             </Button>
@@ -146,6 +162,20 @@ export default function PlaylistView() {
         ) : !isLoading && tracks.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center px-6 text-center">
             <p className="text-sm text-muted-foreground">{t('playlist.empty')}</p>
+          </div>
+        ) : isLoading && collectionType === 'spotify' ? (
+          <div className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center">
+            <SpotifyMark className="size-10 animate-pulse" />
+            <div>
+              <p className="font-semibold">{t(progress.total ? 'spotify.matching' : 'spotify.reading')}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{t('spotify.matchingHint')}</p>
+            </div>
+            {progress.total > 0 && (
+              <div className="w-full max-w-xs">
+                <Progress value={(progress.done / progress.total) * 100} />
+                <p className="mt-2 text-xs text-muted-foreground">{t('spotify.matchingProgress', { done: progress.done, total: progress.total })}</p>
+              </div>
+            )}
           </div>
         ) : (
           <PlaylistTable tracks={showingTracks} />

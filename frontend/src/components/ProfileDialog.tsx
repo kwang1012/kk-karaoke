@@ -28,14 +28,14 @@ export default function ProfileDialog({ open, onOpenChange }: { open: boolean; o
   };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>{t('remote.profile')}</DialogTitle>
           <DialogDescription>{t('settings.nicknameHint')}</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 px-6 pb-6">
           <Input value={name} maxLength={30} aria-label={t('settings.nickname')} placeholder={t('settings.nickname')} onChange={(e) => setName(e.target.value)} />
-          <AvatarPicker className="grid grid-cols-5 gap-3" avatars={PRESET_AVATARS} value={face} onChange={setFace} />
+          <AvatarPicker className="grid grid-cols-6 gap-2" avatars={PRESET_AVATARS} value={face} onChange={setFace} />
           <Button className="w-full" disabled={!name.trim()} onClick={save}>{t('common.save')}</Button>
         </div>
       </DialogContent>

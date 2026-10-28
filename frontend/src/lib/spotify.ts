@@ -1,3 +1,4 @@
+import { create } from 'zustand';
 import { api } from 'src/utils/api';
 import type { Collection, Track } from 'src/models/spotify';
 
@@ -115,6 +116,12 @@ async function accessToken(): Promise<string> {
   return stored.access;
 }
 
+export class SpotifyForbidden extends Error {
+  constructor() {
+    super('spotify-forbidden');
+  }
+}
+
 async function spotifyGet(url: string) {
   const response = await fetch(url.startsWith('http') ? url : `https://api.spotify.com/v1${url}`, {
     headers: { Authorization: `Bearer ${await accessToken()}` },
@@ -123,19 +130,40 @@ async function spotifyGet(url: string) {
     disconnectSpotify();
     throw new Error('Not connected to Spotify');
   }
+  if (response.status === 403) throw new SpotifyForbidden();
   if (!response.ok) throw new Error(`Spotify returned ${response.status}`);
   return response.json();
 }
 
-/** The signed-in Spotify user's playlists, shaped like the collections the rest of the app shows. */
-export async function spotifyPlaylists(): Promise<Collection[]> {
-  const out: Collection[] = [];
+export interface SpotifyProfile {
+  id: string;
+  name: string;
+  image?: string;
+}
+
+export async function spotifyProfile(): Promise<SpotifyProfile> {
+  const me: any = await spotifyGet('/me');
+  return { id: me.id, name: me.display_name || me.id, image: me.images?.[0]?.url };
+}
+
+/**
+ * The user's playlists as collections. Spotify only returns the songs of playlists the user owns or shares,
+ * so the rest (ones they merely follow) are counted but left out: opening them would only fail.
+ */
+export async function spotifyPlaylists(): Promise<{ playlists: Collection[]; hidden: number }> {
+  const me = await spotifyProfile();
+  const playlists: Collection[] = [];
+  let hidden = 0;
   let next: string | null = '/me/playlists?limit=50';
-  while (next && out.length < 500) {
+  while (next && playlists.length + hidden < 500) {
     const page: any = await spotifyGet(next);
     for (const p of page.items ?? []) {
       if (!p) continue;
-      out.push({
+      if (p.owner?.id !== me.id && !p.collaborative) {
+        hidden += 1;
+        continue;
+      }
+      playlists.push({
         id: p.id,
         name: p.name,
         description: p.description ?? '',
@@ -147,12 +175,18 @@ export async function spotifyPlaylists(): Promise<Collection[]> {
     }
     next = page.next;
   }
-  return out;
+  return { playlists, hidden };
 }
 
-/** A playlist's songs matched to playable recordings. Songs we cannot match are left out. */
+/** How far the playlist being matched has got, for the progress shown while it loads. */
+export const useImportProgress = create<{ done: number; total: number }>(() => ({ done: 0, total: 0 }));
+
+const BATCH = 20;
+
+/** A playlist's songs matched to playable recordings, a batch at a time. Songs we cannot match are left out. */
 export async function importSpotifyPlaylist(id: string): Promise<{ collection: Collection; tracks: Track[] }> {
-  const meta = await spotifyGet(`/playlists/${encodeURIComponent(id)}?fields=name,owner(display_name)`);
+  useImportProgress.setState({ done: 0, total: 0 });
+  const meta = await spotifyGet(`/playlists/${encodeURIComponent(id)}?fields=name,images,description,owner(display_name)`);
   const entries: { title: string; artist: string }[] = [];
   let next: string | null = `/playlists/${encodeURIComponent(id)}/items?limit=100`;
   while (next && entries.length < 200) {
@@ -164,10 +198,37 @@ export async function importSpotifyPlaylist(id: string): Promise<{ collection: C
     }
     next = page.next;
   }
-  const { data } = await api.post('/import/resolve', {
-    name: meta.name ?? 'Spotify',
-    owner: meta.owner?.display_name || 'Spotify',
-    entries,
-  }, { timeout: 120_000 });
-  return { collection: { ...data.collection, id }, tracks: data.tracks };
+  useImportProgress.setState({ done: 0, total: entries.length });
+  const tracks: Track[] = [];
+  const seen = new Set<string>();
+  let collection: Collection | null = null;
+  for (let i = 0; i < entries.length; i += BATCH) {
+    const { data } = await api.post(
+      '/import/resolve',
+      { name: meta.name ?? 'Spotify', owner: meta.owner?.display_name || 'Spotify', entries: entries.slice(i, i + BATCH) },
+      { timeout: 90_000 }
+    );
+    collection ??= data.collection;
+    for (const track of data.tracks as Track[]) {
+      if (!seen.has(track.id)) {
+        seen.add(track.id);
+        tracks.push(track);
+      }
+    }
+    useImportProgress.setState({ done: Math.min(i + BATCH, entries.length) });
+  }
+  const cover = meta.images?.[0]?.url;
+  return {
+    collection: {
+      ...(collection ?? ({} as Collection)),
+      id,
+      name: meta.name ?? 'Spotify',
+      description: meta.description ?? '',
+      owner: { displayName: meta.owner?.display_name ?? 'Spotify' },
+      images: cover ? [{ url: cover }] : (collection?.images ?? []),
+      tracks: { total: tracks.length },
+      importStats: { matched: tracks.length, requested: entries.length },
+    } as Collection,
+    tracks,
+  };
 }

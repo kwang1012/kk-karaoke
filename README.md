@@ -75,13 +75,17 @@ One-time server setup (daily approvals require no Supabase dashboard):
 4. Run `cd backend && uv run python scripts/catalog_db.py init` to apply the registration table migration, then restart the API
    and rebuild the frontend. Existing host accounts continue to work.
 
-### Open sign-up and Google (optional)
+### Open sign-up, email codes, Google and Spotify (optional)
 
-Instead of invite-only accounts you can let anyone register:
+With `VITE_OPEN_SIGNUP=1` the sign-in dialog is email-first: enter an email, get a 6-digit code, and a new address gets an
+account automatically (no password needed; "Use a password instead" remains for invited accounts). Google and Spotify buttons sit below.
 
-1. In Supabase, enable email sign-ups (and the Google provider if you want it), and add your site URL to the redirect URLs.
-2. Build the frontend with `VITE_OPEN_SIGNUP=1`. The dialog then offers **Create an account** and **Continue with Google**.
-3. **Set `ADMIN_EMAILS` (comma-separated) in `backend/.env` first.** Without it every signed-in account can open `/admin`.
+1. In Supabase, enable email sign-ups. In **Authentication → Email Templates**, add `{{ .Token }}` to the *Magic Link* and
+   *Confirm signup* templates so the email shows the code. Configure custom SMTP (the default sender only reaches team members).
+2. Google: enable the provider with your Google OAuth client. Spotify: enable the **Spotify** provider with your Spotify app's
+   client ID and secret. For both, the provider-side redirect URI is `https://<project-ref>.supabase.co/auth/v1/callback`.
+3. Add your site (and `http://localhost:3000` for dev) under Supabase **URL Configuration → Redirect URLs**.
+4. **Set `ADMIN_EMAILS` (comma-separated) in `backend/.env` first.** Without it every signed-in account can open `/admin`.
 
 ### Importing Spotify playlists
 

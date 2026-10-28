@@ -16,6 +16,8 @@ import { PRESET_AVATARS } from 'src/utils';
 import { publicUrl } from 'src/utils/publicUrl';
 import AppSlider from 'src/components/Slider';
 import { canChooseOutput, canUseMic, useInputDevices, useOutputDevices } from 'src/hooks/audioDevices';
+import { isSpotifyConnected, spotifyAvailable } from 'src/lib/spotify';
+import { authEnabled, signOut, useAuthStore, useLoginModal } from 'src/lib/auth';
 import { LANGUAGES, useLanguageStore, useT, type Language } from 'src/i18n';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -60,6 +62,7 @@ export default function SettingsDialog() {
   const setOutputDeviceId = useSettingStore((state) => state.setOutputDeviceId);
   const duetEarlyMs = useSettingStore((state) => state.duetEarlyMs);
   const setDuetEarlyMs = useSettingStore((state) => state.setDuetEarlyMs);
+  const session = useAuthStore((state) => state.session);
   const outputDevices = useOutputDevices(open);
   const inputDevices = useInputDevices(open);
   const micOn = useSettingStore((state) => state.micOn);
@@ -98,6 +101,44 @@ export default function SettingsDialog() {
           <DialogDescription>{t('settings.subtitle')}</DialogDescription>
         </DialogHeader>
         <AppScrollbar className="px-6 pb-6">
+
+        {(authEnabled || spotifyAvailable) && (
+          <Section title={t('settings.account')}>
+        {authEnabled && (
+            <Row
+              title={session ? t('login.signedIn', { email: session.user.email ?? '' }) : t('settings.notSignedIn')}
+            >
+              {session ? (
+                <Button variant="outline" size="sm" onClick={() => signOut()}>{t('login.signOut')}</Button>
+              ) : (
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setOpen(false);
+                    useLoginModal.setState({ open: true, reason: 'host' });
+                  }}
+                >
+                  {t('login.signIn')}
+                </Button>
+              )}
+            </Row>
+        )}
+            {spotifyAvailable && (
+              <Row title={t('spotify.title')} description={isSpotifyConnected() ? t('spotify.connected') : t('spotify.notConnected')}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setOpen(false);
+                    navigate('/spotify');
+                  }}
+                >
+                  {isSpotifyConnected() ? t('spotify.open') : t('spotify.connect')}
+                </Button>
+              </Row>
+            )}
+          </Section>
+        )}
 
         <Section title={t('settings.general')}>
           <Row title={t('settings.language')} description={t('settings.languageHint')}>

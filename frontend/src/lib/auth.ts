@@ -17,6 +17,22 @@ export const usePasswordSetup = create<{ open: boolean; setOpen: (open: boolean)
 }));
 /** Anyone may create an account (turn on sign-ups in Supabase and set ADMIN_EMAILS on the server). */
 export const openSignup = authEnabled && import.meta.env.VITE_OPEN_SIGNUP === '1';
+/** A sign-in that came back from Google/Spotify/an email link with an error in the URL (Supabase puts it in the hash). */
+const callbackError = (() => {
+  const hash = new URLSearchParams(window.location.hash.slice(1));
+  const query = new URLSearchParams(window.location.search);
+  const message = hash.get('error_description') ?? query.get('error_description') ?? hash.get('error') ?? query.get('error');
+  if (!message || !authEnabled) return null;
+  const clean = new URL(window.location.href);
+  ['error', 'error_code', 'error_description'].forEach((key) => clean.searchParams.delete(key));
+  if (hash.get('error') || hash.get('error_description')) clean.hash = '';
+  window.history.replaceState(null, '', clean);
+  return message;
+})();
+export const useAuthError = create<{ message: string | null; clear: () => void }>((set) => ({
+  message: callbackError,
+  clear: () => set({ message: null }),
+}));
 const supabase = authEnabled ? createClient(url!, key!) : null;
 
 interface AuthState {
@@ -55,11 +71,43 @@ export async function signUp(email: string, password: string, name: string): Pro
   return { error: error?.message ?? null, confirm: !error && !data.session };
 }
 
-export async function signInWithGoogle(): Promise<string | null> {
+export type OAuthProvider = 'google' | 'spotify';
+
+export async function signInWithProvider(provider: OAuthProvider): Promise<string | null> {
   if (!supabase) return 'Sign-in is unavailable.';
-  if (!/^https?:$/.test(window.location.protocol)) return 'Google sign-in needs the web app.';
-  const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.href } });
+  if (!/^https?:$/.test(window.location.protocol)) return 'This sign-in needs the web app.';
+  const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: window.location.href } });
   return error?.message ?? null;
+}
+
+export const signInWithGoogle = () => signInWithProvider('google');
+
+/** Email a one-time code (and link). A new address gets an account when sign-ups are open. */
+export async function sendEmailCode(email: string): Promise<string | null> {
+  if (!supabase) return 'Sign-in is unavailable.';
+  const emailRedirectTo = /^https?:$/.test(window.location.protocol) ? window.location.href : undefined;
+  const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: openSignup, emailRedirectTo } });
+  return error?.message ?? null;
+}
+
+export async function verifyEmailCode(email: string, token: string): Promise<string | null> {
+  if (!supabase) return 'Sign-in is unavailable.';
+  const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
+  return error?.message ?? null;
+}
+
+/** The name and face saved on an account, so every device signs in as the same person. */
+export function profileOf(session: Session | null): { nickname?: string; avatar?: string } {
+  const meta = (session?.user.user_metadata ?? {}) as Record<string, unknown>;
+  const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : undefined);
+  return {
+    nickname: text(meta.nickname) ?? text(meta.name) ?? text(meta.full_name) ?? text(session?.user.email?.split('@')[0]),
+    avatar: text(meta.avatar),
+  };
+}
+
+export async function saveProfile(nickname: string, avatar: string) {
+  await supabase?.auth.updateUser({ data: { nickname, avatar } });
 }
 
 export async function signOut() {

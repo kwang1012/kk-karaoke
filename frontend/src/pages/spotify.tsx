@@ -1,13 +1,18 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { ListMusic, LogOut, Search } from 'lucide-react';
 import { usePageTitle } from 'src/hooks/documentTitle';
 import { useT } from 'src/i18n';
 import { Button } from 'src/components/ui/button';
+import { Input } from 'src/components/ui/input';
+import { Skeleton } from 'src/components/ui/skeleton';
+import { Avatar, AvatarFallback, AvatarImage } from 'src/components/ui/avatar';
 import AppScrollbar from 'src/components/Scrollbar';
+import { SpotifyMark } from 'src/components/ProviderButtons';
 import placeholder from 'src/assets/placeholder.png';
 import {
-  completeSpotifyLogin, connectSpotify, disconnectSpotify, isSpotifyConnected, spotifyAvailable, spotifyPlaylists,
+  completeSpotifyLogin, connectSpotify, disconnectSpotify, isSpotifyConnected, spotifyAvailable, spotifyPlaylists, spotifyProfile,
 } from 'src/lib/spotify';
 import { authEnabled, openLogin, useAuthStore } from 'src/lib/auth';
 
@@ -23,82 +28,165 @@ export function SpotifyCallback() {
     completeSpotifyLogin(window.location.search).then((ok) => (ok ? navigate('/spotify', { replace: true }) : setFailed(true)));
   }, [navigate]);
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center text-muted-foreground">
+    <div className="flex h-full w-full flex-col items-center justify-center gap-4 p-6 text-center text-muted-foreground">
       {failed ? (
         <>
           <p>{t('spotify.failed')}</p>
           <Button asChild><Link to="/spotify">{t('spotify.tryAgain')}</Link></Button>
         </>
       ) : (
-        t('spotify.connecting')
+        <>
+          <SpotifyMark className="size-10 animate-pulse" />
+          {t('spotify.connecting')}
+        </>
       )}
     </div>
   );
 }
 
-/** The user's Spotify playlists, to pick one to bring in. */
+const STEPS = ['spotify.step1', 'spotify.step2', 'spotify.step3'] as const;
+
+function Intro({ signedIn, onConnect }: { signedIn: boolean; onConnect: () => void }) {
+  const t = useT();
+  return (
+    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#1ed760] via-[#14a14a] to-[#0a4a24] p-6 text-white shadow-lg md:p-10">
+      <div className="pointer-events-none absolute -top-20 -right-16 size-72 rounded-full bg-white/10 blur-3xl" />
+      <SpotifyMark className="size-12 drop-shadow" />
+      <h1 className="mt-4 max-w-md text-3xl font-extrabold tracking-tight md:text-4xl">{t('spotify.heroTitle')}</h1>
+      <p className="mt-2 max-w-md text-sm text-white/85">{t('spotify.heroSub')}</p>
+      <ol className="mt-6 grid gap-3 sm:grid-cols-3">
+        {STEPS.map((key, index) => (
+          <li key={key} className="flex items-center gap-3 rounded-2xl bg-black/20 px-4 py-3 text-sm backdrop-blur">
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-white text-xs font-bold text-black">{index + 1}</span>
+            {t(key)}
+          </li>
+        ))}
+      </ol>
+      <div className="mt-6 flex flex-wrap items-center gap-3">
+        <Button size="lg" className="bg-white text-black shadow-none hover:bg-white/90" onClick={onConnect}>
+          {signedIn ? t('spotify.connect') : t('spotify.signInFirst')}
+        </Button>
+        <span className="text-xs text-white/75">{t('spotify.privacy')}</span>
+      </div>
+    </div>
+  );
+}
+
+function PlaylistGrid() {
+  const t = useT();
+  const navigate = useNavigate();
+  const [filter, setFilter] = useState('');
+  const profile = useQuery({ queryKey: ['spotify-profile'], queryFn: spotifyProfile, staleTime: 10 * 60_000, retry: false });
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ['spotify-playlists'], queryFn: spotifyPlaylists, staleTime: 60_000, retry: false,
+  });
+  const shown = useMemo(
+    () => (data?.playlists ?? []).filter((p) => p.name.toLowerCase().includes(filter.trim().toLowerCase())),
+    [data, filter]
+  );
+
+  return (
+    <>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-extrabold tracking-tight md:text-3xl">{t('spotify.yours')}</h1>
+        <div className="flex shrink-0 items-center gap-2">
+          {profile.data && (
+            <span className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Avatar className="size-7 bg-secondary">
+                <AvatarImage src={profile.data.image} alt="" />
+                <AvatarFallback>{profile.data.name.slice(0, 1)}</AvatarFallback>
+              </Avatar>
+              <span className="max-w-28 truncate max-sm:hidden">{profile.data.name}</span>
+            </span>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label={t('spotify.disconnect')}
+            onClick={() => { disconnectSpotify(); window.location.assign('/spotify'); }}
+          >
+            <LogOut /> <span className="max-sm:hidden">{t('spotify.disconnect')}</span>
+          </Button>
+        </div>
+      </div>
+
+      {(data?.playlists.length ?? 0) > 6 && (
+        <div className="relative mt-4">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t('spotify.search')} className="h-11 pl-9" />
+        </div>
+      )}
+
+      {isError ? (
+        <div className="mt-10 flex flex-col items-center gap-3 text-center">
+          <p className="text-sm text-muted-foreground">{t('spotify.failed')}</p>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => refetch()}>{t('common.retry')}</Button>
+            <Button size="sm" onClick={connectSpotify}>{t('spotify.connect')}</Button>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-5 grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {isLoading &&
+            Array.from({ length: 10 }, (_, i) => (
+              <div key={i}>
+                <Skeleton className="aspect-square w-full rounded-xl" />
+                <Skeleton className="mt-2 h-4 w-3/4" />
+                <Skeleton className="mt-1.5 h-3 w-1/3" />
+              </div>
+            ))}
+          {shown.map((playlist) => (
+            <button
+              key={playlist.id}
+              type="button"
+              onClick={() => navigate(`/spotify/${playlist.id}`, { state: { collection: playlist } })}
+              className="group min-w-0 rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <div className="relative aspect-square overflow-hidden rounded-xl bg-secondary shadow-md">
+                <img
+                  referrerPolicy="no-referrer"
+                  loading="lazy"
+                  src={playlist.images?.[0]?.url || placeholder}
+                  alt=""
+                  className="size-full object-cover transition-transform duration-300 group-hover:scale-105"
+                />
+                <span className="absolute right-2 bottom-2 flex size-9 translate-y-2 items-center justify-center rounded-full bg-primary text-primary-foreground opacity-0 shadow-lg transition-all group-hover:translate-y-0 group-hover:opacity-100 max-md:hidden">
+                  <ListMusic className="size-4" />
+                </span>
+              </div>
+              <div className="mt-2 truncate text-sm font-semibold">{playlist.name}</div>
+              <div className="truncate text-xs text-muted-foreground">
+                {playlist.tracks.total > 0 ? t('spotify.songs', { count: playlist.tracks.total }) : playlist.owner.displayName}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+      {data && shown.length === 0 && !isLoading && (
+        <p className="mt-10 text-center text-sm text-muted-foreground">{filter ? t('spotify.noMatch') : t('spotify.empty')}</p>
+      )}
+      {!!data?.hidden && <p className="mt-8 text-center text-xs text-muted-foreground">{t('spotify.hidden', { count: data.hidden })}</p>}
+    </>
+  );
+}
+
+/** Connect Spotify, then pick one of its playlists to bring in. */
 export default function SpotifyPlaylists() {
   const t = useT();
   usePageTitle(t('spotify.title'));
-  const [connected, setConnected] = useState(isSpotifyConnected());
+  const [connected] = useState(isSpotifyConnected());
   const session = useAuthStore((state) => state.session);
   const signedIn = !authEnabled || !!session;
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ['spotify-playlists', connected],
-    queryFn: spotifyPlaylists,
-    enabled: connected,
-    staleTime: 60_000,
-    retry: false,
-  });
-  useEffect(() => {
-    if (isError) setConnected(isSpotifyConnected()); // a revoked token clears itself
-  }, [isError]);
 
   return (
     <AppScrollbar className="h-full">
-      <div className="mx-auto w-full max-w-3xl px-4 py-6 md:px-8">
-        <h1 className="text-2xl font-extrabold tracking-tight">{t('spotify.title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('spotify.hint')}</p>
+      <div className="mx-auto w-full max-w-5xl px-4 py-5 md:px-8 md:py-8">
         {!spotifyAvailable ? (
-          <p className="mt-6 text-sm text-muted-foreground">{t('spotify.unavailable')}</p>
-        ) : !signedIn ? (
-          <Button className="mt-6" onClick={() => openLogin('host')}>{t('spotify.signInFirst')}</Button>
+          <p className="py-16 text-center text-sm text-muted-foreground">{t('spotify.unavailable')}</p>
         ) : !connected ? (
-          <Button className="mt-6" onClick={connectSpotify}>{t('spotify.connect')}</Button>
+          <Intro signedIn={signedIn} onConnect={() => (signedIn ? connectSpotify() : openLogin('host'))} />
         ) : (
-          <>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mt-3"
-              onClick={() => { disconnectSpotify(); setConnected(false); }}
-            >
-              {t('spotify.disconnect')}
-            </Button>
-            {isLoading && <p className="mt-4 text-sm text-muted-foreground">{t('player.loading')}</p>}
-            {isError && <p className="mt-4 text-sm text-destructive">{t('spotify.failed')}</p>}
-            {data && data.length === 0 && <p className="mt-4 text-sm text-muted-foreground">{t('spotify.empty')}</p>}
-            <div className="mt-4 flex flex-col gap-1">
-              {data?.map((playlist) => (
-                <Link
-                  key={playlist.id}
-                  to={`/spotify/${playlist.id}`}
-                  state={{ collection: playlist }}
-                  className="flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-foreground/[0.06]"
-                >
-                  <img
-                    referrerPolicy="no-referrer"
-                    src={playlist.images?.[0]?.url || placeholder}
-                    className="size-12 rounded-md object-cover"
-                  />
-                  <span className="min-w-0">
-                    <span className="block truncate font-medium">{playlist.name}</span>
-                    <span className="block truncate text-xs text-muted-foreground">{playlist.owner?.displayName}</span>
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </>
+          <PlaylistGrid />
         )}
       </div>
     </AppScrollbar>

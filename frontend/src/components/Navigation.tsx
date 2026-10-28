@@ -23,7 +23,7 @@ export default function AppNavigation() {
 
   const selectedIndex = useMemo(() => {
     const { pathname } = location;
-    if (pathname === '/' || pathname.startsWith('/playlist')) return 0;
+    if (pathname === '/' || pathname.startsWith('/playlist') || pathname.startsWith('/spotify')) return 0;
     if (pathname.startsWith('/search')) return 1;
     if (pathname.startsWith('/library')) return 2;
     if (pathname.startsWith('/play')) return 3;

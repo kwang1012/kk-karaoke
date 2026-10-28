@@ -19,6 +19,9 @@ export const PlaylistContext = createContext({
   scrollTop: 0,
   setScrollTop: (scrollTop: number) => {},
   halfway: false,
+  trackCount: 0,
+  onAddAll: () => {},
+  addAll: { state: 'idle' as 'idle' | 'adding' | 'done', done: 0, total: 0 },
   setHalfway: (halfway: boolean) => {},
 });
 

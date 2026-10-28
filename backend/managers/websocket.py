@@ -12,6 +12,7 @@ from models.user import User
 from managers.db import get_redis
 from interfaces.jam import RedisJamInterface
 from middlewares.format import convert_keys
+from services.duet import DuetRegistry, Member, Session
 import services.jam as jam
 
 
@@ -40,6 +41,9 @@ class WebSocketManager:
         self.connected_clients: List[WebSocket] = []
         self.queue: List[dict] = []
         self.jam_interface = RedisJamInterface(get_redis())
+        # Singing together: each room's lobby and session, and which duet member each socket is.
+        self.duets = DuetRegistry()
+        self.duet_members: Dict[WebSocket, str] = {}
 
     def add_client(self, websocket):
         print("New client connected:", websocket.client)
@@ -103,6 +107,7 @@ class WebSocketManager:
                 "participant": user.model_dump()
             }
         })
+        await self.duet_member_left(room_id, self.duet_members.pop(client, None))
 
     async def multicast(self, roomId, data, *, socket=None):
         async with self._send_lock:
@@ -204,6 +209,87 @@ class WebSocketManager:
                 await socket.send_json(self._player_message(room_id, self.jam_interface.player_of(room_id)))
             except (RedisError, RuntimeError):
                 pass
+        session = self.duets.get(room_id)
+        if session:  # joining while people are singing together (or getting ready to)
+            try:
+                await socket.send_json(convert_keys(self._duet_session_message(room_id, session)))
+            except RuntimeError:
+                pass
+
+    # MARK: Singing together
+
+    @staticmethod
+    def _duet_session_message(room_id: str, session: Session) -> dict:
+        return {"type": "jam", "action": "duet", "op": "session", "roomId": room_id, "data": session.payload()}
+
+    def _duet_member(self, socket, room_id: str, member_id: str) -> Member:
+        user = next((u for u, ws in self.rooms.get(room_id, []) if ws == socket), None)
+        return Member(id=member_id, name=((user.name if user else "") or "Guest")[:60], avatar=(user.avatar if user else "") or "")
+
+    async def announce_duet(self, room_id: str, session: Session, started: bool = False):
+        """Tells the room how the session stands. `started`: it is playing from a new moment, so the start goes out in
+        the form older apps know too, and the room remembers it for a device that joins late."""
+        await self.multicast(room_id, self._duet_session_message(room_id, session))
+        if started:
+            start = {"type": "jam", "action": "duet", "op": "start", "roomId": room_id,
+                     "data": {"trackId": session.track_id, "from": session.anchor_from, "startAt": session.anchor_at}}
+            jam.handle_message(start)
+            await self.multicast(room_id, start)
+        elif session.phase == "paused":
+            jam.handle_message({"type": "jam", "action": "duet", "op": "stop", "roomId": room_id})
+
+    async def announce_duet_end(self, room_id: str):
+        stop = {"type": "jam", "action": "duet", "op": "stop", "roomId": room_id, "data": {}}
+        jam.handle_message(stop)
+        await self.multicast(room_id, stop)
+
+    async def duet_member_left(self, room_id: str, member_id):
+        session = self.duets.get(room_id)
+        if member_id is None or not session or member_id not in session.members:
+            return
+        remaining = self.duets.drop(room_id, member_id)
+        if remaining:
+            await self.announce_duet(room_id, remaining)
+        else:
+            await self.announce_duet_end(room_id)
+
+    async def handle_duet_message(self, socket, room_id: str, message: dict):
+        data = message.get("data") or {}
+        op = message.get("op")
+        now = time.time() * 1000
+        member_id = str(data.get("member") or "")[:64]
+        if member_id:
+            self.duet_members[socket] = member_id
+        me = self._duet_member(socket, room_id, member_id)
+        duets = self.duets
+        if op == "open":
+            track_id = data.get("trackId")
+            session = duets.open(room_id, track_id, me) if isinstance(track_id, str) else None
+            if session:
+                await self.announce_duet(room_id, session)
+        elif op == "report":
+            part = data.get("part")
+            session = duets.report(room_id, me, status=data.get("status"), progress=data.get("progress"),
+                                   part=part if isinstance(part, int) else None)
+            if session:
+                await self.announce_duet(room_id, session)
+        elif op in ("begin", "resume", "restart"):
+            session = getattr(duets, op)(room_id, member_id, now)
+            if session:
+                await self.announce_duet(room_id, session, started=True)
+        elif op == "pause":
+            session = duets.pause(room_id, member_id, now)
+            if session:
+                await self.announce_duet(room_id, session)
+        elif op == "stop":
+            duets.end(room_id)
+            await self.announce_duet_end(room_id)
+        elif op == "start":  # no lobby: an older app, or a script
+            stamped = jam.stamp_duet(message, now)
+            if stamped is None:
+                return
+            session = duets.start_now(room_id, stamped["data"]["trackId"], me, stamped["data"]["from"], now, jam.DUET_LEAD_MS)
+            await self.announce_duet(room_id, session, started=True)
 
     async def handle_jam_message(self, socket, message):
         """
@@ -217,12 +303,7 @@ class WebSocketManager:
             await self.handle_player_message(socket, room_id, message)
             return
         if message.get("action") == "duet":
-            stamped = jam.stamp_duet(message, time.time() * 1000)
-            if stamped is None:
-                return
-            jam.handle_message(stamped)
-            # to everyone, the sender too: it also waits for the shared start
-            await self.multicast(room_id, stamped)
+            await self.handle_duet_message(socket, room_id, message)
             return
         if message.get("action") == "update" and self.is_stale_player(socket, room_id):
             return

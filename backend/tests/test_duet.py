@@ -41,14 +41,14 @@ def test_everyone_in_the_room_hears_the_start_the_sender_included(monkeypatch):
     host, guest = join(m, "u", "mac"), join(m, "u", "phone", user_id="someone-else")
     asyncio.run(m.handle_jam_message(guest, start(position=3)))
 
-    def duets(socket):
-        return [msg for msg in socket.sent if msg.get("action") == "duet"]
+    def starts(socket):
+        return [msg for msg in socket.sent if msg.get("action") == "duet" and msg["op"] == "start"]
 
-    assert len(duets(host)) == 1 and len(duets(guest)) == 1
-    assert duets(host)[0]["data"] == duets(guest)[0]["data"]
-    assert duets(host)[0]["data"]["from"] == 3 and duets(host)[0]["data"]["startAt"] > 0
+    assert len(starts(host)) == 1 and len(starts(guest)) == 1
+    assert starts(host)[0]["data"] == starts(guest)[0]["data"]
+    assert starts(host)[0]["data"]["from"] == 3 and starts(host)[0]["data"]["startAt"] > 0
     room, patch, force = recorder.patches[-1]
-    assert room == "u" and force and patch["duetTrack"] == "t1" and patch["duetAt"] == duets(host)[0]["data"]["startAt"]
+    assert room == "u" and force and patch["duetTrack"] == "t1" and patch["duetAt"] == starts(host)[0]["data"]["startAt"]
 
 
 def test_stopping_clears_the_duet(monkeypatch):

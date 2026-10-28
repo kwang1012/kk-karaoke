@@ -25,8 +25,7 @@ import { Tooltip } from 'src/components/ui/tooltip';
 import { usePlayer } from 'src/store/player';
 import { useNotifyStore } from 'src/store/notify';
 import { useDuetStore } from 'src/store/duet';
-import { useActiveRoomId } from 'src/store/room';
-import { useWebSocketStore } from 'src/store/ws';
+import { openDuet, pauseDuet, resumeDuet } from 'src/duetActions';
 import { useSettingStore } from 'src/store/setting';
 import { cn } from 'src/lib/utils';
 import GuideVocalControl from './GuideVocalControl';
@@ -57,15 +56,13 @@ export default function AudioController() {
   const [localProgress, setLocalProgress] = useState(progress);
   const realProgress = seeking ? localProgress : progress;
 
-  const handlePlayPause = () => (playing ? pause() : play());
-
-  // A duet: everyone in the room plays the song themselves, starting together (see DuetPlayer).
-  const duet = useDuetStore((state) => state.duet);
-  const roomId = useActiveRoomId();
-  const sendMessage = useWebSocketStore((state) => state.sendMessage);
-  const toggleDuet = () => {
-    if (duet) sendMessage({ type: 'jam', action: 'duet', op: 'stop', roomId });
-    else if (currentTrack) sendMessage({ type: 'jam', action: 'duet', op: 'start', roomId, data: { trackId: currentTrack.id, from: 0 } });
+  // Singing together: every device plays the song itself, so play, pause and the rest act on everyone (see DuetPlayer).
+  const session = useDuetStore((state) => state.session);
+  const declined = useDuetStore((state) => state.declined);
+  const singing = !!session && session.phase !== 'lobby' && !declined;
+  const handlePlayPause = () => {
+    if (singing) return session.phase === 'paused' ? resumeDuet() : pauseDuet();
+    return playing ? pause() : play();
   };
   const VolumeIcon = volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
 
@@ -78,18 +75,18 @@ export default function AudioController() {
       <div className="flex flex-col items-center gap-1">
         <div className="flex items-center gap-3">
           <Tooltip title={t('player.previous')} side="top">
-            <IconButton aria-label={t('player.previous')} onClick={() => previous()}>
+            <IconButton aria-label={t('player.previous')} disabled={singing} onClick={() => previous()}>
               <SkipBack className="size-5 fill-current" />
             </IconButton>
           </Tooltip>
-          <Tooltip title={playing ? t('player.pause') : t('player.play')} side="top">
+          <Tooltip title={singing ? (playing ? t('duet.pause') : t('duet.resume')) : playing ? t('player.pause') : t('player.play')} side="top">
             <button
               aria-label={playing ? t('player.pause') : t('player.play')}
-              disabled={loading}
+              disabled={loading && !singing}
               onClick={handlePlayPause}
               className={cn(
                 'relative flex size-10 items-center justify-center rounded-full transition-all',
-                loading
+                loading && !singing
                   ? 'cursor-not-allowed bg-muted text-muted-foreground opacity-60'
                   : 'bg-primary text-primary-foreground shadow-lg shadow-primary/30 hover:scale-105 active:scale-95',
               )}
@@ -102,12 +99,12 @@ export default function AudioController() {
             </button>
           </Tooltip>
           <Tooltip title={t('player.next')} side="top">
-            <IconButton aria-label={t('player.next')} onClick={() => next()}>
+            <IconButton aria-label={t('player.next')} disabled={singing} onClick={() => next()}>
               <SkipForward className="size-5 fill-current" />
             </IconButton>
           </Tooltip>
         </div>
-        {loading || loadError ? (
+        {(loading || loadError) && !singing ? (
           <div className="flex h-4 w-full items-center gap-3 text-xs text-muted-foreground" role="status">
             {loadError ? (
               <>
@@ -139,7 +136,7 @@ export default function AudioController() {
           <div className="flex w-full items-center gap-3 text-xs text-muted-foreground tabular-nums">
             <span className="w-10 text-right">{formatTime(progress)}</span>
             <AppSlider
-              className="w-full"
+              className={cn('w-full', singing && 'pointer-events-none opacity-70')} // the song is shared: restart it for everyone instead
               min={0}
               max={duration}
               value={realProgress}
@@ -189,16 +186,20 @@ export default function AudioController() {
           </button>
         </Tooltip>
         <GuideVocalControl className="-ml-1" />
-        <Tooltip title={duet ? t('player.duetStop') : t('player.duetStart')} side="top">
-          <IconButton
-            aria-label={duet ? t('player.duetStop') : t('player.duetStart')}
-            aria-pressed={!!duet}
-            className={cn(duet && 'text-primary')}
-            disabled={!currentTrack || loading}
-            onClick={toggleDuet}
+        <Tooltip title={t('player.duetStart')} side="top">
+          <button
+            aria-label={t('duet.entry')}
+            aria-pressed={!!session}
+            disabled={!currentTrack || !!session}
+            onClick={() => currentTrack && openDuet(currentTrack.id)}
+            className={cn(
+              'flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium whitespace-nowrap transition-colors disabled:pointer-events-none',
+              session ? 'border-primary bg-primary text-primary-foreground' : 'border-primary/40 text-primary hover:bg-primary/15 disabled:opacity-40',
+            )}
           >
-            <Users className="size-5" />
-          </IconButton>
+            <Users className="size-4" />
+            <span className="hidden xl:inline">{t('duet.entry')}</span>
+          </button>
         </Tooltip>
         {enabledPitchShift && (
           <div className="ml-1 flex items-center rounded-full border text-xs">

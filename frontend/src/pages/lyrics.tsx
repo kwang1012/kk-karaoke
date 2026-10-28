@@ -21,6 +21,8 @@ import VideoBackdrop from 'src/components/VideoBackdrop';
 import WordLine from 'src/components/WordLine';
 import VocalLabel from 'src/components/VocalLabel';
 import { activeLyricIndices, hasDuetParts, singerColor, singerSide } from 'src/duetLyrics';
+import { isOtherPart } from 'src/duetSession';
+import { useDuetStore } from 'src/store/duet';
 import LyricGap from 'src/components/LyricGap';
 import { toggleFullscreen } from 'src/lib/fullscreen';
 import { countdown, gapAfter } from 'src/lyricGap';
@@ -39,6 +41,9 @@ export default function LyricsView() {
   const lyricsLead = useSettingStore((state) => state.lyricsLead);
   const lyricsDelay = trackDelay - lyricsLead; // the song's own offset, and the lead before the singing
   const duet = hasDuetParts(lyrics);
+  const singingTogether = useDuetStore((state) => !!state.session && state.session.phase !== 'lobby' && !state.declined);
+  const chosenPart = useDuetStore((state) => state.part);
+  const myPart = singingTogether ? chosenPart : 0;
   const activeLines = activeLyricIndices(lyrics, progress, lyricsDelay);
   const focusLine = activeLines.size ? Math.min(...activeLines) : currentLine;
   const plain = useTrackStore((state) => state.plainLyrics[currentTrack?.id || '']);
@@ -201,7 +206,8 @@ export default function LyricsView() {
                     <span
                       className={[
                         'origin-left text-[2.5vw] leading-snug font-bold transition-all duration-300 hover:opacity-100',
-                        i <= currentLine ? 'text-white' : 'opacity-70',
+                        // singing together with a part chosen: the other singer's lines step back
+                        isOtherPart(myPart, line.singer) ? 'opacity-35' : i <= currentLine ? 'text-white' : 'opacity-70',
                         activeLines.has(i) && !isFullscreen && 'scale-[1.04]',
                         isFullscreen ? 'text-center text-[3vw]' : '',
                         isFullscreen && (activeLines.has(i) ? 'text-[5vw] opacity-100' : 'opacity-70'),

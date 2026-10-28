@@ -6,6 +6,7 @@ from fastapi.websockets import WebSocketState
 from interfaces.jam import RedisJamInterface
 from managers.websocket import WebSocketManager
 from models.user import User
+from services.duet import DuetRegistry
 
 
 class FakeRedis:
@@ -42,6 +43,7 @@ class FakeSocket:
 def manager():
     m = WebSocketManager()
     m.rooms, m.devices = {}, {}
+    m.duets, m.duet_members = DuetRegistry(), {}
     m.jam_interface = RedisJamInterface(FakeRedis())  # type: ignore[arg-type]
     return m
 

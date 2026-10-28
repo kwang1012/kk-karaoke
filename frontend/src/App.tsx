@@ -37,6 +37,8 @@ import BackendGate from './components/BackendGate';
 import LoginDialog from './components/LoginDialog';
 import PasswordSetupDialog from './components/PasswordSetupDialog';
 import { authEnabled, openLogin, useAuthStore } from './lib/auth';
+import { startClockSync } from './clockClient';
+import DuetPlayer from './components/DuetPlayer';
 
 // lazily loaded components
 const RankingView = lazy(() => import('./pages/ranking'));
@@ -72,7 +74,12 @@ const Router = isElectron ? HashRouter : BrowserRouter;
 const RoomPlayer = () => {
   const { pathname } = useLocation();
   if (pathname.startsWith('/admin') || pathname.startsWith('/lyrics/edit')) return null;
-  return <Player />;
+  return (
+    <>
+      <Player />
+      <DuetPlayer />
+    </>
+  );
 };
 
 /** The editor used to live at /lyrics/edit; links and bookmarks to it still work. */
@@ -210,6 +217,7 @@ function App() {
     if (connected) return;
     connect();
   }, [connect, connected]);
+  useEffect(() => startClockSync(), []);
 
   const onNotifyMessage = (message: Message) => {
     if (message.type === 'notify') {

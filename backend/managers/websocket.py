@@ -1,6 +1,7 @@
 import asyncio
 from redis.exceptions import RedisError
 import threading
+import time
 import uuid
 from fastapi import WebSocket, WebSocketDisconnect
 from typing import Dict, List
@@ -150,7 +151,10 @@ class WebSocketManager:
                 msg_type = msg.get("type")
                 if not msg_type:
                     continue
-                if msg_type == "join":
+                if msg_type == "clock":
+                    # Devices measure their offset from server time with these pings, to start songs together.
+                    await websocket.send_json({"type": "clock", "id": msg.get("id"), "serverTime": time.time() * 1000})
+                elif msg_type == "join":
                     room_id = msg.get("roomId")
                     data = msg.get("data", {})
                     user = User(**data)
@@ -211,6 +215,14 @@ class WebSocketManager:
             return
         if message.get("action") == "player":
             await self.handle_player_message(socket, room_id, message)
+            return
+        if message.get("action") == "duet":
+            stamped = jam.stamp_duet(message, time.time() * 1000)
+            if stamped is None:
+                return
+            jam.handle_message(stamped)
+            # to everyone, the sender too: it also waits for the shared start
+            await self.multicast(room_id, stamped)
             return
         if message.get("action") == "update" and self.is_stale_player(socket, room_id):
             return

@@ -19,6 +19,8 @@ import LyricsSkeleton from 'src/components/LyricsSkeleton';
 import PlainLyrics from 'src/components/PlainLyrics';
 import VideoBackdrop from 'src/components/VideoBackdrop';
 import WordLine from 'src/components/WordLine';
+import VocalLabel from 'src/components/VocalLabel';
+import { activeLyricIndices, hasDuetParts, singerColor, singerSide } from 'src/duetLyrics';
 import LyricGap from 'src/components/LyricGap';
 import { toggleFullscreen } from 'src/lib/fullscreen';
 import { countdown, gapAfter } from 'src/lyricGap';
@@ -36,6 +38,9 @@ export default function LyricsView() {
   const trackDelay = useTrackStore((state) => state.lyricsDelays[currentTrack?.id || ''] || 0);
   const lyricsLead = useSettingStore((state) => state.lyricsLead);
   const lyricsDelay = trackDelay - lyricsLead; // the song's own offset, and the lead before the singing
+  const duet = hasDuetParts(lyrics);
+  const activeLines = activeLyricIndices(lyrics, progress, lyricsDelay);
+  const focusLine = activeLines.size ? Math.min(...activeLines) : currentLine;
   const plain = useTrackStore((state) => state.plainLyrics[currentTrack?.id || '']);
   // How many seconds earlier the lyrics are shown, derived from the shared per-track delay.
   const { ahead, setAhead, approximate, videoId } = useLyricsOffset();
@@ -73,7 +78,7 @@ export default function LyricsView() {
 
   // Scroll to the current line when the progress changes
   useEffect(() => {
-    const el = lineRefs.current[currentLine];
+    const el = lineRefs.current[focusLine];
     const scrollbar = scrollbarRef.current;
     if (!el || !scrollbar) return;
     const viewport = scrollbar;
@@ -86,7 +91,7 @@ export default function LyricsView() {
       top: elTop - viewportHeight / 2 + elHeight / 2,
       behavior: 'smooth',
     });
-  }, [currentLine, lineRefs.current.length, isFullscreen]);
+  }, [focusLine, lineRefs.current.length, isFullscreen]);
 
   // Update the current line based on the progress
   useEffect(() => {
@@ -187,29 +192,31 @@ export default function LyricsView() {
                 <>
                 {gapMarker(-1)}
                 {syncedLyrics.map((line, i) => (
-                  <Fragment key={i}>
+                  <Fragment key={line.id || i}>
                   <div
                     className={['py-3 px-16 cursor-pointer', isFullscreen ? 'text-center' : ''].join(' ')}
+                    style={duet ? { textAlign: singerSide(line.singer) } : undefined}
                     onClick={handleLineClick.bind(null, i)}
                   >
                     <span
                       className={[
                         'origin-left text-[2.5vw] leading-snug font-bold transition-all duration-300 hover:opacity-100',
                         i <= currentLine ? 'text-white' : 'opacity-70',
-                        i === currentLine && !isFullscreen && 'scale-[1.04]',
+                        activeLines.has(i) && !isFullscreen && 'scale-[1.04]',
                         isFullscreen ? 'text-center text-[3vw]' : '',
-                        isFullscreen && (i === currentLine ? 'text-[5vw] opacity-100' : 'opacity-70'),
+                        isFullscreen && (activeLines.has(i) ? 'text-[5vw] opacity-100' : 'opacity-70'),
                       ].join(' ')}
                       ref={(el) => {
                         lineRefs.current[i] = el;
                       }}
                     >
-                      {wordHighlight && i === currentLine && line.words?.length ? (
-                        <WordLine words={line.words} delay={lyricsDelay} progress={progress} playing={playing} dimColor={color} />
+                      {duet && <VocalLabel line={line} previous={lyrics[i - 1]} />}
+                      {wordHighlight && activeLines.has(i) && line.words?.length ? (
+                        <WordLine words={line.words} delay={lyricsDelay} progress={progress} playing={playing} dimColor={color} highlightColor={duet ? singerColor(line.singer) : undefined} />
                       ) : line.text === '' ? (
                         '♪'
                       ) : (
-                        line.text
+                        <span style={duet && activeLines.has(i) ? { color: singerColor(line.singer) } : undefined}>{line.text}</span>
                       )}
 
                       {line.romanized && showTranslatinon && (

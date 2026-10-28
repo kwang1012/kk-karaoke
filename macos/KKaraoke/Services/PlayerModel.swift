@@ -52,6 +52,8 @@ final class PlayerModel {
     }
     /// The original singer at full level, whatever the guide level says.
     var vocalOn = false { didSet { applyVolumes() } }
+    /// Includes a full guide mix, which is audibly identical to original-vocal mode.
+    var fullVocal: Bool { vocalOn || vocalVolume >= 1 }
     /// The key change in semitones (-12...12), for the song and the melody that follows it.
     private(set) var semitone = 0 { didSet { stems.setSemitone(semitone) } }
     static let semitoneRange = -12...12
@@ -172,7 +174,16 @@ final class PlayerModel {
         case .pause: halt()
         case .seek(let time): jump(to: time)
         case .volume(let value): applyingRemote = fromRemote; masterVolume = min(1, max(0, value)); applyingRemote = false
-        case .toggleVocal: vocalOn.toggle()
+        case .toggleVocal:
+            let enabled = !fullVocal
+            if !enabled && vocalVolume >= 1 {
+                // Send one room toggle, not a second guide command that races its owner update.
+                applyingRemote = true
+                vocalVolume = 0
+                applyingRemote = false
+                if !fromRemote { UserDefaults.standard.set(vocalVolume, forKey: Keys.vocal) }
+            }
+            vocalOn = enabled
         case .guideLevel(let level): applyingRemote = fromRemote; vocalVolume = min(1, max(0, level)); applyingRemote = false
         case .increaseSemitone: setSemitone(semitone + 1)
         case .decreaseSemitone: setSemitone(semitone - 1)

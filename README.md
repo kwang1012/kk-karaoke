@@ -265,6 +265,18 @@ yarn
 yarn start
 ```
 
+### Duet lyrics
+
+When a TTML provider supplies singer parts, lyrics show each singer with a consistent color and
+left/right placement; shared parts appear in the center. Overlapping parts keep independent word
+highlighting. Provider names are used when available; otherwise parts are labeled Singer 1 and Singer 2.
+On mobile, singer parts use labeled, stacked rows. Explicit LRC markers such as 男：, 女：, and 合：
+are also converted into singer parts, including in existing cached sheets.
+
+In the lyrics editor, use each line's **Singer part** selector to assign Singer 1, Singer 2, Together,
+or Unassigned, then save. Assignments are stored with the lyrics. Existing cached lyrics need
+**Refresh lyrics** to fetch newly supported provider metadata; refreshing replaces manual edits.
+
 ### Troubleshooting
 
 - **`container name ... is already in use`** after a failed `docker compose up`: run

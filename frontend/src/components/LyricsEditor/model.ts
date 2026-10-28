@@ -1,3 +1,4 @@
+import type { LyricSinger } from '../../models/spotify.ts';
 /**
  * The lyrics editor's data: a list of rows, each a line with an optional time. Everything the
  * editor does to lyrics is a function from rows to rows, so it can be tested without a browser.
@@ -10,7 +11,7 @@ export type AlignedWord = { start: number; end: number; text: string };
  * A lyric line. `words` and `guess` come from aligning to the audio and describe this exact time and
  * text, so any edit to either drops them (see setTime, setText).
  */
-export type Row = { id: number; time: number | null; text: string; words?: AlignedWord[]; guess?: boolean };
+export type Row = { lyricId?: string; end?: number | null; singer?: LyricSinger | null; role?: 'lead' | 'background'; id: number; time: number | null; text: string; words?: AlignedWord[]; guess?: boolean };
 export type Parsed = { rows: Row[]; headers: string[] };
 
 let lastId = 0;
@@ -116,7 +117,7 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /** The row without what only held for its old time or text. */
 const forgetAlignment = (r: Row): Row => {
-  const { words: _words, guess: _guess, ...rest } = r;
+  const { words: _words, guess: _guess, end: _end, ...rest } = r;
   return rest;
 };
 
@@ -127,12 +128,13 @@ const forgetAlignment = (r: Row): Row => {
  */
 const retime = (r: Row, time: number | null): Row => {
   const { guess: _guess, ...rest } = r;
+  const end = r.end != null && time !== null && r.time !== null ? round2(r.end + time - r.time) : undefined;
   if (time === null || r.time === null || !r.words) {
     const { words: _words, ...bare } = rest;
-    return { ...bare, time };
+    return { ...bare, time, end };
   }
   const moved = round2(time - r.time);
-  return { ...rest, time, words: r.words.map((w) => ({ ...w, start: round2(w.start + moved), end: round2(w.end + moved) })) };
+  return { ...rest, time, end, words: r.words.map((w) => ({ ...w, start: round2(w.start + moved), end: round2(w.end + moved) })) };
 };
 
 export const setTime = (rows: Row[], i: number, time: number | null): Row[] =>
@@ -159,6 +161,7 @@ export const shiftAll = (rows: Row[], delta: number): Row[] =>
     return {
       ...r,
       time,
+      ...(r.end != null ? { end: round2(r.end + moved) } : {}),
       ...(r.words ? { words: r.words.map((w) => ({ ...w, start: round2(w.start + moved), end: round2(w.end + moved) })) } : {}),
     };
   });
@@ -246,7 +249,7 @@ export const wordsOutOfOrder = (words: AlignedWord[]): Set<number> => {
 
 /** The row with its words replaced by hand. The line's own time and text stay as they are. */
 export const setWords = (rows: Row[], i: number, words: AlignedWord[]): Row[] =>
-  rows.map((r, j) => (j === i ? { ...r, words } : r));
+  rows.map((r, j) => (j === i ? { ...r, words, end: words.length ? Math.max(...words.map((w) => w.end)) : undefined } : r));
 
 export function insertAfter(rows: Row[], i: number, row: Row = newRow()): Row[] {
   return [...rows.slice(0, i + 1), row, ...rows.slice(i + 1)];
@@ -270,4 +273,4 @@ export const sameRows = (a: Row[], b: Row[]): boolean =>
 
 /** What alignment each row carries, as one string: edits that change only this still make the lyrics unsaved. */
 export const alignmentSignature = (rows: Row[]): string =>
-  JSON.stringify(rows.filter((r) => r.words || r.guess).map((r) => [r.time, !!r.guess, r.words ?? null]));
+  JSON.stringify(rows.filter((r) => r.words || r.guess || r.singer || r.end != null || r.role === 'background').map((r) => [r.time, !!r.guess, r.words ?? null, r.singer ?? null, r.end ?? null, r.role ?? 'lead']));

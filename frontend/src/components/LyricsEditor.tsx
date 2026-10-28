@@ -6,7 +6,7 @@ import {
 import * as OpenCC from 'opencc-js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AlignPreview from 'src/components/LyricsEditor/AlignPreview';
-import { alignedPayload, applyProposal, attachSaved, type Proposal } from 'src/components/LyricsEditor/alignment';
+import { alignedPayload, applyProposal, attachSaved, richPayload, type Proposal } from 'src/components/LyricsEditor/alignment';
 import CandidatesDialog from 'src/components/LyricsEditor/CandidatesDialog';
 import { originOf, type Candidate } from 'src/components/LyricsEditor/candidates';
 import ConfirmDialog from 'src/components/LyricsEditor/ConfirmDialog';
@@ -126,7 +126,7 @@ export default function LyricsEditor({
     const initial =
       parsed.rows.length === 0 && loaded?.plain
         ? splitPlain(loaded.plain)
-        : tracked && lyrics.status === 'fulfilled'
+        : lyrics.status === 'fulfilled'
           ? attachSaved(parsed.rows, lyrics.value.lyrics ?? [])
           : parsed.rows;
     reset(initial);
@@ -210,6 +210,7 @@ export default function LyricsEditor({
       select: setSelected,
       setTime: (i, time) => commit((r) => setTime(r, i, time)),
       setText: (i, text) => commit((r) => setText(r, i, text), `text-${rowsRef.current[i]?.id}`),
+      setSinger: (i, singer) => commit((r) => r.map((row, j) => j === i ? { ...row, singer } : row)),
       stamp: stampAt,
       nudge: (i, delta) => commit((r) => nudge(r, i, delta), `nudge-${rowsRef.current[i]?.id}`),
       playFrom: (i) => {
@@ -283,11 +284,13 @@ export default function LyricsEditor({
     const content = formatLrc(toSave, head, true);
     try {
       const aligned = alignKnown && view === 'lines' ? alignedPayload(toSave, alignScore) : undefined;
-      await api.post(`/lyrics/${track.id}/update`, { content, ...(aligned ? { aligned } : {}), ...(origin ? { origin } : {}) });
+      const metadataRows = view === 'raw' ? attachSaved(toSave, richPayload(rowsRef.current)) : toSave;
+      const lines = richPayload(sortRows(metadataRows));
+      await api.post(`/lyrics/${track.id}/update`, { content, ...(lines ? { lines } : {}), ...(aligned ? { aligned } : {}), ...(origin ? { origin } : {}) });
       await invalidateEditorLyrics(client, track.id);
       setOrigin(null);
       const sorted = parseLrc(content);
-      const restored = aligned ? attachSaved(sorted.rows, aligned.lines) : sorted.rows;
+      const restored = lines ? attachSaved(sorted.rows, lines) : sorted.rows;
       reset(restored);
       setBaselineSig(alignmentSignature(restored));
       setHeaders(sorted.headers);
@@ -458,7 +461,7 @@ export default function LyricsEditor({
     if (next === 'raw') setRawText(formatLrc(rows, headers));
     else {
       const parsed = parseLrc(rawText);
-      commit(parsed.rows);
+      commit(attachSaved(parsed.rows, richPayload(rowsRef.current)));
       setHeaders(parsed.headers);
       setSelected(0);
     }
@@ -637,7 +640,7 @@ export default function LyricsEditor({
             onMouseDown={() => listRef.current?.focus({ preventScroll: true })}
           >
             {rows.map((row, i) => (
-              <LineRow key={row.id} row={row} index={i} active={i === active} selected={i === selected} outOfOrder={issues.outOfOrder.has(i)} actions={actions} />
+              <LineRow key={row.id} row={row} index={i} active={i === active} selected={i === selected} outOfOrder={issues.outOfOrder.has(i)} actions={actions} singers={Array.from(new Map(rows.filter((r) => r.singer).map((r) => [r.singer!.id, r.singer!])).values())} />
             ))}
             <div className="p-2">
               <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => actions.insertBelow(rows.length - 1)}>

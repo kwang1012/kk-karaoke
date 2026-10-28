@@ -138,6 +138,7 @@ struct NowPlayingView: View {
                 lines: lines,
                 current: LyricsTiming.lineIndex(
                   in: lines, at: player.currentTime, delay: player.lyricsDelay),
+                activeLines: LyricsTiming.activeIndices(in: lines, at: player.currentTime, delay: player.lyricsDelay),
                 delay: player.lyricsDelay, fontSize: fontSize, dim: palette.lyrics.opacity(0.7),
                 showRomanized: showRomanized, topPadding: singing.showMelody ? 180 : 64,
                 ticking: active && !videoShown, proxy: proxy
@@ -170,6 +171,7 @@ private struct ScrollingLyricLines: View, Equatable {
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   var lines: [LyricLine]
   var current: Int?
+  var activeLines: Set<Int>
   var delay: Double
   var fontSize: CGFloat
   var dim: Color
@@ -179,7 +181,7 @@ private struct ScrollingLyricLines: View, Equatable {
   var proxy: ScrollViewProxy
 
   nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
-    lhs.current == rhs.current && lhs.delay == rhs.delay && lhs.fontSize == rhs.fontSize
+    lhs.current == rhs.current && lhs.activeLines == rhs.activeLines && lhs.delay == rhs.delay && lhs.fontSize == rhs.fontSize
       && lhs.dim == rhs.dim && lhs.showRomanized == rhs.showRomanized
       && lhs.topPadding == rhs.topPadding && lhs.lines == rhs.lines && lhs.ticking == rhs.ticking
   }
@@ -189,12 +191,13 @@ private struct ScrollingLyricLines: View, Equatable {
       gapMarker(after: -1)
       ForEach(lines.indices, id: \.self) { index in
         PlaybackLyricLine(
-          line: lines[index], active: current == index,
-          completed: current.map { index < $0 } ?? false, delay: delay, dim: dim,
-          showRomanized: showRomanized, ticking: ticking
+          line: lines[index], active: activeLines.contains(index),
+          completed: (current.map { index < $0 } ?? false) && !activeLines.contains(index), delay: delay, dim: dim,
+          showRomanized: showRomanized, ticking: ticking, showSinger: LyricsTiming.hasDuetParts(lines),
+                showSingerLabel: LyricsTiming.startsVocalPart(lines[index], previous: lines[safe: index - 1])
         )
         .font(.system(size: fontSize, weight: .bold)).lineSpacing(4)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: LyricsTiming.hasDuetParts(lines) ? (lines[index].singer?.side == 1 ? .trailing : lines[index].singer?.side == -1 ? .leading : .center) : .leading)
         .scaleEffect(current == index ? 1.04 : 1, anchor: .leading)
         // padding, not stack spacing: the pointer stays a hand across the gap between two lines
         .padding(.vertical, 14)

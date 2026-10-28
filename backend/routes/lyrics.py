@@ -6,7 +6,7 @@ from models.track import LyricsDelay
 from models.requests import AlignRequest, UpdateLyricsRequest
 from managers import r2
 from services import library, lyrics_reports
-from services.lyrics_sources import is_guess, lyrics_summary, read_meta, set_aligned, words_for_line, write_meta
+from services.lyrics_sources import details_for_line, format_lrc, normalize_vocal_markers, is_guess, lyrics_summary, read_meta, set_aligned, words_for_line, write_meta
 from services.tasks import celery
 from managers import catalog
 from utils import LYRICS_DIR, get_lyrics_path
@@ -218,16 +218,23 @@ def get_lyrics(
                     "words": words_for_line(meta, timestamp),
                     # Placed by guesswork when the sheet was aligned to the audio.
                     **({"guess": True} if is_guess(meta, timestamp) else {}),
+                    **details_for_line(meta, lyric_idx - 1, timestamp, text),
                 })
         if not romanized_exists and any(line is not None for line in romanized_lines):
             redis_interface.store_romanized_lyrics(track_id, romanized_lines)
 
+        display = normalize_vocal_markers(lyrics)
+        content = "".join(raw_lines)
+        if display != lyrics:
+            # The editor receives the same rows as playback, so a save retains assignments.
+            headers = [line.strip() for line in raw_lines if re.match(r"^\[[A-Za-z]+:", line.strip())]
+            content = "\n".join([*headers, format_lrc([(line["time"], line["text"]) for line in display])])
         return JSONResponse(
             # The delay is returned, not baked into the times: clients apply it themselves
             # (so adjusting it live doesn't need a refetch and can't be applied twice).
             content={
-                "lyrics": lyrics,
-                "content": "".join(raw_lines),
+                "lyrics": display,
+                "content": content,
                 "delay": delay or 0,
                 # How far to trust the timing; null for lyrics fetched before this was recorded.
                 "confidence": meta.get("confidence"),
@@ -265,6 +272,16 @@ def get_plain_lyrics(track_id: str):
 
 @router.post("/{track_id}/update")
 def update_lyrics(track_id: str, data: UpdateLyricsRequest):
+    # Validate rich rows against the actual sheet before publishing any files.
+    if data.lines is not None:
+        from services.lyrics_sources import parse_lrc
+        sheet = parse_lrc(data.content)
+        nonempty = [line for line in data.lines if line.text.strip()]
+        if len(sheet) != len(nonempty) or any(
+            abs(t - line.time) > 0.011 or text != line.text.strip()
+            for (t, text), line in zip(sheet, nonempty)
+        ) or len({line.id for line in data.lines}) != len(data.lines):
+            return JSONResponse(status_code=400, content={"error": "Line metadata does not match lyrics"})
     file_path = get_lyrics_path(track_id)
     if not file_path:
         file_path = os.path.join(LYRICS_DIR, f"{track_id}.lrc")
@@ -279,7 +296,7 @@ def update_lyrics(track_id: str, data: UpdateLyricsRequest):
         meta = {**{k: v for k, v in meta.items() if k != "plain"}, "confidence": "synced"}
     if data.origin is not None:
         # A person chose this sheet: it is theirs now, and it no longer carries what the last one knew.
-        meta = {k: v for k, v in meta.items() if k not in ("words", "word_source", "word_origin", "aligned", "audio_check", "plain", "notes")}
+        meta = {k: v for k, v in meta.items() if k not in ("words", "word_source", "word_origin", "aligned", "audio_check", "plain", "notes", "lines")}
         meta = {**meta, "source": data.origin.source, "confidence": data.origin.confidence, "edited": True,
                 "notes": data.origin.notes}
         write_meta(track_id, meta)
@@ -290,7 +307,15 @@ def update_lyrics(track_id: str, data: UpdateLyricsRequest):
         )
         write_meta(track_id, meta)
     elif meta:
-        write_meta(track_id, {**meta, "edited": True})
+        meta = {**meta, "edited": True}
+        write_meta(track_id, meta)
+    if data.lines is not None:
+        meta = {**meta, "edited": True, "lines": [line.model_dump() for line in data.lines]}
+        write_meta(track_id, meta)
+    elif meta.get("lines"):
+        # Older/raw editors cannot keep independent vocal parts in sync after arbitrary edits.
+        meta.pop("lines", None)
+        write_meta(track_id, meta)
     if meta:
         r2.upload_path("lyrics-meta", os.path.join(LYRICS_DIR, f"{track_id}.meta.json"))
     return JSONResponse(content={"message": "Lyrics updated successfully"})

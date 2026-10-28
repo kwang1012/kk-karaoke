@@ -5,7 +5,7 @@ import { useSettingStore } from 'src/store/setting';
 
 /** Desktop app only: tells the floating lyrics window (public/mini-lyrics.html) what is being sung. */
 export default function MiniLyricsBridge() {
-  const { currentTrack, lyrics, progress, playing, loading, volume, setVolume, vocalOn, toggleVocal, duration } = usePlayer();
+  const { currentTrack, lyrics, progress, playing, loading, volume, setVolume, fullVocal: vocalOn, toggleVocal, duration } = usePlayer();
   const trackDelay = useTrackStore((state) => state.lyricsDelays[currentTrack?.id || ''] || 0);
   const lyricsLead = useSettingStore((state) => state.lyricsLead);
   const time = progress + lyricsLead - trackDelay; // the same offset the lyrics page applies

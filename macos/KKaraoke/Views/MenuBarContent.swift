@@ -37,11 +37,11 @@ struct MenuBarContent: View {
         VStack(spacing: 12) {
           HStack(spacing: 10) {
             Button {
-              player.vocalVolume = player.vocalVolume > 0 ? 0 : 1
+              player.perform(.toggleVocal)
             } label: {
               Label(
-                player.vocalVolume > 0 ? "Original vocal" : "Karaoke",
-                lucide: player.vocalVolume > 0 ? "mic" : "mic-off"
+                player.fullVocal ? "Original vocal" : "Karaoke",
+                lucide: player.fullVocal ? "mic" : "mic-off"
               )
               .frame(maxWidth: .infinity)
             }

@@ -31,18 +31,27 @@ _CREDIT = re.compile(
 )
 
 
+# A duet's singer tag on a line of its own ("男：", "合："): not sung, so it has no onset to time against.
+_SINGER_TAG = re.compile(r"^\s*[\(（\[【]?(?:男|女|合|男女)(?:声|聲|唱)?[\)）\]】]?\s*[:：]\s*$")
+
+
 def is_credit_line(text: str) -> bool:
-    return bool(_CREDIT.match(text))
+    return bool(_CREDIT.match(text) or _SINGER_TAG.match(text))
 
 
 @dataclass
 class WordLine:
     start: float
     words: list[tuple[float, float, str]]  # (start_s, end_s, text)
+    end: Optional[float] = None
+    singer: Optional[dict] = None
+    role: str = "lead"
+    line_id: Optional[str] = None
+    plain_text: str = ""
 
     @property
     def text(self) -> str:
-        return "".join(w[2] for w in self.words)
+        return "".join(w[2] for w in self.words) if self.words else self.plain_text
 
 
 _LINE = re.compile(r"^\[(\d+),(\d+)\](.*)$")

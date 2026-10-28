@@ -1,6 +1,7 @@
 import { Track } from './models/spotify';
 import MicChain from './micChain';
 import { audioUrl, fetchAudio, type Progress } from './audioCache';
+import { localNow } from './clockSync';
 
 type Buffer = {
   vocal: AudioBuffer;
@@ -26,6 +27,8 @@ class SyncedAudioPlayer {
 
   protected startTime = 0;
   protected startOffset = 0;
+
+  private startTimer?: ReturnType<typeof setTimeout>;
 
   public isPlaying = false;
   public isLoading = false;
@@ -66,6 +69,7 @@ class SyncedAudioPlayer {
   }
 
   stop() {
+    this.cancelScheduledStart();
     this.stopAndCleanSources();
     this.startOffset = 0;
     this.startTime = 0;
@@ -172,6 +176,7 @@ class SyncedAudioPlayer {
   }
 
   destroy() {
+    this.cancelScheduledStart();
     ++this.loadVersion;
     this.onPlaybackChange = undefined;
     this.stopAndCleanSources();
@@ -191,6 +196,32 @@ class SyncedAudioPlayer {
     this.isLoading = false;
   }
 
+  /**
+   * Start so the sound leaves the speakers at local time `localStartMs`, `from` seconds into the song. Late, it
+   * joins the song where it is by then. The device's output latency is taken off, so devices with different
+   * hardware still start together.
+   */
+  playAt(localStartMs: number, from: number) {
+    this.pause();
+    const outputLatencyMs = ((this.context.outputLatency || 0) + (this.context.baseLatency || 0)) * 1000;
+    const wait = localStartMs - outputLatencyMs - localNow();
+    if (wait <= 0) {
+      this.seek(from - wait / 1000);
+      this.play();
+      return;
+    }
+    this.seek(from);
+    this.startTimer = setTimeout(() => {
+      this.startTimer = undefined;
+      this.play();
+    }, wait);
+  }
+
+  private cancelScheduledStart() {
+    clearTimeout(this.startTimer);
+    this.startTimer = undefined;
+  }
+
   play() {
     if (this.isPlaying || this.isLoading) return;
     void this.context.resume().catch(() => this.onPlaybackChange?.(false));
@@ -201,6 +232,7 @@ class SyncedAudioPlayer {
   }
 
   pause() {
+    this.cancelScheduledStart();
     if (!this.isPlaying) return;
     this.vocalSource?.stop();
     this.instrumentalSource?.stop();

@@ -460,7 +460,7 @@ export default function TvView() {
                 {loading && loadProgress !== null && ` ${Math.round(loadProgress * 100)}%`}
               </p>
             ) : overVideo ? null : syncedLyrics.length > 0 ? (
-              <TvLyrics key={currentTrack.id} lyrics={syncedLyrics} lineIndex={lineIndex} delay={shownDelay} progress={progress} playing={playing} seeking={p.seeking} />
+              <TvLyrics key={currentTrack.id} lyrics={lyrics} lineIndex={lineIndex} delay={shownDelay} progress={progress} playing={playing} seeking={p.seeking} />
             ) : plain ? (
               <PlainLyrics text={plain} className="max-h-full overflow-hidden text-[2.4vw]" />
             ) : (

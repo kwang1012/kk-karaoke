@@ -9,6 +9,7 @@ import { useSettingStore } from 'src/store/setting';
 import { usePlayer, usePlayerStore } from 'src/store/player';
 import { claimPlayerTab } from 'src/store/playerTab';
 import { useActiveRoomId, useJam, useRoomStore } from 'src/store/room';
+import { useDuetStore } from 'src/store/duet';
 import { lastControlSentAt, useWebSocketStore } from 'src/store/ws';
 import SyncedAudioPlayer from 'src/syncedPlayer';
 import { api } from 'src/utils/api';
@@ -54,6 +55,7 @@ export const Player = () => {
     playAudio,
     pauseAudio,
     toggleVocal,
+    setVocalState,
     setVolume,
     increaseVolume,
     decreaseVolume,
@@ -124,6 +126,8 @@ export const Player = () => {
         return;
       }
       if (action == 'update' && isOwner) return; // the player is the source of updates; its other tabs follow them
+      // in a duet every device follows the shared clock; the room player is silent and its reports say nothing
+      if (action == 'update' && useDuetStore.getState().duet) return;
       if (action == 'update') {
         const currentTime = data.currentTime;
         // we dont update the player ref because it won't be played on device
@@ -136,7 +140,7 @@ export const Player = () => {
         if (Date.now() - lastControlSentAt > 1500) {
           if (typeof data.queueIdx === 'number' && data.queueIdx !== queueIdx) setQueueIdx(data.queueIdx);
           if (typeof data.volume === 'number' && data.volume !== volume) setVolume(data.volume, true);
-          if (typeof data.vocalOn === 'boolean' && data.vocalOn !== vocalOn) toggleVocal(true);
+          if (typeof data.vocalOn === 'boolean') setVocalState(data.vocalOn, typeof data.guideLevel === 'number' ? data.guideLevel : usePlayerStore.getState().guideLevel);
           if (typeof data.semitone === 'number' && data.semitone !== semitone) setSemitone(data.semitone);
           if (typeof data.guideLevel === 'number' && data.guideLevel !== guideLevel) setGuideLevel(data.guideLevel, true);
           if (typeof data.showVideo === 'boolean') setHostShowVideo(data.showVideo);
@@ -219,7 +223,7 @@ export const Player = () => {
       if (typeof room.playing === 'boolean') setPlaying(room.playing);
       if (typeof room.currentTime === 'number' && !usePlayerStore.getState().seeking && seekSync.accepts(activeRoomId)) setProgress(room.currentTime);
       if (typeof room.volume === 'number') setVolume(room.volume, true);
-      if (typeof room.vocalOn === 'boolean' && room.vocalOn !== vocalOn) toggleVocal(true);
+      if (typeof room.vocalOn === 'boolean') setVocalState(room.vocalOn, typeof room.guideLevel === 'number' ? room.guideLevel : usePlayerStore.getState().guideLevel);
       if (typeof room.semitone === 'number') setSemitone(room.semitone);
       if (typeof room.guideLevel === 'number') setGuideLevel(room.guideLevel, true);
       if (typeof room.showVideo === 'boolean') setHostShowVideo(room.showVideo);
@@ -382,6 +386,7 @@ export const Player = () => {
   // joins or opens a song while it is paused would otherwise show 0:00.
   useEffect(() => {
     if (!isOwner || activeRoomId === 'default' || !connected) return;
+    if (useDuetStore.getState().duet) return; // the silent room player must not report "paused" over a duet
     sendMessage({
       type: 'jam',
       action: 'update',

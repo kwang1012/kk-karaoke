@@ -243,6 +243,37 @@ struct PlayerControlTests {
         #expect(player.masterVolume == 0.4 && player.vocalOn && player.vocalVolume == 0.7)
     }
 
+    @Test func aFullGuideMixCannotDefeatTheKaraokeToggle() {
+        let player = PlayerModel()
+        player.setFollower(true)
+        player.applyRemote(vocalOn: false, guideLevel: 1)
+        player.setFollower(false)
+        var sent: [PlayerModel.Control] = []
+        player.onControl = { sent.append($0) }
+        #expect(player.fullVocal)
+        player.perform(.toggleVocal, fromRemote: true)
+        #expect(!player.vocalOn && player.vocalVolume == 0 && !player.fullVocal)
+        #expect(sent.isEmpty)
+        player.perform(.toggleVocal, fromRemote: true)
+        #expect(player.vocalOn && player.fullVocal)
+        player.perform(.toggleVocal, fromRemote: true)
+        #expect(!player.fullVocal && player.vocalVolume == 0)
+        #expect(sent.isEmpty)
+    }
+
+    @Test func aFollowerSendsTheVocalToggleToTheOwnerWithoutChangingItsGuideLocally() {
+        let player = PlayerModel()
+        player.setFollower(true)
+        player.applyRemote(vocalOn: false, guideLevel: 1)
+        var sent: [PlayerModel.Control] = []
+        player.onControl = { sent.append($0) }
+        player.perform(.toggleVocal)
+        #expect(sent == [.toggleVocal])
+        #expect(player.vocalVolume == 1 && !player.vocalOn)
+        player.applyRemote(vocalOn: false, guideLevel: 0)
+        #expect(!player.fullVocal)
+    }
+
     @Test func controlsFromTheRoomAreNotSentBack() {
         let player = PlayerModel()
         var sent: [PlayerModel.Control] = []

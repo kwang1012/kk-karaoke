@@ -105,6 +105,7 @@ class LyricsResult:
     timed_for: Optional[str] = None
     # Per-word timing that came with the sheet (a provider that times every word), keyed like meta["words"].
     word_map: Optional[dict] = None
+    lines: Optional[list[dict]] = None
 
 
 # --- text helpers ---------------------------------------------------------------
@@ -332,21 +333,27 @@ def _is_header(text: str, title: str, names: list[str]) -> bool:
 def _word_result(entry: "providers.Entry", video_id: Optional[str], title: str = "",
                  names: Optional[list[str]] = None) -> LyricsResult:
     """A sheet made from a word-timed entry, keeping its words in the sheet's own script."""
-    wl = [l for l in entry.word_lines or [] if l.text.strip()]
+    wl = [l for l in entry.lyric_lines or entry.word_lines or [] if l.text.strip()
+          and not word_timing.is_credit_line(l.text)]
     if wl and _is_header(wl[0].text, title, names or []):
         wl = wl[1:]
     result = _finish(LyricsResult(
         format_lrc([(l.start, l.text.strip()) for l in wl]), entry.source, "synced", video_id,
-        notes=[f"Timed word by word by {entry.source}"]))
-    # The saved sheet rounds each line to a centisecond; its words are filed under that same time.
-    by_time = {_cs(parse_lrc(format_lrc([(l.start, "x")]))[0][0]): l for l in wl}
+        notes=[f"Timed by {entry.source}"]))
     words: dict[str, Words] = {}
-    for start, text in parse_lrc(result.lrc):
-        line = by_time.get(_cs(start))
-        pieces = split_by_words(text, [w[2] for w in line.words]) if line else None
-        if line and pieces:
-            words[_cs(start)] = [(round(s, 2), round(e, 2), piece) for (s, e, _), piece in zip(line.words, pieces)]
+    rich = []
+    for index, ((start, text), line) in enumerate(zip(parse_lrc(result.lrc), wl)):
+        pieces = split_by_words(text, [w[2] for w in line.words]) if line.words else None
+        timed = [(round(s, 2), round(e, 2), piece) for (s, e, _), piece in zip(line.words, pieces)] if pieces else []
+        # Legacy consumers keep their time map; rich lines have independent words even at identical times.
+        if timed:
+            words.setdefault(_cs(start), timed)
+        rich.append({"id": line.line_id or f"line-{index}", "time": start, "text": text,
+                     "end": round(line.end, 2) if line.end is not None else None,
+                     "singer": line.singer, "role": line.role,
+                     "words": [{"start": s, "end": e, "text": t} for s, e, t in timed] or None})
     result.word_map = words or None
+    result.lines = rich if entry.lyric_lines else None
     return result
 
 
@@ -406,6 +413,11 @@ def find_lyrics(
     entry = providers.find_entry(title, names, duration_s, fold=_norm, same_artist=_same_artist,
                                  other_script=_artist_in_other_script, korean=korean)
     if entry and entry.synced and parse_lrc(entry.synced):
+        if entry.lyric_lines:
+            result = _word_result(entry, video_id, title, names)
+            if entry.loose_artist:
+                result.confidence = "approximate"
+            return result
         note = f"Matched on {entry.source} by title, artist and length"
         if entry.loose_artist:
             note += f" (artist is written differently: {entry.artists[0]})"
@@ -578,6 +590,13 @@ def verify_against_audio(track_id: str, vocal_path: str) -> Optional[audio_check
         r2.upload_path("lyrics", lrc_path)
         if meta.get("words"):
             meta["words"] = _shift_words(meta["words"], check.offset_s)
+        for line in meta.get("lines") or []:
+            line["time"] = round(max(0, line["time"] + check.offset_s), 2)
+            if line.get("end") is not None:
+                line["end"] = round(max(line["time"], line["end"] + check.offset_s), 2)
+            for word in line.get("words") or []:
+                word["start"] = round(max(0, word["start"] + check.offset_s), 2)
+                word["end"] = round(max(word["start"], word["end"] + check.offset_s), 2)
         meta["confidence"] = "synced"
     elif check.status == "mismatch":
         meta["confidence"] = "approximate"
@@ -700,6 +719,17 @@ def add_word_timing(track_id: str, title: str, artists: list[str], duration_s: O
         meta["word_source"] = "netease"
     write_meta(track_id, meta)
     return len(words)
+
+
+def details_for_line(meta: dict, index: int, time: float, text: str) -> dict:
+    """Rich data belongs to this exact row, never another line sharing its timestamp."""
+    lines = meta.get("lines") or []
+    if index >= len(lines):
+        return {}
+    line = lines[index]
+    if abs(line["time"] - time) > 0.011 or line["text"] != text:
+        return {}
+    return {k: v for k, v in line.items() if k not in ("time", "text")}
 
 
 def words_for_line(meta: dict, start_s: float) -> Optional[list[dict]]:
@@ -827,8 +857,55 @@ def lyrics_summary(track_id: str) -> dict:
     return {
         "has_lyrics": lines > 0, "lines": lines, "has_plain": bool(meta.get("plain")),
         "source": meta.get("source"), "confidence": meta.get("confidence"), "notes": meta.get("notes") or [],
-        "edited": bool(meta.get("edited")), "has_words": bool(meta.get("words")),
+        "edited": bool(meta.get("edited")), "has_words": bool(meta.get("words")) or any(line.get("words") for line in meta.get("lines") or []),
         "word_source": meta.get("word_source"), "word_origin": meta.get("word_origin"), "audio_check": meta.get("audio_check"),
         "aligned": meta.get("aligned") and {"score": meta["aligned"].get("score"), "guessed": len(meta["aligned"].get("guessed") or [])},
         "video_id": meta.get("video_id"),
     }
+
+
+_VOCAL_MARKER = re.compile(
+    r"^\s*(?:(?P<label>男聲|男声|女聲|女声|合唱|男|女|合)\s*[:：]|"
+    r"[（(【\[]\s*(?P<bracket>男聲|男声|女聲|女声|合唱|男|女|合)\s*[）)】\]])\s*(?P<text>.*)$"
+)
+
+
+def normalize_vocal_markers(lines: list[dict]) -> list[dict]:
+    """Turn explicit LRC singer headings/prefixes into parts, including in old cached sheets.
+
+    A standalone marker applies until the next marker. No parts are inferred from unmarked
+    text or artist credits. Existing structured assignments take precedence.
+    """
+    out = []
+    singer = None
+    for index, line in enumerate(lines):
+        # Previously saved assignments may carry the longer labels too.
+        part = line.get("singer")
+        short_name = {"男聲": "男", "男声": "男", "女聲": "女", "女声": "女"}.get((part or {}).get("name"))
+        if short_name:
+            line = {**line, "singer": {**part, "name": short_name}}
+        match = _VOCAL_MARKER.match(line["text"])
+        text = line["text"]
+        if match:
+            label = match.group("label") or match.group("bracket")
+            if label.startswith("男"):
+                singer = {"id": "lrc-male", "kind": "person", "slot": 1, "name": "男"}
+            elif label.startswith("女"):
+                singer = {"id": "lrc-female", "kind": "person", "slot": 2, "name": "女"}
+            else:
+                singer = {"id": "lrc-together", "kind": "group", "slot": 0}
+            text = match.group("text").strip()
+            if not text:
+                continue  # A singer heading is not a sung line or an instrumental gap.
+        if not singer:
+            out.append(line)
+            continue
+        normalized = {**line, "id": line.get("id") or f"lrc-{index}", "text": text,
+                      "singer": line.get("singer") or singer}
+        if text != line["text"]:
+            # Romanization and word tokens may include the literal prefix. Do not render it again.
+            normalized["romanized"] = None
+            if "".join(w["text"] for w in line.get("words") or []).strip() != text:
+                normalized["words"] = None
+        out.append(normalized)
+    return out

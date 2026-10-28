@@ -13,6 +13,7 @@ export default function WordLine({
   progress,
   playing = true,
   dimColor,
+  highlightColor = '#fff',
 }: {
   words: LyricWord[];
   delay: number;
@@ -21,6 +22,7 @@ export default function WordLine({
   playing?: boolean;
   /** Colour of words not yet sung. */
   dimColor: string;
+  highlightColor?: string;
 }) {
   const anchor = useRef({ progress, at: performance.now() });
   if (anchor.current.progress !== progress) anchor.current = { progress, at: performance.now() };
@@ -51,7 +53,7 @@ export default function WordLine({
             className="whitespace-pre-wrap"
             style={{
               color: 'transparent',
-              backgroundImage: `linear-gradient(#fff, #fff), linear-gradient(${dimColor}, ${dimColor})`,
+              backgroundImage: `linear-gradient(${highlightColor}, ${highlightColor}), linear-gradient(${dimColor}, ${dimColor})`,
               backgroundSize: `${sung * 100}% 100%, 100% 100%`,
               backgroundRepeat: 'no-repeat',
               WebkitBackgroundClip: 'text',

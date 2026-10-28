@@ -1,6 +1,30 @@
+import math
+
 from managers.db import get_redis
 from interfaces.jam import RedisJamInterface
 interface = RedisJamInterface(get_redis())
+
+
+# How far ahead of now a duet starts: time for every device to hear about it (and, mostly, to have the song loaded).
+DUET_LEAD_MS = 3000
+
+
+def stamp_duet(message: dict, now_ms: float) -> dict | None:
+    """Give a duet message its start time. The server names it, so every device counts from the same clock and
+    no client can start the song in the past. None for anything that is not a well-formed duet start or stop."""
+    data = message.get("data") or {}
+    op = message.get("op")
+    if op == "stop":
+        return {**message, "data": {}}
+    if op != "start" or not isinstance(data.get("trackId"), str) or not data["trackId"]:
+        return None
+    try:
+        position = float(data.get("from", 0))
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(position):
+        return None
+    return {**message, "data": {"trackId": data["trackId"], "from": max(0.0, position), "startAt": now_ms + DUET_LEAD_MS}}
 
 
 def _state_patch(room_id: str, message: dict) -> dict | None:
@@ -11,6 +35,10 @@ def _state_patch(room_id: str, message: dict) -> dict | None:
     ignoring it - otherwise the stored state keeps `playing=true` after a pause.
     """
     data = message.get("data") or {}
+    if message.get("action") == "duet":
+        if message.get("op") == "start":
+            return {"duetAt": data["startAt"], "duetFrom": data["from"], "duetTrack": data["trackId"]}
+        return {"duetAt": 0, "duetFrom": 0, "duetTrack": None}
     if message.get("action") != "control":
         return data or None
     op = message.get("op")
@@ -29,7 +57,9 @@ def _state_patch(room_id: str, message: dict) -> dict | None:
     if op == "setShowMelody" and "value" in data:
         return {"showMelody": bool(data["value"])}
     if op == "toggleVocal":
-        return {"vocalOn": not interface.get_jam_state(room_id).vocal_on}
+        state = interface.get_jam_state(room_id)
+        enabled = not (state.vocal_on or state.guide_level >= 1)
+        return {"vocalOn": enabled, **({"guideLevel": 0} if not enabled and state.guide_level >= 1 else {})}
     return None
 
 

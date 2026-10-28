@@ -40,11 +40,30 @@ class CandidateOrigin(CamelModel):
     notes: list[str] = Field(default_factory=list, max_length=10)
 
 
+class LyricSinger(CamelModel):
+    id: str = Field(min_length=1, max_length=100)
+    name: Optional[str] = Field(default=None, max_length=100)
+    kind: Literal["person", "group", "other"] = "person"
+    slot: int = Field(default=0, ge=0, le=100)
+
+
+class RichLyricLine(CamelModel):
+    id: str = Field(min_length=1, max_length=150)
+    time: float = Field(ge=0, le=36_000)
+    text: str = Field(max_length=2000)
+    end: Optional[float] = Field(default=None, ge=0, le=36_000)
+    singer: Optional[LyricSinger] = None
+    role: Literal["lead", "background"] = "lead"
+    guess: bool = False
+    words: Optional[list[AlignedWord]] = Field(default=None, max_length=300)
+
+
 class UpdateLyricsRequest(CamelModel):
     # An .lrc file is a few KB; cap it so the endpoint can't be used to fill the disk.
     content: str = Field(max_length=200_000)
     # Absent: the client knows nothing of alignment, leave whatever is stored alone.
     aligned: Optional[AlignedLyrics] = None
+    lines: Optional[list[RichLyricLine]] = Field(default=None, max_length=2000)
     # Set when the sheet was chosen from the candidates list: where it came from, for the record.
     origin: Optional[CandidateOrigin] = None
 

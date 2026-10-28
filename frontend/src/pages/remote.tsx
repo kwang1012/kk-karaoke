@@ -251,7 +251,7 @@ function RemoteAdjustments() {
   return (
     <div className="space-y-2 pt-1">
       <div className={cn('grid gap-2', videoId ? 'grid-cols-4' : 'grid-cols-3')}>
-        <ToggleChip label={t('remote.vocals')} icon={<Mic className="size-5" />} pressed={vocalOn} onClick={() => p.toggleVocal()} />
+        <ToggleChip label={t('remote.vocals')} icon={<Mic className="size-5" />} pressed={p.fullVocal} onClick={() => p.toggleVocal()} />
         <ToggleChip label={t('remote.melody')} icon={<Music className="size-5" />} pressed={showMelody} onClick={() => setShowMelody(!showMelody)} />
         <ToggleChip label={t('remote.sing')} icon={<Mic className="size-5" />} pressed={micOn} disabled={!canUseMic} onClick={() => setMicOn(!micOn)} />
         {videoId && <ToggleChip label={t('remote.video')} icon={<Video className="size-5" />} pressed={showVideo} onClick={() => setShowVideo(!showVideo)} />}

@@ -65,6 +65,9 @@ class RedisJamInterface:
         state.pitch_shift = jam_state.get("pitchShift", state.pitch_shift)
         state.is_on = jam_state.get("is_on", state.is_on)
         state.queue_idx = jam_state.get("queueIdx", state.queue_idx)
+        state.duet_at = jam_state.get("duetAt", state.duet_at)
+        state.duet_from = jam_state.get("duetFrom", state.duet_from)
+        state.duet_track = jam_state.get("duetTrack", state.duet_track)
 
         # `force` is used for discrete changes (play/pause/...): throttling them could
         # drop the final update, leaving Redis (and late joiners) with stale state.

@@ -534,3 +534,10 @@ def test_japanese_sheet_over_korean_vocals_is_the_wrong_sheet(monkeypatch, tmp_p
     assert ls.sheet_is_wrong_language("t", "vocal.mp3")
     monkeypatch.setattr(transcribe, "sung_language", lambda path: "ja")
     assert not ls.sheet_is_wrong_language("t", "vocal.mp3")
+
+
+def test_a_duet_singer_tag_on_its_own_line_is_not_a_lyric():
+    for tag in ("男：", "女:", "合：", "【男】:", "男声："):
+        assert wt.is_credit_line(tag)
+    for lyric in ("男孩", "女：我愛你", "合不來"):
+        assert not wt.is_credit_line(lyric)

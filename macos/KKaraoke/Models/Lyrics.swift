@@ -6,13 +6,40 @@ struct LyricWord: Codable, Hashable, Sendable {
     var text: String
 }
 
+struct LyricSinger: Codable, Hashable, Sendable {
+    var id: String
+    var name: String?
+    var kind: String
+    var slot: Int
+
+    var label: String {
+        if let name, !name.isEmpty {
+            if name == "男聲" || name == "男声" { return "男" }
+            if name == "女聲" || name == "女声" { return "女" }
+            return name
+        }
+        if kind == "group" { return tr("Together") }
+        return kind == "person" && slot > 0 ? "\(tr("Singer")) \(slot)" : tr("Unassigned")
+    }
+    var side: Int { kind == "person" && slot > 0 ? (slot % 2 == 1 ? -1 : 1) : 0 }
+}
+
 struct LyricLine: Codable, Hashable, Sendable, Identifiable {
     var time: Double
     var text: String
     var romanized: String?
     /// Per-word timing, when a verified one exists for this line.
     var words: [LyricWord]?
-    var id: Double { time }
+    var lineId: String?
+    var end: Double?
+    var singer: LyricSinger?
+    var role: String?
+    var id: String { lineId ?? "legacy-\(time)-\(text)" }
+
+    private enum CodingKeys: String, CodingKey {
+        case time, text, romanized, words, end, singer, role
+        case lineId = "id"
+    }
 }
 
 /// What `GET lyrics/{id}` answers. `lyrics` is empty when the song only has unsynced words (`plain`).
@@ -73,6 +100,30 @@ enum LyricsTiming {
         if progress <= start { return 0 }
         if progress >= end { return 1 }
         return (progress - start) / (end - start)
+    }
+
+    static func startsVocalPart(_ line: LyricLine, previous: LyricLine?) -> Bool {
+        guard let previous else { return true }
+        return line.singer?.id != previous.singer?.id || (line.role ?? "lead") != (previous.role ?? "lead")
+    }
+
+    static func hasDuetParts(_ lines: [LyricLine]) -> Bool {
+        Set(lines.compactMap { $0.singer != nil && $0.singer?.kind != "other" ? $0.singer?.id : nil }).count > 1
+    }
+
+    static func activeIndices(in lines: [LyricLine], at time: Double, delay: Double) -> Set<Int> {
+        let now = time - delay
+        let current = lineIndex(in: lines, at: time, delay: delay)
+        return Set(lines.indices.filter { index in
+            let line = lines[index]
+            guard line.time <= now else { return false }
+            if let end = line.end { return now < end }
+            if line.singer != nil {
+                let next = lines.first { $0.time > line.time }?.time ?? .infinity
+                return now < next
+            }
+            return index == current
+        })
     }
 
     /// The line being sung at `time`, or nil before the first one. `delay` shifts every line.

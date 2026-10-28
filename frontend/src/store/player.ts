@@ -1,3 +1,4 @@
+import { hasFullVocal, toggledVocalMode } from '../vocalMode';
 import { create } from 'zustand';
 import { seekSync } from 'src/seekSync';
 
@@ -438,7 +439,8 @@ export const usePlayer = () => {
 
   const changeGuideLevel = (level: number, isCallback: boolean = false) => {
     setGuideLevel(level);
-    if (isOwner && syncedPlayer && !vocalOn) syncedPlayer.setVolume(volume, volume * level);
+    const state = usePlayerStore.getState();
+    if (isOwner && state.syncedPlayer && !state.vocalOn) state.syncedPlayer.setVolume(state.volume, state.volume * level);
     if (isCallback) return;
     sendMessage({
       type: 'jam',
@@ -449,12 +451,16 @@ export const usePlayer = () => {
     });
   };
 
-  const toggleVocal = (isCallback: boolean = false) => {
-    if (isOwner && syncedPlayer) {
-      syncedPlayer.setVolume(volume, vocalVolume(volume, !vocalOn));
-    }
+  const setVocalState = (enabled: boolean, level: number) => {
+    usePlayerStore.setState({ vocalOn: enabled, guideLevel: level });
+    const state = usePlayerStore.getState();
+    if (isOwner && state.syncedPlayer) state.syncedPlayer.setVolume(state.volume, state.volume * (enabled ? 1 : level));
+  };
 
-    toggleVocalOn();
+  const toggleVocal = (isCallback: boolean = false) => {
+    const state = usePlayerStore.getState();
+    const next = toggledVocalMode(state.vocalOn, state.guideLevel);
+    setVocalState(next.vocalOn, next.guideLevel);
     if (isCallback) return;
     sendMessage({
       type: 'jam',
@@ -556,6 +562,8 @@ export const usePlayer = () => {
     vocalOn,
     guideLevel,
     setGuideLevel: changeGuideLevel,
+    fullVocal: hasFullVocal(vocalOn, guideLevel),
+    setVocalState,
     toggleVocal,
     volume,
     setVolume: setAudioVolume,

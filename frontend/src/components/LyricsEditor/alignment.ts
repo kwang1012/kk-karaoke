@@ -1,3 +1,4 @@
+import type { Lyrics } from '../../models/spotify.ts';
 /**
  * Aligning lyrics to the audio: what the server proposes, and how it becomes rows and a save.
  * Pure functions on rows, like model.ts.
@@ -64,7 +65,7 @@ export function applyProposal(rows: Row[], proposal: Proposal): Row[] | null {
   return rows.map((row, i) => {
     const line = proposal.lines[i];
     const words = attachSeparators(row.text, line.words);
-    const { words: _w, guess: _g, ...rest } = row;
+    const { words: _w, guess: _g, end: _end, ...rest } = row;
     return {
       ...rest,
       time: line.time,
@@ -101,15 +102,36 @@ export const alignedPayload = (rows: Row[], score: number | null): AlignedPayloa
     .map((r) => ({ time: r.time as number, words: r.words ?? [], guess: !!r.guess })),
 });
 
-type SavedLine = { time: number; words?: AlignedWord[] | null; guess?: boolean };
+type SavedLine = { time: number; words?: AlignedWord[] | null; guess?: boolean } & Partial<Omit<Lyrics, 'words'>>;
 
-/** Put what the server stored about each saved line (GET /lyrics/:id) back onto the matching rows. */
+/** Consume equal-time rows in order, so simultaneous singers never borrow each other's words. */
 export function attachSaved(rows: Row[], saved: SavedLine[]): Row[] {
-  const byTime = new Map(saved.map((line) => [cs(line.time), line]));
+  const remaining = [...saved];
   return rows.map((row) => {
-    const line = row.time === null ? undefined : byTime.get(cs(row.time));
-    if (!line || (!line.words?.length && !line.guess)) return row;
-    return { ...row, ...(line.words?.length ? { words: line.words } : {}), ...(line.guess ? { guess: true } : {}) };
+    const index = row.time === null ? -1 : remaining.findIndex((line) =>
+      cs(line.time) === cs(row.time!) && (line.text == null || line.text === row.text));
+    if (index < 0) return row;
+    const [line] = remaining.splice(index, 1);
+    return { ...row,
+      ...(line.id ? { lyricId: line.id } : {}),
+      ...(line.end != null ? { end: line.end } : {}),
+      ...(line.singer ? { singer: line.singer } : {}),
+      ...(line.role ? { role: line.role } : {}),
+      ...(line.words?.length ? { words: line.words } : {}),
+      ...(line.guess ? { guess: true } : {}) };
   });
 }
 
+export function richPayload(rows: Row[]) {
+  const used = new Set(rows.flatMap((row) => row.lyricId ? [row.lyricId] : []));
+  return rows.filter((r) => r.time !== null).map((r) => {
+    let id = r.lyricId || `manual-${r.id}`;
+    if (!r.lyricId) {
+      while (used.has(id)) id += '-new';
+      used.add(id);
+    }
+    return { id, time: r.time!, text: r.text,
+      end: r.end ?? (r.words?.length ? Math.max(...r.words.map((w) => w.end)) : null),
+      singer: r.singer ?? null, role: r.role ?? 'lead', words: r.words ?? null, guess: !!r.guess };
+  });
+}

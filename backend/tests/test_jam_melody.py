@@ -37,3 +37,17 @@ def test_pitch_messages_never_reach_the_stored_state(monkeypatch):
     assert touched == []
     jam.handle_message({"type": "jam", "action": "control", "op": "setShowMelody", "roomId": "room", "data": {"value": True}})
     assert len(touched) == 1  # while a real control still is
+
+
+def test_vocal_toggle_clears_a_full_guide_mix_for_all_room_clients(monkeypatch):
+    from types import SimpleNamespace
+    state = SimpleNamespace(vocal_on=False, guide_level=1)
+    monkeypatch.setattr(jam.interface, 'get_jam_state', lambda _: state)
+    message = {'action': 'control', 'op': 'toggleVocal'}
+    assert jam._state_patch('room', message) == {'vocalOn': False, 'guideLevel': 0}
+    state.vocal_on = True
+    assert jam._state_patch('room', message) == {'vocalOn': False, 'guideLevel': 0}
+    state.guide_level = 0.25
+    assert jam._state_patch('room', message) == {'vocalOn': False}
+    state.vocal_on = False
+    assert jam._state_patch('room', message) == {'vocalOn': True}

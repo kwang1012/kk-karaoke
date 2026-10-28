@@ -2,6 +2,12 @@ import type { TranslationKey } from './en';
 
 /** 繁體中文 (Taiwan). Simplified Chinese is generated from this at runtime, see i18n/index.ts. */
 export const zhTW: Record<TranslationKey, string> = {
+  'lyrics.singer': '歌手 {number}',
+  'lyrics.together': '合唱',
+  'lyrics.background': '和聲',
+  'lyrics.unassigned': '未指定',
+  'lyrics.singerPart': '演唱分配',
+
   'common.save': '儲存',
   'common.edit': '編輯',
   'common.cancel': '取消',
@@ -131,6 +137,8 @@ export const zhTW: Record<TranslationKey, string> = {
   'player.vocalOn': '開啟人聲',
   'player.vocal': '人聲',
   'player.karaoke': '伴唱',
+  'player.duetStart': '一起唱：房間裡的每個人同時開始這首歌',
+  'player.duetStop': '結束一起唱',
   'player.lowerKey': '降 Key',
   'player.raiseKey': '升 Key',
   'player.lyricsView': '歌詞畫面',
@@ -147,14 +155,14 @@ export const zhTW: Record<TranslationKey, string> = {
   'player.guide': '導唱人聲',
   'player.guideHint': '保留一點原唱人聲，幫助你跟上旋律。0% 為完全消除。',
   'tab.remote': '正在另一個分頁播放，這個分頁僅作遙控。',
+  'tab.otherDevice': '正在另一台裝置播放，這台僅作遙控。',
+  'tab.nobody': '你的裝置目前都沒有在播放。',
   'tab.playHere': '改在此播放',
   'player.loading': '載入中…',
   'player.loadingPercent': '載入中… {percent}%',
   'player.loadFailed': '無法載入這首歌。',
   'common.retry': '重試',
   'player.currentKey': '目前 Key：{value}',
-  'tab.otherDevice': '正在另一台裝置播放，這台僅作遙控。',
-  'tab.nobody': '你的裝置目前都沒有在播放。',
 
   'queue.title': '待播清單',
   'queue.shuffle': '隨機排序',

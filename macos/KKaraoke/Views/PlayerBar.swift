@@ -86,11 +86,11 @@ struct PlayerBar: View {
             .accessibilityValue(lyricsOpen ? "On" : "Off")
             .accessibilityAddTraits(lyricsOpen ? .isSelected : [])
           Button {
-            player.vocalVolume = player.vocalVolume > 0 ? 0 : 1
+            player.perform(.toggleVocal)
           } label: {
             HStack(spacing: 5) {
-              LucideIcon(player.vocalVolume > 0 ? "mic" : "mic-off", size: 14)
-              Text(player.vocalVolume > 0 ? "Vocal" : "Karaoke").font(
+              LucideIcon(player.fullVocal ? "mic" : "mic-off", size: 14)
+              Text(player.fullVocal ? "Vocal" : "Karaoke").font(
                 .system(size: 11, weight: .medium)
               ).lineLimit(1).fixedSize()
             }

@@ -7,6 +7,26 @@ struct LyricsTests {
         LyricLine(time: 10, text: "a"), LyricLine(time: 20, text: "b"), LyricLine(time: 30, text: "c"),
     ]
 
+    @Test func duetPartsHaveIndependentEndsAndIdentity() throws {
+        let data = Data("""
+        {"lyrics":[
+          {"id":"a","time":10,"end":15,"text":"Hello","singer":{"id":"v1","kind":"person","slot":1}},
+          {"id":"b","time":10,"end":12,"text":"World","singer":{"id":"v2","kind":"person","slot":2}},
+          {"id":"c","time":13,"end":16,"text":"Again","singer":{"id":"v2","kind":"person","slot":2}}
+        ]}
+        """.utf8)
+        let parts = try JSONDecoder().decode(LyricsResponse.self, from: data).lyrics
+        #expect(parts[0].id != parts[1].id)
+        #expect(LyricsTiming.hasDuetParts(parts))
+        #expect(parts[0].singer?.side == -1)
+        #expect(parts[1].singer?.side == 1)
+        #expect(LyricsTiming.activeIndices(in: parts, at: 11, delay: 0) == [0, 1])
+        #expect(LyricsTiming.activeIndices(in: parts, at: 12, delay: 0) == [0])
+        #expect(LyricsTiming.activeIndices(in: parts, at: 14, delay: 0) == [0, 2])
+        #expect(LyricsTiming.activeIndices(in: parts, at: 16, delay: 0).isEmpty)
+        #expect(LyricsTiming.activeIndices(in: parts, at: 12, delay: 1) == [0, 1])
+    }
+
     @Test func lineIndexFollowsTime() {
         #expect(LyricsTiming.lineIndex(in: lines, at: 5, delay: 0) == nil)
         #expect(LyricsTiming.lineIndex(in: lines, at: 10, delay: 0) == 0)

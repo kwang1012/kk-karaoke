@@ -5,7 +5,6 @@ import SwiftUI
 /// Opened from the player bar, and when the main window is minimized.
 struct MiniLyricsView: View {
   @Environment(PlayerModel.self) private var player
-  @Environment(\.dismissWindow) private var dismissWindow
   @State private var palette = CoverPalette.fallback
   /// The level to come back to when the speaker button unmutes.
   @State private var unmutedVolume = 1.0
@@ -15,10 +14,13 @@ struct MiniLyricsView: View {
     ZStack {
       palette.background
       VStack(spacing: 8) {
-        content.padding(.horizontal, 24).padding(.top, 18)
-        controls.padding(.horizontal, 16).padding(.bottom, 12)
+        content
+          .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+          .padding(.horizontal, 24).padding(.top, 18)
+        controls.frame(height: 28).padding(.horizontal, 16).padding(.bottom, 12)
       }
     }
+    .frame(minWidth: 480, minHeight: 180)
     .foregroundStyle(.white)
     .exclusiveWindow(MiniLyrics.windowID)
     .containerBackground(palette.background, for: .window)
@@ -30,7 +32,7 @@ struct MiniLyricsView: View {
     }
   }
 
-  /// Previous, play or pause, next, and back to the main window.
+  /// Playback and volume; the window’s close button returns to the main window.
   private var controls: some View {
     HStack(spacing: 14) {
       Button { player.perform(.previous) } label: { LucideIcon("skip-back", size: 16) }
@@ -45,16 +47,16 @@ struct MiniLyricsView: View {
         Text(player.track?.artistText ?? "").font(.system(size: 11)).opacity(0.6).lineLimit(1)
       }
       .frame(maxWidth: .infinity, alignment: .leading)
-      Button { player.vocalVolume = player.vocalVolume > 0 ? 0 : 1 } label: {
+      Button { player.perform(.toggleVocal) } label: {
         HStack(spacing: 4) {
-          LucideIcon(player.vocalVolume > 0 ? "mic" : "mic-off", size: 13)
-          Text(player.vocalVolume > 0 ? "Vocal" : "Karaoke").font(.system(size: 11, weight: .medium)).lineLimit(1)
+          LucideIcon(player.fullVocal ? "mic" : "mic-off", size: 13)
+          Text(player.fullVocal ? "Vocal" : "Karaoke").font(.system(size: 11, weight: .medium)).lineLimit(1)
             .fixedSize()
         }
         .padding(.horizontal, 9).frame(height: 26)
         .background(.white.opacity(0.16), in: Capsule())
       }
-      .help("Toggle original vocal").accessibilityLabel(player.vocalVolume > 0 ? "Vocal" : "Karaoke")
+      .help("Toggle original vocal").accessibilityLabel(player.fullVocal ? "Vocal" : "Karaoke")
       HStack(spacing: 6) {
         Button {
           if player.masterVolume == 0 {
@@ -69,8 +71,6 @@ struct MiniLyricsView: View {
         Slider(value: Binding(get: { player.masterVolume }, set: { player.masterVolume = $0 }), in: 0...1)
           .controlSize(.mini).tint(.white).frame(width: 64).stableCursor(.link).accessibilityLabel("Volume")
       }
-      Button { dismissWindow(id: MiniLyrics.windowID) } label: { LucideIcon("maximize", size: 16) }
-        .help("Back to the main window").accessibilityLabel("Back to the main window")
     }
     .buttonStyle(.plain).stableCursor(.link)
   }
@@ -80,7 +80,7 @@ struct MiniLyricsView: View {
       message("Nothing playing")
     } else {
       switch player.lyrics {
-      case .none, .loading: ProgressView().tint(.white)
+      case .none, .loading: MiniLyricsSkeleton()
       case .missing: message("No lyrics for this song")
       case .failed: LyricsFailed().scaleEffect(0.7)
       case .plain: message("These lyrics have no timing")
@@ -89,12 +89,14 @@ struct MiniLyricsView: View {
         TimelineView(.animation(minimumInterval: 1.0 / 60, paused: !player.isPlaying)) { _ in
           let current = LyricsTiming.lineIndex(
             in: lines, at: player.currentTime, delay: player.lyricsDelay)
+          let activeLines = LyricsTiming.activeIndices(in: lines, at: player.currentTime, delay: player.lyricsDelay)
           VStack(alignment: .leading, spacing: 10) {
-            ForEach(shown(current: current, count: lines.count), id: \.self) { index in
+            ForEach(Array(activeLines.union(activeLines.count < 2 ? shown(current: current, count: lines.count) : [])).sorted(), id: \.self) { index in
               PlaybackLyricLine(
-                line: lines[index], active: current == index,
-                completed: current.map { index < $0 } ?? false, delay: player.lyricsDelay,
-                dim: palette.lyrics.opacity(0.7), showRomanized: showRomanized
+                line: lines[index], active: activeLines.contains(index),
+                completed: (current.map { index < $0 } ?? false) && !activeLines.contains(index), delay: player.lyricsDelay,
+                dim: palette.lyrics.opacity(0.7), showRomanized: showRomanized, showSinger: LyricsTiming.hasDuetParts(lines),
+                showSingerLabel: LyricsTiming.startsVocalPart(lines[index], previous: lines[safe: index - 1])
               )
               .font(.system(size: current == index ? 26 : 20, weight: .bold))
               .frame(maxWidth: .infinity, alignment: .leading)
@@ -114,6 +116,27 @@ struct MiniLyricsView: View {
 
   private func message(_ text: LocalizedStringKey) -> some View {
     Text(text).font(.callout).opacity(0.7).frame(maxWidth: .infinity, maxHeight: .infinity)
+  }
+}
+
+/// Two placeholder lines with the same alignment and footprint as the compact lyrics.
+struct MiniLyricsSkeleton: View {
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @State private var pulse = false
+
+  var body: some View {
+    GeometryReader { geometry in
+      VStack(alignment: .leading, spacing: 10) {
+        RoundedRectangle(cornerRadius: 6).frame(width: geometry.size.width * 0.72, height: 26)
+        RoundedRectangle(cornerRadius: 5).frame(width: geometry.size.width * 0.54, height: 20)
+      }
+      .foregroundStyle(.white.opacity(reduceMotion || pulse ? 0.16 : 0.08))
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+    .animation(reduceMotion ? nil : .easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: pulse)
+    .onAppear { pulse = true }
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel("Loading…")
   }
 }
 
@@ -137,7 +160,16 @@ struct FloatingLyricsOnMinimize: ViewModifier {
   }
 }
 
-enum MiniLyrics { static let windowID = "lyrics-mini" }
+enum MiniLyrics {
+  static let windowID = "lyrics-mini"
+
+  @MainActor static func configure(_ window: NSWindow) {
+    window.collectionBehavior.remove([.fullScreenPrimary, .fullScreenAuxiliary])
+    window.collectionBehavior.insert(.fullScreenNone)
+    window.standardWindowButton(.zoomButton)?.isHidden = true
+    window.standardWindowButton(.zoomButton)?.isEnabled = false
+  }
+}
 
 /// One window at a time: the floating lyrics and the TV display each replace the main window while they are open,
 /// and the main window comes back when they close.
@@ -146,8 +178,8 @@ enum WindowFocus {
   /// The windows that stand in for the main one.
   static let secondary = [MiniLyrics.windowID, "tv"]
 
-  static func window(_ id: String) -> NSWindow? {
-    NSApp.windows.first { $0.identifier?.rawValue.contains(id) == true }
+  static func window(_ id: String, in windows: [NSWindow] = NSApp.windows) -> NSWindow? {
+    windows.first { $0.identifier?.rawValue.contains(id) == true }
   }
   static func isVisible(_ id: String) -> Bool { window(id)?.isVisible == true }
   static func isMain(_ window: NSWindow?) -> Bool { window?.identifier?.rawValue.contains("main") == true }
@@ -157,32 +189,50 @@ enum WindowFocus {
     main.orderOut(nil)
   }
 
-  static func showMain() {
-    guard !secondary.contains(where: isVisible), let main = window("main") else { return }
-    if main.isMiniaturized { main.deminiaturize(nil) } else { main.makeKeyAndOrderFront(nil) }
+  static func showMain(windows: [NSWindow] = NSApp.windows, createMain: () -> Void = {}) {
+    guard !secondary.contains(where: { window($0, in: windows)?.isVisible == true }) else { return }
+    if let main = window("main", in: windows) {
+      if main.isMiniaturized { main.deminiaturize(nil) }
+      main.makeKeyAndOrderFront(nil)
+    } else {
+      createMain()
+    }
     NSApp.activate()
   }
 }
 
 private struct ExclusiveWindow: ViewModifier {
   @Environment(\.dismissWindow) private var dismissWindow
+  @Environment(\.openWindow) private var openWindow
+  @State private var window: NSWindow?
   var id: String
 
   func body(content: Content) -> some View {
     content
+      .background(WindowReader { window in
+        self.window = window
+        if id == MiniLyrics.windowID { MiniLyrics.configure(window) }
+      })
       .onAppear {
         for other in WindowFocus.secondary where other != id && WindowFocus.isVisible(other) {
           dismissWindow(id: other)
         }
         WindowFocus.hideMain()
       }
-      .onDisappear {
-        // Going from one of these windows to the other must not flash the main window in between.
-        Task {
-          try? await Task.sleep(for: .milliseconds(250))
-          WindowFocus.showMain()
-        }
+      // SwiftUI may keep a closed Window's content alive, so onDisappear alone is not enough.
+      .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { note in
+        guard let closed = note.object as? NSWindow, closed === window else { return }
+        restoreMain()
       }
+      .onDisappear { restoreMain() }
+  }
+
+  private func restoreMain() {
+    // Let AppKit finish closing and any replacement secondary window appear first.
+    Task {
+      try? await Task.sleep(for: .milliseconds(250))
+      WindowFocus.showMain { openWindow(id: "main") }
+    }
   }
 }
 

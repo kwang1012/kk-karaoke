@@ -13,7 +13,7 @@ function formatTime(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 export default function MobileAudioController({ progressOnly }: { progressOnly?: boolean }) {
-  const { vocalOn, volume, progress, seeking, setSeeking, duration, playing, loading } = usePlayer();
+  const { fullVocal: vocalOn, volume, progress, seeking, setSeeking, duration, playing, loading } = usePlayer();
   const { play, pause, next, previous, seek, setVolume, toggleVocal } = usePlayer();
 
   const [localProgress, setLocalProgress] = useState(progress);

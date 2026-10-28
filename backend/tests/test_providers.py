@@ -557,6 +557,10 @@ def test_real_lyrics_are_not_mistaken_for_a_notice():
 def test_a_piano_cut_is_not_the_wanted_song():
     assert not pv._title_fits(["說了再見"], "说了再见 (钢琴版)", ls._norm)
     assert pv._title_fits(["說了再見 (Piano Ver.)"], "說了再見 (Piano Ver.)", ls._norm)
+    # a DJ remix is another recording, however the sheet spells it
+    assert not pv._title_fits(["總會有人 (男版)"], "總會有人(DJ 點點版)-承桓", ls._norm)
+    assert not pv._title_fits(["總會有人"], "總會有人 (DJ版)", ls._norm)
+    assert pv._title_fits(["Adjust"], "Adjust", ls._norm)
 
 
 def test_an_entry_whose_lyrics_are_a_notice_is_skipped_for_the_next(net):

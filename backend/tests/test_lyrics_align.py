@@ -322,3 +322,50 @@ def test_refreshing_forgets_an_alignment_with_the_rest(env):
     ls.write_meta("t1", ls.set_aligned(ls.read_meta("t1"), 0.9, [(30.0, [(30.0, 30.4, "城")], True)]))
     ls.discard_lyrics("t1")
     assert ls.read_meta("t1") == {"video_id": VID}
+
+
+def test_duet_editor_roundtrip_keeps_equal_start_parts_and_words(env, client):
+    lines = [
+        {"id": "part-a", "time": 1, "end": 4, "text": "hi", "singer": {"id": "a", "slot": 1},
+         "words": [{"start": 1, "end": 4, "text": "hi"}]},
+        {"id": "part-b", "time": 1, "end": 3, "text": "there", "singer": {"id": "b", "slot": 2},
+         "words": [{"start": 1, "end": 3, "text": "there"}]},
+    ]
+    response = client.post('/api/lyrics/t1/update', json={"content": "[00:01.00]hi\n[00:01.00]there", "lines": lines})
+    assert response.status_code == 200
+    saved = client.get('/api/lyrics/t1').json()['lyrics']
+    assert [line['id'] for line in saved] == ['part-a', 'part-b']
+    assert [line['words'][0]['text'] for line in saved] == ['hi', 'there']
+    assert [line['singer']['slot'] for line in saved] == [1, 2]
+    assert [line['end'] for line in saved] == [4, 3]
+    # The raw editor cannot carry metadata safely across arbitrary replacements.
+    assert client.post('/api/lyrics/t1/update', json={"content": "[00:01.00]different"}).status_code == 200
+    assert 'singer' not in client.get('/api/lyrics/t1').json()['lyrics'][0]
+    assert ls.read_meta('t1')['edited'] is True
+    assert client.get('/api/lyrics/t1').json()['lyrics'][0]['words'] is None
+
+
+def test_mismatched_duet_metadata_is_rejected_before_overwriting_the_sheet(env, client):
+    save()
+    response = client.post('/api/lyrics/t1/update', json={
+        "content": "[00:01.00]replacement", "lines": [{"id": "a", "time": 1, "text": "wrong"}],
+    })
+    assert response.status_code == 400
+    assert (env / 't1.lrc').read_text() == '[00:01.00]hi\n[00:02.00]there'
+
+
+def test_cached_lrc_singer_headings_become_parts_in_playback_and_editor(env, client):
+    original = '[00:14.45]男：\n[00:15.13]First\n[00:21.72]Second\n[00:39.87]女：\n[00:41.53]Reply\n[00:47.48]合：\n[00:48.00]Together'
+    save(lrc=original)
+    body = client.get('/api/lyrics/t1').json()
+    assert [line['text'] for line in body['lyrics']] == ['First', 'Second', 'Reply', 'Together']
+    assert [line['singer']['slot'] for line in body['lyrics']] == [1, 1, 2, 0]
+    assert body['content'] == '[00:15.13]First\n[00:21.72]Second\n[00:41.53]Reply\n[00:48.00]Together'
+    assert (env / 't1.lrc').read_text() == original
+    # Saving the normalized sheet preserves the parts and original lyric times.
+    assert client.post('/api/lyrics/t1/update', json={'content': body['content'], 'lines': body['lyrics']}).status_code == 200
+    again = client.get('/api/lyrics/t1').json()['lyrics']
+    fields = ('id', 'kind', 'slot', 'name')
+    assert [tuple(line['singer'].get(k) for k in fields) for line in again] == [
+        tuple(line['singer'].get(k) for k in fields) for line in body['lyrics']]
+    assert [line['time'] for line in again] == [15.13, 21.72, 41.53, 48]

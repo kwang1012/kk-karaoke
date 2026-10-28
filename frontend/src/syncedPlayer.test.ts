@@ -31,7 +31,13 @@ function createPlayer() {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   });
   const exports: Record<string, any> = {};
-  runInNewContext(outputText, { exports, AudioContext, require: () => ({}) });
+  runInNewContext(outputText, {
+    exports,
+    AudioContext,
+    setTimeout,
+    clearTimeout,
+    require: (name: string) => (name === './clockSync' ? { localNow: () => Date.now() } : {}),
+  });
   const player = new exports.default();
   const pending = new Map<string, ReturnType<typeof deferred>>();
   // Control downloads to exercise completions in either order, using the real load/loadAudio.
@@ -83,6 +89,52 @@ test('pausing before an audio unlock does not start playback when the context re
   player.context.changeState('running');
   assert.equal(player.isRunning, false);
   assert.equal(player.isPlaying, false);
+});
+
+async function loadedPlayer() {
+  const { player, pending } = createPlayer();
+  const loading = player.loadAudio({ id: 'song' });
+  pending.get('song')!.resolve(buffers(100));
+  await loading;
+  return player;
+}
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+test('a shared start that has already passed joins the song where it is by now', async () => {
+  const player = await loadedPlayer();
+  player.playAt(Date.now() - 2000, 5);
+  assert.equal(player.isPlaying, true);
+  assert.ok(Math.abs(player.getCurrentTime() - 7) < 0.1);
+});
+
+test('a shared start in the future waits at the start position, then plays', async () => {
+  const player = await loadedPlayer();
+  player.playAt(Date.now() + 40, 5);
+  assert.equal(player.isPlaying, false);
+  assert.equal(player.getCurrentTime(), 5);
+  await wait(120);
+  assert.equal(player.isPlaying, true);
+});
+
+test('pausing or stopping cancels a start that has not come yet', async () => {
+  const player = await loadedPlayer();
+  player.playAt(Date.now() + 40, 5);
+  player.pause();
+  await wait(120);
+  assert.equal(player.isPlaying, false);
+  player.playAt(Date.now() + 40, 5);
+  player.stop();
+  await wait(120);
+  assert.equal(player.isPlaying, false);
+});
+
+test('a device with output latency starts early so its sound still lands on the shared moment', async () => {
+  const player = await loadedPlayer();
+  player.context.outputLatency = 0.1;
+  player.playAt(Date.now() + 60, 5); // 100 ms of latency is longer than the 60 ms wait: it is already late
+  assert.equal(player.isPlaying, true);
+  assert.ok(player.getCurrentTime() >= 5.03);
 });
 
 function createShiftedPlayer() {

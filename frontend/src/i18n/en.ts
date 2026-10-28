@@ -1,5 +1,11 @@
 /** English strings; the source of truth for every key (other languages must provide all of them). */
 export const en = {
+  'lyrics.singer': 'Singer {number}',
+  'lyrics.together': 'Together',
+  'lyrics.background': 'Backing vocals',
+  'lyrics.unassigned': 'Unassigned',
+  'lyrics.singerPart': 'Singer part',
+
   // common
   'common.save': 'Save',
   'common.edit': 'Edit',
@@ -137,6 +143,8 @@ export const en = {
   'player.vocalOn': 'Turn on vocal',
   'player.vocal': 'Vocal',
   'player.karaoke': 'Karaoke',
+  'player.duetStart': 'Sing together: everyone in the room starts this song at the same moment',
+  'player.duetStop': 'Stop singing together',
   'player.lowerKey': 'Lower key',
   'player.raiseKey': 'Raise key',
   'player.lyricsView': 'Lyrics view',
@@ -153,14 +161,14 @@ export const en = {
   'player.guide': 'Guide vocal',
   'player.guideHint': 'Keep a faint original vocal to help you follow the melody. 0% removes it completely.',
   'tab.remote': 'Playing in another tab. This one is a remote.',
+  'tab.otherDevice': 'Playing on another device. This one is a remote.',
+  'tab.nobody': 'Nothing is playing on your devices.',
   'tab.playHere': 'Play here',
   'player.loading': 'Loading…',
   'player.loadingPercent': 'Loading… {percent}%',
   'player.loadFailed': "Couldn't load this song.",
   'common.retry': 'Retry',
   'player.currentKey': 'Current Key: {value}',
-  'tab.otherDevice': 'Playing on another device. This one is a remote.',
-  'tab.nobody': 'Nothing is playing on your devices.',
 
   // queue + jam
   'queue.title': 'Queue',

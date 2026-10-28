@@ -222,6 +222,9 @@ struct TVView: View {
       switch player.lyrics {
       case .synced(let lines):
         let _ = player.seekCount
+        if LyricsTiming.hasDuetParts(lines) {
+          DuetStage(lines: lines, unit: unit).id(player.track?.id)
+        } else {
         TimelineView(.animation(minimumInterval: 1.0 / 60, paused: !player.isPlaying)) { _ in
           let time = player.currentTime
           let current = LyricsTiming.lineIndex(in: lines, at: time, delay: player.lyricsDelay) ?? -1
@@ -230,6 +233,7 @@ struct TVView: View {
             counting: LyricGap.after(lines, index: current, delay: player.lyricsDelay)?
               .countdown(at: time) != nil
           ).equatable().id(player.track?.id)
+        }
         }
       case .plain(let text):
         ScrollView {

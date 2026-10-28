@@ -7,7 +7,7 @@ import ts from 'typescript';
 import { seekSync } from '../seekSync.ts';
 
 // Exercise the real Player effects with controlled audio, metadata and render scheduling.
-function fixture(secondStatus = 'submitted', isOwner = true) {
+function fixture(secondStatus = 'submitted', isOwner = true, duet: { trackId: string } | null = null) {
   seekSync.clear('test-room');
   const handlers: Record<string, any> = {};
   const sent: any[] = [];
@@ -84,6 +84,7 @@ function fixture(secondStatus = 'submitted', isOwner = true) {
     'src/store/setting': { useSettingStore: Object.assign((select: any) => select(settings), { getState: () => settings }) },
     'src/store/player': { usePlayer, usePlayerStore: { getState: () => state } },
     'src/store/playerTab': { claimPlayerTab: () => () => {} },
+    'src/store/duet': { useDuetStore: { getState: () => ({ duet }) } },
     'src/store/room': {
       useJam: () => ({ isOwner, isRoomOwner: true }), useActiveRoomId: () => 'test-room',
       useRoomStore: (select: any) => select({ roomId: 'test-room', fetchRoom: state.fetchRoom }),
@@ -222,6 +223,22 @@ test('incoming time does not move the slider while dragging', async () => {
   f.state.seeking = false;
   f.message({ action: 'update', data: { currentTime: 11 } });
   assert.equal(f.state.progress, 11);
+});
+
+test('during a duet the room player\'s reports do not move a device that follows the shared clock', async () => {
+  const guest = fixture('submitted', false, { trackId: 'a' });
+  await guest.settle();
+  guest.state.playing = true;
+  guest.state.progress = 30;
+  guest.message({ action: 'update', data: { currentTime: 0, playing: false } });
+  assert.equal(guest.state.playing, true);
+  assert.equal(guest.state.progress, 30);
+
+  const outside = fixture('submitted', false);
+  await outside.settle();
+  outside.state.playing = true;
+  outside.message({ action: 'update', data: { currentTime: 0, playing: false } });
+  assert.equal(outside.state.playing, false); // outside a duet the room player's word still goes
 });
 
 test('what a phone in the room hears reaches the screen, but only from its own room', async () => {

@@ -68,7 +68,7 @@ final class NotchPanelController {
     let notch = Self.geometry(of: screen)
     let size =
       expanded
-      ? NSSize(width: max(440, notch.width + 160), height: notch.height + 118)
+      ? NSSize(width: max(440, notch.width + 160), height: notch.height + 150)
       : NSSize(width: notch.width + 2 * 44, height: notch.height)
     let frame = NSRect(
       x: screen.frame.midX - size.width / 2, y: screen.frame.maxY - size.height,
@@ -128,7 +128,7 @@ private struct NotchView: View {
 
   @ViewBuilder private var details: some View {
     VStack(spacing: 8) {
-      lyrics.frame(maxWidth: .infinity, alignment: .leading).frame(height: 56, alignment: .top)
+      lyrics.frame(maxWidth: .infinity, alignment: .leading).frame(height: 88, alignment: .top)
       HStack(spacing: 16) {
         VStack(alignment: .leading, spacing: 1) {
           Text(player.track?.name ?? "").font(.system(size: 12, weight: .semibold)).lineLimit(1)
@@ -150,13 +150,15 @@ private struct NotchView: View {
       let _ = player.seekCount
       TimelineView(.animation(minimumInterval: 1.0 / 60, paused: !player.isPlaying)) { _ in
         let current = LyricsTiming.lineIndex(in: lines, at: player.currentTime, delay: player.lyricsDelay)
+        let activeLines = LyricsTiming.activeIndices(in: lines, at: player.currentTime, delay: player.lyricsDelay)
         let start = current ?? 0
         VStack(alignment: .leading, spacing: 4) {
-          ForEach(Array(start..<min(lines.count, start + 2)), id: \.self) { index in
+          ForEach(Array(activeLines.union(start..<min(lines.count, start + 2))).sorted().prefix(max(2, activeLines.count)), id: \.self) { index in
             PlaybackLyricLine(
-              line: lines[index], active: current == index,
-              completed: current.map { index < $0 } ?? false, delay: player.lyricsDelay,
-              dim: .white.opacity(0.45), showRomanized: showRomanized
+              line: lines[index], active: activeLines.contains(index),
+              completed: (current.map { index < $0 } ?? false) && !activeLines.contains(index), delay: player.lyricsDelay,
+              dim: .white.opacity(0.45), showRomanized: showRomanized, showSinger: LyricsTiming.hasDuetParts(lines),
+                showSingerLabel: LyricsTiming.startsVocalPart(lines[index], previous: lines[safe: index - 1])
             )
             .font(.system(size: current == index ? 18 : 14, weight: .bold)).lineLimit(2)
           }

@@ -11,6 +11,7 @@ import {
   Plus,
   SkipBack,
   SkipForward,
+  Users,
   Volume1,
   Volume2,
   VolumeX,
@@ -23,6 +24,9 @@ import { IconButton } from 'src/components/ui/button';
 import { Tooltip } from 'src/components/ui/tooltip';
 import { usePlayer } from 'src/store/player';
 import { useNotifyStore } from 'src/store/notify';
+import { useDuetStore } from 'src/store/duet';
+import { useActiveRoomId } from 'src/store/room';
+import { useWebSocketStore } from 'src/store/ws';
 import { useSettingStore } from 'src/store/setting';
 import { cn } from 'src/lib/utils';
 import GuideVocalControl from './GuideVocalControl';
@@ -40,7 +44,7 @@ export default function AudioController() {
   const { currentTrack, progress, seeking, setSeeking, duration, playing, seek } = usePlayer();
   const { play, pause, next, previous } = usePlayer();
   const { loading, loadProgress, loadError, retryLoad } = usePlayer();
-  const { vocalOn, guideLevel, toggleVocal, volume, setVolume, enabledPitchShift, semitone } = usePlayer();
+  const { fullVocal: vocalOn, guideLevel, toggleVocal, volume, setVolume, enabledPitchShift, semitone } = usePlayer();
   const { increaseSemitone, decreaseSemitone } = usePlayer();
   const showSnackbar = useNotifyStore((state) => state.showSnackbar);
   const queueOpen = useSettingStore((state) => state.queueOpen);
@@ -54,6 +58,15 @@ export default function AudioController() {
   const realProgress = seeking ? localProgress : progress;
 
   const handlePlayPause = () => (playing ? pause() : play());
+
+  // A duet: everyone in the room plays the song themselves, starting together (see DuetPlayer).
+  const duet = useDuetStore((state) => state.duet);
+  const roomId = useActiveRoomId();
+  const sendMessage = useWebSocketStore((state) => state.sendMessage);
+  const toggleDuet = () => {
+    if (duet) sendMessage({ type: 'jam', action: 'duet', op: 'stop', roomId });
+    else if (currentTrack) sendMessage({ type: 'jam', action: 'duet', op: 'start', roomId, data: { trackId: currentTrack.id, from: 0 } });
+  };
   const VolumeIcon = volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
 
   return (
@@ -176,6 +189,17 @@ export default function AudioController() {
           </button>
         </Tooltip>
         <GuideVocalControl className="-ml-1" />
+        <Tooltip title={duet ? t('player.duetStop') : t('player.duetStart')} side="top">
+          <IconButton
+            aria-label={duet ? t('player.duetStop') : t('player.duetStart')}
+            aria-pressed={!!duet}
+            className={cn(duet && 'text-primary')}
+            disabled={!currentTrack || loading}
+            onClick={toggleDuet}
+          >
+            <Users className="size-5" />
+          </IconButton>
+        </Tooltip>
         {enabledPitchShift && (
           <div className="ml-1 flex items-center rounded-full border text-xs">
             <IconButton

@@ -1,3 +1,4 @@
+import type { LyricSinger } from 'src/models/spotify';
 import { memo, useState } from 'react';
 import { AudioLines, CircleHelp, Clock3, CornerDownRight, Minus, Play, Plus, TriangleAlert, Trash2 } from 'lucide-react';
 import { IconButton } from 'src/components/ui/button';
@@ -8,6 +9,7 @@ import { formatTime, parseTime, type AlignedWord, type Row } from './model';
 import WordEditor from './WordEditor';
 
 export type RowActions = {
+  setSinger: (index: number, singer: LyricSinger | null) => void;
   select: (index: number) => void;
   setTime: (index: number, time: number | null) => void;
   setText: (index: number, text: string) => void;
@@ -26,10 +28,10 @@ export type RowActions = {
 
 const composing = (e: React.KeyboardEvent) => e.nativeEvent.isComposing || e.keyCode === 229;
 
-type Props = { row: Row; index: number; active: boolean; selected: boolean; outOfOrder: boolean; actions: RowActions };
+type Props = { singers: LyricSinger[]; row: Row; index: number; active: boolean; selected: boolean; outOfOrder: boolean; actions: RowActions };
 
 /** One lyric line: its time, its words, and what can be done to it. */
-function LineRow({ row, index, active, selected, outOfOrder, actions }: Props) {
+function LineRow({ row, index, active, selected, outOfOrder, actions, singers }: Props) {
   const t = useT();
   // While the time is being typed it is text; it becomes a time when the field is left.
   const [draft, setDraft] = useState<string | null>(null);
@@ -60,7 +62,7 @@ function LineRow({ row, index, active, selected, outOfOrder, actions }: Props) {
       data-row-index={index}
       onMouseDown={(e) => {
         // Clicking anywhere on the row selects it, but keep the caret when the click is in a field.
-        if (!(e.target instanceof HTMLInputElement)) e.preventDefault();
+        if (!(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLSelectElement)) e.preventDefault();
         actions.select(index);
       }}
       className={cn(
@@ -123,7 +125,27 @@ function LineRow({ row, index, active, selected, outOfOrder, actions }: Props) {
         }}
         className="h-8 min-w-0 rounded-md border border-transparent bg-transparent px-2 text-base outline-none hover:border-border focus:border-ring focus:bg-background focus:ring-2 focus:ring-ring/30"
       />
-      <div className={cn('flex items-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100', selected && 'opacity-100')}>
+      <select
+        aria-label={t('lyrics.singerPart')}
+        className="col-start-3 row-start-2 h-8 w-32 max-w-full min-w-0 rounded-md border bg-background px-1 text-xs"
+        value={row.singer?.id || ''}
+        onChange={(e) => {
+          const id = e.target.value;
+          const defaults: LyricSinger[] = [
+            { id: 'manual-1', kind: 'person', slot: 1 },
+            { id: 'manual-2', kind: 'person', slot: 2 },
+            { id: 'manual-together', kind: 'group', slot: 0 },
+          ];
+          actions.setSinger(index, [...singers, ...defaults].find((s) => s.id === id) || null);
+        }}
+      >
+        <option value="">{t('lyrics.unassigned')}</option>
+        {singers.map((s) => <option key={s.id} value={s.id}>{s.name || (s.kind === 'group' ? t('lyrics.together') : t('lyrics.singer', { number: s.slot }))}</option>)}
+        {![1, 2].every((slot) => singers.some((s) => s.kind === 'person' && s.slot === slot)) && [1, 2].filter((slot) => !singers.some((s) => s.kind === 'person' && s.slot === slot)).map((slot) =>
+          <option key={`manual-${slot}`} value={`manual-${slot}`}>{t('lyrics.singer', { number: slot })}</option>)}
+        {!singers.some((s) => s.kind === 'group') && <option value="manual-together">{t('lyrics.together')}</option>}
+      </select>
+      <div className={cn('col-start-4 row-start-1 flex items-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100', selected && 'opacity-100')}>
         {row.words?.length ? small(t('editor.word.toggle'), () => setWordsOpen((open) => !open), <AudioLines className={cn('size-4', wordsOpen && 'text-primary')} />) : null}
         {small(t('editor.stampNow'), () => actions.stamp(index), <Clock3 className="size-4" />, 'text-primary hover:text-primary')}
         {small(t('editor.playFromHere'), () => actions.playFrom(index), <Play className="size-4" />)}

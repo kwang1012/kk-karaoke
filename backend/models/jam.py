@@ -20,6 +20,11 @@ class JamState(BaseModel):
     pitch_shift: bool = False  # whether the owner can change the key at all
     is_on: bool = False
     queue_idx: Optional[int] = None
+    # A duet: every device plays the track itself, with `duet_from` seconds into it at server time `duet_at` (ms).
+    # 0 when no duet is running. A device that joins late works out where the song is from these two.
+    duet_at: float = 0
+    duet_from: float = 0
+    duet_track: Optional[str] = None
 
 
 class Room(BaseModel):

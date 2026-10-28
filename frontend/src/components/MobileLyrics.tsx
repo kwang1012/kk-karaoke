@@ -2,6 +2,8 @@ import AppScrollbar from './Scrollbar';
 import LyricsSkeleton from './LyricsSkeleton';
 import PlainLyrics from './PlainLyrics';
 import WordLine from './WordLine';
+import VocalLabel from './VocalLabel';
+import { activeLyricIndices, hasDuetParts, singerColor } from 'src/duetLyrics';
 import { useState, useRef, useMemo, useEffect } from 'react';
 import { usePlayer } from 'src/store/player';
 import placeholder from 'src/assets/placeholder.png';
@@ -22,6 +24,9 @@ export default function MobileLyrics({ color, bgColor }: { color?: string; bgCol
   const lyricsDelay = trackDelay - lyricsLead; // the song's own offset, and the lead before the singing
   const wordHighlight = useSettingStore((state) => state.wordHighlight);
   const plain = useTrackStore((state) => state.plainLyrics[currentTrack?.id || '']);
+  const duet = hasDuetParts(lyrics);
+  const activeLines = activeLyricIndices(lyrics, progress, lyricsDelay);
+  const focusLine = activeLines.size ? Math.min(...activeLines) : currentLine;
   const syncedLyrics = useMemo(() => {
     return (
       lyrics?.map((line) => {
@@ -42,7 +47,7 @@ export default function MobileLyrics({ color, bgColor }: { color?: string; bgCol
   const sticky = scrollTop > 0;
 
   useEffect(() => {
-    const el = lineRefs.current[currentLine];
+    const el = lineRefs.current[focusLine];
     const container = containerRef.current;
     if (!el || !container) return;
     const viewport = container;
@@ -55,7 +60,7 @@ export default function MobileLyrics({ color, bgColor }: { color?: string; bgCol
       top: elTop - viewportHeight / 2 - elHeight / 2,
       behavior: 'smooth',
     });
-  }, [currentLine, lineRefs.current]);
+  }, [focusLine, lineRefs.current]);
 
 
 
@@ -100,7 +105,7 @@ export default function MobileLyrics({ color, bgColor }: { color?: string; bgCol
       </div>
       {syncedLyrics.length > 0 ? (
         syncedLyrics.map((line, i) => (
-          <div key={i} className="m-5">
+          <div key={line.id || i} className="m-5" style={duet ? { borderLeft: `3px solid ${singerColor(line.singer)}`, paddingLeft: 12 } : undefined}>
             <span
               className={[
                 'text-2xl cursor-pointer font-bold transition-all duration-200',
@@ -111,12 +116,13 @@ export default function MobileLyrics({ color, bgColor }: { color?: string; bgCol
               }}
               onClick={handleLineClick.bind(null, i)}
             >
-              {wordHighlight && i === currentLine && line.words?.length ? (
-                <WordLine words={line.words} delay={lyricsDelay} progress={progress} playing={playing} dimColor={color || 'currentColor'} />
+              {duet && <VocalLabel line={line} previous={lyrics[i - 1]} />}
+              {wordHighlight && activeLines.has(i) && line.words?.length ? (
+                <WordLine words={line.words} delay={lyricsDelay} progress={progress} playing={playing} dimColor={color || 'currentColor'} highlightColor={duet ? singerColor(line.singer) : undefined} />
               ) : line.text === '' ? (
                 '♪'
               ) : (
-                line.text
+                <span style={duet && activeLines.has(i) ? { color: singerColor(line.singer) } : undefined}>{line.text}</span>
               )}
 
               {line.romanized && showTranslatinon && (

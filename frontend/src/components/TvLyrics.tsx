@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Lyrics } from 'src/models/spotify';
 import WordLine from './WordLine';
+import DuetTvLyrics from './DuetTvLyrics';
+import { hasDuetParts } from 'src/duetLyrics';
 import LyricGap from './LyricGap';
 import { countdown, gapAfter } from 'src/lyricGap';
 
@@ -21,7 +23,8 @@ export default function TvLyrics({ lyrics, lineIndex, delay, progress, playing, 
   const [measurements, setMeasurements] = useState({ height: 0, width: 0, lines: new Map<number, number>() });
   // a long wait before the next line: once it is down to its last seconds the next line moves into
   // the singing position, with the countdown dots in the room it leaves above
-  const wait = gapAfter(lyrics, lineIndex, delay);
+  const duet = hasDuetParts(lyrics);
+  const wait = gapAfter(lyrics.map((line) => ({ ...line, time: line.time + delay })), lineIndex, delay);
   const remaining = wait ? countdown(wait, progress) : null;
   const focus = remaining === null ? lineIndex : lineIndex + 1;
   const first = Math.max(-1, focus - 3);
@@ -62,6 +65,7 @@ export default function TvLyrics({ lyrics, lineIndex, delay, progress, playing, 
     }
   }
 
+  if (duet) return <DuetTvLyrics lyrics={lyrics} lineIndex={lineIndex} delay={delay} progress={progress} playing={playing} />;
   return (
     <div ref={container} className="relative h-[34vw] max-h-full w-full overflow-hidden [mask-image:linear-gradient(to_bottom,transparent,black_8%,black_88%,transparent)]">
       {Array.from({ length: last - first + 1 }, (_, offset) => {

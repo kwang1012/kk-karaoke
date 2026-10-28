@@ -71,7 +71,7 @@ MAX_SPICY_FETCHES = 2  # Spicy rate-limits an application; a wrong song is cheap
 # A wanted title without one of these must not match an entry that has it.
 _VARIANT = re.compile(
     r"live|現場|现场|演唱會|演唱会|remix|cover|翻唱|伴奏|instrumental|karaoke|純音樂|纯音乐|piano|鋼琴|钢琴|acoustic|"
-    r"demo|sped up|slowed|nightcore|reverb|dj版|ver\.|japanese|日本語|日语|日語|ジャパニーズ",
+    r"demo|sped up|slowed|nightcore|reverb|(?<![a-z])dj(?![a-z])|ver\.|japanese|日本語|日语|日語|ジャパニーズ",
     re.IGNORECASE,
 )
 _BRACKETS = re.compile(r"[\(\（\[【].*?[\)\）\]】]")
@@ -90,6 +90,7 @@ class Entry:
     netease_id: Optional[int] = None
     ref: Optional[str] = None      # the provider's own id: QQ's songmid, Kugou's file hash
     word_lines: Optional[list[WordLine]] = None  # per-word timing, when the provider has it
+    lyric_lines: Optional[list[WordLine]] = None  # TTML lines, including performer and end times
 
 
 # Revised Romanization leaves these digraphs and spellings in nearly every Korean line; they are rare in English.
@@ -564,51 +565,101 @@ def _ttml_seconds(value: Optional[str]) -> Optional[float]:
         return None
 
 
-def parse_ttml(raw: str) -> tuple[Optional[list[WordLine]], Optional[str]]:
-    """
-    (word-timed lines, a line-timed sheet) from an Apple-style TTML document. Lines are the <p>
-    elements of the body, words their <span>s (background vocals are left out). Either can be None.
-    """
+def parse_ttml_lines(raw: str) -> list[WordLine]:
+    """Read TTML performers and independent vocal parts without collapsing simultaneous lines."""
     if len(raw) > MAX_TTML_BYTES or "<!DOCTYPE" in raw or "<!ENTITY" in raw:
-        return None, None  # an untrusted document: no entity tricks, nothing absurd
+        return []
     try:
         root = ET.fromstring(raw)
     except ET.ParseError:
-        return None, None
+        return []
 
     def local(tag: str) -> str:
         return tag.rsplit("}", 1)[-1]
 
+    def attr(element, name, default=None):
+        return next((v for k, v in element.attrib.items() if local(k) == name), default)
+
+    singers = {}
+    slot = 0
+    for agent in (e for e in root.iter() if local(e.tag) == "agent"):
+        key = attr(agent, "id")
+        if not key:
+            continue
+        kind = agent.get("type", "other")
+        if kind == "person":
+            slot += 1
+        name = next(("".join(e.itertext()).strip() for e in agent if local(e.tag) == "name"), "")
+        singers[key] = {"id": key, "kind": kind, "slot": slot if kind == "person" else 0,
+                        **({"name": name} if name else {})}
+
     body = next((e for e in root.iter() if local(e.tag) == "body"), None)
     if body is None:
-        return None, None
-    lines: list[WordLine] = []
-    plain_rows: list[tuple[float, str]] = []
-    for p in (e for e in body.iter() if local(e.tag) == "p"):
-        begin = _ttml_seconds(p.get("begin"))
-        words: list[tuple[float, float, str]] = []
-        for span in (e for e in p if local(e.tag) == "span"):
-            role = next((v for k, v in span.attrib.items() if local(k) == "role"), "")
-            text = "".join(span.itertext())
-            start, end = _ttml_seconds(span.get("begin")), _ttml_seconds(span.get("end"))
-            if role == "x-bg" or not text.strip() or start is None or end is None:
-                continue
-            words.append((start, end, text.strip() + (" " if (span.tail or "").strip() == "" and span.tail else "")))
+        return []
+    lines = []
+    def visit(element, inherited_agent=None):
+        agent = attr(element, "agent", inherited_agent)
+        if local(element.tag) != "p":
+            for child in element:
+                visit(child, agent)
+            return
+        begin, end = _ttml_seconds(element.get("begin")), _ttml_seconds(element.get("end"))
         if begin is None:
-            continue
-        if words:
-            line = WordLine(words[0][0], words)
-            if not is_credit_line(line.text):
-                lines.append(line)
-        else:
-            text = "".join(p.itertext()).strip()
-            if text and not is_credit_line(text):
-                plain_rows.append((begin, text))
-    if lines:
-        return lines, _lrc_of(lines)
-    if plain_rows:
-        return None, "\n".join(f"[{int(t // 60):02d}:{t % 60:05.2f}]{text}" for t, text in plain_rows)
-    return None, None
+            return
+        # Each performer/role has an independent clock, including nested backing vocals.
+        parts = {}
+        def collect(node, who, role, start, finish):
+            who = attr(node, "agent", who)
+            role = "background" if attr(node, "role") == "x-bg" else role
+            start = _ttml_seconds(node.get("begin")) if node.get("begin") else start
+            finish = _ttml_seconds(node.get("end")) if node.get("end") else finish
+            key = (who, role)
+            if node.text:
+                parts.setdefault(key, []).append((start, finish, node.text))
+            for child in node:
+                collect(child, who, role, start, finish)
+                if child.tail:
+                    parts.setdefault(key, []).append((start, finish, child.tail))
+        collect(element, agent, "lead", begin, end)
+        for (who, role), chunks in parts.items():
+            text = "".join(t for _, _, t in chunks).strip()
+            if not text or is_credit_line(text):
+                continue
+            # Whitespace belongs to the preceding word, never to a paragraph-sized timed token.
+            words = []
+            for a, b, text_chunk in chunks:
+                if not text_chunk.strip():
+                    if words:
+                        a0, b0, t0 = words[-1]
+                        words[-1] = (a0, b0, t0 + text_chunk)
+                elif a is not None and b is not None:
+                    words.append((a, b, text_chunk))
+            # A paragraph with plain text has line timing, not invented word timing.
+            timed_spans = any(local(e.tag) == "span" and e.get("begin") for e in element.iter())
+            if not timed_spans:
+                words = []
+            singer = singers.get(who) if who else None
+            if who and singer is None:
+                singer = {"id": who, "kind": "other", "slot": 0}
+            lines.append(WordLine(
+                words[0][0] if words else begin, words,
+                max((w[1] for w in words), default=end) if end is None or role == "background" else end,
+                singer, role, f"ttml-{len(lines)}", text))
+    visit(body)
+    return sorted(lines, key=lambda line: line.start)
+
+
+def parse_ttml(raw: str) -> tuple[Optional[list[WordLine]], Optional[str]]:
+    # Compatibility for callers interested only in the lead sheet.
+    lines = [line for line in parse_ttml_lines(raw) if line.role == "lead"]
+    return (lines if any(line.words for line in lines) else None), (_lrc_of(lines) if lines else None)
+
+
+def _read_ttml(entry: Entry, raw: str) -> None:
+    entry.lyric_lines = parse_ttml_lines(raw) or None
+    if entry.lyric_lines:
+        entry.word_lines = entry.lyric_lines if any(line.words for line in entry.lyric_lines) else None
+        entry.synced = _lrc_of(entry.lyric_lines)
 
 
 def binimum_entries(variants: list[str], names: list[str]) -> list[Entry]:
@@ -637,22 +688,18 @@ def binimum_entries(variants: list[str], names: list[str]) -> list[Entry]:
 def _fetch_binimum_lrc(entry: Entry) -> None:
     try:
         r = httpx.get(entry.ref, timeout=15, follow_redirects=True)
-        words, lrc = parse_ttml(r.text) if r.status_code == 200 else (None, None)
+        if r.status_code == 200:
+            _read_ttml(entry, r.text)
     except Exception as e:  # noqa: BLE001
         log.warning("Binimum lyric fetch failed for %s: %r", entry.ref, e)
         return
-    entry.word_lines = words
-    if lrc and _has_timestamps(lrc):
-        entry.synced = lrc
 
 
 def _read_unison(entry: Entry, data: dict) -> None:
     """Fill an entry from a Unison record: TTML (word or line timing), LRC, or nothing usable."""
     body, kind = data.get("lyrics") or "", data.get("format")
     if kind == "ttml":
-        entry.word_lines, lrc = parse_ttml(body)
-        if lrc and _has_timestamps(lrc):
-            entry.synced = lrc
+        _read_ttml(entry, body)
     elif kind == "lrc" and _has_timestamps(body):
         entry.synced = body
 

@@ -47,7 +47,12 @@ export type LyricWord = {
   end: number;
   text: string;
 };
+export type LyricSinger = { id: string; name?: string | null; kind: 'person' | 'group' | 'other'; slot: number };
 export type Lyrics = {
+  id?: string;
+  end?: number | null;
+  singer?: LyricSinger | null;
+  role?: 'lead' | 'background';
   time: number;
   text: string;
   romanized?: string;

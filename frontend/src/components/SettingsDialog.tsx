@@ -9,7 +9,7 @@ import AppSwitch from 'src/components/Switch';
 import AppScrollbar from 'src/components/Scrollbar';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from 'src/components/ui/dialog';
 import { usePlayerStore } from 'src/store/player';
-import { useSettingStore } from 'src/store/setting';
+import { DUET_EARLY_RANGE_MS, useSettingStore } from 'src/store/setting';
 import { useRoomStore } from 'src/store/room';
 import { asDetail } from 'src/melodyDetail';
 import { PRESET_AVATARS } from 'src/utils';
@@ -58,6 +58,8 @@ export default function SettingsDialog() {
   const setShowTranslatinon = useSettingStore((state) => state.setShowTranslatinon);
   const outputDeviceId = useSettingStore((state) => state.outputDeviceId);
   const setOutputDeviceId = useSettingStore((state) => state.setOutputDeviceId);
+  const duetEarlyMs = useSettingStore((state) => state.duetEarlyMs);
+  const setDuetEarlyMs = useSettingStore((state) => state.setDuetEarlyMs);
   const outputDevices = useOutputDevices(open);
   const inputDevices = useInputDevices(open);
   const micOn = useSettingStore((state) => state.micOn);
@@ -129,6 +131,20 @@ export default function SettingsDialog() {
               options={[{ value: 'default', label: t('settings.outputDeviceDefault') }, ...outputDevices]}
               className="w-[200px]"
             />
+          </Row>
+          <Row title={t('settings.duetOffset')} description={t('settings.duetOffsetHint')}>
+            <div className="flex w-[200px] items-center gap-3 text-xs text-muted-foreground">
+              <AppSlider
+                className="flex-1"
+                min={-DUET_EARLY_RANGE_MS}
+                max={DUET_EARLY_RANGE_MS}
+                step={5}
+                value={duetEarlyMs}
+                aria-labelledby="duet-offset"
+                onChange={(_, value) => setDuetEarlyMs(value as number)}
+              />
+              <span id="duet-offset" className="w-14 text-right tabular-nums">{duetEarlyMs > 0 ? '+' : ''}{duetEarlyMs} ms</span>
+            </div>
           </Row>
           <Row title={t('settings.quality')} description={t('settings.qualityHint')}>
             <AppSelect

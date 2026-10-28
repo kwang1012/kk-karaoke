@@ -18,8 +18,10 @@ function createPlayer() {
       this.listeners.forEach((listener) => listener());
     }
     resume() { return Promise.resolve(); }
+    starts: [number, number][] = []; // [when, offset] of every source started
     createBufferSource() {
-      return { connect() { return this; }, start() {}, stop() {}, disconnect() {} };
+      const starts = this.starts;
+      return { connect() { return this; }, start(when: number, offset: number) { starts.push([when, offset]); }, stop() {}, disconnect() {} };
     }
     createGain() {
       return { connect() {}, disconnect() {}, gain: { setValueAtTime() {} } };
@@ -99,42 +101,55 @@ async function loadedPlayer() {
   return player;
 }
 
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const lastStart = (player: any) => player.context.starts.at(-1) as [number, number];
 
 test('a shared start that has already passed joins the song where it is by now', async () => {
   const player = await loadedPlayer();
   player.playAt(Date.now() - 2000, 5);
   assert.equal(player.isPlaying, true);
+  assert.equal(lastStart(player)[0], 0); // at once
   assert.ok(Math.abs(player.getCurrentTime() - 7) < 0.1);
 });
 
-test('a shared start in the future waits at the start position, then plays', async () => {
+test('a shared start in the future is scheduled on the audio clock and waits at the start position', async () => {
   const player = await loadedPlayer();
-  player.playAt(Date.now() + 40, 5);
-  assert.equal(player.isPlaying, false);
-  assert.equal(player.getCurrentTime(), 5);
-  await wait(120);
+  player.context.currentTime = 10;
+  player.playAt(Date.now() + 2000, 5);
+  const [when, offset] = lastStart(player);
+  assert.ok(when > 11.9 && when <= 12, `scheduled ${when - 10} s ahead`);
+  assert.equal(offset, 5);
   assert.equal(player.isPlaying, true);
+  assert.equal(player.getCurrentTime(), 5);
+  player.context.currentTime = 11; // a second before the start
+  assert.equal(player.getCurrentTime(), 5);
+  player.context.currentTime = when + 1;
+  assert.ok(Math.abs(player.getCurrentTime() - 6) < 1e-9);
 });
 
-test('pausing or stopping cancels a start that has not come yet', async () => {
+test('pausing before a scheduled start leaves the song at its start position', async () => {
   const player = await loadedPlayer();
-  player.playAt(Date.now() + 40, 5);
+  player.playAt(Date.now() + 2000, 5);
+  player.context.currentTime = 1;
   player.pause();
-  await wait(120);
   assert.equal(player.isPlaying, false);
-  player.playAt(Date.now() + 40, 5);
-  player.stop();
-  await wait(120);
-  assert.equal(player.isPlaying, false);
+  assert.equal(player.getCurrentTime(), 5);
 });
 
 test('a device with output latency starts early so its sound still lands on the shared moment', async () => {
   const player = await loadedPlayer();
   player.context.outputLatency = 0.1;
-  player.playAt(Date.now() + 60, 5); // 100 ms of latency is longer than the 60 ms wait: it is already late
-  assert.equal(player.isPlaying, true);
-  assert.ok(player.getCurrentTime() >= 5.03);
+  player.playAt(Date.now() + 2000, 5);
+  const [when] = lastStart(player);
+  assert.ok(when > 1.8 && when <= 1.9, `scheduled ${when} s ahead`);
+});
+
+test('the listener\'s own offset moves the start earlier, or later when negative', async () => {
+  const early = await loadedPlayer();
+  early.playAt(Date.now() + 2000, 5, 300);
+  assert.ok(lastStart(early)[0] > 1.6 && lastStart(early)[0] <= 1.7);
+  const late = await loadedPlayer();
+  late.playAt(Date.now() + 2000, 5, -300);
+  assert.ok(lastStart(late)[0] > 2.2 && lastStart(late)[0] <= 2.3);
 });
 
 function createShiftedPlayer() {

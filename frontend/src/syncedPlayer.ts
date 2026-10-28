@@ -28,8 +28,6 @@ class SyncedAudioPlayer {
   protected startTime = 0;
   protected startOffset = 0;
 
-  private startTimer?: ReturnType<typeof setTimeout>;
-
   public isPlaying = false;
   public isLoading = false;
   public onPlaybackChange?: (playing: boolean) => void;
@@ -69,7 +67,6 @@ class SyncedAudioPlayer {
   }
 
   stop() {
-    this.cancelScheduledStart();
     this.stopAndCleanSources();
     this.startOffset = 0;
     this.startTime = 0;
@@ -161,7 +158,8 @@ class SyncedAudioPlayer {
     }
   }
 
-  protected createSources(offset: number) {
+  /** `when` is on the audio clock (`context.currentTime`); the default starts at once. */
+  protected createSources(offset: number, when = 0) {
     this.vocalSource = this.context.createBufferSource();
     this.instrumentalSource = this.context.createBufferSource();
 
@@ -171,12 +169,11 @@ class SyncedAudioPlayer {
     this.vocalSource.connect(this.vocalGain).connect(this.context.destination);
     this.instrumentalSource.connect(this.instrumentalGain).connect(this.context.destination);
 
-    this.vocalSource.start(0, offset);
-    this.instrumentalSource.start(0, offset);
+    this.vocalSource.start(when, offset);
+    this.instrumentalSource.start(when, offset);
   }
 
   destroy() {
-    this.cancelScheduledStart();
     ++this.loadVersion;
     this.onPlaybackChange = undefined;
     this.stopAndCleanSources();
@@ -198,28 +195,26 @@ class SyncedAudioPlayer {
 
   /**
    * Start so the sound leaves the speakers at local time `localStartMs`, `from` seconds into the song. Late, it
-   * joins the song where it is by then. The device's output latency is taken off, so devices with different
-   * hardware still start together.
+   * joins the song where it is by then. The device's output latency is taken off, and so is `earlyMs` (the
+   * listener's own correction for a device that still sounds late), so devices with different hardware start
+   * together. The start is scheduled on the audio clock: no busy or hidden page can make it late.
    */
-  playAt(localStartMs: number, from: number) {
+  playAt(localStartMs: number, from: number, earlyMs = 0) {
     this.pause();
     const outputLatencyMs = ((this.context.outputLatency || 0) + (this.context.baseLatency || 0)) * 1000;
-    const wait = localStartMs - outputLatencyMs - localNow();
-    if (wait <= 0) {
-      this.seek(from - wait / 1000);
+    const lead = localStartMs - earlyMs - outputLatencyMs - localNow();
+    if (lead <= 0) {
+      this.seek(from - lead / 1000);
       this.play();
       return;
     }
-    this.seek(from);
-    this.startTimer = setTimeout(() => {
-      this.startTimer = undefined;
-      this.play();
-    }, wait);
-  }
-
-  private cancelScheduledStart() {
-    clearTimeout(this.startTimer);
-    this.startTimer = undefined;
+    if (!this.vocalBuffer || !this.instrumentalBuffer) return;
+    void this.context.resume().catch(() => this.onPlaybackChange?.(false));
+    this.startOffset = Math.min(from, this.getDuration());
+    this.startTime = this.context.currentTime + lead / 1000;
+    this.createSources(this.startOffset, this.startTime);
+    this.isPlaying = true;
+    this.onPlaybackChange?.(this.isRunning);
   }
 
   play() {
@@ -232,11 +227,10 @@ class SyncedAudioPlayer {
   }
 
   pause() {
-    this.cancelScheduledStart();
     if (!this.isPlaying) return;
     this.vocalSource?.stop();
     this.instrumentalSource?.stop();
-    this.startOffset += this.context.currentTime - this.startTime;
+    this.startOffset += Math.max(0, this.context.currentTime - this.startTime); // not yet started if scheduled
     this.isPlaying = false;
     this.onPlaybackChange?.(false);
   }
@@ -299,7 +293,7 @@ class SyncedAudioPlayer {
 
   getCurrentTime(): number {
     return Math.min(
-      this.isPlaying ? this.context.currentTime - this.startTime + this.startOffset : this.startOffset,
+      this.isPlaying ? Math.max(0, this.context.currentTime - this.startTime) + this.startOffset : this.startOffset,
       this.getDuration()
     );
   }

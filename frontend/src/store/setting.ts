@@ -5,6 +5,9 @@ import { DEFAULT_MELODY_DETAIL } from 'src/melodyDetail';
 /** No automatic lyrics lead by default; users can adjust it for their setup. */
 export const DEFAULT_LYRICS_LEAD_S = 0;
 
+/** The most a device can be told to start a duet early (or, negative, late). Past this the fault is elsewhere. */
+export const DUET_EARLY_RANGE_MS = 300;
+
 export interface SettingState {
   // settings
   refreshKey: number; // Key to refresh the settings
@@ -15,6 +18,8 @@ export interface SettingState {
   setWordHighlight: (wordHighlight: boolean) => void;
   outputDeviceId: string; // Chosen audio output device; '' follows the system default
   setOutputDeviceId: (outputDeviceId: string) => void;
+  duetEarlyMs: number; // Milliseconds this device starts a duet early, for hardware that still sounds late (Bluetooth, TVs)
+  setDuetEarlyMs: (duetEarlyMs: number) => void;
   micOn: boolean; // The microphone is open (for the score and the pitch display); never persisted, so a reload cannot open it unasked
   micMonitor: boolean; // Play the microphone through the speakers; never persisted either
   setMicMonitor: (micMonitor: boolean) => void;
@@ -70,6 +75,8 @@ export const useSettingStore = create<SettingState>()(
       setWordHighlight: (wordHighlight: boolean) => set({ wordHighlight }),
       outputDeviceId: '',
       setOutputDeviceId: (outputDeviceId: string) => set({ outputDeviceId }),
+      duetEarlyMs: 0,
+      setDuetEarlyMs: (duetEarlyMs: number) => set({ duetEarlyMs: Math.min(Math.max(Math.round(duetEarlyMs), -DUET_EARLY_RANGE_MS), DUET_EARLY_RANGE_MS) }),
       micOn: false,
       micMonitor: false,
       setMicMonitor: (micMonitor: boolean) => set({ micMonitor }),
@@ -135,6 +142,7 @@ export const useSettingStore = create<SettingState>()(
         wordHighlight: state.wordHighlight,
         lyricsLead: state.lyricsLead,
         outputDeviceId: state.outputDeviceId,
+        duetEarlyMs: state.duetEarlyMs,
         inputDeviceId: state.inputDeviceId,
         micVolume: state.micVolume,
         micReverb: state.micReverb,

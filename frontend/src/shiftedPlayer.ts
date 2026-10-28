@@ -166,6 +166,11 @@ class ShiftedAudioPlayer extends SyncedAudioPlayer {
     this.host?.play(Math.round(offset * this.context.sampleRate));
   }
 
+  /** The worklet starts when told and cannot be scheduled on the audio clock; a duet uses the plain player. */
+  playAt(): never {
+    throw new Error('A synced start needs the plain player');
+  }
+
   play() {
     if (this.isPlaying || this.isLoading || !this.host || !this.hosted) return;
     super.play();

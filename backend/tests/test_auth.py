@@ -97,3 +97,26 @@ def test_asymmetric_token_is_verified_with_the_published_key(monkeypatch):
     forged = jwt.encode({"sub": "u1", "aud": "authenticated", "exp": int(time.time()) + 60}, other, algorithm="ES256")
     with pytest.raises(HTTPException):
         auth.require_host(f"Bearer {forged}")
+
+
+def test_admin_needs_a_listed_email_when_configured(monkeypatch):
+    monkeypatch.setattr(auth, "AUTH_REQUIRED", True)
+    monkeypatch.setattr(auth, "SUPABASE_JWT_SECRET", SECRET)
+    monkeypatch.setattr(auth, "ADMIN_EMAILS", {"boss@example.com"})
+    app = FastAPI()
+
+    @app.get("/admin")
+    def admin(h: dict = Depends(auth.require_admin)):
+        return {"ok": True}
+
+    c = TestClient(app)
+
+    def tok(email):
+        return jwt.encode({"sub": "u", "email": email, "aud": "authenticated", "exp": int(time.time()) + 60},
+                          SECRET, algorithm="HS256")
+
+    assert c.get("/admin", headers=bearer(tok("Boss@example.com"))).status_code == 200
+    assert c.get("/admin", headers=bearer(tok("other@example.com"))).status_code == 403
+    assert c.get("/admin").status_code == 401
+    monkeypatch.setattr(auth, "ADMIN_EMAILS", set())
+    assert c.get("/admin", headers=bearer(tok("other@example.com"))).status_code == 200

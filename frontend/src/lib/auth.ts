@@ -15,6 +15,8 @@ export const usePasswordSetup = create<{ open: boolean; setOpen: (open: boolean)
   open: authEnabled && setupRequested,
   setOpen: (open) => set({ open }),
 }));
+/** Anyone may create an account (turn on sign-ups in Supabase and set ADMIN_EMAILS on the server). */
+export const openSignup = authEnabled && import.meta.env.VITE_OPEN_SIGNUP === '1';
 const supabase = authEnabled ? createClient(url!, key!) : null;
 
 interface AuthState {
@@ -43,6 +45,21 @@ export async function signInWithPassword(email: string, password: string): Promi
   if (!supabase) return null;
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   return error ? error.message : null;
+}
+
+/** Create an account. Returns an error message, or null with `confirm` saying whether an email must be confirmed first. */
+export async function signUp(email: string, password: string, name: string): Promise<{ error: string | null; confirm: boolean }> {
+  if (!supabase) return { error: 'Sign-in is unavailable.', confirm: false };
+  const emailRedirectTo = /^https?:$/.test(window.location.protocol) ? window.location.origin : undefined;
+  const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { name }, emailRedirectTo } });
+  return { error: error?.message ?? null, confirm: !error && !data.session };
+}
+
+export async function signInWithGoogle(): Promise<string | null> {
+  if (!supabase) return 'Sign-in is unavailable.';
+  if (!/^https?:$/.test(window.location.protocol)) return 'Google sign-in needs the web app.';
+  const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.href } });
+  return error?.message ?? null;
 }
 
 export async function signOut() {

@@ -5,12 +5,12 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field, field_validator
 
-from auth import require_host
+from auth import require_admin, require_host
 from managers.db import get_redis
 from services import registration
 
 router = APIRouter()
-admin_router = APIRouter(dependencies=[Depends(require_host)])
+admin_router = APIRouter(dependencies=[Depends(require_admin)])
 
 
 class AccessRequest(BaseModel):
@@ -64,5 +64,5 @@ def requests(status: Literal["pending", "approved", "rejected", "all"] = "pendin
 
 
 @admin_router.post("/registrations/{request_id}/{action}")
-def review(request_id: str, action: Literal["approve", "reject"], host: dict = Depends(require_host)):
+def review(request_id: str, action: Literal["approve", "reject"], host: dict = Depends(require_admin)):
     return registration.review(request_id, action, host["sub"])

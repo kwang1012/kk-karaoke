@@ -75,6 +75,23 @@ One-time server setup (daily approvals require no Supabase dashboard):
 4. Run `cd backend && uv run python scripts/catalog_db.py init` to apply the registration table migration, then restart the API
    and rebuild the frontend. Existing host accounts continue to work.
 
+### Open sign-up and Google (optional)
+
+Instead of invite-only accounts you can let anyone register:
+
+1. In Supabase, enable email sign-ups (and the Google provider if you want it), and add your site URL to the redirect URLs.
+2. Build the frontend with `VITE_OPEN_SIGNUP=1`. The dialog then offers **Create an account** and **Continue with Google**.
+3. **Set `ADMIN_EMAILS` (comma-separated) in `backend/.env` first.** Without it every signed-in account can open `/admin`.
+
+### Importing Spotify playlists
+
+Create an app at <https://developer.spotify.com/dashboard>, add `https://<your site>/spotify/callback` as a redirect URI
+(`http://127.0.0.1:5173/spotify/callback` for local dev) and build the frontend with `VITE_SPOTIFY_CLIENT_ID=<client id>`.
+Signed-in users then get **Import from Spotify** on the home page: connect (PKCE, no secret; tokens stay in the browser), pick a
+playlist, and its songs (up to 200) are matched to YouTube Music recordings like the charts are. Spotify limits new
+Development-mode apps to 5 users and only returns the songs of playlists the user owns or collaborates on.
+The desktop app can't connect (Spotify only redirects to http(s)).
+
 The Requests inbox shows invitation failures and lets you retry; requests are marked invited only after Supabase accepts
 the invitation. A request stuck while sending can be retried after two minutes. Supabase email limits still apply.
 See [Supabase invitations](https://supabase.com/docs/guides/auth/users#inviting-users) for delivery and redirect configuration.

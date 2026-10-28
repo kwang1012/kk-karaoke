@@ -4,9 +4,9 @@ Hosts (invited, signed in) create jams, add songs outside a jam and use /admin. 
 account: they join a jam with its code and need nothing from here.
 """
 import jwt
-from fastapi import Header, HTTPException
+from fastapi import Depends, Header, HTTPException
 
-from config import AUTH_REQUIRED, SUPABASE_JWT_SECRET, SUPABASE_URL
+from config import ADMIN_EMAILS, AUTH_REQUIRED, SUPABASE_JWT_SECRET, SUPABASE_URL
 
 _jwks = (
     jwt.PyJWKClient(f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json", cache_keys=True, lifespan=600)
@@ -48,4 +48,13 @@ def require_host(authorization: str | None = Header(None)) -> dict:
     host = optional_host(authorization)
     if not host:
         raise HTTPException(status_code=401, detail="Sign in to do that", headers={"WWW-Authenticate": "Bearer"})
+    return host
+
+
+def require_admin(host: dict = Depends(require_host)) -> dict:
+    """A signed-in host who may use /admin: anyone when ADMIN_EMAILS is unset, else only the listed emails."""
+    if not AUTH_REQUIRED or not ADMIN_EMAILS:
+        return host
+    if (host.get("email") or "").lower() not in ADMIN_EMAILS:
+        raise HTTPException(status_code=403, detail="Admins only")
     return host

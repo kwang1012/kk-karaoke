@@ -21,6 +21,7 @@ import { useJam, useRoomStore } from 'src/store/room';
 import { useT, type TranslationKey } from 'src/i18n';
 import { chartLabels, PROVIDER_COLOR, PROVIDER_LOGO, type ChartSource } from 'src/utils/charts';
 import { publicUrl } from 'src/utils/publicUrl';
+import { spotifyAvailable } from 'src/lib/spotify';
 
 function PlaylistCard({
   playlist,
@@ -271,6 +272,21 @@ export function MainView() {
                 );
               })}
             </div>
+          </section>
+        )}
+
+        {spotifyAvailable && (
+          <section className="mt-6 px-4 md:px-8">
+            <Link
+              to="/spotify"
+              className="flex h-[60px] items-center gap-3 rounded-xl border bg-foreground/[0.04] px-3.5 transition-colors hover:bg-foreground/[0.08]"
+            >
+              <ProviderMark source="spotify" className="size-7" />
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold">{t('spotify.title')}</span>
+                <span className="block truncate text-xs text-muted-foreground">{t('spotify.hint')}</span>
+              </span>
+            </Link>
           </section>
         )}
 

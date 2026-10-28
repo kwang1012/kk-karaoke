@@ -6,6 +6,7 @@ import Layout from './layouts/Layout';
 import LyricsView from './pages/lyrics';
 import BrowseView, { MainView, topCategoriesQuery } from './pages/browse';
 import PlaylistView from './pages/playlist';
+import SpotifyPlaylists, { SpotifyCallback } from './pages/spotify';
 import SearchView from './pages/search';
 import LibraryView from './pages/library';
 
@@ -115,6 +116,8 @@ const AppRouters = () => {
             <Route index element={<MainView />} />
             <Route path="playlist/:id" element={<PlaylistView />} />
             <Route path="album/:id" element={<PlaylistView />} />
+            <Route path="spotify" element={<SpotifyPlaylists />} />
+            <Route path="spotify/:id" element={<PlaylistView />} />
             <Route path="search/*" element={<SearchView />} />
             <Route path="library" element={<LibraryView />} />
             <Route path="ranking" element={<RankingView />} />
@@ -122,6 +125,7 @@ const AppRouters = () => {
             <Route path="play" element={<PlayView />} />
           </Route>
         </Route>
+        <Route path="/spotify/callback" element={<SpotifyCallback />} />
         <Route path="/lyrics/edit/:trackId?" element={<OldEditorRedirect />} />
         <Route path="/admin" element={<RequireHost><AdminLayout /></RequireHost>}>
           <Route index element={<AdminSongs />} />

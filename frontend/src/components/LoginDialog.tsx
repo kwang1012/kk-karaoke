@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from 'src/components/ui/input';
 import Logo from 'src/components/Logo';
 import { useT } from 'src/i18n';
-import { authEnabled, resetPassword, signInWithPassword, signOut, useAuthStore, useLoginModal } from 'src/lib/auth';
+import { authEnabled, openSignup, resetPassword, signInWithGoogle, signInWithPassword, signOut, signUp, useAuthStore, useLoginModal } from 'src/lib/auth';
 import { registration, registrationError } from 'src/apis/registration';
 
 /** Host sign-in. Opens over whatever the visitor was doing; closes by itself once they are signed in. */
@@ -16,7 +16,7 @@ export default function LoginDialog() {
   const [password, setPassword] = useState('');
   const [state, setState] = useState<'idle' | 'sending' | 'error'>('idle');
   const [error, setError] = useState('');
-  const [mode, setMode] = useState<'login' | 'request' | 'reset'>('login');
+  const [mode, setMode] = useState<'login' | 'request' | 'reset' | 'signup'>('login');
   const [name, setName] = useState('');
   const [sent, setSent] = useState(false);
   const [canRequest, setCanRequest] = useState(false);
@@ -38,7 +38,12 @@ export default function LoginDialog() {
     if (state === 'sending') return;
     setState('sending');
     try {
-      if (mode === 'request') {
+      if (mode === 'signup') {
+        const result = await signUp(email.trim(), password, name.trim());
+        if (result.error) throw new Error(result.error);
+        if (result.confirm) setSent(true);
+        else setOpen(false);
+      } else if (mode === 'request') {
         await registration.submit(email.trim(), name.trim());
         setSent(true);
       } else {
@@ -64,9 +69,9 @@ export default function LoginDialog() {
       <DialogContent className="max-w-md">
         <DialogHeader className="items-center px-8 pt-8 text-center">
           <Logo className="size-14" />
-          <DialogTitle className="mt-2 text-xl">{t(mode === 'request' ? 'registration.title' : mode === 'reset' ? 'registration.resetTitle' : 'login.title')}</DialogTitle>
+          <DialogTitle className="mt-2 text-xl">{t(mode === 'signup' ? 'login.createAccount' : mode === 'request' ? 'registration.title' : mode === 'reset' ? 'registration.resetTitle' : 'login.title')}</DialogTitle>
           <DialogDescription>
-            {mode === 'request' ? t('registration.hint') : mode === 'reset' ? t('registration.resetHint') : reason === 'addSong' ? t('login.reasonAddSong') : t('login.subtitle')}
+            {mode === 'request' ? t('registration.hint') : mode === 'signup' ? t('login.passwordHint') : mode === 'reset' ? t('registration.resetHint') : reason === 'addSong' ? t('login.reasonAddSong') : t('login.subtitle')}
           </DialogDescription>
         </DialogHeader>
         <div className="px-8 pb-8">
@@ -82,7 +87,7 @@ export default function LoginDialog() {
             </div>
           ) : sent ? (
             <div className="flex flex-col gap-3 pt-4">
-              <p role="status" className="text-center text-sm">{t(mode === 'request' ? 'registration.sent' : 'registration.resetSent')}</p>
+              <p role="status" className="text-center text-sm">{t(mode === 'signup' ? 'login.confirmEmail' : mode === 'request' ? 'registration.sent' : 'registration.resetSent')}</p>
               <Button variant="outline" onClick={() => switchMode('login')}>{t('registration.back')}</Button>
               <Button variant="ghost" onClick={() => setOpen(false)}>{t('login.close')}</Button>
             </div>
@@ -91,10 +96,10 @@ export default function LoginDialog() {
               className="flex flex-col gap-3 pt-4"
               onSubmit={(e) => {
                 e.preventDefault();
-                if (email.trim() && (mode === 'login' ? password : mode === 'request' ? name.trim() : true)) submit();
+                if (email.trim() && (mode === 'login' ? password : mode === 'signup' ? password.length >= 8 : mode === 'request' ? name.trim() : true)) submit();
               }}
             >
-              {mode === 'request' && <label className="text-sm">{t('registration.name')}
+              {(mode === 'request' || mode === 'signup') && <label className="text-sm">{t('registration.name')}
                 <Input required autoComplete="name" maxLength={100} value={name} onChange={(e) => setName(e.target.value)} disabled={state === 'sending'} />
               </label>}
               <label className="text-sm">{t('login.email')}<Input
@@ -108,21 +113,29 @@ export default function LoginDialog() {
                 maxLength={254}
                 disabled={state === 'sending'}
               /></label>
-              {mode === 'login' && <label className="text-sm">{t('login.password')}<Input
+              {(mode === 'login' || mode === 'signup') && <label className="text-sm">{t('login.password')}<Input
                 type="password"
                 required
-                autoComplete="current-password"
+                minLength={mode === 'signup' ? 8 : undefined}
+                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                 placeholder={t('login.password')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={state === 'sending'}
               /></label>}
-              <Button size="lg" type="submit" disabled={!email.trim() || (mode === 'login' && !password) || (mode === 'request' && !name.trim()) || state === 'sending'}>
-                {t(state === 'sending' ? 'registration.sending' : mode === 'request' ? 'registration.submit' : mode === 'reset' ? 'registration.sendReset' : 'login.signIn')}
+              <Button size="lg" type="submit" disabled={!email.trim() || (mode === 'login' && !password) || (mode === 'signup' && password.length < 8) || (mode === 'request' && !name.trim()) || state === 'sending'}>
+                {t(state === 'sending' ? 'registration.sending' : mode === 'signup' ? 'login.signUp' : mode === 'request' ? 'registration.submit' : mode === 'reset' ? 'registration.sendReset' : 'login.signIn')}
               </Button>
               {state === 'error' && <p role="alert" className="text-center text-sm text-destructive">{error}</p>}
               {mode === 'login' ? <>
-                {canRequest && <Button variant="outline" type="button" disabled={state === 'sending'} onClick={() => switchMode('request')}>{t('registration.requestLink')}</Button>}
+                {openSignup && <>
+                  <Button variant="outline" type="button" disabled={state === 'sending'} onClick={() => switchMode('signup')}>{t('login.createAccount')}</Button>
+                  <Button variant="outline" type="button" disabled={state === 'sending'} onClick={async () => {
+                    const message = await signInWithGoogle();
+                    if (message) { setError(message); setState('error'); }
+                  }}>{t('login.google')}</Button>
+                </>}
+                {!openSignup && canRequest && <Button variant="outline" type="button" disabled={state === 'sending'} onClick={() => switchMode('request')}>{t('registration.requestLink')}</Button>}
                 <Button variant="ghost" type="button" disabled={state === 'sending'} onClick={() => switchMode('reset')}>{t('registration.forgotPassword')}</Button>
               </> : <Button variant="ghost" type="button" disabled={state === 'sending'} onClick={() => switchMode('login')}>{t('registration.back')}</Button>}
             </form>

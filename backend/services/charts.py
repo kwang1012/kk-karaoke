@@ -248,3 +248,18 @@ def chart_tracks(chart_id: str):
 
     result = catalog._cached(f"chart:{chart_id}", CHART_TTL_S, build)
     return result if result else (None, None)
+
+
+def resolve_entries(name: str, owner: str, entries: list[Entry]):
+    """(collection, tracks) for a list of {"title", "artist"} from another service, e.g. a Spotify playlist."""
+    resolved = list(_resolve_pool.map(_resolve, entries))
+    tracks, seen = [], set()
+    for track in resolved:
+        if track and track["id"] not in seen:
+            seen.add(track["id"])
+            tracks.append(track)
+    cover = (tracks[0].get("album") or {}).get("images") or [] if tracks else []
+    collection = catalog._collection(
+        "playlist", "import", name, cover, owner=owner,
+        description=f"{len(tracks)} of {len(entries)} songs found on YouTube Music", total=len(tracks))
+    return collection, tracks

@@ -15,6 +15,7 @@ import { PlaylistProvider } from 'src/context/playlist';
 import { useDebouncedCallback } from 'src/hooks/debounce';
 import { useT } from 'src/i18n';
 import { Button } from 'src/components/ui/button';
+import { importSpotifyPlaylist } from 'src/lib/spotify';
 
 type ReturnType = {
   collection: Collection;
@@ -22,6 +23,7 @@ type ReturnType = {
 };
 
 const fetchTracks = async (collectionType: string, id: string): Promise<ReturnType> => {
+  if (collectionType === 'spotify') return importSpotifyPlaylist(id);
   return api
     .get(`/${collectionType}/${id}/tracks`)
     .then(({ data }) => {

@@ -106,12 +106,17 @@ function createWindow() {
 function savedMiniBounds() {
   const bounds = readSettings().miniBounds;
   if (!bounds || ![bounds.x, bounds.y, bounds.width, bounds.height].every(Number.isFinite)) return null;
-  if (bounds.width < 500 || bounds.height < 130) return null;
+  if (bounds.width < 420 || bounds.height < 130) return null;
   const { screen } = require('electron');
   const onScreen = screen.getAllDisplays().some(({ workArea: w }) =>
     bounds.x < w.x + w.width - 80 && bounds.x + bounds.width > w.x + 80 &&
     bounds.y < w.y + w.height - 40 && bounds.y + bounds.height > w.y);
-  return onScreen ? bounds : null;
+  if (!onScreen) return null;
+  // Shrink the previous default too; keep sizes the user chose by resizing.
+  if (bounds.width === 580 && (bounds.height === 202 || bounds.height === 170)) {
+    return { ...bounds, width: 480, height: 170 };
+  }
+  return bounds;
 }
 
 // Floating lyrics: a small always-on-top window. The main window owns the player and sends it the state.
@@ -124,18 +129,22 @@ function toggleMini() {
   }
   const { screen } = require('electron');
   const { workArea } = screen.getPrimaryDisplay();
-  const width = 580;
+  const width = 480;
+  // The native title bar sits above the same compact lyrics area.
   const height = 170;
+  const minHeight = 162;
   // Where it was left last time, if that spot is still on a connected screen; else bottom center.
   const saved = savedMiniBounds();
   mini = new BrowserWindow({
     width: saved ? saved.width : width,
-    height: saved ? saved.height : height,
+    height: saved ? Math.max(saved.height, minHeight) : height,
     x: saved ? saved.x : Math.round(workArea.x + (workArea.width - width) / 2),
     y: saved ? saved.y : workArea.y + workArea.height - height - 24,
-    minWidth: 500,
-    minHeight: 130,
-    frame: false,
+    minWidth: 420,
+    minHeight,
+    title: 'Lyrics',
+    frame: true,
+    maximizable: false,
     alwaysOnTop: true,
     skipTaskbar: true,
     fullscreenable: false,
@@ -161,13 +170,17 @@ function toggleMini() {
   mini.on('closed', () => {
     clearTimeout(saveTimer);
     mini = null;
-    if (!quitting && win && !win.isDestroyed() && !win.isVisible()) showWindow();
+    // A minimized main window can still report visible: closing lyrics must restore it too.
+    if (!quitting) showWindow();
   });
   if (win && !win.isDestroyed() && !win.isMinimized()) win.hide();
 }
 
 function showWindow() {
-  if (mini && !mini.isDestroyed()) mini.close();
+  if (mini && !mini.isDestroyed()) {
+    mini.close(); // its closed handler restores the main window
+    return;
+  }
   if (!win) return createWindow();
   if (win.isMinimized()) win.restore();
   win.show();

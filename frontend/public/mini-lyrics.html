@@ -10,22 +10,22 @@
       * { box-sizing: border-box; margin: 0; }
       html, body { height: 100%; overflow: hidden; }
       body {
-        display: flex; flex-direction: column; justify-content: center; gap: 6px;
-        padding: 14px 20px 10px; color: #fff; text-align: center; user-select: none;
+        display: flex; flex-direction: column; justify-content: center; gap: 4px;
+        padding: 10px 14px 8px; color: #fff; text-align: center; user-select: none;
         font-family: system-ui, 'Segoe UI', 'Microsoft JhengHei', sans-serif;
         background: linear-gradient(160deg, #3a1230, #16121f);
         -webkit-app-region: drag;
       }
-      main { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 6px; min-height: 0; }
+      main { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 4px; min-height: 0; }
       #message { font-size: 15px; opacity: 0.7; }
-      #line { font-size: 24px; font-weight: 700; line-height: 1.25; }
+      #line { font-size: 22px; font-weight: 700; line-height: 1.25; }
       #line.upcoming { opacity: 0.5; }
       .info { flex: 1; min-width: 0; text-align: left; margin: 0 6px; }
       #title { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       #artist { font-size: 11px; opacity: 0.6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      #next { font-size: 15px; opacity: 0.5; line-height: 1.25; min-height: 19px; }
+      #next { font-size: 14px; opacity: 0.5; line-height: 1.25; min-height: 18px; }
       #line, #next { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-      .controls { display: flex; align-items: center; gap: 2px; margin-top: 4px; -webkit-app-region: no-drag; }
+      .controls { display: flex; flex-shrink: 0; align-items: center; gap: 2px; margin-top: 4px; -webkit-app-region: no-drag; }
       button {
         display: inline-flex; align-items: center; justify-content: center; flex: none; padding: 0;
         width: 30px; height: 30px; border: 0; border-radius: 50%; color: #fff; cursor: pointer;
@@ -43,7 +43,7 @@
       input[type='range']::-webkit-slider-thumb {
         -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #fff; border: 0;
       }
-      #toggle { width: 36px; height: 36px; }
+      #toggle { width: 30px; height: 30px; }
       button:hover { background: rgba(255, 255, 255, 0.16); opacity: 1; }
     </style>
   </head>
@@ -63,7 +63,6 @@
         <button id="mute" aria-label="Mute" title="Mute"></button>
         <input id="volume" type="range" min="0" max="100" step="1" aria-label="Volume" />
       </div>
-      <button id="back" aria-label="Back to the main window" title="Back to the main window"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
     </div>
     <script>
       const api = window.kkaraoke;
@@ -112,7 +111,6 @@
         $('previous').onclick = () => api.mediaKey('previous');
         $('toggle').onclick = () => api.mediaKey('toggle');
         $('next-song').onclick = () => api.mediaKey('next');
-        $('back').onclick = () => api.toggleMini();
         api.miniReady();
       }
     </script>

@@ -94,6 +94,15 @@ export default class MicChain {
     this.wet.gain.setTargetAtTime(reverb, now, 0.01);
   }
 
+  /** How loud the microphone is right now, 0..1 (RMS), and 0 while it is closed or its audio is shut. */
+  readLevel(): number {
+    if (!this.stream || this.context.state !== 'running') return 0;
+    this.analyser.getFloatTimeDomainData(this.samples);
+    let energy = 0;
+    for (const sample of this.samples) energy += sample * sample;
+    return Math.sqrt(energy / this.samples.length);
+  }
+
   /** The pitch being sung right now, or null for silence or noise. */
   readPitch(): Pitch | null {
     if (!this.stream) return null;

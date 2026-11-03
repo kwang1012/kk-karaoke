@@ -105,3 +105,28 @@ def test_a_song_with_lyrics_is_written_against_them_and_one_without_falls_back(m
     monkeypatch.setattr("services.lyrics_sources.read_meta", lambda _: {"confidence": "approximate"})
     plain = pitcher.extract_melody("x")
     assert plain and "text" not in plain[0]  # the pitch curve alone: no syllables to name
+
+
+def test_without_the_neural_tracker_there_is_nothing_to_use(monkeypatch):
+    import builtins
+
+    real_import = builtins.__import__
+
+    def refuse(name, *args, **kwargs):
+        if name == "torchcrepe":
+            raise ImportError(name)
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", refuse)
+    assert pitcher.detect_pitch_neural(tone(220.0, 1.0)) is None
+
+
+def test_the_neural_tracker_hears_a_tone_on_the_same_frames_as_yin():
+    pytest.importorskip("torchcrepe")
+    samples = np.concatenate([tone(220.0, 1.0), silence(1.0)])
+    times, freqs = pitcher.detect_pitch_neural(samples)
+    yin_times, _ = pitcher.detect_pitch(samples)
+    assert np.array_equal(times, yin_times)
+    sung = freqs[(times > 0.2) & (times < 0.8)]
+    assert np.median(sung[sung > 0]) == pytest.approx(220.0, rel=0.02)
+    assert not freqs[times > 1.3].any()  # nothing is sung in the silence

@@ -101,22 +101,19 @@ function createWindow() {
   });
 }
 
-// The floating window's saved position and size, or null when there is none or it would be off every screen now
+// The floating window's saved position, or null when there is none or it would be off every screen now
 // (a monitor that has been unplugged).
 function savedMiniBounds() {
   const bounds = readSettings().miniBounds;
   if (!bounds || ![bounds.x, bounds.y, bounds.width, bounds.height].every(Number.isFinite)) return null;
-  if (bounds.width < 420 || bounds.height < 130) return null;
+  if (bounds.width < 360 || bounds.height < 130) return null;
   const { screen } = require('electron');
   const onScreen = screen.getAllDisplays().some(({ workArea: w }) =>
     bounds.x < w.x + w.width - 80 && bounds.x + bounds.width > w.x + 80 &&
     bounds.y < w.y + w.height - 40 && bounds.y + bounds.height > w.y);
   if (!onScreen) return null;
-  // Shrink the previous default too; keep sizes the user chose by resizing.
-  if (bounds.width === 580 && (bounds.height === 202 || bounds.height === 170)) {
-    return { ...bounds, width: 480, height: 170 };
-  }
-  return bounds;
+  // Reopen compactly even if an older release saved an oversized or maximized window.
+  return { ...bounds, width: 420, height: 160 };
 }
 
 // Floating lyrics: a small always-on-top window. The main window owns the player and sends it the state.
@@ -129,18 +126,18 @@ function toggleMini() {
   }
   const { screen } = require('electron');
   const { workArea } = screen.getPrimaryDisplay();
-  const width = 480;
+  const width = 420;
   // The native title bar sits above the same compact lyrics area.
-  const height = 170;
-  const minHeight = 162;
-  // Where it was left last time, if that spot is still on a connected screen; else bottom center.
+  const height = 160;
+  const minHeight = 150;
+  // Keep its last position on a connected screen, but reopen at the compact size.
   const saved = savedMiniBounds();
   mini = new BrowserWindow({
     width: saved ? saved.width : width,
     height: saved ? Math.max(saved.height, minHeight) : height,
     x: saved ? saved.x : Math.round(workArea.x + (workArea.width - width) / 2),
     y: saved ? saved.y : workArea.y + workArea.height - height - 24,
-    minWidth: 420,
+    minWidth: 360,
     minHeight,
     title: 'Lyrics',
     frame: true,

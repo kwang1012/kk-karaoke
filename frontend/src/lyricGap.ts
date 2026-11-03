@@ -11,8 +11,8 @@ function guessedDuration(text: string): number {
   return Math.max(3, text.length * 0.5);
 }
 
-/** Aligned word ends run early (the last word is often held), so the wait starts a moment after it. */
-export const WORD_END_GRACE_S = 0.8;
+/** Aligned word ends run early (the last word is often held), so the wait starts a moment after it (better to show the countdown late than while the word is still held). */
+export const WORD_END_GRACE_S = 1.8;
 
 /**
  * The silent stretch after line `index` (-1 for the intro before the first line), or null when it is

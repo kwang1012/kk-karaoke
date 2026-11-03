@@ -265,6 +265,11 @@ class SyncedAudioPlayer {
     this.mic?.setLevels(volume, reverb, monitor);
   }
 
+  /** How loud the mic is right now, 0..1; 0 when it is closed or this player's audio is shut. */
+  getMicLevel(): number {
+    return this.mic?.readLevel() ?? 0;
+  }
+
   /** Frequency in Hz currently sung into the mic, or null for silence. */
   getMicPitch(): number | null {
     return this.mic?.readPitch()?.hz ?? null;

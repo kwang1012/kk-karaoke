@@ -195,3 +195,56 @@ def transcribe(times: np.ndarray, freqs: np.ndarray, energy_db: np.ndarray, line
         {"note": snap_to_scale(p, scale), "start": round(s, 3), "end": round(e, 3), "line": k, "text": label}
         for s, e, p, k, label in found
     ]
+
+
+# --- from when each syllable is sung ------------------------------------------------------------
+
+PICKUP_S = 0.06  # a syllable's sound begins a little before the aligner's instant
+TAIL_GAP_S = 0.03  # a note stops this long before the next syllable
+MAX_HOLD_S = 1.6  # the last syllable of a line is held at most this long
+SKIP_ONSET_S = 0.05  # the first moments of a syllable are its consonant: the pitch is what is held after
+
+
+def transcribe_aligned(times: np.ndarray, freqs: np.ndarray, onsets: list[tuple[str, int, float | None]]) -> list[dict]:
+    """
+    The melody as `transcribe` writes it, but with each syllable's place given by `onsets` ((label, line, seconds the
+    syllable begins or None), in order, from `syllable_align`): a note runs from its syllable's onset to the next
+    one's and takes the pitch the voice held in it. A syllable with no onset is placed between its neighbours.
+    """
+    if len(times) == 0 or not onsets:
+        return []
+    midi = to_midi(freqs)
+    # a syllable the aligner could not place sits evenly between the ones around it
+    at: list[float | None] = [o for _, _, o in onsets]
+    for i, value in enumerate(at):
+        if value is not None:
+            continue
+        before = next((j for j in range(i - 1, -1, -1) if at[j] is not None), None)
+        after = next((j for j in range(i + 1, len(at)) if at[j] is not None), None)
+        if before is not None and after is not None:
+            at[i] = at[before] + (at[after] - at[before]) * (i - before) / (after - before)
+    found: list[tuple[float, float, float, int, str]] = []
+    for i, (label, line, _) in enumerate(onsets):
+        start = at[i]
+        if start is None:
+            continue
+        following = at[i + 1] if i + 1 < len(onsets) and at[i + 1] is not None else None
+        stop = start + MAX_HOLD_S
+        if following is not None:
+            stop = min(stop, following - TAIL_GAP_S)
+        in_note = (times >= start - PICKUP_S) & (times < stop) & ~np.isnan(midi)
+        sung = _stretches(times, in_note)
+        if len(sung) == 0:
+            continue
+        t, pitch = times[sung], midi[sung]
+        held = pitch[t >= t[0] + SKIP_ONSET_S]
+        if len(held) < 3:
+            held = pitch
+        found.append((float(t[0]), float(t[-1] + HOP_S), float(np.median(held)), line, label))
+    if not found:
+        return []
+    scale = detect_scale(np.array([f[2] for f in found]), np.array([f[1] - f[0] for f in found]))
+    return [
+        {"note": snap_to_scale(p, scale), "start": round(s, 3), "end": round(e, 3), "line": k, "text": label}
+        for s, e, p, k, label in found
+    ]

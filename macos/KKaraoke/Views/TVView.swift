@@ -12,6 +12,7 @@ struct TVView: View {
   @State private var displayActivity: NSObjectProtocol?
   @State private var window: NSWindow?
   @State private var isFullscreen = false
+  @State private var collectionObserver: NSKeyValueObservation?
 
   var body: some View {
     GeometryReader { geometry in
@@ -134,14 +135,28 @@ struct TVView: View {
     .exclusiveWindow("tv")
     .background(WindowReader { found in
       window = found
-      found.collectionBehavior.formUnion([.fullScreenPrimary, .fullScreenAllowsTiling])
+      allowFullscreen(found)
       isFullscreen = found.styleMask.contains(.fullScreen)
+      // Whatever resets the setting (leaving fullscreen, the scene reapplying its own), put it back.
+      collectionObserver = found.observe(\.collectionBehavior) { changed, _ in
+        guard !changed.collectionBehavior.contains(.fullScreenPrimary) else { return }
+        DispatchQueue.main.async { allowFullscreen(changed) }
+      }
     })
+    // Said once it can be lost (the window is recreated, or another window's setup touches it): every time it
+    // takes focus, make sure the green button and F can still go fullscreen.
+    .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { note in
+      if let key = note.object as? NSWindow, key === window { allowFullscreen(key) }
+    }
     .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)) { note in
       if (note.object as? NSWindow) === window { isFullscreen = true }
     }
     .onReceive(NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)) { note in
-      if (note.object as? NSWindow) === window { isFullscreen = false }
+      if let exited = note.object as? NSWindow, exited === window {
+        isFullscreen = false
+        // AppKit restores the window's own settings on the way out; once it is done, allow fullscreen again.
+        DispatchQueue.main.async { allowFullscreen(exited) }
+      }
     }
     .task(id: player.track?.artworkURL) {
       palette = .fallback
@@ -169,7 +184,8 @@ struct TVView: View {
     }
     .focusable().focusEffectDisabled()
     .onKeyPress(.escape) {
-      dismissWindow(id: "tv")
+      // Like any fullscreen window: Esc leaves fullscreen first, and only then closes the TV display.
+      if isFullscreen { window?.toggleFullScreen(nil) } else { dismissWindow(id: "tv") }
       return .handled
     }
     .onKeyPress(.rightArrow) {
@@ -443,6 +459,12 @@ struct TVLyricsPlacement {
       result + height(for: next) / 2 + gap + height(for: next + 1) / 2
     }
   }
+}
+
+private func allowFullscreen(_ window: NSWindow) {
+  window.collectionBehavior.remove(.fullScreenNone)
+  window.collectionBehavior.formUnion([.fullScreenPrimary, .fullScreenAllowsTiling])
+  window.standardWindowButton(.zoomButton)?.isEnabled = true
 }
 
 extension Array {

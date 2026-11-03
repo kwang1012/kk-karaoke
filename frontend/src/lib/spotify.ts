@@ -58,8 +58,18 @@ export function disconnectSpotify() {
 const base64url = (bytes: Uint8Array) =>
   btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
-export async function connectSpotify() {
+const RETURN_TO = 'spotify-return-to';
+
+/** Where to land once Spotify sends the browser back (the phone remote, say), instead of the import page. */
+export const takeSpotifyReturn = () => {
+  const path = sessionStorage.getItem(RETURN_TO);
+  sessionStorage.removeItem(RETURN_TO);
+  return path && path.startsWith('/') && !path.startsWith('//') ? path : null;
+};
+
+export async function connectSpotify(returnTo?: string) {
   if (!spotifyAvailable) return;
+  if (returnTo) sessionStorage.setItem(RETURN_TO, returnTo);
   const verifier = base64url(crypto.getRandomValues(new Uint8Array(48)));
   const challenge = base64url(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))));
   sessionStorage.setItem(VERIFIER, verifier);

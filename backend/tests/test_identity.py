@@ -230,6 +230,16 @@ def test_aliases_ignore_other_songs_and_other_artists(ytm):
     assert _ls.artist_aliases("刪了", ["Nine Chen"], 254, None) == ["Nine Chen"]
 
 
+def test_aliases_find_a_studio_cut_much_longer_than_the_video(monkeypatch):
+    studio = _ytm_hit("s", "數到十", 255, "曾沛慈")
+
+    class C:
+        def search(self, query, **k):
+            return [studio] if query == "數到十" else [_ytm_hit("o", "跳出來", 227, "曾沛慈")]
+    monkeypatch.setattr(_ls, "_client", lambda: C())
+    assert _ls.artist_aliases("數到十", ["Tseng Pei Tsz"], 239, None) == ["Tseng Pei Tsz", "曾沛慈"]
+
+
 def test_aliases_survive_an_outage(monkeypatch):
     class Down:
         def search(self, *a, **k):

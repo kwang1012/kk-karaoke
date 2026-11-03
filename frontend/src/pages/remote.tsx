@@ -22,6 +22,7 @@ import { useVideoMode } from 'src/hooks/videoMode';
 import { useT } from 'src/i18n';
 import { cn } from 'src/lib/utils';
 import { Collection, Track } from 'src/models/spotify';
+import { connectSpotify, importSpotifyPlaylist, isSpotifyConnected, spotifyAvailable, spotifyPlaylists, useImportProgress } from 'src/lib/spotify';
 import { SECTIONS, topCategoriesQuery } from 'src/pages/browse';
 import { useTrackStore } from 'src/store';
 import { usePlayer, usePlayerStore, useQueue } from 'src/store/player';
@@ -404,12 +405,13 @@ function ReadyList({ onAdd, onInsert }: AddHandlers) {
 }
 
 /** The home page's playlists, a row per language. */
-function Playlists({ onOpen }: { onOpen: (collection: Collection) => void }) {
+function Playlists({ onOpen, onOpenSpotify }: { onOpen: (collection: Collection) => void; onOpenSpotify: (collection: Collection) => void }) {
   const t = useT();
   const { data: categories, isLoading } = useQuery(topCategoriesQuery);
   if (isLoading) return <p className="px-6 pt-6 text-center text-sm text-muted-foreground">{t('remote.loading')}</p>;
   return (
     <>
+      {spotifyAvailable && <SpotifyPlaylists onOpen={onOpenSpotify} />}
       {SECTIONS.map((section) => {
         const collections = categories?.[section.keyword] || [];
         if (collections.length === 0) return null;
@@ -431,12 +433,50 @@ function Playlists({ onOpen }: { onOpen: (collection: Collection) => void }) {
   );
 }
 
-function PlaylistTracks({ collection, onBack, onAdd, onInsert }: AddHandlers & { collection: Collection; onBack: () => void }) {
+/** The phone's own Spotify playlists, or the button that connects them. */
+function SpotifyPlaylists({ onOpen }: { onOpen: (collection: Collection) => void }) {
   const t = useT();
+  const connected = isSpotifyConnected();
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ['spotify-playlists'], queryFn: spotifyPlaylists, staleTime: 60_000, retry: false, enabled: connected,
+  });
+  return (
+    <section className="mt-4">
+      <h3 className="mb-2 px-4 text-sm font-semibold">{t('spotify.title')}</h3>
+      {!connected || isError ? (
+        <div className="px-4">
+          <p className="mb-2 text-xs text-muted-foreground">{isError ? t('spotify.failed') : t('spotify.hint')}</p>
+          <div className="flex gap-2">
+            {isError && <Button variant="outline" size="sm" onClick={() => refetch()}>{t('common.retry')}</Button>}
+            <Button size="sm" onClick={() => connectSpotify('/remote')}>{t('spotify.connect')}</Button>
+          </div>
+        </div>
+      ) : isLoading ? (
+        <p className="px-4 text-sm text-muted-foreground">{t('remote.loading')}</p>
+      ) : (data?.playlists.length ?? 0) === 0 ? (
+        <p className="px-4 text-sm text-muted-foreground">{t('spotify.empty')}</p>
+      ) : (
+        <div className="no-scrollbar flex gap-3 overflow-x-auto px-4">
+          {data!.playlists.map((collection) => (
+            <button key={collection.id} className="w-32 shrink-0 text-left" onClick={() => onOpen(collection)}>
+              <img referrerPolicy="no-referrer" src={collection.images?.[0]?.url || placeholder} alt="" className="aspect-square w-full rounded-lg object-cover shadow-md" />
+              <span className="mt-1.5 line-clamp-2 text-xs font-medium">{collection.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function PlaylistTracks({ collection, spotify, onBack, onAdd, onInsert }: AddHandlers & { collection: Collection; spotify?: boolean; onBack: () => void }) {
+  const t = useT();
+  const progress = useImportProgress();
   // same key and shape as the playlist page, so a playlist opened on either is cached for both
   const { data, isLoading } = useQuery<{ tracks: Track[] }>({
-    queryKey: ['playlist', collection.id],
-    queryFn: () => api.get(`/playlist/${collection.id}/tracks`).then(({ data }) => data),
+    queryKey: spotify ? ['remote-spotify', collection.id] : ['playlist', collection.id],
+    queryFn: () => (spotify ? importSpotifyPlaylist(collection.id) : api.get(`/playlist/${collection.id}/tracks`).then(({ data }) => data)),
+    staleTime: spotify ? 5 * 60_000 : undefined,
   });
   const tracks = data?.tracks ?? [];
   return (
@@ -446,7 +486,9 @@ function PlaylistTracks({ collection, onBack, onAdd, onInsert }: AddHandlers & {
       </button>
       <h2 className="mb-2 text-lg font-semibold tracking-tight">{collection.name}</h2>
       {isLoading ? (
-        <p className="pt-4 text-center text-sm text-muted-foreground">{t('remote.loading')}</p>
+        <p className="pt-4 text-center text-sm text-muted-foreground">
+          {spotify && progress.total > 0 ? `${t('spotify.matching')}: ${t('spotify.matchingProgress', { done: progress.done, total: progress.total })}` : t('remote.loading')}
+        </p>
       ) : tracks.length === 0 ? (
         <p className="pt-4 text-center text-sm text-muted-foreground">{t('remote.noResults')}</p>
       ) : (
@@ -469,6 +511,7 @@ function AddSongs() {
   // with nothing typed: the processed songs, or the playlists (and one of those, opened)
   const [browse, setBrowse] = useState<'ready' | 'playlists'>('ready');
   const [playlist, setPlaylist] = useState<Collection | null>(null);
+  const [fromSpotify, setFromSpotify] = useState(false);
 
   useEffect(() => {
     if (!query) {
@@ -533,11 +576,11 @@ function AddSongs() {
         <div className="pb-6">
           {!query ? (
             playlist ? (
-              <PlaylistTracks collection={playlist} onBack={() => setPlaylist(null)} onAdd={onAdd} onInsert={onInsert} />
+              <PlaylistTracks collection={playlist} spotify={fromSpotify} onBack={() => setPlaylist(null)} onAdd={onAdd} onInsert={onInsert} />
             ) : browse === 'ready' ? (
               <ReadyList onAdd={onAdd} onInsert={onInsert} />
             ) : (
-              <Playlists onOpen={setPlaylist} />
+              <Playlists onOpen={(c) => { setFromSpotify(false); setPlaylist(c); }} onOpenSpotify={(c) => { setFromSpotify(true); setPlaylist(c); }} />
             )
           ) : searching && results.length === 0 ? (
             <p className="px-6 pt-6 text-center text-sm text-muted-foreground">{t('remote.searching')}</p>
@@ -564,14 +607,16 @@ function AddSongs() {
 export default function RemoteView() {
   const t = useT();
   const navigate = useNavigate();
-  const { isInJam } = useJam();
+  const { isInJam, isOwner } = useJam();
+  const roomId = useRoomStore((state) => state.roomId);
+  const joinedRoom = useRoomStore((state) => state.joinedRoom);
   const connected = useWebSocketStore((state) => state.connected);
   // not connected yet is just the page starting; "reconnecting" means it was, and dropped
   const wasConnected = useRef(false);
   if (connected) wasConnected.current = true;
   const code = useRoomStore((state) => state.code);
   const leaveRoom = useRoomStore((state) => state.leaveRoom);
-  const queueLength = usePlayerStore((state) => Math.max(0, state.queue.length - state.queueIdx - 1));
+  const queueLength = usePlayerStore((state) => state.queue.slice(state.queueIdx + 1).filter((track) => !track.recommended).length);
   const [tab, setTab] = useState<Tab>('now');
   const [profileOpen, setProfileOpen] = useState(false);
   const avatar = useRoomStore((state) => state.avatar);
@@ -579,8 +624,11 @@ export default function RemoteView() {
   const { currentTrack } = useQueue();
   usePageTitle(t('remote.title'), currentTrack);
 
-  // Not someone else's room (or no longer): there is nothing to steer, so show the full app.
-  if (!isInJam) return <Navigate to="/" replace />;
+  // Your own room from another of your devices (a phone scanning the TV's code while signed in) is steered
+  // the same way; only the device that plays it has nothing to steer.
+  const steeringOwnRoom = !!roomId && joinedRoom === roomId && !isOwner;
+  // Not a room to steer (or no longer): show the full app.
+  if (!isInJam && !steeringOwnRoom) return <Navigate to="/" replace />;
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'now', label: t('remote.nowPlaying'), icon: <Play className="size-5" /> },

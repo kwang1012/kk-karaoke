@@ -143,6 +143,8 @@ struct LyricGap: Equatable, Sendable {
     static let minimum = 5.0
     /// Only the last seconds of the wait are counted out.
     static let countdownSeconds = 3.0
+    /// Aligned word ends run early (the last word is often held): the wait starts this long after it.
+    static let wordEndGrace = 1.8
 
     var start: Double
     var end: Double
@@ -159,7 +161,7 @@ struct LyricGap: Equatable, Sendable {
             guard !line.text.isEmpty else { return nil }
             let sung: Double
             if let last = line.words?.last {
-                sung = last.end + delay
+                sung = last.end + delay + wordEndGrace
             } else {
                 // No word timing: a rough guess at how long the line takes to sing.
                 sung = line.time + delay + max(2, Double(line.text.count) * 0.3)

@@ -3,8 +3,8 @@ const FMIN = 70;
 const FMAX = 1100;
 /** A dip in the normalised difference below this counts as a pitch (YIN's threshold). */
 const THRESHOLD = 0.2;
-/** Quieter than this (RMS of a -1..1 signal) is room noise, not singing. */
-const MIN_RMS = 0.01;
+/** Quieter than this (RMS of a -1..1 signal) is room noise, not singing. A laptop mic a little way off hears a voice at about this. */
+const MIN_RMS = 0.004;
 
 export type Pitch = { hz: number; clarity: number };
 

@@ -22,6 +22,9 @@ const FUTURE = 6;
 const TRAIL = PAST + 0.5;
 /** Pitch is read at most this often; reading is far more work than drawing. */
 const READ_EVERY_MS = 25;
+/** A mic level (RMS) above this is something heard; none for this long while the song plays means it is not working. */
+const MIC_HEARD = 0.0015;
+const MIC_SILENT_MS = 3000;
 /** How much of the way to the wanted pitch rows the view moves each frame: it follows the notes, gently. */
 const FOLLOW = 0.1;
 
@@ -46,6 +49,8 @@ export default function PitchRoll({ className, tv }: { className?: string; tv?: 
   const canvas = useRef<HTMLCanvasElement>(null);
   const [score, setScore] = useState<number | null>(null);
   const [run, setRun] = useState(0);
+  // the microphone has heard nothing for a while: say so, rather than scoring silence as a 0
+  const [micSilent, setMicSilent] = useState(false);
   const scorer = useRef(new Scorer());
   const [finished, setFinished] = useState<Finished | null>(null);
   const submitted = useRef(false);
@@ -120,6 +125,7 @@ export default function PitchRoll({ className, tv }: { className?: string; tv?: 
     let frame = 0;
     let lastRead = 0;
     let lastScoreShown = 0;
+    let lastHeard = performance.now();
     let singing: number | null = null;
     const trail: Sample[] = [];
     let view: View | null = null; // the pitch rows on show; starts at what the first notes need
@@ -134,6 +140,7 @@ export default function PitchRoll({ className, tv }: { className?: string; tv?: 
 
       if (mic && now - lastRead >= READ_EVERY_MS) {
         lastRead = now;
+        if (ownMic && (player?.getMicLevel() ?? 0) > MIC_HEARD) lastHeard = now;
         const hz = (ownMic ? player?.getMicPitch() : null) ?? remotePitch();
         singing = hz === null ? null : hzToMidi(hz);
         const on = isPlaying ? scorer.current.update(time, singing, notes, shift) : null;
@@ -147,6 +154,7 @@ export default function PitchRoll({ className, tv }: { className?: string; tv?: 
           lastScoreShown = now;
           setScore(scorer.current.score);
           setRun(Math.floor(scorer.current.run));
+          setMicSilent(ownMic && isPlaying && now - lastHeard > MIC_SILENT_MS);
         }
       }
 
@@ -164,14 +172,17 @@ export default function PitchRoll({ className, tv }: { className?: string; tv?: 
       ctx.clearRect(0, 0, width, height);
 
       const x = (at: number) => ((at - time + PAST) / (PAST + FUTURE)) * width;
+      // under the roll, the words of the notes: what to sing, where
+      const lane = notes.some((n) => n.text) ? (tv ? Math.max(20, width * 0.024) : 24) : 0;
+      const rollHeight = height - lane;
       const wanted = viewFor(notes, time - PAST, time + FUTURE, shift, rangeRef.current);
       view = view ? ease(view, wanted, FOLLOW) : wanted;
       const rows = view.hi - view.lo;
-      const rowHeight = height / rows;
-      const y = (midi: number) => height - ((midi - view!.lo) / rows) * height;
-      const barHeight = Math.max(6, Math.min(tv ? height * 0.1 : 22, rowHeight * 0.8));
+      const rowHeight = rollHeight / rows;
+      const y = (midi: number) => rollHeight - ((midi - view!.lo) / rows) * rollHeight;
+      const barHeight = Math.max(6, Math.min(tv ? rollHeight * 0.1 : 22, rowHeight * 0.8));
       // beyond the rows on show a note sits on the edge instead of vanishing
-      const onScreen = (midi: number) => Math.min(height - barHeight / 2, Math.max(barHeight / 2, y(midi)));
+      const onScreen = (midi: number) => Math.min(rollHeight - barHeight / 2, Math.max(barHeight / 2, y(midi)));
 
       // the rows of a piano: black keys a shade darker, a labelled line at every C
       ctx.font = `${tv ? Math.max(11, width * 0.011) : 10}px system-ui, sans-serif`;
@@ -201,6 +212,29 @@ export default function PitchRoll({ className, tv }: { className?: string; tv?: 
         const centre = onScreen(n.note + shift);
         ctx.roundRect(left, centre - barHeight / 2, barWidth, barHeight, Math.min(barHeight / 2, 6));
         ctx.fill();
+      }
+
+      if (lane) {
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.fillRect(0, rollHeight, width, lane);
+        const size = Math.round(lane * 0.62);
+        ctx.font = `600 ${size}px system-ui, sans-serif`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        let free = -Infinity; // the right edge of the last word drawn: a word that would overlap it is left out
+        for (const n of notes) {
+          if (n.end < time - PAST) continue;
+          if (n.start > time + FUTURE) break;
+          if (!n.text) continue;
+          const sounding = n.start <= time && n.end >= time;
+          const left = x(n.start);
+          const wide = ctx.measureText(n.text).width;
+          if (!sounding && left < free + 2) continue;
+          ctx.fillStyle = sounding ? '#ffffff' : n.end < time ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.78)';
+          ctx.fillText(n.text, left, rollHeight + lane / 2);
+          free = Math.max(free, left + wide);
+        }
+        ctx.textAlign = 'start';
       }
 
       // Your voice, drawn in whichever octave sits nearest the note you are meant to be on
@@ -240,11 +274,12 @@ export default function PitchRoll({ className, tv }: { className?: string; tv?: 
     <>
     {report}
     <div className={cn(
-      'pointer-events-none relative overflow-hidden bg-black/35 backdrop-blur',
+      // solid: the lyrics scroll behind the roll and would show through as smudges
+      'pointer-events-none relative overflow-hidden shadow-lg',
       tv ? 'h-[13vw] rounded-[1vw]' : 'h-36 rounded-xl md:h-44',
-      !visible && 'h-auto w-fit bg-transparent backdrop-blur-none',
+      !visible && 'h-auto w-fit shadow-none',
       className,
-    )}>
+    )} style={{ backgroundColor: visible ? '#0d1b24' : 'transparent' }}>
       {visible && <canvas ref={canvas} className="size-full" aria-label={t('melody.label')} />}
       {micOn && (
         <div className={cn(
@@ -261,6 +296,7 @@ export default function PitchRoll({ className, tv }: { className?: string; tv?: 
             </>
           )}
           {run >= 3 && <span className="font-semibold text-orange-300">{t('melody.combo', { value: run })}</span>}
+          {micSilent && <span className="font-semibold text-amber-300">{t('melody.micSilent')}</span>}
         </div>
       )}
     </div>

@@ -233,13 +233,23 @@ async def reorder_queue_endpoint(
     redis_interface: RedisQueueInterface = Depends(lambda: RedisQueueInterface(get_db())),
 ):
     tracks = redis_interface.get_queue(room_id)
+    if not (0 <= new_order.oldIndex < len(tracks)):
+        return JSONResponse(content={"error": "No such song"}, status_code=400)
+    start = redis_interface.get_current_idx(room_id) + 1
     element = tracks.pop(new_order.oldIndex)
-    tracks.insert(new_order.newIndex, element)
+    new_index = min(max(new_order.newIndex, 0), len(tracks))
+    # Songs people ordered stay ahead of the suggestions: a suggestion dragged among them becomes an ordered
+    # song, and an ordered song dragged below the suggestions stops at the end of the ordered ones.
+    if new_index >= start:
+        ordered = sum(1 for t in tracks[start:] if not t.recommended)
+        if new_index - start <= ordered:
+            element.recommended = False
+        elif not element.recommended:
+            new_index = start + ordered
+    tracks.insert(new_index, element)
     redis_interface.set_queue(room_id, tracks)
-    await ws_manager.multicast(
-        room_id,
-        {"type": "queue", "data": {"action": "reordered", "old_idx": new_order.oldIndex, "new_idx": new_order.newIndex, "id": new_order.id}},
-    )
+    # Every screen takes the whole order, so the clamping above cannot leave one out of step.
+    await _announce_queue(room_id, redis_interface)
     return JSONResponse(content={"message": "Queue reordered"}, status_code=200)
 
 

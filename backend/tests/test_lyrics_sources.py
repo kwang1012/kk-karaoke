@@ -541,3 +541,14 @@ def test_a_duet_singer_tag_on_its_own_line_is_not_a_lyric():
         assert wt.is_credit_line(tag)
     for lyric in ("男孩", "女：我愛你", "合不來"):
         assert not wt.is_credit_line(lyric)
+
+
+def test_a_video_longer_than_its_studio_cut_gets_the_providers_sheet_for_that_cut(monkeypatch, siblings):
+    siblings(_song("STUDIO12345", "PSYCHO", 196), timed=())
+
+    def find_entry(title, names, duration_s, **kw):  # providers answer only for the studio cut's length
+        return providers.Entry("kugou", title, names, duration_s, synced="[00:01.00]a\n[00:02.00]b") if duration_s == 196 else None
+    monkeypatch.setattr(ls.providers, "find_entry", find_entry)
+    r = ls.find_lyrics("PSYCHO", ["BABYMONSTER"], None, 204, MV)
+    assert (r.source, r.confidence, r.timed_for) == ("kugou", "approximate", "STUDIO12345")
+    assert "3:16" in r.notes[0] and "3:24" in r.notes[0]

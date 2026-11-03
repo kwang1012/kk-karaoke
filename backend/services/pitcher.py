@@ -1,8 +1,8 @@
 """
 The melody of a song: the notes sung in its vocal stem, for the piano roll and the singing score.
 
-Pitch is tracked with YIN (de Cheveigné & Kawahara, 2002) in plain numpy, so there is no model to
-download. The browser runs the same algorithm on the microphone, which keeps the two comparable.
+Pitch is tracked by CREPE where it is installed (`detect_pitch_neural`), else with YIN (de Cheveigné &
+Kawahara, 2002) in plain numpy. The browser runs YIN on the microphone.
 The notes are saved as a JSON list of `{"note": <MIDI number>, "start": s, "end": s}` in a `.mid`
 file (not a Standard MIDI File, whatever the extension suggests) and synced to R2 like the stems.
 """
@@ -80,6 +80,42 @@ def detect_pitch(samples: np.ndarray, sr: int = SAMPLE_RATE) -> tuple[np.ndarray
         freqs[first:first + len(rows)] = np.where(voiced, sr / refined, 0)
 
     times = (np.arange(n_frames) * HOP + WINDOW / 2) / sr
+    return times, freqs
+
+
+PERIODICITY_THRESHOLD = 0.21  # CREPE's own confidence that a frame is pitched; below this nothing is sung
+
+
+def detect_pitch_neural(samples: np.ndarray, sr: int = SAMPLE_RATE) -> tuple[np.ndarray, np.ndarray] | None:
+    """
+    `detect_pitch`, with CREPE (a neural pitch tracker made for voices) doing the listening: it is the better judge of
+    which frames are sung at all, where YIN heard breaths and consonants as low notes and missed quiet held ones. Runs
+    on the frames of `detect_pitch`, so the two are interchangeable. None where CREPE is not installed.
+    """
+    try:
+        import torch
+        import torchcrepe
+    except ImportError:
+        return None
+    times, _ = detect_pitch(samples, sr)  # the frame grid, and nothing else
+    if len(times) == 0:
+        return times, np.zeros(0)
+    device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+    audio = torch.tensor(np.asarray(samples, dtype=np.float32))[None].to(device)
+    with torch.no_grad():
+        hz, periodicity = torchcrepe.predict(
+            audio, sr, hop_length=HOP, fmin=FMIN, fmax=FMAX,
+            model="tiny" if device == "cpu" else "full",  # the full model is too slow without a GPU
+            batch_size=512, device=device, return_periodicity=True, decoder=torchcrepe.decode.viterbi,
+        )
+        periodicity = torchcrepe.filter.median(periodicity, 3)
+        hz = torchcrepe.threshold.At(PERIODICITY_THRESHOLD)(hz, periodicity)
+    hz = np.nan_to_num(hz[0].cpu().numpy(), nan=0.0)
+    # CREPE frames are centred on k * HOP; the frames of `detect_pitch` on i * HOP + WINDOW / 2
+    index = np.clip(np.round(times * sr / HOP).astype(int), 0, len(hz) - 1)
+    freqs = hz[index]
+    # a frame that is nearly silent is not sung, whatever the model thinks
+    freqs = np.where(frame_energy_db(samples) > 20 * np.log10(max(1e-4, SILENCE * float(np.abs(samples).max()))), freqs, 0.0)
     return times, freqs
 
 
@@ -162,6 +198,20 @@ def _lyric_delay(track_id: str) -> float:
         return 0.0
 
 
+def _written_by_listening(samples: np.ndarray, times: np.ndarray, freqs: np.ndarray, lines: list[tuple[float, str]]) -> list[dict]:
+    """The melody with each syllable placed where the aligner hears it sung, or [] if it could not."""
+    from services import melody_notes, syllable_align
+
+    try:
+        heard = syllable_align.align_onsets(samples, lines)
+        if heard is None:
+            return []
+        return melody_notes.transcribe_aligned(times, freqs, [(unit.label, unit.line, at) for unit, at in heard])
+    except Exception as e:  # the syllable count still gives a melody
+        print(f"Could not place the syllables by listening: {e!r}")
+        return []
+
+
 def _written_against_lyrics(track_id: str, samples: np.ndarray, times: np.ndarray, freqs: np.ndarray) -> list[dict]:
     """The melody as one note per sung syllable, or [] when the song has no lyrics worth writing it against."""
     from services import melody_notes
@@ -174,7 +224,9 @@ def _written_against_lyrics(track_id: str, samples: np.ndarray, times: np.ndarra
         lines = parse_lrc(lrc.read_text(encoding="utf-8")) if lrc.exists() else []
         if not lines:
             return []
-        notes = melody_notes.transcribe(times, freqs, frame_energy_db(samples), lines, _lyric_delay(track_id))
+        notes = _written_by_listening(samples, times, freqs, lines)
+        if len(notes) < MIN_WRITTEN_NOTES:  # no aligner, or the lyrics do not fit the audio: cut the sung audio by syllable count
+            notes = melody_notes.transcribe(times, freqs, frame_energy_db(samples), lines, _lyric_delay(track_id))
         return notes if len(notes) >= MIN_WRITTEN_NOTES else []
     except Exception as e:  # the pitch alone still gives a melody
         print(f"Could not write the melody of {track_id} against its lyrics: {e!r}")
@@ -192,7 +244,8 @@ def extract_melody(track_id: str) -> list[dict]:
         raise FileNotFoundError(f"No vocal file found for track {track_id}")
 
     samples = _load_mono(path)
-    times, freqs = detect_pitch(samples)
+    tracked = detect_pitch_neural(samples)
+    times, freqs = tracked if tracked is not None else detect_pitch(samples)
     notes = _written_against_lyrics(track_id, samples, times, freqs) or notes_from_pitch(times, freqs)
 
     target = os.path.join(MIDI_DIR, f"{track_id}.mid")

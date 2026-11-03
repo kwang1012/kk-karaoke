@@ -293,6 +293,7 @@ final class PlayerModel {
         loadTask?.cancel()
         self.track = track
         self.client = client
+        remoteClock = (0, ProcessInfo.processInfo.systemUptime) // a new song starts from its beginning
         guard let track, let client else { status = .idle; lyrics = .none; onTrackChange?(); return }
         status = .ready
         lyrics = .loading
@@ -305,7 +306,15 @@ final class PlayerModel {
                      vocalOn: Bool? = nil, guideLevel: Double? = nil, semitone: Int? = nil) {
         guard isFollower else { return }
         if let semitone { setSemitone(semitone) }
-        if let time { remoteClock = (time, ProcessInfo.processInfo.systemUptime); if !isPlaying { seekCount += 1 } }
+        let now = ProcessInfo.processInfo.systemUptime
+        if let time {
+            remoteClock = (time, now)
+            if !isPlaying { seekCount += 1 }
+        } else if let playing, playing != isPlaying {
+            // Play or pause without a time: carry the position up to now, so the clock neither
+            // jumps ahead by the time spent paused nor stops short.
+            remoteClock = (currentTime, now)
+        }
         if let playing { isPlaying = playing }
         if let duration, duration > 0 { self.duration = duration }
         applyingRemote = true

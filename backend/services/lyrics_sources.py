@@ -202,17 +202,18 @@ def sibling_songs(
     """
     if not artists:
         return []
-    try:
-        hits = _client().search(f"{artists[0]} {title}", filter="songs", limit=limit)
-    except Exception as e:  # noqa: BLE001
-        log.warning("YT Music sibling lookup failed for %r: %r", title, e)
-        return []
+    hits: list = []
+    for name in artists[:3]:  # the first may be a romanized channel name that finds nothing
+        try:
+            hits += _client().search(f"{name} {title}", filter="songs", limit=limit)
+        except Exception as e:  # noqa: BLE001
+            log.warning("YT Music sibling lookup failed for %r: %r", title, e)
     wanted = providers.title_variants(title)
     wanted_folded = {_norm(w) for w in wanted} - {""}
     found: list[Recording] = []
-    for hit in hits[:limit]:
+    for hit in hits:
         vid = hit.get("videoId")
-        if not vid or vid == video_id or not providers._title_fits(wanted, hit.get("title") or "", _norm):
+        if not vid or vid == video_id or any(f.video_id == vid for f in found) or not providers._title_fits(wanted, hit.get("title") or "", _norm):
             continue
         # Containment is fine for a provider search, but a sibling is the same song: "情歌" is not "怪情歌".
         if _norm(hit.get("title") or "") not in wanted_folded:
@@ -283,22 +284,30 @@ def artist_aliases(
     if recording and recording.artist:
         names.append(recording.artist)
     if artists:
-        try:
-            hits = _client().search(f"{artists[0]} {title}", filter="songs", limit=5)
-        except Exception as e:  # noqa: BLE001
-            log.warning("YT Music alias lookup failed for %r: %r", title, e)
-            hits = []
         want = _norm(title)
-        for hit in hits:
-            have = _norm(hit.get("title") or "")
-            if want not in have and have not in want:
-                continue
-            got = hit.get("duration_seconds")
-            if duration_s and got and abs(got - duration_s) > MAX_DURATION_DIFF_S:
-                continue
-            hit_names = [a["name"] for a in hit.get("artists") or [] if a.get("name")]
-            if _same_artist(artists, hit_names) or _artist_in_other_script(artists, hit_names):
-                names += hit_names
+        # A music video can run well past its studio cut, and a search that leads with a romanized channel
+        # name may not list that cut at all: failing that, look the title up alone, for a close length.
+        for query, max_diff, exact in ((f"{artists[0]} {title}", MAX_DURATION_DIFF_S, False),
+                                       (title, SIBLING_MAX_DIFF_S, True)):
+            found = False
+            try:
+                hits = _client().search(query, filter="songs", limit=5)
+            except Exception as e:  # noqa: BLE001
+                log.warning("YT Music alias lookup failed for %r: %r", title, e)
+                hits = []
+            for hit in hits:
+                have = _norm(hit.get("title") or "")
+                if (have != want) if exact else (want not in have and have not in want):
+                    continue
+                got = hit.get("duration_seconds")
+                if duration_s and got and abs(got - duration_s) > max_diff:
+                    continue
+                hit_names = [a["name"] for a in hit.get("artists") or [] if a.get("name")]
+                if _same_artist(artists, hit_names) or _artist_in_other_script(artists, hit_names):
+                    names += hit_names
+                    found = True
+            if found:
+                break
     return [n for n in dict.fromkeys(n.strip() for n in names) if n]
 
 
@@ -425,12 +434,26 @@ def find_lyrics(
                                     video_id, notes=[note]))
 
     # A music video has no timed lyrics of its own, but its studio recording usually does.
-    for sibling in sibling_songs(title, names, duration_s, video_id) if recording else []:
+    siblings = sibling_songs(title, names, duration_s, video_id) if recording else []
+    for sibling in siblings:
         lines = fetch_ytmusic_lines(sibling.video_id)
         if lines:
             return _finish(LyricsResult(
                 format_lrc(lines), "ytmusic", "approximate", video_id,
                 notes=[f"Timed for the studio recording ({_mmss(sibling.duration_s)}); this one is "
+                       f"{_mmss(duration_s)}, so the timing may be offset"],
+                timed_for=sibling.video_id))
+    # The providers match on length, so a video longer than its studio cut finds nothing above: ask again
+    # with the studio cut's length. Its timing is then for that cut, and the audio check moves it.
+    for sibling in siblings:
+        if not sibling.duration_s:
+            continue
+        entry = providers.find_entry(title, names, sibling.duration_s, fold=_norm, same_artist=_same_artist,
+                                     other_script=_artist_in_other_script, korean=korean)
+        if entry and entry.synced and parse_lrc(entry.synced):
+            return _finish(LyricsResult(
+                entry.synced, entry.source, "approximate", video_id,
+                notes=[f"Matched on {entry.source} for the studio recording ({_mmss(sibling.duration_s)}); this one is "
                        f"{_mmss(duration_s)}, so the timing may be offset"],
                 timed_for=sibling.video_id))
     return None

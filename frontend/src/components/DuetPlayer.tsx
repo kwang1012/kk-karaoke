@@ -67,6 +67,11 @@ export default function DuetPlayer() {
       return promise;
     };
 
+    /** The microphone is heard by the room's own player, which stays silent in a duet: its audio still has to be open. */
+    const wakeMic = () => {
+      if (useSettingStore.getState().micOn) void usePlayerStore.getState().syncedPlayer?.resume().catch(() => {});
+    };
+
     /** Redo the schedule from the current start: late, it joins the song where it is by now. */
     const schedule = () => {
       if (!anchor || loadedTrack !== anchor.trackId) return;
@@ -128,6 +133,7 @@ export default function DuetPlayer() {
       store().setDuet(anchor);
       const room = usePlayerStore.getState();
       room.syncedPlayer?.pause(); // the room's own player stays silent
+      wakeMic();
       room.setProgress(session.from);
       room.setPlaying(true);
       stopTicker();
@@ -184,6 +190,7 @@ export default function DuetPlayer() {
     };
     const unlock = () => {
       if (store().locked) void player.resume().then(opened, () => {});
+      if (store().session) wakeMic();
     };
     document.addEventListener('pointerdown', unlock, true);
     document.addEventListener('keydown', unlock, true);

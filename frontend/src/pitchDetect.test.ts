@@ -27,6 +27,12 @@ test('silence and faint noise have no pitch', () => {
   assert.equal(detectPitch(noise, 48000), null);
 });
 
+test('a quiet voice, as a laptop mic hears it, still has a pitch', () => {
+  const pitch = detectPitch(tone(220, 48000, 2048, 0.01), 48000); // about 0.007 RMS
+  assert.ok(pitch, 'a pitch is found');
+  assert.ok(Math.abs(pitch.hz - 220) / 220 < 0.01, `got ${pitch.hz}`);
+});
+
 test('loud noise is not mistaken for a note', () => {
   const noise = new Float32Array(2048).map(() => Math.random() - 0.5);
   assert.equal(detectPitch(noise, 48000), null);

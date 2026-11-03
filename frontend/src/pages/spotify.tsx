@@ -12,7 +12,7 @@ import AppScrollbar from 'src/components/Scrollbar';
 import { SpotifyMark } from 'src/components/ProviderButtons';
 import placeholder from 'src/assets/placeholder.png';
 import {
-  completeSpotifyLogin, connectSpotify, disconnectSpotify, isSpotifyConnected, spotifyAvailable, spotifyPlaylists, spotifyProfile,
+  completeSpotifyLogin, connectSpotify, disconnectSpotify, isSpotifyConnected, spotifyAvailable, spotifyPlaylists, spotifyProfile, takeSpotifyReturn,
 } from 'src/lib/spotify';
 import { authEnabled, openLogin, useAuthStore } from 'src/lib/auth';
 
@@ -25,7 +25,7 @@ export function SpotifyCallback() {
   useEffect(() => {
     if (ran.current) return; // the code can only be used once
     ran.current = true;
-    completeSpotifyLogin(window.location.search).then((ok) => (ok ? navigate('/spotify', { replace: true }) : setFailed(true)));
+    completeSpotifyLogin(window.location.search).then((ok) => (ok ? navigate(takeSpotifyReturn() ?? '/spotify', { replace: true }) : setFailed(true)));
   }, [navigate]);
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-4 p-6 text-center text-muted-foreground">
@@ -122,7 +122,7 @@ function PlaylistGrid() {
           <p className="text-sm text-muted-foreground">{t('spotify.failed')}</p>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => refetch()}>{t('common.retry')}</Button>
-            <Button size="sm" onClick={connectSpotify}>{t('spotify.connect')}</Button>
+            <Button size="sm" onClick={() => connectSpotify()}>{t('spotify.connect')}</Button>
           </div>
         </div>
       ) : (

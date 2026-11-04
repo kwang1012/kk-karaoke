@@ -15,6 +15,7 @@ import SyncedAudioPlayer from 'src/syncedPlayer';
 import { api } from 'src/utils/api';
 import { seekSync } from 'src/seekSync';
 import { setRemotePitch } from 'src/remotePitch';
+import { applyPartyMessage, party } from 'src/party';
 
 /** The owner reports the playback time every other 200ms tick, and everything else it knows every tenth. */
 const UPDATE_EVERY_TICKS = 2;
@@ -120,6 +121,7 @@ export const Player = () => {
       const action = message.action;
       const op = message.op;
       if (rid !== activeRoomId) return; // ignore message if not in the same room
+      if (applyPartyMessage(party, message)) return; // people singing into their own phones, and what the screen says of them
       if (action == 'pitch') {
         // what a phone in the room hears the singer sing, many times a second
         if (typeof data?.hz === 'number') setRemotePitch(data.hz);

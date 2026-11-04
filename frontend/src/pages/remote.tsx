@@ -5,6 +5,9 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { Check, ChevronLeft, ListMusic, LogOut, Mic, Minus, Music, Pause, Play, Plus, RotateCcw, Search, SkipBack, SkipForward, Video, Volume2 } from 'lucide-react';
 import placeholder from 'src/assets/placeholder.png';
 import AppScrollbar from 'src/components/Scrollbar';
+import PartyPanel from 'src/components/PartyPanel';
+import { getDeviceId } from 'src/deviceId';
+import { leaveParty } from 'src/partyActions';
 import Queue from 'src/components/Queue';
 import AppSlider from 'src/components/Slider';
 import SongCard from 'src/components/SongCard';
@@ -16,7 +19,6 @@ import { Button, IconButton } from 'src/components/ui/button';
 import { CircularProgress } from 'src/components/ui/progress';
 import { useDebounce, useDebouncedCallback } from 'src/hooks/debounce';
 import { useLyricsOffset } from 'src/hooks/lyricsOffset';
-import { canUseMic } from 'src/hooks/audioDevices';
 import { useMelodyMode } from 'src/hooks/melodyMode';
 import { useVideoMode } from 'src/hooks/videoMode';
 import { useT } from 'src/i18n';
@@ -33,7 +35,7 @@ import { getUniqueId } from 'src/utils';
 import { publicUrl } from 'src/utils/publicUrl';
 import { api } from 'src/utils/api';
 
-type Tab = 'now' | 'queue' | 'add';
+type Tab = 'now' | 'queue' | 'add' | 'sing';
 
 const formatTime = (seconds: number) => {
   if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
@@ -220,21 +222,16 @@ function usePitchBroadcast() {
       const { connected, sendMessage } = useWebSocketStore.getState();
       const hz = usePlayerStore.getState().syncedPlayer?.getMicPitch();
       if (!connected || !hz) return; // silence is just the absence of a message
-      sendMessage({ type: 'jam', action: 'pitch', roomId, data: { hz: Math.round(hz * 10) / 10 } });
+      sendMessage({ type: 'jam', action: 'pitch', roomId, data: { hz: Math.round(hz * 10) / 10, singer: getDeviceId() } });
     }, PITCH_EVERY_MS);
     return () => clearInterval(timer);
   }, [micOn, roomId]);
 }
 
-/** Singing: show the melody on the TV, and sing into this phone to be scored there. */
+/** The melody on the TV. Singing into this phone is the Sing tab (see PartyPanel). */
 function useSinging() {
   const { showMelody, setShowMelody } = useMelodyMode();
-  const micOn = useSettingStore((state) => state.micOn);
-  const setMicOn = useSettingStore((state) => state.setMicOn);
-  usePitchBroadcast();
-  // leaving the remote must not leave the microphone open
-  useEffect(() => () => useSettingStore.getState().setMicOn(false), []);
-  return { showMelody, setShowMelody, micOn, setMicOn };
+  return { showMelody, setShowMelody };
 }
 
 const SYNC_STEP = 0.1;
@@ -247,21 +244,15 @@ function RemoteAdjustments() {
   const { vocalOn, guideLevel, semitone, hostPitchShift, volume } = p;
   const { ahead, setAhead, approximate, videoId } = useLyricsOffset();
   const { showVideo, setShowVideo } = useVideoMode();
-  const { showMelody, setShowMelody, micOn, setMicOn } = useSinging();
+  const { showMelody, setShowMelody } = useSinging();
   const setSync = (next: number) => setAhead(Math.round(Math.max(-SYNC_LIMIT, Math.min(SYNC_LIMIT, next)) * 10) / 10);
   return (
     <div className="space-y-2 pt-1">
-      <div className={cn('grid gap-2', videoId ? 'grid-cols-4' : 'grid-cols-3')}>
+      <div className={cn('grid gap-2', videoId ? 'grid-cols-3' : 'grid-cols-2')}>
         <ToggleChip label={t('remote.vocals')} icon={<Mic className="size-5" />} pressed={p.fullVocal} onClick={() => p.toggleVocal()} />
         <ToggleChip label={t('remote.melody')} icon={<Music className="size-5" />} pressed={showMelody} onClick={() => setShowMelody(!showMelody)} />
-        <ToggleChip label={t('remote.sing')} icon={<Mic className="size-5" />} pressed={micOn} disabled={!canUseMic} onClick={() => setMicOn(!micOn)} />
         {videoId && <ToggleChip label={t('remote.video')} icon={<Video className="size-5" />} pressed={showVideo} onClick={() => setShowVideo(!showVideo)} />}
       </div>
-      {!canUseMic ? (
-        <p role="status" className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">{t('remote.micUnavailable')}</p>
-      ) : (
-        micOn && <p className="px-1 text-xs text-muted-foreground">{t('remote.singHint')}</p>
-      )}
       <div className="divide-y rounded-xl border bg-card px-3">
         <RemoteLevel label={t('remote.volume')} value={volume} onChange={p.setVolume} icon={<Volume2 className="size-4" />} />
         <RemoteLevel
@@ -623,6 +614,12 @@ export default function RemoteView() {
 
   const { currentTrack } = useQueue();
   usePageTitle(t('remote.title'), currentTrack);
+  usePitchBroadcast();
+  // leaving the remote must not leave the party, or the microphone open
+  useEffect(() => () => {
+    leaveParty();
+    useSettingStore.getState().setMicOn(false);
+  }, []);
 
   // Your own room from another of your devices (a phone scanning the TV's code while signed in) is steered
   // the same way; only the device that plays it has nothing to steer.
@@ -634,6 +631,7 @@ export default function RemoteView() {
     { id: 'now', label: t('remote.nowPlaying'), icon: <Play className="size-5" /> },
     { id: 'queue', label: t('remote.queue'), icon: <ListMusic className="size-5" />, badge: queueLength },
     { id: 'add', label: t('remote.add'), icon: <Plus className="size-5" /> },
+    { id: 'sing', label: t('remote.sing'), icon: <Mic className="size-5" /> },
   ];
   return (
     <div className="flex h-full w-full flex-col bg-background text-foreground">
@@ -657,9 +655,13 @@ export default function RemoteView() {
         {tab === 'now' && <NowPlaying onAdd={() => setTab('add')} />}
         {tab === 'queue' && <UpNext />}
         {tab === 'add' && <AddSongs />}
+        {/* kept mounted: switching tabs while singing must not leave the party */}
+        <div className={cn('h-full', tab !== 'sing' && 'hidden')}>
+          <PartyPanel />
+        </div>
       </main>
 
-      <nav className="grid h-16 shrink-0 grid-cols-3 border-t bg-card" aria-label="Remote">
+      <nav className="grid h-16 shrink-0 grid-cols-4 border-t bg-card" aria-label="Remote">
         {tabs.map(({ id, label, icon, badge }) => (
           <button
             key={id}

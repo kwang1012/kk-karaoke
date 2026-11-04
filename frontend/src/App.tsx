@@ -39,6 +39,7 @@ import LoginDialog from './components/LoginDialog';
 import PasswordSetupDialog from './components/PasswordSetupDialog';
 import { authEnabled, openLogin, useAuthStore } from './lib/auth';
 import { startClockSync } from './clockClient';
+import { usePartyMessages } from './hooks/partyMessages';
 import DuetPlayer from './components/DuetPlayer';
 
 // lazily loaded components
@@ -222,6 +223,7 @@ function App() {
     connect();
   }, [connect, connected]);
   useEffect(() => startClockSync(), []);
+  usePartyMessages();
 
   const onNotifyMessage = (message: Message) => {
     if (message.type === 'notify') {

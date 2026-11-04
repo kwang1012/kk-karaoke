@@ -9,6 +9,10 @@ import { submitScore } from 'src/apis/scores';
 import ScoreDialog, { type Finished } from 'src/components/ScoreDialog';
 import { GRADE_TINT, MIN_COVERAGE, Scorer, grade, noteUnder, semitonesOff } from 'src/scoring';
 import { useRoomStore } from 'src/store/room';
+import { party, PartyScorers, partNotes } from 'src/party';
+import { usePartySingers } from 'src/hooks/partySingers';
+import { announceScores, announceStandings } from 'src/partyActions';
+import PartyResultDialog, { type PartyFinished } from 'src/components/PartyResultDialog';
 import type { Track } from 'src/models/spotify';
 import { usePlayer, usePlayerStore } from 'src/store/player';
 import { useSettingStore } from 'src/store/setting';
@@ -29,6 +33,7 @@ const MIC_SILENT_MS = 3000;
 const FOLLOW = 0.1;
 
 type Sample = { time: number; midi: number; on: boolean };
+type Card = { id: string; name: string; color: string; score: number | null };
 
 /**
  * The song's melody as a piano roll above the lyrics: bars for the notes coming up, and a trail of
@@ -41,25 +46,35 @@ export default function PitchRoll({ className, tv }: { className?: string; tv?: 
   const localMic = useSettingStore((state) => state.micOn);
   // Singing into a phone in the room counts like singing into this device's own mic
   const remoteSinging = useRemoteSinging();
-  const micOn = localMic || remoteSinging;
-  const { currentTrack, progress, playing, semitone } = usePlayer();
+  // People singing into their own phones, each scored on their own part (see party.ts)
+  const singers = usePartySingers();
+  const partyOn = singers.length > 0;
+  const micOn = localMic || remoteSinging || partyOn;
+  const { currentTrack, progress, playing, semitone, lyrics } = usePlayer();
   const detail = useSettingStore((state) => asDetail(state.melodyDetail));
   const { notes: found, state } = useMelody(currentTrack?.id, showMelody || micOn);
   const melody = useMemo(() => simplifyMelody(found, detail), [found, detail]);
+  const byPart = useMemo(
+    () => ({ 0: melody, 1: partNotes(melody, lyrics ?? [], 1), 2: partNotes(melody, lyrics ?? [], 2) }),
+    [melody, lyrics],
+  );
   const canvas = useRef<HTMLCanvasElement>(null);
   const [score, setScore] = useState<number | null>(null);
   const [run, setRun] = useState(0);
   // the microphone has heard nothing for a while: say so, rather than scoring silence as a 0
   const [micSilent, setMicSilent] = useState(false);
   const scorer = useRef(new Scorer());
+  const partyScorers = useRef(new PartyScorers());
+  const [cards, setCards] = useState<Card[]>([]);
+  const [partyFinished, setPartyFinished] = useState<PartyFinished | null>(null);
   const [finished, setFinished] = useState<Finished | null>(null);
   const submitted = useRef(false);
   // The song being scored, kept by the effect that resets the scorer so a track change can still read the last one
   const scoring = useRef<{ track: Track | null; noteTime: number; endAt: number }>({ track: null, noteTime: 0, endAt: Infinity });
 
   // What the loop below needs, without restarting it on every change
-  const live = useRef({ melody, progress, playing, semitone, micOn, localMic, showMelody });
-  live.current = { melody, progress, playing, semitone, micOn, localMic, showMelody };
+  const live = useRef({ melody, progress, playing, semitone, micOn, localMic, showMelody, singers, byPart });
+  live.current = { melody, progress, playing, semitone, micOn, localMic, showMelody, singers, byPart };
   const clock = useRef({ time: 0, at: 0 });
   useEffect(() => {
     clock.current = { time: progress, at: performance.now() };
@@ -67,6 +82,8 @@ export default function PitchRoll({ className, tv }: { className?: string; tv?: 
 
   useEffect(() => {
     scorer.current.reset();
+    partyScorers.current.reset();
+    setCards([]);
     setScore(null);
     setRun(0);
     submitted.current = false;
@@ -79,8 +96,33 @@ export default function PitchRoll({ className, tv }: { className?: string; tv?: 
     };
   }, [currentTrack?.id, melody]);
 
+  /** The song sung by a party: everyone is ranked on their own part, shown to the room and saved under their names. */
+  const finishParty = (show: boolean) => {
+    const { track } = scoring.current;
+    if (!track || submitted.current) return;
+    const { singers: here, byPart: parts } = live.current;
+    const standings = partyScorers.current
+      .standings(here)
+      .map((standing) => {
+        // someone who sang too little of their part has no score, as when singing alone
+        const need = MIN_COVERAGE * parts[standing.part].reduce((sum, n) => sum + n.end - n.start, 0);
+        return standing.result && standing.result.scoredS >= need ? standing : { ...standing, result: null };
+      })
+      .sort((a, b) => (b.result?.total ?? -1) - (a.result?.total ?? -1));
+    if (!standings.some((standing) => standing.result)) return;
+    submitted.current = true;
+    const song = track.name;
+    if (show) setPartyFinished({ song, standings });
+    announceStandings(standings);
+    const info = { id: track.id, name: song, artists: track.artists.map((a) => a.name), cover: track.album?.images?.[0]?.url ?? '' };
+    for (const standing of standings) {
+      if (standing.result) submitScore({ id: standing.id, name: standing.name.slice(0, 24), avatar: standing.avatar }, info, standing.result).catch(() => undefined);
+    }
+  };
+
   /** Rank the song just sung: a full take is shown on a report card, a partial one when you leave is saved quietly. */
   const finish = (show: boolean) => {
+    if (live.current.singers.length > 0) return finishParty(show);
     const { track, noteTime } = scoring.current;
     const result = scorer.current.result();
     if (!track || !result || submitted.current || result.scoredS < MIN_COVERAGE * noteTime) return;
@@ -126,17 +168,29 @@ export default function PitchRoll({ className, tv }: { className?: string; tv?: 
     let lastRead = 0;
     let lastScoreShown = 0;
     let lastHeard = performance.now();
+    let lastPartyRead = 0;
+    let lastPartyShown = 0;
+    let lastAnnounce = 0;
+    const trails = new Map<string, Sample[]>(); // what each singer in the party sang, by who
     let singing: number | null = null;
     const trail: Sample[] = [];
     let view: View | null = null; // the pitch rows on show; starts at what the first notes need
 
-    const draw = (now: number) => {
-      frame = requestAnimationFrame(draw);
-      const { melody: notes, playing: isPlaying, semitone: shift, micOn: mic, localMic: ownMic, showMelody: show } = live.current;
+    /** Where the song is: by the audio clock when this device plays it, else by the last report and the time since. */
+    const songTime = (now: number) => {
       const player = usePlayerStore.getState().syncedPlayer;
-      const time = player?.isRunning
+      return player?.isRunning
         ? player.getCurrentTime()
-        : clock.current.time + (isPlaying ? (now - clock.current.at) / 1000 : 0);
+        : clock.current.time + (live.current.playing ? (now - clock.current.at) / 1000 : 0);
+    };
+
+    // Listening and scoring run on a timer, apart from the drawing: a screen that paints slowly (a window behind
+    // another, a TV) must not stop counting what is sung.
+    const tick = () => {
+      const now = performance.now();
+      const { melody: notes, playing: isPlaying, semitone: shift, micOn: mic, localMic: ownMic, singers: here, byPart: parts } = live.current;
+      const player = usePlayerStore.getState().syncedPlayer;
+      const time = songTime(now);
 
       if (mic && now - lastRead >= READ_EVERY_MS) {
         lastRead = now;
@@ -157,6 +211,41 @@ export default function PitchRoll({ className, tv }: { className?: string; tv?: 
           setMicSilent(ownMic && isPlaying && now - lastHeard > MIC_SILENT_MS);
         }
       }
+
+      if (here.length && now - lastPartyRead >= READ_EVERY_MS) {
+        lastPartyRead = now;
+        const heard = (id: string) => {
+          const hz = party.pitchOf(id);
+          return hz === null ? null : hzToMidi(hz);
+        };
+        const on = isPlaying ? partyScorers.current.update(time, here, heard, (part) => parts[part], shift) : new Map<string, boolean | null>();
+        for (const singer of here) {
+          const midi = heard(singer.id);
+          if (midi === null) continue;
+          const list = trails.get(singer.id) ?? [];
+          trails.set(singer.id, list);
+          const target = noteUnder(parts[singer.part], time);
+          const hit = target ? Math.abs(semitonesOff(midi, target.note + shift)) <= 0.7 : false;
+          list.push({ time, midi, on: on.get(singer.id) ?? hit });
+        }
+        for (const list of trails.values()) while (list.length && (list[0].time < time - TRAIL || list[0].time > time + 1)) list.shift();
+        if (now - lastPartyShown > 300) {
+          lastPartyShown = now;
+          setCards(here.map((singer) => ({ id: singer.id, name: singer.name, color: party.colorOf(singer.id), score: partyScorers.current.score(singer.id) })));
+          party.setScores(partyScorers.current.scores(here));
+        }
+        if (isPlaying && now - lastAnnounce > 1000) {
+          lastAnnounce = now;
+          announceScores(partyScorers.current.scores(here)); // the phones show each singer how they are doing
+        }
+      }
+    };
+
+    const draw = (now: number) => {
+      frame = requestAnimationFrame(draw);
+      const { melody: notes, semitone: shift, showMelody: show, singers: here, byPart: parts } = live.current;
+      const time = songTime(now);
+
 
       const el = canvas.current;
       if (!el || !show) return;
@@ -249,15 +338,40 @@ export default function PitchRoll({ className, tv }: { className?: string; tv?: 
         ctx.fill();
       }
 
+      // Each singer in the party, in their own colour: solid on the note, faint off it
+      for (const singer of here) {
+        const list = trails.get(singer.id);
+        if (!list) continue;
+        const anchor = noteUnder(parts[singer.part], time)?.note;
+        ctx.fillStyle = party.colorOf(singer.id);
+        for (const sample of list) {
+          const near = anchor === undefined ? (view.lo + view.hi) / 2 : anchor + shift;
+          ctx.globalAlpha = sample.on ? 1 : 0.5;
+          ctx.beginPath();
+          ctx.arc(x(sample.time), onScreen(near + semitonesOff(sample.midi, near)), dot, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.globalAlpha = 1;
+
       ctx.fillStyle = 'rgba(255,255,255,0.7)';
       ctx.fillRect(x(time) - 1, 0, 2, height);
     };
     frame = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(frame);
+    const timer = setInterval(tick, READ_EVERY_MS);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearInterval(timer);
+    };
   }, [active, currentTrack?.id]);
 
   const waiting = showMelody && !visible && !!currentTrack; // with no song there is nothing to look for
-  const report = <ScoreDialog finished={finished} onClose={() => setFinished(null)} />;
+  const report = (
+    <>
+      <ScoreDialog finished={finished} onClose={() => setFinished(null)} />
+      <PartyResultDialog finished={partyFinished} colorOf={(id) => party.colorOf(id)} onClose={() => setPartyFinished(null)} />
+    </>
+  );
   if (!active && !waiting) return report;
   if (waiting) {
     return (
@@ -281,7 +395,21 @@ export default function PitchRoll({ className, tv }: { className?: string; tv?: 
       className,
     )} style={{ backgroundColor: visible ? '#0d1b24' : 'transparent' }}>
       {visible && <canvas ref={canvas} className="size-full" aria-label={t('melody.label')} />}
-      {micOn && (
+      {partyOn && (
+        <div className={cn('flex flex-wrap gap-2', visible && (tv ? 'absolute top-[0.8vw] right-[1.2vw]' : 'absolute top-2 right-3'))}>
+          {cards.map((card) => (
+            <div
+              key={card.id}
+              className={cn('flex items-center gap-2 rounded-full bg-black/60 py-1 pr-3 pl-1.5 text-white tabular-nums', tv ? 'text-[1.6vw]' : 'text-sm')}
+            >
+              <span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: card.color }} />
+              <span className="max-w-24 truncate font-medium">{card.name}</span>
+              <span className="font-bold">{card.score ?? '–'}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {micOn && !partyOn && (
         <div className={cn(
           'flex items-center gap-2 rounded-full bg-black/60 text-white tabular-nums backdrop-blur',
           tv ? 'gap-[0.8vw] px-[1.2vw] py-[0.4vw] text-[1.8vw]' : 'px-3 py-1 text-sm',

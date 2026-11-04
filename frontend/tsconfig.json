@@ -11,6 +11,7 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": false,
     "noEmit": true,
+    "allowImportingTsExtensions": true, // modules Node runs in tests import their siblings with the extension
     "skipLibCheck": true,
     "strict": true,
     "noFallthroughCasesInSwitch": true,

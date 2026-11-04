@@ -77,6 +77,7 @@ function fixture(secondStatus = 'submitted', isOwner = true, duet: { trackId: st
     'src/apis/player': { fetchQueue: async () => ({}), fetchLyrics: async (id: string) => [{ time: 1, text: id }], prefetchLyrics: (id: string) => prefetched.push(id) },
     'src/hooks/queue': { useRemoteMessageQueue(type: string, handler: any) { handlers[type] = handler; } },
     'src/remotePitch': { setRemotePitch: (hz: number) => pitches.push(hz) },
+    'src/party': { applyPartyMessage: () => false, party: {} },
     'src/seekSync': { seekSync },
     'src/shiftedPlayer': { default: class { constructor() { return audio; } } },
     'src/syncedPlayer': { default: class { constructor() { return audio; } } },

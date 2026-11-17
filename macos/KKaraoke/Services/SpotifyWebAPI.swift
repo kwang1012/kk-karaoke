@@ -208,13 +208,14 @@ final class SpotifyWebAuth {
   nonisolated static func parseQueue(_ data: Data) -> [SpotifyQueued] {
     struct Artist: Decodable { var name: String }
     struct Image: Decodable { var url: String; var width: Int? }
-    struct Album: Decodable { var images: [Image]? }
-    struct Item: Decodable { var uri: String?; var name: String?; var type: String?; var artists: [Artist]?; var album: Album? }
+    struct Album: Decodable { var name: String?; var images: [Image]? }
+    struct Item: Decodable { var uri: String?; var name: String?; var duration_ms: Double?; var type: String?; var artists: [Artist]?; var album: Album? }
     struct Queue: Decodable { var queue: [Item] }
     guard let parsed = try? JSONDecoder().decode(Queue.self, from: data) else { return [] }
     return parsed.queue.compactMap { item in
       guard item.type == nil || item.type == "track", // podcasts have no karaoke version
-        let track = SpotifyTrack(id: item.uri, name: item.name, artist: item.artists?.map(\.name).joined(separator: ", "))
+        let track = SpotifyTrack(id: item.uri, name: item.name, artist: item.artists?.map(\.name).joined(separator: ", "),
+                                  duration: item.duration_ms.map { $0 / 1000 }, album: item.album?.name)
       else { return nil }
       // a small cover is plenty for a list row
       let images = item.album?.images ?? []

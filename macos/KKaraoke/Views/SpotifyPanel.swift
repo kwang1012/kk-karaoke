@@ -92,7 +92,8 @@ struct SpotifyPanel: View {
             switch item.stage {
             case .singing: LucideIcon("check", size: 12).foregroundStyle(.green).help("Ready to sing")
             case .preparing, .matching: ProgressView().controlSize(.mini).help("Getting it ready")
-            case .missing, .failed: Text("–").foregroundStyle(.secondary).help("No karaoke version found")
+            case .missing: Text("–").foregroundStyle(.secondary).help("No karaoke version found")
+            case .failed: Text("!").foregroundStyle(.orange).help("Could not check. Trying again.")
             }
           }
           .padding(.horizontal, 8)

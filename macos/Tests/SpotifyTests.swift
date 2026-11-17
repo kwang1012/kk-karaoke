@@ -93,3 +93,20 @@ struct SpotifyWebTests {
     #expect(!auth.isConnecting && auth.message == nil) // nothing was started, so a stranger's code changes nothing
   }
 }
+
+
+@Suite("Spotify songs") struct SpotifyTrackTests {
+  @Test("the length is whatever Spotify reports in milliseconds, and does not make two readings of a song differ")
+  func length() {
+    let event = SpotifyEvent(userInfo: ["Player State": "Playing", "Track ID": "t", "Name": "N", "Artist": "A", "Duration": NSNumber(value: 216_000)])
+    #expect(event?.track?.duration == 216)
+    #expect(event?.track == SpotifyTrack(id: "t", name: "N", artist: "A"))
+    #expect(SpotifyTrack(id: "t", name: "N", artist: "A", duration: 0)?.duration == nil)
+  }
+
+  @Test("the queue carries each song's length")
+  func queueLength() {
+    let json = #"{"queue":[{"uri":"spotify:track:1","name":"剪雲者","type":"track","duration_ms":216000,"artists":[{"name":"林俊傑"}],"album":{"images":[]}}]}"#
+    #expect(SpotifyWebAuth.parseQueue(Data(json.utf8)).first?.track.duration == 216)
+  }
+}

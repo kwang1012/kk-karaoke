@@ -11,6 +11,7 @@ opens them too.
 import html
 import logging
 import re
+from urllib.parse import urlparse
 from concurrent.futures import ThreadPoolExecutor
 from difflib import SequenceMatcher
 from typing import Any, Callable, Optional
@@ -214,6 +215,106 @@ def _resolve(entry: Entry) -> Optional[dict[str, Any]]:
 
     # Only a hit is remembered: a miss is asked again next time.
     key = f"chart-entry:{entry.get('video_id') or ''}:{entry['title']}:{entry['artist']}"
+    return catalog._cached(key, RESOLVE_TTL_S, find)
+
+
+# How far a recording's length may be from the song's and still be the same one (YouTube Music rounds to seconds).
+LENGTH_TOLERANCE_S = 1.5
+
+
+def _artist_ids(artist: str) -> set[str]:
+    """YouTube Music's channel for an artist, whichever way it is spelled (林俊傑 and JJ Lin are one channel)."""
+    try:
+        hits = catalog._ytm().search(artist, filter="artists", limit=1)
+    except Exception as e:  # noqa: BLE001
+        log.warning("Artist lookup failed for %r: %r", artist, e)
+        return set()
+    return {h["browseId"] for h in hits[:1] if h.get("browseId")}
+
+
+COVER_HOSTS = ("i.scdn.co", "mosaic.scdn.co")
+# Covers count as the same artwork when this few of their 64 brightness-comparison bits differ.
+COVER_MAX_DISTANCE = 10
+
+
+def _cover_hash(url: str) -> Optional[int]:
+    """A 64-bit fingerprint of a cover that survives resizing and recompressing (a "difference hash")."""
+    try:
+        from io import BytesIO
+
+        from PIL import Image
+        data = httpx.get(url, timeout=8, follow_redirects=False).content
+        pixels = list(Image.open(BytesIO(data)).convert("L").resize((9, 8)).getdata())
+    except Exception as e:  # noqa: BLE001 - a cover that cannot be read is just no evidence
+        log.info("Cover not compared (%r): %r", url, e)
+        return None
+    bits = 0
+    for row in range(8):
+        for col in range(8):
+            bits = (bits << 1) | (pixels[row * 9 + col] > pixels[row * 9 + col + 1])
+    return bits
+
+
+def same_cover(spotify_url: Optional[str], track: dict[str, Any]) -> bool:
+    """Whether Spotify's cover and the recording's are the same artwork: the proof that two titles are one release."""
+    images = (track.get("album") or {}).get("images") or []
+    if not spotify_url or not images or urlparse(spotify_url).hostname not in COVER_HOSTS:
+        return False
+    ours, theirs = _cover_hash(spotify_url), _cover_hash(images[0]["url"])
+    return ours is not None and theirs is not None and bin(ours ^ theirs).count("1") <= COVER_MAX_DISTANCE
+
+
+def same_release(track: dict[str, Any], album: Optional[str], cover: Optional[str]) -> bool:
+    """Whether the recording is on the release Spotify shows: the same album name, or (names differ by language) the
+    same artwork."""
+    mine = _norm(album or "")
+    theirs = _norm((track.get("album") or {}).get("name") or "")
+    if mine and theirs and (mine == theirs or SequenceMatcher(None, mine, theirs).ratio() >= 0.9):
+        return True
+    return same_cover(cover, track)
+
+
+def resolve_by_length(entry: Entry, seconds: float, cover: Optional[str] = None,
+                      album: Optional[str] = None) -> Optional[dict[str, Any]]:
+    """The artist's recording that is `seconds` long, for a song the title does not find: services often carry another
+    language's title for the same song (Spotify's 剪雲者 is Paper Clouds on YouTube Music). A guess, so it is careful:
+    the recording must be the artist's, within the tolerance, the only one of the artist's that close, and on the same
+    album or cover art (without that, a song that YouTube Music lacks would be taken for whichever of the artist's songs
+    happens to be as long); any doubt is no match."""
+    if not entry.get("artist") or seconds < 30:
+        return None
+
+    def find():
+        channel = _artist_ids(entry["artist"].split(",")[0].strip())
+        pool: dict[str, dict[str, Any]] = {}
+        for query in (f"{entry['title']} {entry['artist']}", entry["artist"]):
+            try:
+                hits = catalog._ytm().search(query, filter="songs", limit=20)
+            except Exception as e:  # noqa: BLE001
+                log.warning("Length lookup failed for %r: %r", query, e)
+                continue
+            for hit in hits:
+                track = catalog.to_track(hit, "song")
+                if track and track.get("duration_ms"):
+                    pool.setdefault(track["id"], track)
+
+        def theirs(track):
+            names = [a["name"] for a in track["artists"] if a["name"]]
+            return bool({a["id"] for a in track["artists"]} & channel) or _artist_matches(entry["artist"], names)
+
+        close = sorted(
+            ((abs(t["duration_ms"] / 1000 - seconds), t) for t in pool.values() if theirs(t)),
+            key=lambda pair: pair[0])
+        close = [pair for pair in close if pair[0] <= LENGTH_TOLERANCE_S]
+        if len(close) != 1:  # none, or two of the artist's songs are this long: cannot tell which
+            return None
+        track = close[0][1]
+        if not catalog._playable(track) or _is_version(entry["title"], track["name"]) or not same_release(track, album, cover):
+            return None
+        log.info("Matched %r to %r by length (%.1fs)", entry["title"], track["name"], seconds)
+        return track
+
+    key = f"chart-length:{entry['title']}:{entry['artist']}:{round(seconds)}:{cover}:{album}"
     return catalog._cached(key, RESOLVE_TTL_S, find)
 
 

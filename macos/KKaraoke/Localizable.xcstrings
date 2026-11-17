@@ -6066,6 +6066,91 @@
           }
         }
       }
+    },
+    "Waiting for Spotify" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "等待 Spotify"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "等待 Spotify"
+          }
+        }
+      }
+    },
+    "Looking for the karaoke version…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在尋找卡拉 OK 版本…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在寻找卡拉 OK 版本…"
+          }
+        }
+      }
+    },
+    "Preparing the karaoke version. Playing in Spotify meanwhile." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在準備卡拉 OK 版本，期間由 Spotify 播放。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在准备卡拉 OK 版本，期间由 Spotify 播放。"
+          }
+        }
+      }
+    },
+    "No karaoke version found. Playing in Spotify." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "找不到卡拉 OK 版本，由 Spotify 播放。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "找不到卡拉 OK 版本，由 Spotify 播放。"
+          }
+        }
+      }
+    },
+    "Could not look it up. Playing in Spotify." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法查詢，由 Spotify 播放。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法查询，由 Spotify 播放。"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"

@@ -22,11 +22,13 @@ struct SpotifyPanel: View {
           Group {
             if let current = room.currentTrack {
               QueueRow(track: current, current: true)
+            } else if let now = spotify.now {
+              SpotifyNowRow(now: now)
             } else {
               HStack(spacing: 12) {
                 LucideIcon("music").foregroundStyle(.secondary).frame(width: 40, height: 40)
                   .background(.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
-                Text("Playing in Spotify").font(.system(size: 14, weight: .medium))
+                Text("Waiting for Spotify").font(.system(size: 14, weight: .medium))
                 Spacer()
               }
               .padding(8)
@@ -59,5 +61,32 @@ struct SpotifyPanel: View {
     }
     .background(AppTheme.card)
     .thinScrollbars()
+  }
+}
+
+/// A song Spotify is on that KKaraoke cannot play yet: it is still shown as now playing, with what is happening to it.
+private struct SpotifyNowRow: View {
+  var now: SpotifyTakeover.Now
+
+  var body: some View {
+    HStack(spacing: 12) {
+      Artwork(url: now.match?.artworkURL, size: 40, radius: 8)
+      VStack(alignment: .leading, spacing: 3) {
+        Text(now.spotify.name).font(.system(size: 14, weight: .medium)).lineLimit(1)
+        Text(now.spotify.artist).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
+        HStack(spacing: 6) {
+          switch now.stage {
+          case .matching: ProgressView().controlSize(.mini); Text("Looking for the karaoke version…")
+          case .preparing: ProgressView().controlSize(.mini); Text("Preparing the karaoke version. Playing in Spotify meanwhile.")
+          case .missing: Text("No karaoke version found. Playing in Spotify.")
+          case .failed: Text("Could not look it up. Playing in Spotify.")
+          case .singing: EmptyView()
+          }
+        }
+        .font(.system(size: 11)).foregroundStyle(.secondary)
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    .padding(8)
   }
 }

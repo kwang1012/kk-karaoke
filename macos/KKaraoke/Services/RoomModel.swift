@@ -86,9 +86,10 @@ final class RoomModel {
     }
 
     /// Plays `song` as what Spotify is on (nil: nothing of ours plays).
-    func setSpotifySong(_ song: Track?) {
+    func setSpotifySong(_ song: Track?, at position: TimeInterval? = nil) {
         guard followsSpotify, !isFollowing else { return }
         spotifySong = song
+        resumeAt = position
         wantsPlay = song != nil
         queueChanged()
         publish(force: true, full: true)

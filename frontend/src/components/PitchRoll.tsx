@@ -12,7 +12,7 @@ import { useRoomStore } from 'src/store/room';
 import { party, PartyScorers, partNotes } from 'src/party';
 import { usePartySingers } from 'src/hooks/partySingers';
 import { announceScores, announceStandings } from 'src/partyActions';
-import PartyResultDialog, { type PartyFinished } from 'src/components/PartyResultDialog';
+import { useSingTogether } from 'src/store/singTogether';
 import type { Track } from 'src/models/spotify';
 import { usePlayer, usePlayerStore } from 'src/store/player';
 import { useSettingStore } from 'src/store/setting';
@@ -52,7 +52,7 @@ export default function PitchRoll({ className, tv }: { className?: string; tv?: 
   const micOn = localMic || remoteSinging || partyOn;
   const { currentTrack, progress, playing, semitone, lyrics } = usePlayer();
   const detail = useSettingStore((state) => asDetail(state.melodyDetail));
-  const { notes: found, state } = useMelody(currentTrack?.id, showMelody || micOn);
+  const { notes: found, state } = useMelody(currentTrack?.id, showMelody || micOn || partyOn);
   const melody = useMemo(() => simplifyMelody(found, detail), [found, detail]);
   const byPart = useMemo(
     () => ({ 0: melody, 1: partNotes(melody, lyrics ?? [], 1), 2: partNotes(melody, lyrics ?? [], 2) }),
@@ -66,15 +66,18 @@ export default function PitchRoll({ className, tv }: { className?: string; tv?: 
   const scorer = useRef(new Scorer());
   const partyScorers = useRef(new PartyScorers());
   const [cards, setCards] = useState<Card[]>([]);
-  const [partyFinished, setPartyFinished] = useState<PartyFinished | null>(null);
+  // Sing again starts the scores over on the same song
+  const round = useSingTogether((state) => state.round);
   const [finished, setFinished] = useState<Finished | null>(null);
   const submitted = useRef(false);
   // The song being scored, kept by the effect that resets the scorer so a track change can still read the last one
   const scoring = useRef<{ track: Track | null; noteTime: number; endAt: number }>({ track: null, noteTime: 0, endAt: Infinity });
 
   // What the loop below needs, without restarting it on every change
-  const live = useRef({ melody, progress, playing, semitone, micOn, localMic, showMelody, singers, byPart });
-  live.current = { melody, progress, playing, semitone, micOn, localMic, showMelody, singers, byPart };
+  // a room singing together always sees the roll: it is where everyone's voice is shown
+  const rollOn = showMelody || partyOn;
+  const live = useRef({ melody, progress, playing, semitone, micOn, localMic, showMelody: rollOn, singers, byPart });
+  live.current = { melody, progress, playing, semitone, micOn, localMic, showMelody: rollOn, singers, byPart };
   const clock = useRef({ time: 0, at: 0 });
   useEffect(() => {
     clock.current = { time: progress, at: performance.now() };
@@ -94,54 +97,70 @@ export default function PitchRoll({ className, tv }: { className?: string; tv?: 
       noteTime: melody.reduce((sum, n) => sum + n.end - n.start, 0),
       endAt: Math.min(last + 3, length - 0.5),
     };
-  }, [currentTrack?.id, melody]);
+  }, [currentTrack?.id, melody, round]);
 
-  /** The song sung by a party: everyone is ranked on their own part, shown to the room and saved under their names. */
-  const finishParty = (show: boolean) => {
+  /**
+   * The song sung by a party: everyone is ranked on their own part and the room is told. A take long enough to count
+   * is saved to the ranking under the singer's name. `partial`: stopped before the end, so the standings show anyway.
+   */
+  const finishParty = (show: boolean, partial: boolean) => {
     const { track } = scoring.current;
     if (!track || submitted.current) return;
     const { singers: here, byPart: parts } = live.current;
-    const standings = partyScorers.current
-      .standings(here)
-      .map((standing) => {
-        // someone who sang too little of their part has no score, as when singing alone
-        const need = MIN_COVERAGE * parts[standing.part].reduce((sum, n) => sum + n.end - n.start, 0);
-        return standing.result && standing.result.scoredS >= need ? standing : { ...standing, result: null };
-      })
-      .sort((a, b) => (b.result?.total ?? -1) - (a.result?.total ?? -1));
-    if (!standings.some((standing) => standing.result)) return;
+    const standings = partyScorers.current.standings(here).map((standing) => {
+      const need = MIN_COVERAGE * parts[standing.part].reduce((sum, n) => sum + n.end - n.start, 0);
+      return { ...standing, saved: !!standing.result && standing.result.scoredS >= need };
+    });
+    if (!partial && !standings.some((standing) => standing.result)) return;
     submitted.current = true;
     const song = track.name;
-    if (show) setPartyFinished({ song, standings });
+    if (show) useSingTogether.getState().setEnding({ kind: 'party', song, standings, partial });
     announceStandings(standings);
     const info = { id: track.id, name: song, artists: track.artists.map((a) => a.name), cover: track.album?.images?.[0]?.url ?? '' };
     for (const standing of standings) {
-      if (standing.result) submitScore({ id: standing.id, name: standing.name.slice(0, 24), avatar: standing.avatar }, info, standing.result).catch(() => undefined);
+      if (standing.saved && standing.result) {
+        submitScore({ id: standing.id, name: standing.name.slice(0, 24), avatar: standing.avatar }, info, standing.result).catch(() => undefined);
+      }
     }
   };
 
-  /** Rank the song just sung: a full take is shown on a report card, a partial one when you leave is saved quietly. */
-  const finish = (show: boolean) => {
-    if (live.current.singers.length > 0) return finishParty(show);
+  /**
+   * Rank the song just sung: a full take is shown on a report card, a partial one when you leave is saved quietly.
+   * `partial`: the song was stopped part way while singing together; say how it went either way.
+   */
+  const finish = (show: boolean, partial = false) => {
+    if (live.current.singers.length > 0) return finishParty(show, partial);
     const { track, noteTime } = scoring.current;
+    if (!track || submitted.current) return;
     const result = scorer.current.result();
-    if (!track || !result || submitted.current || result.scoredS < MIN_COVERAGE * noteTime) return;
+    const saved = !!result && result.scoredS >= MIN_COVERAGE * noteTime;
+    if (partial) {
+      submitted.current = true;
+      useSingTogether.getState().setEnding({ kind: 'solo', song: track.name, result, saved, partial: true });
+    }
+    if (!result || !saved) return;
     submitted.current = true;
     const room = useRoomStore.getState();
     const who = track.orderedBy ?? { id: room.roomId, name: room.nickname, avatar: room.avatar };
     if (!who.id || !who.name) return;
     const song = track.name;
-    if (show) setFinished({ song, result, outcome: null });
+    const card = show && !partial; // a stopped song is told about by the Sing together results instead
+    if (card) setFinished({ song, result, outcome: null });
     submitScore(
       { id: who.id, name: who.name.slice(0, 24), avatar: who.avatar ?? '' },
       { id: track.id, name: song, artists: track.artists.map((a) => a.name), cover: track.album?.images?.[0]?.url ?? '' },
       result,
     )
-      .then((outcome) => show && setFinished((f) => (f && f.song === song ? { ...f, outcome } : f)))
+      .then((outcome) => card && setFinished((f) => (f && f.song === song ? { ...f, outcome } : f)))
       .catch(() => undefined);
   };
   const finishRef = useRef(finish);
   finishRef.current = finish;
+  // Stopping a song sung together asks this roll for the scores so far
+  useEffect(() => {
+    useSingTogether.getState().setFinisher((partial) => finishRef.current(true, partial));
+    return () => useSingTogether.getState().setFinisher(null);
+  }, []);
   // Leaving a song (next track, or this page) ranks what was sung of it
   useEffect(() => () => finishRef.current(false), [currentTrack?.id]);
   // The last note and a moment after: the song is over
@@ -159,7 +178,7 @@ export default function PitchRoll({ className, tv }: { className?: string; tv?: 
   const rangeRef = useRef(range);
   rangeRef.current = range;
 
-  const visible = showMelody && melody.length > 0;
+  const visible = rollOn && melody.length > 0;
   const active = visible || (micOn && melody.length > 0);
 
   useEffect(() => {
@@ -369,7 +388,6 @@ export default function PitchRoll({ className, tv }: { className?: string; tv?: 
   const report = (
     <>
       <ScoreDialog finished={finished} onClose={() => setFinished(null)} />
-      <PartyResultDialog finished={partyFinished} colorOf={(id) => party.colorOf(id)} onClose={() => setPartyFinished(null)} />
     </>
   );
   if (!active && !waiting) return report;

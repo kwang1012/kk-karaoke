@@ -78,7 +78,10 @@ function Standings({ placings, onClose }: { placings: Placing[]; onClose: () => 
         {placings.map((placing, index) => (
           <li key={placing.id} className={cn('flex items-center gap-3 rounded-xl px-3 py-2', placing.id === me ? 'bg-primary/10' : 'bg-secondary')}>
             <span className="w-5 text-center font-bold tabular-nums">{index + 1}</span>
-            <span className="min-w-0 flex-1 truncate font-medium">{placing.name}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-medium">{placing.name}</span>
+              <span className="block text-xs text-muted-foreground">{placing.saved ? t('sing.saved') : t('sing.notSaved')}</span>
+            </span>
             {placing.total === null ? (
               <span className="text-xs text-muted-foreground">{t('party.notScored')}</span>
             ) : (
@@ -95,7 +98,34 @@ function Standings({ placings, onClose }: { placings: Placing[]; onClose: () => 
   );
 }
 
-/** The phone as a microphone: choose a part, join, and see how you are doing while the screen plays the song. */
+/** Before the song: the phone shows that its mic works, so nobody finds out halfway through the first verse. */
+function MicCheck() {
+  const t = useT();
+  const [level, setLevel] = useState(0);
+  const [heard, setHeard] = useState(false);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const player = usePlayerStore.getState().syncedPlayer;
+      const now = player?.getMicLevel() ?? 0;
+      setLevel(now);
+      if (player?.getMicPitch()) setHeard(true);
+    }, 80);
+    return () => clearInterval(timer);
+  }, []);
+  return (
+    <div className="rounded-2xl bg-secondary px-4 py-3" role="status">
+      <div className="flex items-center justify-between text-sm">
+        <span className="font-medium">{heard ? t('party.micWorks') : t('party.micTest')}</span>
+        {heard && <span className="text-emerald-500">✓</span>}
+      </div>
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-background">
+        <div className={cn('h-full rounded-full transition-[width] duration-75', heard ? 'bg-emerald-500' : 'bg-primary')} style={{ width: `${Math.min(100, level * 600)}%` }} />
+      </div>
+    </div>
+  );
+}
+
+/** The phone as a microphone: join, check the mic, then see how you are doing while the screen plays the song. */
 export default function PartyPanel() {
   const t = useT();
   const { currentTrack, progress, playing, lyrics, semitone } = usePlayer();
@@ -109,6 +139,15 @@ export default function PartyPanel() {
   const twoParts = hasDuetParts(lyrics);
   const [part, setPart] = useState<DuetPart>(0);
   const [closed, setClosed] = useState<Placing[] | null>(null);
+  // where the screen is (getting people in, singing, results), and whether it ended it all
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => tick((n) => n + 1), 500);
+    return () => clearInterval(timer);
+  }, []);
+  const host = party.host();
+  const ended = party.ended();
+  const singingNow = host?.phase === 'singing' || (!host && playing);
 
   // say every few seconds that this phone is still singing, so the screen keeps it on the list
   useEffect(() => {
@@ -116,6 +155,10 @@ export default function PartyPanel() {
     const timer = setInterval(() => joinParty(part), HEARTBEAT_MS);
     return () => clearInterval(timer);
   }, [joined, part]);
+  // the screen ended singing together: this phone stops being a mic
+  useEffect(() => {
+    if (ended !== null) setMicOn(false);
+  }, [ended]);
 
   // the note to sing now, from the melody and where the song is
   const { notes } = useMelody(currentTrack?.id, joined);
@@ -148,15 +191,25 @@ export default function PartyPanel() {
   };
   const mine = scores[me];
   const others = singers.filter((singer) => singer.id !== me);
+  const hostName = host?.host || t('party.theHost');
 
-  if (!currentTrack) {
-    return <p className="px-6 py-10 text-center text-sm text-muted-foreground">{t('party.noSong')}</p>;
-  }
   return (
     <div className="mx-auto flex h-full w-full max-w-md flex-col gap-3 overflow-y-auto px-4 py-3">
       <div className="min-w-0">
-        <h2 className="truncate text-base font-semibold">{currentTrack.name}</h2>
-        <p className="text-sm text-muted-foreground">{joined ? t('party.singing') : t('party.intro')}</p>
+        <h2 className="truncate text-base font-semibold">{host?.song || currentTrack?.name || t('remote.sing')}</h2>
+        <p className="text-sm text-muted-foreground">
+          {!joined
+            ? ended !== null
+              ? t('party.ended')
+              : host
+                ? t('party.invited', { host: hostName })
+                : t('party.intro')
+            : singingNow
+              ? t('party.singing')
+              : host?.phase === 'results'
+                ? t('party.betweenSongs', { host: hostName })
+                : t('party.waiting', { host: hostName })}
+        </p>
       </div>
 
       {twoParts && (
@@ -185,9 +238,10 @@ export default function PartyPanel() {
         </div>
       )}
 
-      {joined && <Tuner target={target} />}
+      {joined && !singingNow && micOn && <MicCheck />}
+      {joined && singingNow && <Tuner target={target} />}
 
-      {joined && (
+      {joined && singingNow && (
         <div className="flex items-center justify-between rounded-2xl bg-secondary px-4 py-3">
           <span className="text-sm text-muted-foreground">{t('party.yourScore')}</span>
           {typeof mine === 'number' ? (
@@ -201,8 +255,10 @@ export default function PartyPanel() {
         </div>
       )}
 
+      {standings && standings !== closed && <Standings placings={standings} onClose={() => setClosed(standings)} />}
+
       {!joined ? (
-        <Button size="lg" className="mt-1 rounded-full" disabled={!canUseMic} onClick={join}>
+        <Button size="lg" className="mt-1 h-14 rounded-full text-base" disabled={!canUseMic} onClick={join}>
           <Mic /> {t('party.ready')}
         </Button>
       ) : (
@@ -227,8 +283,6 @@ export default function PartyPanel() {
           </ul>
         </div>
       )}
-
-      {standings && standings !== closed && <Standings placings={standings} onClose={() => setClosed(standings)} />}
     </div>
   );
 }

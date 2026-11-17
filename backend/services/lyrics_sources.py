@@ -373,8 +373,12 @@ def find_lyrics(
     duration_s: Optional[float],
     recording: Optional[Recording],
     korean: Optional[bool] = None,
+    skip_ytmusic: bool = False,
 ) -> Optional[LyricsResult]:
-    """Walk the ladder. Returns None when no source has timed lyrics. `korean`: known from the audio."""
+    """
+    Walk the ladder. Returns None when no source has timed lyrics. `korean`: known from the audio.
+    `skip_ytmusic`: its sheet for this recording was found to be in the wrong language, so look elsewhere.
+    """
     names = [n for n in _names(artist) if n]
     video_id = recording.video_id if recording else None
     if korean is None:
@@ -386,7 +390,7 @@ def find_lyrics(
     if word_entry:
         return _word_result(word_entry, video_id, title, names)
 
-    ytm_lines = fetch_ytmusic_lines(video_id) if video_id else None
+    ytm_lines = fetch_ytmusic_lines(video_id) if video_id and not skip_ytmusic else None
 
     length = round(duration_s) if duration_s else None
     variants = providers.title_variants(title)
@@ -827,6 +831,48 @@ def sheet_is_wrong_language(track_id: str, vocal_path: str) -> bool:
     if not providers.is_japanese_version(lrc_path.read_text(encoding="utf-8")):
         return False
     return transcribe.sung_language(vocal_path) == "ko"
+
+
+def _script_of(text: str) -> Optional[str]:
+    """The script most of a sheet's letters are in: latin, han, kana or hangul. None when it is mixed or empty."""
+    counts = {"latin": 0, "han": 0, "kana": 0, "hangul": 0}
+    for ch in text:
+        if "a" <= ch.lower() <= "z":
+            counts["latin"] += 1
+        elif "\u3040" <= ch <= "\u30ff":
+            counts["kana"] += 1
+        elif "\u3400" <= ch <= "\u9fff":
+            counts["han"] += 1
+        elif "\uac00" <= ch <= "\ud7af":
+            counts["hangul"] += 1
+    total = sum(counts.values())
+    if total < 30:
+        return None
+    script, n = max(counts.items(), key=lambda kv: kv[1])
+    return script if n / total >= 0.8 else None
+
+
+def sheet_script_mismatch(track_id: str, vocal_path: str) -> bool:
+    """
+    The sheet is in another language than the singing. YouTube Music lists JJ Lin's Mandarin 穿越 as
+    "Stay" and attaches English words to it: the title cannot tell, the voice can. Only fetched sheets
+    are judged, and only the clear cases: Latin words over Chinese, Japanese or Korean singing, or the
+    other way round.
+    """
+    meta = read_meta(track_id)
+    lrc_path = r2.local("lyrics", track_id)
+    if not meta or meta.get("edited") or meta.get("source") == "whisper" or not lrc_path.exists():
+        return False
+    script = _script_of(lrc_path.read_text(encoding="utf-8"))
+    if script is None:
+        return False
+    # Cheap tests first: the sung language needs Whisper, so ask it only when the sheet could be wrong either way.
+    sung = transcribe.sung_language(vocal_path)
+    if sung is None:
+        return False
+    if script == "latin":
+        return sung in ("zh", "yue", "ja", "ko")
+    return sung == "en"
 
 
 # --- lyrics heard from the audio ------------------------------------------------

@@ -16,7 +16,7 @@ import { useDebouncedCallback } from 'src/hooks/debounce';
 import { useT } from 'src/i18n';
 import { Button } from 'src/components/ui/button';
 import { SpotifyMark } from 'src/components/ProviderButtons';
-import { importSpotifyPlaylist, SpotifyForbidden, useImportProgress } from 'src/lib/spotify';
+import { connectSpotify, importSpotifyPlaylist, SpotifyForbidden, SpotifyNeedsReconnect, useImportProgress } from 'src/lib/spotify';
 import { Progress } from 'src/components/ui/progress';
 
 type ReturnType = {
@@ -91,7 +91,7 @@ export default function PlaylistView() {
     if (addAll.state === 'adding' || tracks.length === 0) return;
     setAddAll({ state: 'adding', done: 0, total: tracks.length });
     for (const [index, track] of tracks.entries()) {
-      await addSongToQueue(collectionType === 'album' ? { ...track, album: collection as Album } : track);
+      await addSongToQueue(collectionType === 'album' ? { ...track, album: collection as Album } : track, 'studio');
       setAddAll({ state: 'adding', done: index + 1, total: tracks.length });
     }
     setAddAll({ state: 'done', done: tracks.length, total: tracks.length });
@@ -154,10 +154,22 @@ export default function PlaylistView() {
       >
         {isError ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-            <p className="text-sm text-muted-foreground">{error instanceof SpotifyForbidden ? t('spotify.forbidden') : t('playlist.failed')}</p>
-            <Button size="sm" onClick={() => refetch()}>
-              {t('common.retry')}
-            </Button>
+            <p className="text-sm text-muted-foreground">
+              {error instanceof SpotifyNeedsReconnect
+                ? t('spotify.reconnectLiked')
+                : error instanceof SpotifyForbidden
+                  ? t('spotify.forbidden')
+                  : t('playlist.failed')}
+            </p>
+            {error instanceof SpotifyNeedsReconnect ? (
+              <Button size="sm" onClick={() => connectSpotify(location.pathname)}>
+                {t('spotify.connect')}
+              </Button>
+            ) : (
+              <Button size="sm" onClick={() => refetch()}>
+                {t('common.retry')}
+              </Button>
+            )}
           </div>
         ) : !isLoading && tracks.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center px-6 text-center">

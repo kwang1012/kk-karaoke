@@ -174,6 +174,8 @@ export default function TrackQueue({ tracks }: { tracks: Track[] }) {
       const oldIndex = tracks.findIndex((track) => track.uniqueId === active.id);
       const newIndex = tracks.findIndex((track) => track.uniqueId === over.id);
       if (oldIndex < 0 || newIndex < 0) return;
+      // ordered songs and suggestions are separate lists: a song stays within its own
+      if (!!tracks[oldIndex].recommended !== !!tracks[newIndex].recommended) return;
       const newItems = [...tracks];
       const [element] = newItems.splice(oldIndex, 1);
       newItems.splice(newIndex, 0, element);

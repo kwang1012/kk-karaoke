@@ -48,7 +48,9 @@ export default function JoinView() {
   const [codeOpen, setCodeOpen] = useState(codeParam !== null);
   const phone = useBreakpointDown('md');
   // A phone that joins someone's room is a remote for it; anything bigger gets the full app.
-  const afterJoin = (joined: boolean) => (joined && phone ? '/remote' : '/');
+  // the link from Sing together: the phone goes straight to being a mic
+  const singing = searchParams.get('sing') === '1';
+  const afterJoin = (joined: boolean) => (joined && phone ? (singing ? '/remote?tab=sing' : '/remote') : '/');
 
   // Point this device at the room behind a code. Returns false when no room has that code.
   const joinByCode = async (value: string) => {

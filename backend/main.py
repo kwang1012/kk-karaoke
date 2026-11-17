@@ -1,6 +1,7 @@
 import asyncio
 from contextlib import asynccontextmanager
 import json
+from typing import Optional
 from fastapi import Depends, FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -11,7 +12,7 @@ from services.tasks import is_ready, send_process_request, recover_jobs
 from managers import catalog, r2
 from managers.db import get_db
 from interfaces.queue import RedisQueueInterface
-from services.catalog import collection_tracks, random_tracks, search_collections, search_tracks, top_categories
+from services.catalog import studio_version, collection_tracks, random_tracks, search_collections, search_tracks, top_categories
 from services import admin as admin_service
 from services.library import build_library
 from managers.websocket import WebSocketManager
@@ -25,6 +26,7 @@ from routes.admin import router as admin_router
 from routes.registration import router as registration_router, admin_router as registration_admin_router
 from routes.imports import router as import_router
 from routes.scores import router as scores_router
+from routes.recordings import router as recordings_router
 from redis_keys import RedisKeys
 from auth import require_admin, require_host
 from config import CORS_ORIGINS
@@ -112,6 +114,7 @@ app.include_router(lyrics_router, prefix="/lyrics", tags=["lyrics"])
 app.include_router(queue_router, prefix="/queue", tags=["queue"])
 app.include_router(room_router, prefix="/room", tags=["room"])
 app.include_router(scores_router, prefix="/scores", tags=["scores"])
+app.include_router(recordings_router, prefix="/recordings", tags=["recordings"])
 app.include_router(admin_router, prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 app.include_router(registration_router, prefix="/auth", tags=["registration"])
 app.include_router(registration_admin_router, prefix="/admin", tags=["registration"])
@@ -207,6 +210,14 @@ def search(q: str):
     # a recording we can play and look lyrics up against.
     return JSONResponse(content={"results": {"tracks": {"items": search_tracks(q)}, **search_collections(q)}},
                         status_code=200)
+
+
+@app.get("/studio_version")
+def get_studio_version(video_id: str, title: str, artists: str = "", duration_ms: Optional[int] = None):
+    """The studio-audio twin of a video (artists comma separated), or null: the confirm offers it first."""
+    names = [a.strip() for a in artists.split(",") if a.strip()]
+    track = studio_version(title, names, duration_ms / 1000 if duration_ms else None, video_id)
+    return JSONResponse(content={"track": track}, status_code=200)
 
 
 @app.post("/download")

@@ -104,6 +104,27 @@ def units_of(lines: list[tuple[float, str]]) -> list[Unit]:
 _KANA_CHARS = set(chr(c) for c in range(0x3041, 0x3097)) | set(chr(c) for c in range(0x30A1, 0x30FB))
 
 
+_models: dict = {}  # the aligner, per device: loading it is 1.2 GB read from disk, once is enough
+
+
+def _model(bundle, device: str):
+    if device not in _models:
+        _models[device] = bundle.get_model(with_star=False).to(device).eval()
+    return _models[device]
+
+
+def free_device_memory():
+    """Hand back the GPU memory the last song used; a worker running song after song otherwise runs out."""
+    try:
+        import torch
+    except ImportError:
+        return
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    elif torch.backends.mps.is_available():
+        torch.mps.empty_cache()
+
+
 def align_onsets(samples: np.ndarray, lines: list[tuple[float, str]]) -> list[tuple[Unit, float | None]] | None:
     """
     When each sung syllable of `lines` begins in `samples` (16 kHz mono vocals), in seconds; None for a syllable that
@@ -124,7 +145,7 @@ def align_onsets(samples: np.ndarray, lines: list[tuple[float, str]]) -> list[tu
         return None
 
     device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
-    model = bundle.get_model(with_star=False).to(device).eval()
+    model = _model(bundle, device)
     piece = PIECE_S * SAMPLE_RATE
     emissions = []
     with torch.inference_mode():
@@ -136,6 +157,8 @@ def align_onsets(samples: np.ndarray, lines: list[tuple[float, str]]) -> list[tu
                 emission = torch.cat([emission, emission[:, -1:].expand(-1, frames - emission.shape[1], -1)], dim=1)
             emissions.append(emission)
     emission = torch.log_softmax(torch.cat(emissions, dim=1), dim=-1)
+    del emissions
+    free_device_memory()
     if emission.shape[1] < len(flat):
         return None
     try:

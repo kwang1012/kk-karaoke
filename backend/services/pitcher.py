@@ -111,6 +111,10 @@ def detect_pitch_neural(samples: np.ndarray, sr: int = SAMPLE_RATE) -> tuple[np.
         periodicity = torchcrepe.filter.median(periodicity, 3)
         hz = torchcrepe.threshold.At(PERIODICITY_THRESHOLD)(hz, periodicity)
     hz = np.nan_to_num(hz[0].cpu().numpy(), nan=0.0)
+    del audio, periodicity
+    from services.syllable_align import free_device_memory
+
+    free_device_memory()
     # CREPE frames are centred on k * HOP; the frames of `detect_pitch` on i * HOP + WINDOW / 2
     index = np.clip(np.round(times * sr / HOP).astype(int), 0, len(hz) - 1)
     freqs = hz[index]

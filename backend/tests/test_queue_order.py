@@ -115,3 +115,13 @@ def test_endpoint_rejects_unknown_modes_and_reports_contention(queue_route):
     client = TestClient(app)
     assert client.post("/room/arrange/invalid").status_code == 422
     assert client.post("/room/arrange/shuffle").status_code == 409
+
+
+@pytest.mark.parametrize("mode", ["shuffle", "orderers"])
+def test_suggestions_stay_after_ordered_songs(mode):
+    tracks = [song(f"t{i}", recommended=i in (2, 3, 6)) for i in range(8)]
+    result = order_queue(tracks, 0, mode)
+    assert [t.id for t in result[:1]] == ["t0"]
+    flags = [t.recommended for t in result[1:]]
+    assert flags == sorted(flags)
+    assert sorted(t.id for t in result) == sorted(t.id for t in tracks)

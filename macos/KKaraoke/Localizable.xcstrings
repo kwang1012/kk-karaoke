@@ -1,261 +1,6 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "Sing together" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "一起唱"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "一起唱"
-          }
-        }
-      }
-    },
-    "Stop singing together" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "结束一起唱"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "結束一起唱"
-          }
-        }
-      }
-    },
-    "Duet sync" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "合唱同步"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "合唱同步"
-          }
-        }
-      }
-    },
-    "When singing together, start this Mac earlier if it sounds behind the others (Bluetooth, a TV), or later if it sounds ahead." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "一起唱时，如果这台 Mac 听起来比别人慢（蓝牙、电视），请调成提早开始；听起来比别人快则调成延后。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "一起唱時，如果這台 Mac 聽起來比別人慢（藍牙、電視），請調成提早開始；聽起來比別人快則調成延後。"
-          }
-        }
-      }
-    },
-    "Backing vocals" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "和聲"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "和声"
-          }
-        }
-      }
-    },
-    "Unassigned" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未指定"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未指定"
-          }
-        }
-      }
-    },
-    "Together" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "合唱"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "合唱"
-          }
-        }
-      }
-    },
-    "Singer" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "歌手"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "歌手"
-          }
-        }
-      }
-    },
-    "Sync" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "同步"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "同步"
-          }
-        }
-      }
-    },
-    "Report lyrics" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "回報歌詞問題"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "反馈歌词问题"
-          }
-        }
-      }
-    },
-    "Reported, thanks" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已回報，謝謝"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已反馈，谢谢"
-          }
-        }
-      }
-    },
-    "Couldn’t report lyrics" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無法回報歌詞問題"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无法反馈歌词问题"
-          }
-        }
-      }
-    },
-    "Hide video" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "隱藏影片"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "隐藏视频"
-          }
-        }
-      }
-    },
-    "Approximate lyrics timing" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "歌詞時間可能不準確"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "歌词时间可能不准确"
-          }
-        }
-      }
-    },
-    "Timing may be off: these lyrics might be for a different version. Nudge them here." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "歌詞可能來自不同版本，時間不一定準確。可在此調整。"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "歌词可能来自不同版本，时间不一定准确。可在此调整。"
-          }
-        }
-      }
-    },
     "" : {
 
     },
@@ -380,6 +125,10 @@
           }
         }
       }
+    },
+    "%lld ms" : {
+      "comment" : "A slider that lets the user adjust the delay of the duet. The value is shown in milliseconds.",
+      "isCommentAutoGenerated" : true
     },
     "%lld queued" : {
       "extractionState" : "manual",
@@ -572,6 +321,23 @@
         }
       }
     },
+    "Approximate lyrics timing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "歌词时间可能不准确"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "歌詞時間可能不準確"
+          }
+        }
+      }
+    },
     "Artist" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -687,6 +453,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "返回主視窗"
+          }
+        }
+      }
+    },
+    "Backing vocals" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "和声"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "和聲"
           }
         }
       }
@@ -1048,6 +831,23 @@
         }
       }
     },
+    "Couldn’t report lyrics" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法反馈歌词问题"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法回報歌詞問題"
+          }
+        }
+      }
+    },
     "Couldn't save sign-in securely in Keychain. Try again." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1337,6 +1137,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已下載的歌曲會保留。"
+          }
+        }
+      }
+    },
+    "Duet sync" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "合唱同步"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "合唱同步"
           }
         }
       }
@@ -1867,6 +1684,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "隱藏羅馬拼音"
+          }
+        }
+      }
+    },
+    "Hide video" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隐藏视频"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隱藏影片"
           }
         }
       }
@@ -2678,6 +2512,10 @@
         }
       }
     },
+    "Next line starting" : {
+      "comment" : "A label for the accessibility of a lyric gap marker.",
+      "isCommentAutoGenerated" : true
+    },
     "Next song" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2708,23 +2546,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "下一首"
-          }
-        }
-      }
-    },
-    "SUGGESTED FOR YOU" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "为你推荐"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "為你推薦"
           }
         }
       }
@@ -2882,6 +2703,23 @@
         }
       }
     },
+    "Nothing is playing on your devices" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的设备目前都没有在播放"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的裝置目前都沒有在播放"
+          }
+        }
+      }
+    },
     "Nothing playing" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2983,6 +2821,10 @@
           }
         }
       }
+    },
+    "OK" : {
+      "comment" : "The label of a button that dismisses an alert.",
+      "isCommentAutoGenerated" : true
     },
     "On" : {
       "extractionState" : "manual",
@@ -3324,6 +3166,23 @@
         }
       }
     },
+    "Play here" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "改在此播放"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "改在此播放"
+          }
+        }
+      }
+    },
     "Play Next" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3371,6 +3230,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "播放或暫停"
+          }
+        }
+      }
+    },
+    "Playing on another device. This Mac is a remote." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在另一台设备播放，这台 Mac 仅作遥控。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在另一台裝置播放，這台 Mac 僅作遙控。"
           }
         }
       }
@@ -3596,57 +3472,6 @@
         }
       }
     },
-    "Nothing is playing on your devices" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你的设备目前都没有在播放"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你的裝置目前都沒有在播放"
-          }
-        }
-      }
-    },
-    "Play here" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "改在此播放"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "改在此播放"
-          }
-        }
-      }
-    },
-    "Playing on another device. This Mac is a remote." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在另一台设备播放，这台 Mac 仅作遥控。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在另一台裝置播放，這台 Mac 僅作遙控。"
-          }
-        }
-      }
-    },
     "Reconnecting to the room…" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3783,6 +3608,57 @@
         }
       }
     },
+    "Report lyrics" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "反馈歌词问题"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回報歌詞問題"
+          }
+        }
+      }
+    },
+    "Reported, thanks" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已反馈，谢谢"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已回報，謝謝"
+          }
+        }
+      }
+    },
+    "Reset lyrics timing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重置歌词时间"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重設歌詞時間"
+          }
+        }
+      }
+    },
     "Restart" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3898,23 +3774,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "房間代碼"
-          }
-        }
-      }
-    },
-    "Reset lyrics timing" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "重置歌词时间"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "重設歌詞時間"
           }
         }
       }
@@ -4548,6 +4407,23 @@
         }
       }
     },
+    "Sing together" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一起唱"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一起唱"
+          }
+        }
+      }
+    },
     "Sing with microphone" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4578,6 +4454,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "開唱！"
+          }
+        }
+      }
+    },
+    "Singer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "歌手"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "歌手"
           }
         }
       }
@@ -4871,6 +4764,40 @@
         }
       }
     },
+    "Stop singing together" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "结束一起唱"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "結束一起唱"
+          }
+        }
+      }
+    },
+    "SUGGESTED FOR YOU" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "为你推荐"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "為你推薦"
+          }
+        }
+      }
+    },
     "Surprise me" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4884,6 +4811,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "給我驚喜"
+          }
+        }
+      }
+    },
+    "Sync" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步"
           }
         }
       }
@@ -5211,6 +5155,23 @@
         }
       }
     },
+    "Timing may be off: these lyrics might be for a different version. Nudge them here." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "歌词可能来自不同版本，时间不一定准确。可在此调整。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "歌詞可能來自不同版本，時間不一定準確。可在此調整。"
+          }
+        }
+      }
+    },
     "Title" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5224,6 +5185,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "歌名"
+          }
+        }
+      }
+    },
+    "Together" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "合唱"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "合唱"
           }
         }
       }
@@ -5394,6 +5372,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "電視顯示"
+          }
+        }
+      }
+    },
+    "Unassigned" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未指定"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未指定"
           }
         }
       }
@@ -5683,6 +5678,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "我們該怎麼稱呼你？"
+          }
+        }
+      }
+    },
+    "When singing together, start this Mac earlier if it sounds behind the others (Bluetooth, a TV), or later if it sounds ahead." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一起唱时，如果这台 Mac 听起来比别人慢（蓝牙、电视），请调成提早开始；听起来比别人快则调成延后。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一起唱時，如果這台 Mac 聽起來比別人慢（藍牙、電視），請調成提早開始；聽起來比別人快則調成延後。"
           }
         }
       }

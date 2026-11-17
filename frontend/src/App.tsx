@@ -44,6 +44,9 @@ import DuetPlayer from './components/DuetPlayer';
 
 // lazily loaded components
 const RankingView = lazy(() => import('./pages/ranking'));
+const RecordView = lazy(() => import('./pages/record'));
+const RecordingsView = lazy(() => import('./pages/recordings'));
+const DuetView = lazy(() => import('./pages/duet'));
 const JoinView = lazy(() => import('./pages/join'));
 const RemoteView = lazy(() => import('./pages/remote'));
 const TvView = lazy(() => import('./pages/tv'));
@@ -122,6 +125,8 @@ const AppRouters = () => {
             <Route path="search/*" element={<SearchView />} />
             <Route path="library" element={<LibraryView />} />
             <Route path="ranking" element={<RankingView />} />
+            <Route path="record/:trackId" element={<RecordView />} />
+            <Route path="recordings" element={<RecordingsView />} />
             <Route path="lyrics" element={mobile ? <MobileLyricsView /> : <LyricsView />} />
             <Route path="play" element={<PlayView />} />
           </Route>
@@ -140,6 +145,8 @@ const AppRouters = () => {
         <Route path="join" element={<JoinView />} />
         <Route path="download" element={<DownloadView />} />
         <Route path="tv" element={<TvView />} />
+        {/* a link a friend sends: opens for anyone, without signing up first */}
+        <Route path="duet/:id" element={<DuetView />} />
         <Route path="remote" element={isLoggedIn ? <RemoteView /> : <Navigate to="/join" replace />} />
       </Routes>
       </Suspense>

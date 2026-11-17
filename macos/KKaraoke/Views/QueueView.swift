@@ -154,7 +154,12 @@ struct QueueView: View {
         }
         dragDY = drag.translation.height
         let steps = Int((dragDY / max(heights[id] ?? 56, 1)).rounded())
-        let target = min(max(index + steps, 0), room.upcoming.count - 1)
+        // ordered songs and suggestions are separate lists: a row stays within its own
+        let upcoming = room.upcoming
+        let suggested = upcoming[index].recommended
+        let firstSuggested = upcoming.firstIndex(where: \.recommended) ?? upcoming.count
+        let range = suggested ? firstSuggested...(upcoming.count - 1) : 0...max(firstSuggested - 1, 0)
+        let target = min(max(index + steps, range.lowerBound), range.upperBound)
         if target != dragTarget { dragTarget = target }
       }
       .onEnded { _ in

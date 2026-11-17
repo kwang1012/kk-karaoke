@@ -8,6 +8,8 @@ import AudioController from 'src/components/AudioController';
 import AppSnackbar from 'src/components/Snackbar';
 import PlayerTabNotice from 'src/components/PlayerTabNotice';
 import DuetBar from 'src/components/DuetBar';
+import { SingTogetherBar, SingTogetherDialog } from 'src/components/SingTogether';
+import VersionChoiceDialog from 'src/components/VersionChoiceDialog';
 import DuetLobby from 'src/components/DuetLobby';
 import DuetCountdown from 'src/components/DuetCountdown';
 import { useBreakpointDown } from 'src/hooks/media';
@@ -36,6 +38,9 @@ export default function Layout() {
         <div className="empty:hidden px-3 pt-3">
           <DuetBar />
         </div>
+        <div className="empty:hidden px-3 pt-3">
+          <SingTogetherBar />
+        </div>
         <main className="min-h-0 flex-1 overflow-hidden">
           <Outlet />
         </main>
@@ -45,6 +50,8 @@ export default function Layout() {
         <Queue hidden />
         <DuetLobby />
         <DuetCountdown />
+        <SingTogetherDialog />
+      <VersionChoiceDialog />
         <AppSnackbar />
         <Suspense fallback={null}>
           <SettingsDialog />
@@ -62,6 +69,7 @@ export default function Layout() {
         <div className="flex min-w-0 flex-1 flex-col gap-3">
           <PlayerTabNotice />
           <DuetBar />
+          <SingTogetherBar />
           <main className="min-h-0 flex-1 overflow-hidden rounded-2xl border bg-card">
             <Outlet />
           </main>
@@ -73,6 +81,8 @@ export default function Layout() {
       </div>
       <DuetLobby />
       <DuetCountdown />
+      <SingTogetherDialog />
+      <VersionChoiceDialog />
       {window.kkaraoke && <MiniLyricsBridge />}
       {window.kkaraoke && <DesktopNotifications />}
       <AppSnackbar />

@@ -24,9 +24,17 @@ const LINE_SLACK_S = 0.5;
 /** A lyric line, for knowing whose part a stretch of the song is. */
 export type PartyLine = { time: number; singer?: { slot: number; kind?: string } | null };
 
-export type Standing = { id: string; name: string; avatar: string; part: DuetPart; result: Result | null };
+/** `saved`: the take was long enough to go into the ranking. */
+export type Standing = { id: string; name: string; avatar: string; part: DuetPart; result: Result | null; saved?: boolean };
 /** The finished standings as the screen tells the room: just the totals. */
-export type Placing = { id: string; name: string; avatar: string; part: DuetPart; total: number | null };
+export type Placing = { id: string; name: string; avatar: string; part: DuetPart; total: number | null; saved?: boolean };
+
+/** Where the screen is: getting singers in, singing, or showing how it went. */
+export type HostPhase = 'setup' | 'singing' | 'results';
+export type HostState = { phase: HostPhase; song: string; host: string };
+/** The screen says where it is this often; a phone that has not heard it for a while takes it as gone. */
+export const HOST_EVERY_MS = 2000;
+const HOST_GONE_MS = 8000;
 
 type Entry = Singer & { seen: number };
 
@@ -36,6 +44,9 @@ export class Party {
   private heard = new Map<string, { hz: number; at: number }>();
   private shown: Record<string, number | null> = {};
   private placings: Placing[] | null = null;
+  private sounded = new Set<string>(); // singers whose phone has sent a note at least once: their mic works
+  private hostState: (HostState & { at: number }) | null = null;
+  private endedAt: number | null = null;
 
   has(id: string): boolean {
     return this.entries.has(id);
@@ -58,6 +69,7 @@ export class Party {
     if (!known || !Number.isFinite(hz) || hz <= 0) return;
     known.seen = now;
     this.heard.set(id, { hz, at: now });
+    this.sounded.add(id);
   }
 
   /** Whoever is still here, in the order they joined. */
@@ -70,6 +82,38 @@ export class Party {
   pitchOf(id: string, now: number = performance.now()): number | null {
     const heard = this.heard.get(id);
     return heard && now - heard.at <= FRESH_MS ? heard.hz : null;
+  }
+
+  /** Whether this singer's phone has sent a note yet: the screen has heard their mic work. */
+  micWorks(id: string): boolean {
+    return this.sounded.has(id);
+  }
+
+  /** What the screen last said it was doing; null if it has not said, or not for a while. */
+  host(now: number = performance.now()): HostState | null {
+    if (!this.hostState || now - this.hostState.at > HOST_GONE_MS) return null;
+    const { at: _at, ...state } = this.hostState;
+    return state;
+  }
+
+  setHost(state: HostState, now: number = performance.now()) {
+    this.hostState = { ...state, at: now };
+    this.endedAt = null;
+  }
+
+  /** The screen finished singing together: everyone stops. */
+  end(now: number = performance.now()) {
+    this.hostState = null;
+    this.endedAt = now;
+    this.entries.clear();
+    this.heard.clear();
+    this.sounded.clear();
+    this.shown = {};
+  }
+
+  /** When the screen last ended singing together, or null. */
+  ended(): number | null {
+    return this.endedAt;
   }
 
   /** The scores the screen last announced, by singer. */
@@ -100,6 +144,9 @@ export class Party {
     this.heard.clear();
     this.shown = {};
     this.placings = null;
+    this.sounded.clear();
+    this.hostState = null;
+    this.endedAt = null;
   }
 }
 
@@ -204,6 +251,13 @@ export function applyPartyMessage(target: Party, message: Message, now: number =
     if (typeof data.id === 'string') target.leave(data.id);
   } else if (message.op === 'scores') {
     target.setScores((data.scores ?? {}) as Record<string, number | null>);
+  } else if (message.op === 'state') {
+    const phase = data.phase;
+    if (phase === 'setup' || phase === 'singing' || phase === 'results') {
+      target.setHost({ phase, song: String(data.song ?? ''), host: String(data.host ?? '') }, now);
+    }
+  } else if (message.op === 'end') {
+    target.end(now);
   } else if (message.op === 'standings') {
     target.setStandings(Array.isArray(data.standings) ? (data.standings as Placing[]) : null);
   }

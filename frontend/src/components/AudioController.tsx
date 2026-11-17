@@ -25,7 +25,8 @@ import { Tooltip } from 'src/components/ui/tooltip';
 import { usePlayer } from 'src/store/player';
 import { useNotifyStore } from 'src/store/notify';
 import { useDuetStore } from 'src/store/duet';
-import { openDuet, pauseDuet, resumeDuet } from 'src/duetActions';
+import { pauseDuet, resumeDuet } from 'src/duetActions';
+import { openSingTogether, useSingTogether } from 'src/store/singTogether';
 import { useSettingStore } from 'src/store/setting';
 import { cn } from 'src/lib/utils';
 import GuideVocalControl from './GuideVocalControl';
@@ -60,6 +61,7 @@ export default function AudioController() {
   const session = useDuetStore((state) => state.session);
   const declined = useDuetStore((state) => state.declined);
   const singing = !!session && session.phase !== 'lobby' && !declined;
+  const singingTogether = useSingTogether((state) => state.mode !== null);
   const handlePlayPause = () => {
     if (singing) return session.phase === 'paused' ? resumeDuet() : pauseDuet();
     return playing ? pause() : play();
@@ -189,16 +191,15 @@ export default function AudioController() {
         <Tooltip title={t('player.duetStart')} side="top">
           <button
             aria-label={t('duet.entry')}
-            aria-pressed={!!session}
-            disabled={!currentTrack || !!session}
-            onClick={() => currentTrack && openDuet(currentTrack.id)}
+            aria-pressed={!!session || singingTogether}
+            onClick={openSingTogether}
             className={cn(
               'flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium whitespace-nowrap transition-colors disabled:pointer-events-none',
-              session ? 'border-primary bg-primary text-primary-foreground' : 'border-primary/40 text-primary hover:bg-primary/15 disabled:opacity-40',
+              session || singingTogether ? 'border-primary bg-primary text-primary-foreground' : 'border-primary/40 text-primary hover:bg-primary/15',
             )}
           >
             <Users className="size-4" />
-            <span className="hidden xl:inline">{t('duet.entry')}</span>
+            <span className="hidden lg:inline">{t('duet.entry')}</span>
           </button>
         </Tooltip>
         {enabledPitchShift && (

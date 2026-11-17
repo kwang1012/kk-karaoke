@@ -1,10 +1,10 @@
-import { CirclePause, CirclePlay, Mic, MicOff, SkipBack, SkipForward, Volume1, Volume2 } from 'lucide-react';
+import { CirclePause, CirclePlay, Mic, MicOff, SkipBack, SkipForward, Volume1, Volume2, VolumeX } from 'lucide-react';
 import { IconButton } from 'src/components/ui/button';
 import { useThemeMode } from 'src/hooks/theme';
 import GuideVocalControl from './GuideVocalControl';
 import AppSlider from './Slider';
 import { usePlayer } from 'src/store/player';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 function formatTime(seconds: number): string {
   if (isNaN(seconds)) return '0:00';
@@ -17,6 +17,16 @@ export default function MobileAudioController({ progressOnly }: { progressOnly?:
   const { play, pause, next, previous, seek, setVolume, toggleVocal } = usePlayer();
 
   const [localProgress, setLocalProgress] = useState(progress);
+  const volumeBeforeMute = useRef(0.8);
+  const muted = volume === 0;
+  const toggleMute = () => {
+    if (muted) {
+      setVolume(volumeBeforeMute.current);
+    } else {
+      volumeBeforeMute.current = volume;
+      setVolume(0);
+    }
+  };
 
   const realProgress = seeking ? localProgress : progress;
   const dark = useThemeMode() === 'dark';
@@ -82,7 +92,9 @@ export default function MobileAudioController({ progressOnly }: { progressOnly?:
         </IconButton>
       </div>
       <div className="flex w-full items-center mt-3 text-white">
-        <Volume1 className="size-5" />
+        <IconButton size="small" onClick={toggleMute} aria-label={muted ? 'Unmute' : 'Mute'} title={muted ? 'Unmute' : 'Mute'}>
+          {muted ? <VolumeX className="size-5 text-white" /> : <Volume1 className="size-5 text-white" />}
+        </IconButton>
         <AppSlider
           className="w-full"
           min={0}

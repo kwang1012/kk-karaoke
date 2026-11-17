@@ -10,6 +10,7 @@ import { useActiveRoomId } from 'src/store/room';
 import { useDuetStore } from 'src/store/duet';
 import { usePlayerStore } from 'src/store/player';
 import { useSettingStore } from 'src/store/setting';
+import { useSingTogether } from 'src/store/singTogether';
 import { useT } from 'src/i18n';
 import type { Track } from 'src/models/spotify';
 
@@ -106,6 +107,14 @@ export default function DuetPlayer() {
     };
 
     const end = () => {
+      // a song that was being sung (not a lobby closed early) ends with this device's own results
+      if (anchorKey || store().session?.phase === 'paused') {
+        const sing = useSingTogether.getState();
+        if (sing.mode !== 'call') sing.start('call', 'results');
+        sing.finisher?.(true);
+      } else if (useSingTogether.getState().mode === 'call') {
+        useSingTogether.getState().reset();
+      }
       ++version;
       stopTicker();
       clearTimeout(settle);

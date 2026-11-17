@@ -16,7 +16,7 @@ from managers.websocket import WebSocketManager
 from services.downloader import download_audio
 from services import admin, audio_check, candidates, library, lyrics_align
 from services.library import save_track
-from services.lyrics_sources import Recording, add_heard_lyrics, add_word_timing, artist_aliases, discard_lyrics, find_lyrics, find_plain_lyrics, lyrics_summary, parse_lrc, _norm, read_meta, save_plain, save_result, sheet_is_wrong_language, verify_against_audio, video_duration_s, write_meta
+from services.lyrics_sources import Recording, add_heard_lyrics, add_word_timing, artist_aliases, discard_lyrics, find_lyrics, find_plain_lyrics, lyrics_summary, parse_lrc, _norm, read_meta, save_plain, save_result, sheet_is_wrong_language, sheet_script_mismatch, verify_against_audio, video_duration_s, write_meta
 from services.pitcher import extract_melody
 from services import modal_separate
 from services.voice_remover import separate_vocals
@@ -116,12 +116,12 @@ def _schedule_lyrics_retry(track_id: str, attempt: int) -> None:
         print(f"Could not schedule a lyrics retry for {track_id}: {e!r}")
 
 
-def _find_lyrics(track: Track, who: _Identity, korean: Optional[bool] = None) -> None:
+def _find_lyrics(track: Track, who: _Identity, korean: Optional[bool] = None, skip_ytmusic: bool = False) -> None:
     """Timed lyrics from the providers, else their plain words, saved next to the track."""
     album_name = track.album.get("name") if track.album else None
     try:
         names = artist_aliases(who.title, [a.name for a in track.artists], who.duration_s, who.recording)
-        result = find_lyrics(who.title, names, album_name, who.duration_s, who.recording, korean)
+        result = find_lyrics(who.title, names, album_name, who.duration_s, who.recording, korean, skip_ytmusic)
         if result:
             save_result(track.id, result)
             print(f"Lyrics for {track.id}: {result.source} ({result.confidence})")
@@ -155,6 +155,14 @@ def _listen_and_verify(track: Track, who: _Identity) -> None:
             _find_lyrics(track, who, korean=True)
     except Exception as e:
         print(f"Language check failed for {track.id}: {e!r}")
+    # The sheet may be in another language altogether (English words on a Mandarin song titled in English).
+    try:
+        if sheet_script_mismatch(track.id, vocal):
+            print(f"{track.id}: the lyrics are in a different language than the singing; looking again")
+            discard_lyrics(track.id)
+            _find_lyrics(track, who, skip_ytmusic=True)
+    except Exception as e:
+        print(f"Script check failed for {track.id}: {e!r}")
     # Nothing verified has these lyrics: listen to the vocals instead of showing nothing (or another song's).
     try:
         heard = add_heard_lyrics(track.id, vocal, who.video_id)

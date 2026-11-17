@@ -1,7 +1,7 @@
 import { Mic2, UserPlus, UsersRound } from 'lucide-react';
 import { Button } from 'src/components/ui/button';
 import { Card, CardContent } from 'src/components/ui/card';
-import { openDuet } from 'src/duetActions';
+import { openSingTogether } from 'src/store/singTogether';
 import { useInvite } from 'src/hooks/invite';
 import { useT } from 'src/i18n';
 import { useDuetStore } from 'src/store/duet';
@@ -25,7 +25,7 @@ export default function Jam() {
             {inRoom ? t('invite.button') : t('invite.start')}
           </Button>
           {currentTrack && !session && (
-            <Button variant="outline" className="rounded-full font-bold" onClick={() => openDuet(currentTrack.id)}>
+            <Button variant="outline" className="rounded-full font-bold" onClick={openSingTogether}>
               <Mic2 />
               {t('duet.entry.card')}
             </Button>

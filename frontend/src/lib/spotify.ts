@@ -8,7 +8,7 @@ import type { Collection, Track } from 'src/models/spotify';
  * matches them to recordings we can play. Tokens stay in this browser.
  */
 const CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID as string | undefined;
-const SCOPES = 'playlist-read-private playlist-read-collaborative';
+const SCOPES = 'playlist-read-private playlist-read-collaborative user-library-read playlist-modify-private';
 const STORE = 'spotifyAuth';
 const VERIFIER = 'spotifyVerifier';
 
@@ -19,6 +19,8 @@ interface Stored {
   access: string;
   refresh?: string;
   expires: number;
+  /** Permissions the user granted. Missing on connections made before Liked Songs and export were added. */
+  scope?: string;
 }
 
 const redirectUri = () => `${window.location.origin}/spotify/callback`;
@@ -31,11 +33,12 @@ function load(): Stored | null {
   }
 }
 
-function save(token: { access_token: string; refresh_token?: string; expires_in: number }, previous?: Stored | null) {
+function save(token: { access_token: string; refresh_token?: string; expires_in: number; scope?: string }, previous?: Stored | null) {
   const stored: Stored = {
     access: token.access_token,
     refresh: token.refresh_token ?? previous?.refresh,
     expires: Date.now() + token.expires_in * 1000 - 30_000,
+    scope: token.scope ?? previous?.scope,
   };
   try {
     localStorage.setItem(STORE, JSON.stringify(stored));
@@ -46,6 +49,16 @@ function save(token: { access_token: string; refresh_token?: string; expires_in:
 }
 
 export const isSpotifyConnected = () => !!load();
+
+/** Whether the connection was granted a permission. Connections from before it was asked for need to reconnect. */
+export const spotifyHasScope = (scope: string) => !!load()?.scope?.split(' ').includes(scope);
+
+/** The connection lacks a permission a newer feature needs, so the user has to agree to it by connecting again. */
+export class SpotifyNeedsReconnect extends Error {
+  constructor() {
+    super('spotify-needs-reconnect');
+  }
+}
 
 export function disconnectSpotify() {
   try {
@@ -132,10 +145,23 @@ export class SpotifyForbidden extends Error {
   }
 }
 
-async function spotifyGet(url: string) {
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function spotifyGet(url: string, body?: unknown, attempt = 0): Promise<any> {
   const response = await fetch(url.startsWith('http') ? url : `https://api.spotify.com/v1${url}`, {
-    headers: { Authorization: `Bearer ${await accessToken()}` },
+    method: body === undefined ? 'GET' : 'POST',
+    headers: {
+      Authorization: `Bearer ${await accessToken()}`,
+      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+    },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
+  if (response.status === 429 && attempt < 4) {
+    // Too many requests: wait as long as Spotify asks (the header is not always readable, so back off by default).
+    const asked = Number(response.headers.get('Retry-After'));
+    await sleep(Math.min(Math.max(asked > 0 ? asked : 2 ** attempt, 1), 15) * 1000);
+    return spotifyGet(url, body, attempt + 1);
+  }
   if (response.status === 401) {
     disconnectSpotify();
     throw new Error('Not connected to Spotify');
@@ -193,13 +219,20 @@ export const useImportProgress = create<{ done: number; total: number }>(() => (
 
 const BATCH = 20;
 
+/** The id the Liked Songs library goes by in place of a playlist id. */
+export const LIKED = 'liked';
+
 /** A playlist's songs matched to playable recordings, a batch at a time. Songs we cannot match are left out. */
 export async function importSpotifyPlaylist(id: string): Promise<{ collection: Collection; tracks: Track[] }> {
   useImportProgress.setState({ done: 0, total: 0 });
-  const meta = await spotifyGet(`/playlists/${encodeURIComponent(id)}?fields=name,images,description,owner(display_name)`);
+  const liked = id === LIKED;
+  if (liked && !spotifyHasScope('user-library-read')) throw new SpotifyNeedsReconnect();
+  const meta = liked
+    ? { name: 'Liked Songs', description: '', images: [], owner: { display_name: (await spotifyProfile()).name } }
+    : await spotifyGet(`/playlists/${encodeURIComponent(id)}?fields=name,images,description,owner(display_name)`);
   const entries: { title: string; artist: string }[] = [];
-  let next: string | null = `/playlists/${encodeURIComponent(id)}/items?limit=100`;
-  while (next && entries.length < 200) {
+  let next: string | null = liked ? '/me/tracks?limit=50' : `/playlists/${encodeURIComponent(id)}/items?limit=100`;
+  while (next && entries.length < (liked ? 300 : 200)) {
     const page: any = await spotifyGet(next);
     for (const row of page.items ?? []) {
       const song = row?.item ?? row?.track; // `track` is the pre-2026 field name
@@ -241,4 +274,59 @@ export async function importSpotifyPlaylist(id: string): Promise<{ collection: C
     } as Collection,
     tracks,
   };
+}
+
+export interface ExportResult {
+  url: string;
+  added: number;
+  requested: number;
+}
+
+const normalize = (text: string) => text.replace(/\s*[([].*?[)\]]\s*/g, ' ').replace(/["']/g, '').trim();
+
+async function findSpotifyUri(title: string, artist: string): Promise<string | null> {
+  const queries = [`track:${normalize(title)} artist:${normalize(artist)}`, `${normalize(title)} ${normalize(artist)}`];
+  for (const q of queries) {
+    try {
+      const result: any = await spotifyGet(`/search?type=track&limit=1&q=${encodeURIComponent(q)}`);
+      const uri = result.tracks?.items?.[0]?.uri;
+      if (uri) return uri;
+    } catch (error) {
+      if (!(error instanceof SpotifyForbidden)) throw error;
+    }
+  }
+  return null;
+}
+
+/** Save songs as a new private Spotify playlist. Songs Spotify cannot find are left out. */
+export async function exportToSpotify(
+  name: string,
+  songs: { name: string; artists?: { name: string }[] }[],
+  onProgress?: (done: number, total: number) => void
+): Promise<ExportResult> {
+  if (!spotifyHasScope('playlist-modify-private')) throw new SpotifyNeedsReconnect();
+  const uris: (string | null)[] = new Array(songs.length).fill(null);
+  let cursor = 0;
+  let done = 0;
+  const worker = async () => {
+    while (cursor < songs.length) {
+      const index = cursor++;
+      const song = songs[index];
+      await sleep(150);
+      uris[index] = await findSpotifyUri(song.name, (song.artists ?? []).map((a) => a.name).join(' '));
+      onProgress?.(++done, songs.length);
+    }
+  };
+  await Promise.all(Array.from({ length: 2 }, worker));
+  const found = [...new Set(uris.filter((uri): uri is string => !!uri))];
+  if (found.length === 0) return { url: '', added: 0, requested: songs.length };
+  const playlist: any = await spotifyGet('/me/playlists', {
+    name,
+    public: false,
+    description: 'Sung with KKaraoke',
+  });
+  for (let i = 0; i < found.length; i += 100) {
+    await spotifyGet(`/playlists/${encodeURIComponent(playlist.id)}/items`, { uris: found.slice(i, i + 100) });
+  }
+  return { url: playlist.external_urls?.spotify ?? '', added: found.length, requested: songs.length };
 }

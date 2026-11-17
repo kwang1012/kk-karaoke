@@ -1,6 +1,6 @@
 import { getDeviceId } from 'src/deviceId';
 import type { DuetPart } from 'src/duetSession';
-import { party, type Singer, type Standing } from 'src/party';
+import { party, type HostPhase, type Singer, type Standing } from 'src/party';
 import { useRoomStore } from 'src/store/room';
 import { useWebSocketStore } from 'src/store/ws';
 
@@ -38,5 +38,12 @@ export const announceScores = (scores: Record<string, number | null>) => send('p
 /** Screen to everyone: the finished standings. */
 export const announceStandings = (standings: Standing[]) =>
   send('party', 'standings', {
-    standings: standings.map(({ id, name, avatar, part, result }) => ({ id, name, avatar, part, total: result?.total ?? null })),
+    standings: standings.map(({ id, name, avatar, part, result, saved }) => ({ id, name, avatar, part, total: result?.total ?? null, saved: !!saved })),
   });
+
+/** Screen to everyone: where singing together is (getting singers in, singing, results), said every few seconds. */
+export const announceHostState = (phase: HostPhase, song: string) =>
+  send('party', 'state', { phase, song, host: useRoomStore.getState().nickname || '' });
+
+/** Screen to everyone: singing together is over. */
+export const announceEnd = () => send('party', 'end', {});

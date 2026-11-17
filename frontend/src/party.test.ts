@@ -116,3 +116,31 @@ test('notes have names', async () => {
   assert.equal(noteName(60), 'C4');
   assert.equal(noteName(61.2), 'C♯4');
 });
+
+test('the screen says where it is, and a phone forgets it when it goes quiet', () => {
+  const party = new Party();
+  applyPartyMessage(party, { action: 'party', op: 'state', data: { phase: 'setup', song: 'Ten Thousand Miles', host: 'Kai' } }, 0);
+  assert.deepEqual(party.host(1000), { phase: 'setup', song: 'Ten Thousand Miles', host: 'Kai' });
+  assert.equal(party.host(20000), null);
+  assert.equal(applyPartyMessage(party, { action: 'party', op: 'state', data: { phase: 'nonsense' } }, 0), true);
+});
+
+test('a mic counts as working once the screen has heard a note from it', () => {
+  const party = new Party();
+  party.join(mei, 0);
+  assert.equal(party.micWorks('a'), false);
+  party.pitch('a', 220, 10);
+  assert.equal(party.micWorks('a'), true);
+});
+
+test('ending clears the singers and says when it ended', () => {
+  const party = new Party();
+  party.join(mei, 0);
+  applyPartyMessage(party, { action: 'party', op: 'state', data: { phase: 'singing', song: 's', host: 'h' } }, 0);
+  applyPartyMessage(party, { action: 'party', op: 'end' }, 50);
+  assert.deepEqual(party.singers(60), []);
+  assert.equal(party.host(60), null);
+  assert.equal(party.ended(), 50);
+  applyPartyMessage(party, { action: 'party', op: 'state', data: { phase: 'setup', song: 's', host: 'h' } }, 70);
+  assert.equal(party.ended(), null); // a new session started
+});

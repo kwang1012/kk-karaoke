@@ -238,14 +238,10 @@ async def reorder_queue_endpoint(
     start = redis_interface.get_current_idx(room_id) + 1
     element = tracks.pop(new_order.oldIndex)
     new_index = min(max(new_order.newIndex, 0), len(tracks))
-    # Songs people ordered stay ahead of the suggestions: a suggestion dragged among them becomes an ordered
-    # song, and an ordered song dragged below the suggestions stops at the end of the ordered ones.
-    if new_index >= start:
-        ordered = sum(1 for t in tracks[start:] if not t.recommended)
-        if new_index - start <= ordered:
-            element.recommended = False
-        elif not element.recommended:
-            new_index = start + ordered
+    # Ordered songs and suggestions are two separate lists: a song can only move within its own.
+    ordered = sum(1 for t in tracks[start:] if not t.recommended)
+    low, high = (start + ordered, len(tracks)) if element.recommended else (start, start + ordered)
+    new_index = min(max(new_index, low), high)
     tracks.insert(new_index, element)
     redis_interface.set_queue(room_id, tracks)
     # Every screen takes the whole order, so the clamping above cannot leave one out of step.
@@ -306,6 +302,25 @@ async def get_recommendations(
     history = await asyncio.to_thread(redis_interface.get_history, host["sub"]) if host else []
     source, tracks = await asyncio.to_thread(recommend, jam, history, limit)
     return {"source": source, "tracks": tracks}
+
+
+@router.get("/{room_id}/history")
+async def get_history(
+    room_id: str,
+    limit: int = Query(12, ge=1, le=100),
+    redis_interface: RedisQueueInterface = Depends(lambda: RedisQueueInterface(get_db())),
+    host: dict | None = Depends(optional_host),
+):
+    """The signed-in user's own songs, newest first, to sing again. Nothing for someone who is not signed in."""
+    if not host:
+        return {"tracks": []}
+    tracks = await asyncio.to_thread(redis_interface.get_history, host["sub"], limit)
+    ready = await asyncio.to_thread(catalog.ready_among, [t.id for t in tracks]) if tracks else set()
+    for track in tracks:
+        if track.id in ready:
+            track.status = "ready"
+            track.progress = None
+    return {"tracks": tracks}
 
 
 @router.post("/{room_id}/remove")

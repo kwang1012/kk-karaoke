@@ -27,6 +27,7 @@ def test_the_checks_after_separation_get_the_stem_that_is_still_being_saved(monk
     stem = put_stem("RACE0000003")
     seen = []
     monkeypatch.setattr(pr, "sheet_is_wrong_language", lambda tid, vocal: seen.append(vocal) or False)
+    monkeypatch.setattr(pr, "sheet_script_mismatch", lambda tid, vocal: False)
     monkeypatch.setattr(pr, "add_heard_lyrics", lambda tid, vocal, vid: None)
     monkeypatch.setattr(pr.lyrics_align, "time_plain_words", lambda tid: 0)
     monkeypatch.setattr(pr, "verify_against_audio", lambda tid, vocal: seen.append(vocal))

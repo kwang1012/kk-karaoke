@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ListMusic, LogOut, Search } from 'lucide-react';
+import { Heart, ListMusic, LogOut, Search, Upload } from 'lucide-react';
 import { usePageTitle } from 'src/hooks/documentTitle';
 import { useT } from 'src/i18n';
 import { Button } from 'src/components/ui/button';
@@ -12,8 +12,10 @@ import AppScrollbar from 'src/components/Scrollbar';
 import { SpotifyMark } from 'src/components/ProviderButtons';
 import placeholder from 'src/assets/placeholder.png';
 import {
-  completeSpotifyLogin, connectSpotify, disconnectSpotify, isSpotifyConnected, spotifyAvailable, spotifyPlaylists, spotifyProfile, takeSpotifyReturn,
+  completeSpotifyLogin, connectSpotify, disconnectSpotify, exportToSpotify, isSpotifyConnected, LIKED, SpotifyNeedsReconnect,
+  spotifyAvailable, spotifyPlaylists, spotifyProfile, takeSpotifyReturn, type ExportResult,
 } from 'src/lib/spotify';
+import { usePlayerStore } from 'src/store/player';
 import { authEnabled, openLogin, useAuthStore } from 'src/lib/auth';
 
 /** Where Spotify sends the browser back to after the user agrees. */
@@ -72,6 +74,61 @@ function Intro({ signedIn, onConnect }: { signedIn: boolean; onConnect: () => vo
   );
 }
 
+/** Save what is in the queue as a private Spotify playlist. */
+function ExportQueue() {
+  const t = useT();
+  const queue = usePlayerStore((state) => state.queue);
+  const [state, setState] = useState<'idle' | 'working' | 'failed' | 'reconnect'>('idle');
+  const [progress, setProgress] = useState('');
+  const [result, setResult] = useState<ExportResult | null>(null);
+  const songs = useMemo(() => {
+    const seen = new Set<string>();
+    return queue.filter((song) => !seen.has(song.id) && !!seen.add(song.id));
+  }, [queue]);
+  if (songs.length === 0) return null;
+
+  const run = async () => {
+    setState('working');
+    setResult(null);
+    try {
+      const date = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+      setResult(await exportToSpotify(`KKaraoke · ${date}`, songs, (done, total) => setProgress(`${done} / ${total}`)));
+      setState('idle');
+    } catch (error) {
+      setState(error instanceof SpotifyNeedsReconnect ? 'reconnect' : 'failed');
+    }
+  };
+
+  return (
+    <div className="mt-5 flex flex-wrap items-center gap-3 rounded-2xl bg-secondary px-4 py-3 text-sm">
+      <Upload className="size-4 shrink-0 text-muted-foreground" />
+      <span className="min-w-0 flex-1">
+        {state === 'reconnect'
+          ? t('spotify.reconnectExport')
+          : state === 'failed'
+            ? t('spotify.exportFailed')
+            : result
+              ? result.added > 0
+                ? t('spotify.exported', { added: result.added, requested: result.requested })
+                : t('spotify.exportNone')
+              : t('spotify.exportHint', { count: songs.length })}
+      </span>
+      {result?.url && (
+        <Button asChild size="sm" variant="outline">
+          <a href={result.url} target="_blank" rel="noreferrer">{t('spotify.openPlaylist')}</a>
+        </Button>
+      )}
+      {state === 'reconnect' ? (
+        <Button size="sm" onClick={() => connectSpotify('/spotify')}>{t('spotify.connect')}</Button>
+      ) : (
+        <Button size="sm" disabled={state === 'working'} onClick={run}>
+          {state === 'working' ? t('spotify.exporting', { progress }) : t('spotify.export')}
+        </Button>
+      )}
+    </div>
+  );
+}
+
 function PlaylistGrid() {
   const t = useT();
   const navigate = useNavigate();
@@ -110,6 +167,8 @@ function PlaylistGrid() {
         </div>
       </div>
 
+      <ExportQueue />
+
       {(data?.playlists.length ?? 0) > 6 && (
         <div className="relative mt-4">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -135,6 +194,19 @@ function PlaylistGrid() {
                 <Skeleton className="mt-1.5 h-3 w-1/3" />
               </div>
             ))}
+          {!filter.trim() && (
+            <button
+              type="button"
+              onClick={() => navigate(`/spotify/${LIKED}`)}
+              className="group min-w-0 rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-indigo-500 to-fuchsia-400 text-white shadow-md">
+                <Heart className="size-1/3 fill-current transition-transform duration-300 group-hover:scale-110" />
+              </div>
+              <div className="mt-2 truncate text-sm font-semibold">{t('spotify.liked')}</div>
+              <div className="truncate text-xs text-muted-foreground">{t('spotify.likedSub')}</div>
+            </button>
+          )}
           {shown.map((playlist) => (
             <button
               key={playlist.id}
@@ -162,7 +234,7 @@ function PlaylistGrid() {
           ))}
         </div>
       )}
-      {data && shown.length === 0 && !isLoading && (
+      {data && shown.length === 0 && !isLoading && filter && (
         <p className="mt-10 text-center text-sm text-muted-foreground">{filter ? t('spotify.noMatch') : t('spotify.empty')}</p>
       )}
       {!!data?.hidden && <p className="mt-8 text-center text-xs text-muted-foreground">{t('spotify.hidden', { count: data.hidden })}</p>}

@@ -536,6 +536,22 @@ def test_japanese_sheet_over_korean_vocals_is_the_wrong_sheet(monkeypatch, tmp_p
     assert not ls.sheet_is_wrong_language("t", "vocal.mp3")
 
 
+def test_english_words_over_mandarin_singing_is_the_wrong_sheet(monkeypatch, tmp_path):
+    from services import transcribe
+    lrc = tmp_path / "t.lrc"
+    lrc.write_text("\n".join(f"[00:{i:02d}.00]Sunrise moonlight to you I hold on tight" for i in range(10)), encoding="utf-8")
+    monkeypatch.setattr(ls, "read_meta", lambda tid: {"source": "ytmusic"})
+    monkeypatch.setattr(ls.r2, "local", lambda kind, tid: lrc)
+    monkeypatch.setattr(transcribe, "sung_language", lambda path: "zh")
+    assert ls.sheet_script_mismatch("t", "vocal.mp3")
+    monkeypatch.setattr(transcribe, "sung_language", lambda path: "en")
+    assert not ls.sheet_script_mismatch("t", "vocal.mp3")
+    # a sheet the person edited is theirs
+    monkeypatch.setattr(transcribe, "sung_language", lambda path: "zh")
+    monkeypatch.setattr(ls, "read_meta", lambda tid: {"source": "ytmusic", "edited": True})
+    assert not ls.sheet_script_mismatch("t", "vocal.mp3")
+
+
 def test_a_duet_singer_tag_on_its_own_line_is_not_a_lyric():
     for tag in ("男：", "女:", "合：", "【男】:", "男声："):
         assert wt.is_credit_line(tag)

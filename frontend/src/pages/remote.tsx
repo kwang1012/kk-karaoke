@@ -14,6 +14,7 @@ import SongCard from 'src/components/SongCard';
 import TrackQueue from 'src/components/TrackQueue';
 import ReportLyrics from 'src/components/ReportLyrics';
 import ProfileDialog from 'src/components/ProfileDialog';
+import VersionChoiceDialog from 'src/components/VersionChoiceDialog';
 import QueueOrderControls from 'src/components/QueueOrderControls';
 import { Button, IconButton } from 'src/components/ui/button';
 import { CircularProgress } from 'src/components/ui/progress';
@@ -608,7 +609,7 @@ export default function RemoteView() {
   const code = useRoomStore((state) => state.code);
   const leaveRoom = useRoomStore((state) => state.leaveRoom);
   const queueLength = usePlayerStore((state) => state.queue.slice(state.queueIdx + 1).filter((track) => !track.recommended).length);
-  const [tab, setTab] = useState<Tab>('now');
+  const [tab, setTab] = useState<Tab>(() => (new URLSearchParams(window.location.search).get('tab') === 'sing' ? 'sing' : 'now'));
   const [profileOpen, setProfileOpen] = useState(false);
   const avatar = useRoomStore((state) => state.avatar);
 
@@ -680,6 +681,7 @@ export default function RemoteView() {
         ))}
       </nav>
       <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
+      <VersionChoiceDialog />
       {/* owns the websocket queue listener, so it has to stay mounted even though it is not shown */}
       <Queue hidden />
     </div>

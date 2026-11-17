@@ -10,7 +10,9 @@ QueueOrder = Literal["shuffle", "orderers"]
 
 def order_queue(tracks: list[Track], current_idx: int, mode: QueueOrder) -> list[Track]:
     start = max(0, current_idx + 1)
-    upcoming = tracks[start:]
+    # Suggestions are not anyone's turn: they stay after every song people ordered.
+    upcoming = [t for t in tracks[start:] if not t.recommended]
+    suggested = [t for t in tracks[start:] if t.recommended]
     if mode == "shuffle":
         random.shuffle(upcoming)
     else:
@@ -32,4 +34,4 @@ def order_queue(tracks: list[Track], current_idx: int, mode: QueueOrder) -> list
             for key in orderers:
                 upcoming.append(groups[key].popleft())
             orderers = [key for key in orderers if groups[key]]
-    return tracks[:start] + upcoming
+    return tracks[:start] + upcoming + suggested

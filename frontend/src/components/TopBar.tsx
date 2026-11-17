@@ -1,6 +1,6 @@
 import { useTvMode } from 'src/hooks/tvMode';
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, LibraryBig, LogIn, LogOut, Settings, Share2, Trophy, Tv, UserPen, UserPlus, DoorOpen } from 'lucide-react';
+import { AudioLines, ChevronLeft, ChevronRight, LibraryBig, LogIn, LogOut, Settings, Share2, Trophy, Tv, UserPen, UserPlus, DoorOpen } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from 'src/lib/utils';
 import Logo from './Logo';
@@ -29,6 +29,7 @@ export default function TopBar() {
   const navigate = useNavigate();
   const onLibrary = useLocation().pathname.startsWith('/library');
   const onRanking = useLocation().pathname.startsWith('/ranking');
+  const onRecordings = useLocation().pathname.startsWith('/recordings');
   const { isTop, isBottom } = useHistoryBoundaries();
 
   const setSearching = useAppStore((state) => state.setSearching);
@@ -96,6 +97,18 @@ export default function TopBar() {
             )}
           >
             <Trophy className="size-5" />
+          </Link>
+        </Tooltip>
+        <Tooltip title={t('nav.recordings')} side="bottom">
+          <Link
+            to="/recordings"
+            aria-label={t('nav.recordings')}
+            className={cn(
+              'inline-flex items-center justify-center rounded-full p-2 transition-colors hover:bg-accent',
+              onRecordings && 'bg-primary/15 text-primary'
+            )}
+          >
+            <AudioLines className="size-5" />
           </Link>
         </Tooltip>
       </div>

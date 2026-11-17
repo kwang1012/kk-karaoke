@@ -154,6 +154,71 @@ def _seconds(length: Any) -> Optional[int]:
     return seconds
 
 
+STUDIO_MAX_DIFF_S = 45
+
+
+def studio_version(title: str, artists: list[str], duration_s: Optional[float], video_id: str) -> Optional[dict[str, Any]]:
+    """
+    The studio recording ("pure audio") of a video, as a track, or None when there is no confident one.
+
+    A video's own title and channel are unreliable (an upload is called "JJ Lin Stay With You Lyrics" by
+    "Bee Music"), so lyrics looked up by them can belong to another song. The studio cut has clean
+    metadata and YouTube Music's own timed lyrics. It must carry the video's artist and a title found in
+    the video's, and run within STUDIO_MAX_DIFF_S of it.
+    """
+    from services import lyrics_sources as ls  # imported late: it pulls in the heavy lyric stack
+
+    def core(text: str) -> str:
+        """The title without its credits and notes: "Stay With You (feat. Yanzi Sun)" is "Stay With You"."""
+        return ls._norm(re.sub(r"[(（\[【].*?[)）\]】]|\b(?:feat|ft)\b\.?.*$", "", text, flags=re.I))
+
+    folded_title = ls._norm(title)
+    core_title = core(title)
+    queries = [f"{name} {title}" for name in artists[:2] if name] or [title]
+    if title not in queries:
+        queries.append(title)
+    best: Optional[tuple[float, dict[str, Any]]] = None
+    for query in queries:
+        try:
+            hits = _ytm().search(query, filter="songs", limit=8)
+        except Exception as e:  # noqa: BLE001 - unofficial API
+            log.warning("YT Music studio lookup of %s failed: %r", video_id, e)
+            continue
+        for hit in hits:
+            vid, hit_title = hit.get("videoId"), hit.get("title") or ""
+            if not vid or vid == video_id or _kind(hit) != "song":
+                continue
+            folded_hit = core(hit_title)
+            if not folded_hit:
+                continue
+            names = [a["name"] for a in hit.get("artists") or [] if a.get("name")]
+            named_in_title = any(ls._norm(n) and ls._norm(n) in folded_title for n in names)
+            exact = folded_hit == core_title
+            # An upload's title wraps the song's ("JJ Lin 《穿越》Stay"): then the artist has to be named in
+            # it, or any song called "Stay" would do. A video's own artist is only trusted when it is a
+            # real one (the upload's channel is not).
+            if not (exact or (folded_hit in folded_title and named_in_title)):
+                continue
+            got = hit.get("duration_seconds")
+            diff = abs(got - duration_s) if got and duration_s else 0
+            if diff > STUDIO_MAX_DIFF_S:
+                continue
+            # The same artist written in another script ("JJ Lin", "林俊傑") counts only for the same title
+            # at nearly the same length: a Latin channel name against any CJK artist is no evidence.
+            other_script = exact and diff <= 15 and ls._artist_in_other_script(artists, names)
+            if not (ls._same_artist(artists, names) or named_in_title or other_script):
+                continue
+            # An exact title beats one the video's title merely contains; then the nearest length.
+            score = diff + (0 if exact else 100)
+            if best is None or score < best[0]:
+                track = to_track(hit, "song")
+                if track:
+                    best = (score, track)
+        if best and best[0] < 100:
+            break
+    return best[1] if best else None
+
+
 def related_tracks(video_id: str) -> list[dict[str, Any]]:
     """Songs YouTube Music's radio plays after this one (not the song itself). Empty when it is unavailable."""
     def fetch():

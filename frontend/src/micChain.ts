@@ -46,6 +46,10 @@ export default class MicChain {
     this.send.connect(this.reverb).connect(this.wet).connect(context.destination);
   }
 
+  get mediaStream(): MediaStream | null {
+    return this.stream ?? null;
+  }
+
   get running() {
     return !!this.stream;
   }

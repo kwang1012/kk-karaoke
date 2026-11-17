@@ -22,6 +22,9 @@ class SyncedAudioPlayer {
   private instrumentalSource?: AudioBufferSourceNode;
 
   private mic?: MicChain;
+  // recorded voices played along with the song (a duet being reviewed or played back); see setTakes
+  private takes: { buffer: AudioBuffer; at: number; gain: GainNode }[] = [];
+  private takeSources: AudioBufferSourceNode[] = [];
   protected vocalGain: GainNode;
   protected instrumentalGain: GainNode;
 
@@ -64,6 +67,49 @@ class SyncedAudioPlayer {
       this.instrumentalSource.disconnect();
       this.instrumentalSource = undefined;
     }
+    this.stopTakes();
+  }
+
+  private stopTakes() {
+    for (const source of this.takeSources) {
+      try {
+        source.stop();
+      } catch {
+        // never started: the song was past the end of this take
+      }
+      source.disconnect();
+    }
+    this.takeSources = [];
+  }
+
+  /** Decodes a recording (webm, mp4, ...) for setTakes. */
+  decodeTake(data: ArrayBuffer): Promise<AudioBuffer> {
+    return this.context.decodeAudioData(data);
+  }
+
+  /**
+   * Recorded voices to play with the song: each `buffer` begins `at` seconds into the song. Replaces any before;
+   * while playing, the change is heard at once (moving a take's `at` is how its timing is nudged by ear).
+   */
+  setTakes(takes: { buffer: AudioBuffer; at: number; volume?: number }[]) {
+    for (const take of this.takes) take.gain.disconnect();
+    this.takes = takes.map(({ buffer, at, volume = 1 }) => {
+      const gain = this.context.createGain();
+      gain.gain.value = volume;
+      gain.connect(this.context.destination);
+      return { buffer, at, gain };
+    });
+    if (this.isPlaying) this.seek(this.getCurrentTime());
+  }
+
+  /** How long, in seconds, the sound takes from this player to the speakers. */
+  outputDelay(): number {
+    return (this.context.outputLatency || 0) + (this.context.baseLatency || 0);
+  }
+
+  /** The microphone's own stream while it is open, to record from. */
+  micStream(): MediaStream | null {
+    return this.mic?.mediaStream ?? null;
   }
 
   stop() {
@@ -171,6 +217,17 @@ class SyncedAudioPlayer {
 
     this.vocalSource.start(when, offset);
     this.instrumentalSource.start(when, offset);
+
+    const begin = when || this.context.currentTime;
+    this.takeSources = this.takes.map(({ buffer, at, gain }) => {
+      const source = this.context.createBufferSource();
+      source.buffer = buffer;
+      source.connect(gain);
+      const into = offset - at; // how far into the take the song already is
+      if (into < 0) source.start(begin - into);
+      else if (into < buffer.duration) source.start(begin, into);
+      return source;
+    });
   }
 
   destroy() {
@@ -179,6 +236,8 @@ class SyncedAudioPlayer {
     this.stopAndCleanSources();
     this.mic?.destroy();
     this.mic = undefined;
+    for (const take of this.takes) take.gain.disconnect();
+    this.takes = [];
     this.vocalGain.disconnect();
     this.instrumentalGain.disconnect();
     this.vocalGain = undefined!;
@@ -230,6 +289,7 @@ class SyncedAudioPlayer {
     if (!this.isPlaying) return;
     this.vocalSource?.stop();
     this.instrumentalSource?.stop();
+    this.stopTakes();
     this.startOffset += Math.max(0, this.context.currentTime - this.startTime); // not yet started if scheduled
     this.isPlaying = false;
     this.onPlaybackChange?.(false);

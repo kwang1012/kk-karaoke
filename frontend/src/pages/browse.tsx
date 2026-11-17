@@ -17,7 +17,8 @@ import { useSettingStore } from 'src/store/setting';
 import { useDebouncedCallback } from 'src/hooks/debounce';
 import { useBreakpointDown } from 'src/hooks/media';
 import { cn } from 'src/lib/utils';
-import { useJam, useRoomStore } from 'src/store/room';
+import { useActiveRoomId, useJam, useRoomStore } from 'src/store/room';
+import { Track } from 'src/models/spotify';
 import { useT, type TranslationKey } from 'src/i18n';
 import { chartLabels, PROVIDER_COLOR, PROVIDER_LOGO, type ChartSource } from 'src/utils/charts';
 import { publicUrl } from 'src/utils/publicUrl';
@@ -98,6 +99,29 @@ function ProviderMark({ source, className }: { source: string; className?: strin
   );
 }
 
+/** A titled row of songs that can be queued with one tap. */
+function SongShelf({ title, hint, tracks, onAdd, onInsert }: {
+  title: string;
+  hint?: string;
+  tracks: Track[];
+  onAdd: (track: Track) => void;
+  onInsert: (track: Track) => void;
+}) {
+  return (
+    <section className="mt-8 px-4 md:px-8">
+      <div className="mb-2">
+        <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+        {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
+      </div>
+      <div className="grid gap-x-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        {tracks.map((track) => (
+          <SongCard key={track.id} track={track} className="px-1" onAdd={onAdd} onInsert={onInsert} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export const topCategoriesQuery = { queryKey: ['categories'], queryFn: fetchTopCategories };
 
 const greetingKey = (): TranslationKey => {
@@ -129,6 +153,25 @@ export function MainView() {
   const onAdd = useDebouncedCallback(addSongToQueue, 100);
   const onInsert = useDebouncedCallback(insertSongToQueue, 100);
   const [language, setLanguage] = useState<string>('all');
+  const [searchText, setSearchText] = useState('');
+  const roomId = useActiveRoomId();
+  const queueLength = usePlayerStore((state) => state.queue.length);
+  const shelfSize = mobile ? 4 : 8;
+
+  // What this singer has sung before, for singing again, and songs that go with it or with tonight's queue.
+  const { data: history } = useQuery({
+    queryKey: ['history', roomId],
+    queryFn: () => api.get(`/queue/${roomId}/history`, { params: { limit: 24 } }).then(({ data }) => (data.tracks ?? []) as Track[]),
+    staleTime: 60_000,
+  });
+  const { data: picks } = useQuery({
+    queryKey: ['recommendations', roomId, queueLength > 0],
+    queryFn: () =>
+      api.get(`/queue/${roomId}/recommendations`, { params: { limit: 12 } }).then(({ data }) => data as { source: string; tracks: Track[] }),
+    staleTime: 60_000,
+  });
+  const singAgain = (history ?? []).slice(0, shelfSize);
+  const pickedTracks = picks && picks.source !== 'random' ? picks.tracks.slice(0, shelfSize) : [];
 
   // Songs that are already processed can be sung right away, so they are the best recommendation.
   const readyList = useMemo(() => {
@@ -196,16 +239,38 @@ export function MainView() {
               <Button className="bg-white text-black shadow-none hover:bg-white/90" onClick={() => getRandomTracks()}>
                 <Shuffle /> {t('home.surprise')}
               </Button>
-              <Button
-                variant="ghost"
-                className="bg-white/15 text-white hover:bg-white/25 hover:text-white"
-                onClick={() => navigate('/search')}
-              >
-                <Search /> {t('home.searchSongs')}
-              </Button>
             </div>
+            <form
+              className="mt-3 flex h-12 max-w-md items-center gap-2 rounded-full bg-white px-4 text-black shadow-sm focus-within:ring-4 focus-within:ring-white/30"
+              onSubmit={(e) => {
+                e.preventDefault();
+                navigate(searchText.trim() ? `/search?q=${encodeURIComponent(searchText.trim())}` : '/search');
+              }}
+            >
+              <Search className="size-4 shrink-0 text-black/50" />
+              <input
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                placeholder={t('home.searchPlaceholder')}
+                aria-label={t('search.title')}
+                className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-black/50"
+              />
+            </form>
           </div>
         </div>
+
+        {singAgain.length > 0 && (
+          <SongShelf title={t('home.singAgain')} hint={t('home.singAgainHint')} tracks={singAgain} onAdd={onAdd} onInsert={onInsert} />
+        )}
+        {pickedTracks.length > 0 && (
+          <SongShelf
+            title={picks?.source === 'jam' ? t('home.pickedJam') : t('home.pickedYou')}
+            hint={picks?.source === 'jam' ? t('home.pickedJamHint') : t('home.pickedYouHint')}
+            tracks={pickedTracks}
+            onAdd={onAdd}
+            onInsert={onInsert}
+          />
+        )}
 
         {/* Ready to sing */}
         {readyList.length > 0 && (

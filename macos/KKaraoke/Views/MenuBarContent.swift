@@ -10,6 +10,7 @@ struct MenuBarContent: View {
   @Environment(\.dismiss) private var dismiss
   @State private var scrubbing: Double?
   @State private var dragging = false
+  @State private var volumeBeforeMute = 0.8
 
   var body: some View {
     @Bindable var player = player
@@ -65,8 +66,20 @@ struct MenuBarContent: View {
             .help(singing.micOn ? "Turn microphone off" : "Turn microphone on")
           }
           HStack(spacing: 10) {
-            LucideIcon(player.masterVolume == 0 ? "volume-x" : "volume-2", size: 16)
-              .foregroundStyle(.secondary)
+            Button {
+              if player.masterVolume > 0 {
+                volumeBeforeMute = player.masterVolume
+                player.masterVolume = 0
+              } else {
+                player.masterVolume = volumeBeforeMute
+              }
+            } label: {
+              LucideIcon(player.masterVolume == 0 ? "volume-x" : "volume-2", size: 16)
+                .foregroundStyle(.secondary).frame(width: 22, height: 22)
+            }
+            .buttonStyle(.plain).stableCursor(.link)
+            .help(player.masterVolume == 0 ? "Unmute" : "Mute")
+            .accessibilityLabel(player.masterVolume == 0 ? "Unmute" : "Mute")
             Slider(value: $player.masterVolume, in: 0...1).stableCursor(.link).controlSize(.mini).accessibilityLabel(
               "Volume")
             Text("\(Int(player.masterVolume * 100))%")

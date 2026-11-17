@@ -6,6 +6,9 @@ struct PlayerBar: View {
   @State private var volumeBeforeMute = 0.8
   @Environment(PlayerModel.self) private var player
   @Environment(RoomModel.self) private var room
+  @Environment(SpotifyTakeover.self) private var spotify
+  /// Following Spotify with nothing of ours playing yet: play still starts the song Spotify is on.
+  private var spotifyIdle: Bool { room.followsSpotify && room.currentTrack == nil }
   @State private var scrubbing: Double?
   @State private var dragging = false
   @State private var showMixer = false
@@ -51,26 +54,26 @@ struct PlayerBar: View {
             )
             .disabled(player.track == nil)
             Button {
-              player.toggle()
+              if spotifyIdle { spotify.playPressed() } else { player.toggle() }
             } label: {
               LucideIcon(player.isPlaying ? "pause" : "play", size: 20)
                 .foregroundStyle(.white).frame(width: 40, height: 40)
                 .background(
-                  player.status == .ready ? AppTheme.accent : Color.secondary.opacity(0.3),
+                  player.status == .ready || spotifyIdle ? AppTheme.accent : Color.secondary.opacity(0.3),
                   in: Circle())
             }
             .buttonStyle(.plain).stableCursor(.link).keyboardShortcut(.space, modifiers: [])
             .help(player.isPlaying ? "Pause" : "Play").accessibilityLabel(
               player.isPlaying ? "Pause" : "Play"
             )
-            .disabled(player.status != .ready)
+            .disabled(player.status != .ready && !spotifyIdle)
             Button {
               player.perform(.next)
             } label: {
               LucideIcon("skip-forward", size: 18)
             }
             .buttonStyle(WebIconButtonStyle()).help("Next song").accessibilityLabel("Next song")
-            .disabled(player.track == nil)
+            .disabled(player.track == nil && !room.followsSpotify)
           }
           scrubber
         }

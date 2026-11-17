@@ -75,6 +75,7 @@ enum SpotifyApp {
   static func setVolume(_ value: Int) throws { try run("set sound volume to \(min(100, max(0, value)))") }
   static func pause() throws { try run("pause") }
   static func play() throws { try run("play") }
+  static func playPause() throws { try run("playpause") }
   /// Moves Spotify to its next song and has it start. Whether a paused Spotify starts the song it skips to varies, and
   /// this must announce the new song either way, so it is asked to play (it is silent: its volume is 0 while held).
   static func next() throws { try run("next track\nplay") }
@@ -285,12 +286,14 @@ final class SpotifyTakeover {
     status = .matching(track.name)
     now = Now(spotify: track, match: nil, stage: .matching, artwork: artwork)
     room?.setSpotifySong(nil) // the last song stops while this one is looked up
-    do { try holdSpotify() } catch {
+    // Spotify's queue is only reported while it plays: it is silenced at once, and paused once the queue has been read
+    let readsQueue = isEnabled && web.isConnected
+    do { try holdSpotify(pause: !readsQueue) } catch {
       status = .problem(error.localizedDescription)
       now = Now(spotify: track, match: nil, stage: .failed, artwork: artwork)
       return
     }
-    refreshAhead()
+    refreshAhead(thenPause: readsQueue)
     matching = Task { [weak self] in
       guard let self else { return }
       var found: SongMatch? = readyMatches[track.id]
@@ -322,7 +325,7 @@ final class SpotifyTakeover {
 
   /// Reads what Spotify has queued (once the Web API is connected), looks up the first few songs and starts preparing the
   /// ones that are not ready, and downloads the ready ones' audio, so each is there when its turn comes.
-  func refreshAhead() {
+  func refreshAhead(thenPause: Bool = false) {
     aheadTask?.cancel()
     guard isEnabled, web.isConnected else {
       ahead = []
@@ -332,7 +335,12 @@ final class SpotifyTakeover {
     aheadTask = Task { [weak self] in
       guard let self else { return }
       do {
-        let queued = Array(try await web.upcoming().prefix(5))
+        var read: [SpotifyQueued] = []
+        var failure: Error?
+        do { read = try await web.upcoming() } catch { failure = error }
+        if thenPause, !Task.isCancelled { try? SpotifyApp.pause() } // held now; the rest can take its time
+        if let failure { throw failure }
+        let queued = Array(read.prefix(5))
         guard !Task.isCancelled else { return }
         ahead = queued.map { item in
           let known = readyMatches[item.track.id]
@@ -383,12 +391,24 @@ final class SpotifyTakeover {
   }
 
   /// Silences and pauses Spotify, remembering the volume the person had.
-  private func holdSpotify() throws {
+  private func holdSpotify(pause: Bool = true) throws {
     if defaults.object(forKey: Keys.volume) == nil {
       let volume = try SpotifyApp.volume()
       defaults.set(volume > 0 ? volume : 60, forKey: Keys.volume)
     }
-    try SpotifyApp.muteAndPause()
+    if pause { try SpotifyApp.muteAndPause() } else { try SpotifyApp.setVolume(0) }
+  }
+
+  /// Play pressed here while nothing of ours is playing: start the song Spotify is on, instead of leaving the button dead.
+  func playPressed() {
+    guard isEnabled else { return }
+    if let now, let held = spotifyTrack, now.spotify == held {
+      try? SpotifyApp.playPause() // Spotify is playing it itself (no karaoke version yet)
+    } else if let now {
+      begin(now.spotify, artwork: now.artwork) // Spotify is paused on it
+    } else {
+      try? SpotifyApp.play() // Spotify has nothing: its announcement brings the song
+    }
   }
 
   /// No karaoke version: Spotify plays this one itself.

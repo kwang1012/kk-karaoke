@@ -15,6 +15,10 @@ struct QueueView: View {
   var onSearch: () -> Void = {}
 
   var body: some View {
+    if room.followsSpotify { SpotifyPanel(onClose: onClose) } else { queue }
+  }
+
+  private var queue: some View {
     VStack(spacing: 0) {
       HStack {
         Text("Queue").font(.system(size: 18, weight: .semibold))

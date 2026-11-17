@@ -66,8 +66,33 @@ final class RoomModel {
         queue.filter { if let status = $0.status { return status != "ready" && status != "failed" && status != "error" } else { return false } }.count
     }
     private(set) var queueIdx = -1
-    var currentTrack: Track? { queue.indices.contains(queueIdx) ? queue[queueIdx] : nil }
-    var upcoming: [Track] { queueIdx + 1 < queue.count ? Array(queue[(queueIdx + 1)...]) : [] }
+    var currentTrack: Track? {
+        if followsSpotify { return spotifySong }
+        return queue.indices.contains(queueIdx) ? queue[queueIdx] : nil
+    }
+    var upcoming: [Track] { !followsSpotify && queueIdx + 1 < queue.count ? Array(queue[(queueIdx + 1)...]) : [] }
+
+    /// While this Mac follows Spotify there is no queue: Spotify chooses every song, and `spotifySong` is the one it is
+    /// on (nil while Spotify plays one that has no karaoke version). The room's own queue is left alone, and ignored.
+    private(set) var followsSpotify = false
+    private(set) var spotifySong: Track?
+
+    func followSpotify(_ on: Bool) {
+        guard on != followsSpotify else { return }
+        followsSpotify = on
+        spotifySong = nil
+        wantsPlay = false
+        queueChanged()
+    }
+
+    /// Plays `song` as what Spotify is on (nil: nothing of ours plays).
+    func setSpotifySong(_ song: Track?) {
+        guard followsSpotify, !isFollowing else { return }
+        spotifySong = song
+        wantsPlay = song != nil
+        queueChanged()
+        publish(force: true, full: true)
+    }
 
     /// Whether the next song should start by itself: the last one was playing, or the person asked for play.
     @ObservationIgnored private(set) var wantsPlay = false
@@ -392,6 +417,11 @@ final class RoomModel {
     func playNow(_ track: Track) { Task { await add(track, next: true, thenPlay: true) } }
 
     private func add(_ picked: Track, next: Bool, thenPlay: Bool) async {
+        if followsSpotify {
+            // no queue to add to: a song picked here plays now, and Spotify goes on from it when it ends
+            if thenPlay { setSpotifySong(picked) } else { message = tr("KKaraoke is following Spotify, so songs are chosen in Spotify. Stop following in Settings to use the queue.") }
+            return
+        }
         guard let client = clientProvider?() else { return }
         guard let track = await chooseVersion(picked, client: client) else { return }
         // the first song into an empty queue starts by itself
@@ -559,7 +589,7 @@ final class RoomModel {
 
     private func preloadNeighbors() {
         guard let player, let client = clientProvider?() else { return }
-        let neighbors = !isFollowing && currentTrack != nil
+        let neighbors = !isFollowing && !followsSpotify && currentTrack != nil
             ? [queueIdx + 1, queueIdx - 1].filter { queue.indices.contains($0) }.map { queue[$0] }
             : []
         player.preload(neighbors, using: client)
@@ -582,11 +612,13 @@ final class RoomModel {
     private func socketSend(_ message: SocketMessage, if condition: Bool) { if condition { socket.send(message) } }
 
     private func goNext() async {
+        if followsSpotify { player?.perform(.pause, fromRemote: true); wantsPlay = false; publish(force: true, full: true); return }
         guard queueIdx + 1 < queue.count else { player?.perform(.pause, fromRemote: true); wantsPlay = false; publish(force: true, full: true); return }
         await setIndex(queueIdx + 1, announce: .next)
     }
 
     private func goPrevious() async {
+        if followsSpotify { player?.perform(.seek(0), fromRemote: true); publish(force: true, full: true); return }
         // a few seconds in, "previous" starts the song again, as every player does
         if let player, player.currentTime > 3 || queueIdx <= 0 { player.perform(.seek(0), fromRemote: true); publish(force: true, full: true); return }
         await setIndex(queueIdx - 1, announce: .previous)

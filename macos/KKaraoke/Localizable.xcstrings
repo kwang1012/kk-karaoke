@@ -5998,6 +5998,74 @@
           }
         }
       }
+    },
+    "Spotify" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spotify"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spotify"
+          }
+        }
+      }
+    },
+    "Playing in Spotify" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在 Spotify 播放"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在 Spotify 播放"
+          }
+        }
+      }
+    },
+    "KKaraoke is following Spotify. Spotify chooses the songs: play, skip or pick them there. Each one plays here without the vocals once its karaoke version is ready." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "KKaraoke 正在跟隨 Spotify。歌曲由 Spotify 決定：請在 Spotify 播放、跳過或選歌。每首歌的卡拉 OK 版本準備好後，會在這裡以去人聲的方式播放。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "KKaraoke 正在跟随 Spotify。歌曲由 Spotify 决定：请在 Spotify 播放、跳过或选歌。每首歌的卡拉 OK 版本准备好后，会在这里以去人声的方式播放。"
+          }
+        }
+      }
+    },
+    "Stop following" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止跟隨"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止跟随"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"

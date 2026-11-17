@@ -22,7 +22,7 @@ final class WidgetBridge {
 
   private func observe(player: PlayerModel, room: RoomModel) {
     withObservationTracking {
-      _ = (player.track?.id, player.isPlaying, room.queue, room.queueIdx)
+      _ = (player.track?.id, player.isPlaying, room.queue, room.queueIdx, room.followsSpotify)
     } onChange: { [weak self] in
       // called just before the change lands: look again once it has
       Task { @MainActor in
@@ -43,7 +43,7 @@ final class WidgetBridge {
   func update(player: PlayerModel, room: RoomModel) {
     var snapshot = WidgetSnapshot(
       title: player.track?.name, artist: player.track?.artistText, isPlaying: player.isPlaying)
-    let after = room.queue.dropFirst(max(0, room.queueIdx + 1))
+    let after = room.upcoming
     snapshot.nextTitle = after.first?.name
     snapshot.upNext = after.count
     snapshot.updatedAt = last?.updatedAt ?? snapshot.updatedAt

@@ -21,6 +21,21 @@ struct SpotifyTests {
     #expect(SpotifyEvent(userInfo: nil) == nil)
   }
 
+  @Test func followingSpotifyHasNoQueueOfItsOwn() {
+    let room = RoomModel(defaults: UserDefaults(suiteName: "test.room.\(UUID().uuidString)")!)
+    room.attach(player: PlayerModel(), singing: SingingModel()) { nil }
+    room.apply(queue: QueueSnapshot(tracks: [Track(id: "a", name: "A", timeAdded: 1), Track(id: "b", name: "B", timeAdded: 2)], index: 0))
+    #expect(room.currentTrack?.id == "a" && room.upcoming.count == 1)
+    room.followSpotify(true)
+    #expect(room.currentTrack == nil && room.upcoming.isEmpty)
+    room.setSpotifySong(Track(id: "s", name: "From Spotify"))
+    #expect(room.currentTrack?.id == "s" && room.upcoming.isEmpty)
+    room.apply(queue: QueueSnapshot(tracks: [Track(id: "c", name: "C", timeAdded: 3)], index: 0)) // the room's queue changes: ignored
+    #expect(room.currentTrack?.id == "s")
+    room.followSpotify(false)
+    #expect(room.currentTrack?.id == "c")
+  }
+
   @Test func whenOffNothingIsTakenOver() {
     let suite = UserDefaults(suiteName: "test.spotify.\(UUID().uuidString)")!
     let takeover = SpotifyTakeover(defaults: suite)

@@ -105,20 +105,9 @@ private struct SpotifySettings: View {
         title: "Sing what Spotify plays",
         detail: "Spotify keeps choosing the songs. KKaraoke plays each one without the vocals, with lyrics, and Spotify is silenced meanwhile. Songs with no karaoke version yet play in Spotify, and are prepared for next time.",
         isOn: $spotify.isEnabled)
-      if let line = status {
+      if let line = spotify.statusText {
         SettingsRow(title: "Now", detail: nil) { Text(line).font(.system(size: 12)).foregroundStyle(.secondary).multilineTextAlignment(.trailing) }
       }
-    }
-  }
-
-  private var status: String? {
-    switch spotify.status {
-    case .off: nil
-    case .waiting: tr("Waiting for Spotify to play something.")
-    case .matching(let name): tr("Looking up \(name)…")
-    case .singing(let name): tr("Singing \(name)")
-    case .spotifyPlays(let why): why
-    case .problem(let message): message
     }
   }
 }

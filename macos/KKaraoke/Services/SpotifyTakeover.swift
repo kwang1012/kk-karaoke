@@ -134,11 +134,23 @@ final class SpotifyTakeover {
     isEnabled = defaults.bool(forKey: Keys.enabled)
   }
 
+  /// What this is doing, in words.
+  var statusText: String? {
+    switch status {
+    case .off: nil
+    case .waiting: tr("Waiting for Spotify to play something.")
+    case .matching(let name): tr("Looking up \(name)…")
+    case .singing(let name): tr("Singing \(name)")
+    case .spotifyPlays(let why): why
+    case .problem(let message): message
+    }
+  }
+
   func attach(player: PlayerModel, room: RoomModel, client: @escaping @MainActor () -> APIClient?) {
     self.player = player
     self.room = room
     clientProvider = client
-    room.nextOverride = { [weak self] upcoming in self?.skipToSpotifysNext(upcoming: upcoming) ?? false }
+    room.nextOverride = { [weak self] _ in self?.skip() ?? false }
     if isEnabled { start() } else { restoreVolume() } // a crash while singing would have left Spotify silent
   }
 
@@ -146,6 +158,7 @@ final class SpotifyTakeover {
 
   private func start() {
     guard observer == nil else { return }
+    room?.followSpotify(true)
     status = .waiting
     observer = DistributedNotificationCenter.default().addObserver(forName: SpotifyApp.notification, object: nil, queue: .main) { [weak self] note in
       let event = SpotifyEvent(userInfo: note.userInfo)
@@ -159,6 +172,7 @@ final class SpotifyTakeover {
     observer = nil
     matching?.cancel()
     spotifyTrack = nil
+    room?.followSpotify(false)
     restoreVolume()
     status = .off
   }
@@ -216,7 +230,7 @@ final class SpotifyTakeover {
       }
       guard !Task.isCancelled, spotifyTrack == track else { return } // the person moved on while this was looked up
       status = outcome
-      if let found { room?.playNow(found) } else { letSpotifyPlay() }
+      if let found { room?.setSpotifySong(found) } else { room?.setSpotifySong(nil); letSpotifyPlay() }
     }
   }
 
@@ -235,11 +249,10 @@ final class SpotifyTakeover {
     try? SpotifyApp.play()
   }
 
-  /// A song ended, or someone pressed next. Songs people ordered play first; after those (or when only suggestions
-  /// are left) Spotify chooses. True when Spotify has been asked.
-  private func skipToSpotifysNext(upcoming: Track?) -> Bool {
-    guard isEnabled, case .singing = status else { return false }
-    if let upcoming, !upcoming.recommended { return false }
+  /// Moves on to Spotify's next song: the Next button, and the end of a song. There is no queue of our own to consult.
+  @discardableResult
+  func skip() -> Bool {
+    guard isEnabled else { return false }
     do { try SpotifyApp.next() } catch {
       status = .problem(error.localizedDescription)
       return false

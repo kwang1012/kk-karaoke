@@ -30,6 +30,7 @@ struct KKaraokeApp: App {
         .environment(cast)
         .environment(ready)
         .environment(spotify)
+        .onOpenURL { spotify.web.handle($0) } // Spotify sends the browser back here once it is allowed
         .environmentObject(updater)
         .frame(minWidth: 1100, minHeight: 600)
         .modifier(FloatingLyricsOnMinimize())
@@ -80,6 +81,7 @@ struct KKaraokeApp: App {
           }
         }
     }
+    .handlesExternalEvents(matching: ["*"]) // a link opened in this app uses the open window rather than a new one
     .defaultSize(width: 1280, height: 820)
     .windowStyle(.hiddenTitleBar)
     .windowToolbarStyle(.unified)

@@ -54,3 +54,40 @@ struct SpotifyTests {
     #expect(asked.count == 1)
   }
 }
+
+@MainActor
+struct SpotifyWebTests {
+  @Test func theProofKeyMatchesTheRFCExample() {
+    // RFC 7636, appendix B
+    #expect(SpotifyPKCE.challenge(for: "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk") == "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM")
+    #expect(SpotifyPKCE.verifier().count >= 43)
+  }
+
+  @Test func theSignInPageAsksForPlaybackStateWithTheProofKey() {
+    let url = SpotifyWebAuth().authorizationURL(verifier: "v", state: "s")
+    let query = URLComponents(url: url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+    func value(_ name: String) -> String? { query.first { $0.name == name }?.value }
+    #expect(url?.host == "accounts.spotify.com")
+    #expect(value("redirect_uri") == "kkaraoke://spotify" && value("code_challenge_method") == "S256" && value("state") == "s")
+    #expect(value("scope")?.contains("user-read-playback-state") == true)
+  }
+
+  @Test func theQueueKeepsOnlyTracks() {
+    let json = """
+      {"currently_playing": {"uri": "spotify:track:now"}, "queue": [
+        {"type": "track", "uri": "spotify:track:a", "name": "A", "artists": [{"name": "X"}, {"name": "Y"}]},
+        {"type": "episode", "uri": "spotify:episode:e", "name": "Talk", "artists": []},
+        {"type": "track", "uri": "spotify:track:b", "name": "B", "artists": [{"name": "Z"}]}]}
+      """
+    let queue = SpotifyWebAuth.parseQueue(Data(json.utf8))
+    #expect(queue.map(\.id) == ["spotify:track:a", "spotify:track:b"])
+    #expect(queue.first?.artist == "X, Y")
+  }
+
+  @Test func aLinkFromSomewhereElseIsNotTheSignIn() {
+    let auth = SpotifyWebAuth()
+    #expect(!auth.handle(URL(string: "https://example.com")!))
+    #expect(auth.handle(URL(string: "kkaraoke://spotify?code=x&state=unknown")!)) // ours to read, but not a sign-in we started
+    #expect(!auth.isConnecting && auth.message == nil) // nothing was started, so a stranger's code changes nothing
+  }
+}

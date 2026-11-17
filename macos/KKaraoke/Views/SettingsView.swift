@@ -105,6 +105,23 @@ private struct SpotifySettings: View {
         title: "Sing what Spotify plays",
         detail: "Spotify keeps choosing the songs. KKaraoke plays each one without the vocals, with lyrics, and Spotify is silenced meanwhile. Songs with no karaoke version yet play in Spotify, and are prepared for next time.",
         isOn: $spotify.isEnabled)
+      SettingsRow(
+        title: "Spotify account",
+        detail: "Lets KKaraoke see what is coming up in Spotify, to get those songs ready ahead of time. Needs Spotify Premium."
+      ) {
+        HStack(spacing: 10) {
+          if spotify.web.isConnecting { ProgressView().controlSize(.small) }
+          if spotify.web.isConnected {
+            Text("Connected").font(.system(size: 12)).foregroundStyle(.secondary)
+            Button("Disconnect") { spotify.web.disconnect(); spotify.refreshAhead() }.buttonStyle(.secondary)
+          } else {
+            Button("Connect") { spotify.web.connect() }.buttonStyle(.secondary)
+          }
+        }
+      }
+      if let message = spotify.web.message {
+        SettingsRow(title: "Spotify account", detail: nil) { Text(message).font(.system(size: 12)).foregroundStyle(.red).multilineTextAlignment(.trailing) }
+      }
       if let line = spotify.statusText {
         SettingsRow(title: "Now", detail: nil) { Text(line).font(.system(size: 12)).foregroundStyle(.secondary).multilineTextAlignment(.trailing) }
       }

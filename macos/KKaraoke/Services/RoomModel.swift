@@ -77,10 +77,18 @@ final class RoomModel {
     private(set) var followsSpotify = false
     private(set) var spotifySong: Track?
 
+    /// Songs Spotify has queued that are ready to sing: their audio and lyrics are downloaded ahead of their turn.
+    private(set) var prefetch: [Track] = []
+    func setSpotifyPrefetch(_ tracks: [Track]) {
+        prefetch = tracks
+        preloadNeighbors()
+    }
+
     func followSpotify(_ on: Bool) {
         guard on != followsSpotify else { return }
         followsSpotify = on
         spotifySong = nil
+        prefetch = []
         wantsPlay = false
         queueChanged()
     }
@@ -590,9 +598,14 @@ final class RoomModel {
 
     private func preloadNeighbors() {
         guard let player, let client = clientProvider?() else { return }
-        let neighbors = !isFollowing && !followsSpotify && currentTrack != nil
-            ? [queueIdx + 1, queueIdx - 1].filter { queue.indices.contains($0) }.map { queue[$0] }
-            : []
+        let neighbors: [Track]
+        if followsSpotify {
+            neighbors = isFollowing ? [] : prefetch
+        } else {
+            neighbors = !isFollowing && currentTrack != nil
+                ? [queueIdx + 1, queueIdx - 1].filter { queue.indices.contains($0) }.map { queue[$0] }
+                : []
+        }
         player.preload(neighbors, using: client)
     }
 

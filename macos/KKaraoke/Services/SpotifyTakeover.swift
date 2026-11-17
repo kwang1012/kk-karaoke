@@ -120,10 +120,25 @@ final class SpotifyTakeover {
     var stage: Stage
   }
 
+  /// A song Spotify has queued, and whether its karaoke version is ready.
+  struct Ahead: Identifiable, Equatable {
+    var spotify: SpotifyTrack
+    var match: Track?
+    var stage: Now.Stage
+    var id: String { spotify.id }
+  }
+
+  /// How many of Spotify's queued songs are looked up, and started on if they are not ready, ahead of their turn.
+  static let lookahead = 3
+
   private enum Keys { static let enabled = "spotifyTakeover", volume = "spotifyVolumeToRestore" }
 
   private(set) var status: Status = .off
   private(set) var now: Now?
+  private(set) var ahead: [Ahead] = []
+  private(set) var aheadMessage: String?
+  /// Signing in to Spotify's Web API, which is what shows the queue.
+  let web = SpotifyWebAuth()
   var isEnabled: Bool {
     didSet {
       guard isEnabled != oldValue else { return }
@@ -141,6 +156,9 @@ final class SpotifyTakeover {
   @ObservationIgnored private var spotifyTrack: SpotifyTrack?
   @ObservationIgnored private var matching: Task<Void, Never>?
   @ObservationIgnored private var readiness: Task<Void, Never>?
+  @ObservationIgnored private var aheadTask: Task<Void, Never>?
+  /// Matches that were ready: a song is looked up once.
+  @ObservationIgnored private var readyMatches: [String: SongMatch] = [:]
   @ObservationIgnored private var beganAt = Date.distantPast
 
   init(defaults: UserDefaults = .standard) {
@@ -186,6 +204,8 @@ final class SpotifyTakeover {
     observer = nil
     matching?.cancel()
     readiness?.cancel()
+    aheadTask?.cancel()
+    ahead = []
     spotifyTrack = nil
     now = nil
     room?.followSpotify(false)
@@ -243,16 +263,20 @@ final class SpotifyTakeover {
       now = Now(spotify: track, match: nil, stage: .failed)
       return
     }
+    refreshAhead()
     matching = Task { [weak self] in
       guard let self else { return }
-      var found: SongMatch?
+      var found: SongMatch? = readyMatches[track.id]
       var failure: String?
-      do {
-        guard let client = clientProvider?() else { throw APIError.badURL }
-        found = try await client.matchSong(title: track.name, artist: track.artist, process: true)
-      } catch { failure = error.localizedDescription }
+      if found == nil {
+        do {
+          guard let client = clientProvider?() else { throw APIError.badURL }
+          found = try await client.matchSong(title: track.name, artist: track.artist, process: true)
+        } catch { failure = error.localizedDescription }
+      }
       guard !Task.isCancelled, spotifyTrack == track else { return } // the person moved on while this was looked up
       if let match = found, let song = match.track, match.ready {
+        readyMatches[track.id] = match
         now = Now(spotify: track, match: song, stage: .singing)
         status = .singing(song.name)
         room?.setSpotifySong(song)
@@ -265,6 +289,45 @@ final class SpotifyTakeover {
         now = Now(spotify: track, match: nil, stage: failure == nil ? .missing : .failed)
         status = .spotifyPlays(failure ?? tr("No karaoke version found for \(track.name)."))
         letSpotifyPlay()
+      }
+    }
+  }
+
+  /// Reads what Spotify has queued (once the Web API is connected), looks up the first few songs and starts preparing the
+  /// ones that are not ready, and downloads the ready ones' audio, so each is there when its turn comes.
+  func refreshAhead() {
+    aheadTask?.cancel()
+    guard isEnabled, web.isConnected else {
+      ahead = []
+      room?.setSpotifyPrefetch([])
+      return
+    }
+    aheadTask = Task { [weak self] in
+      guard let self else { return }
+      do {
+        let queued = Array(try await web.upcoming().prefix(5))
+        guard !Task.isCancelled else { return }
+        ahead = queued.map { item in
+          let known = readyMatches[item.id]
+          return Ahead(spotify: item, match: known?.track, stage: known == nil ? .matching : .singing)
+        }
+        aheadMessage = nil
+        for item in queued.prefix(Self.lookahead) {
+          var match = readyMatches[item.id]
+          if match == nil, let client = clientProvider?() {
+            match = try? await client.matchSong(title: item.name, artist: item.artist, process: true)
+          }
+          guard !Task.isCancelled else { return }
+          if let match, match.ready { readyMatches[item.id] = match }
+          if let index = ahead.firstIndex(where: { $0.id == item.id }) {
+            ahead[index].match = match?.track
+            ahead[index].stage = match?.track == nil ? .missing : (match?.ready == true ? .singing : .preparing)
+          }
+          room?.setSpotifyPrefetch(ahead.compactMap { $0.stage == .singing ? $0.match : nil })
+        }
+      } catch {
+        guard !Task.isCancelled else { return }
+        aheadMessage = error.localizedDescription
       }
     }
   }

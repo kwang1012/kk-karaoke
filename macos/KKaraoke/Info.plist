@@ -18,6 +18,17 @@
   <array>
     <string>_googlecast._tcp</string>
   </array>
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLName</key>
+      <string>app.kkaraoke.KKaraoke</string>
+      <key>CFBundleURLSchemes</key>
+      <array>
+        <string>kkaraoke</string>
+      </array>
+    </dict>
+  </array>
   <key>NSAppleEventsUsageDescription</key>
   <string>KKaraoke pauses Spotify and asks it for the next song, so it can play the karaoke version of what Spotify is playing.</string>
   <key>NSLocalNetworkUsageDescription</key>

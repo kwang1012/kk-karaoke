@@ -15,8 +15,9 @@ struct NowPlayingProvider: TimelineProvider {
     completion(NowPlayingEntry(date: .now, snapshot: WidgetSnapshot.load()))
   }
   func getTimeline(in context: Context, completion: @escaping (Timeline<NowPlayingEntry>) -> Void) {
-    // The app asks for a reload whenever the song or queue changes.
-    completion(Timeline(entries: [NowPlayingEntry(date: .now, snapshot: WidgetSnapshot.load())], policy: .never))
+    // The app asks for a reload whenever the song or queue changes. If that request is ever lost (the system throttles
+    // or drops it), the widget would show an old song until something else woke it: read the file again now and then.
+    completion(Timeline(entries: [NowPlayingEntry(date: .now, snapshot: WidgetSnapshot.load())], policy: .after(.now.addingTimeInterval(10 * 60))))
   }
 }
 

@@ -74,12 +74,22 @@ private struct SwitchRow: View {
 
 private struct GeneralSettings: View {
   @AppStorage("showMenuBar") private var showMenuBar = true
+  @AppStorage(RoomModel.versionModeKey) private var versionMode = RoomModel.VersionMode.ask.rawValue
   var body: some View {
     SettingsSection(title: "General") {
       SettingsRow(title: "Server", detail: LocalizedStringKey(AppModel.webApp.host() ?? "kkaraoke.app")) {
         ConnectionBadge().fixedSize()
       }
       SwitchRow(title: "Show KKaraoke in the menu bar", detail: nil, isOn: $showMenuBar)
+      SettingsRow(title: "Music videos", detail: "A video's lyrics can come out wrong. Its studio recording has accurate ones.") {
+        AppSelect(
+          label: "Music videos", selection: $versionMode,
+          options: [
+            SelectOption(value: RoomModel.VersionMode.ask.rawValue, title: "Ask which version"),
+            SelectOption(value: RoomModel.VersionMode.studio.rawValue, title: "Use the studio audio"),
+            SelectOption(value: RoomModel.VersionMode.keep.rawValue, title: "Keep the video"),
+          ], width: 200)
+      }
       LanguageRow()
     }
   }

@@ -27,9 +27,11 @@ struct PlayerBar: View {
             VStack(alignment: .leading, spacing: 3) {
               Text(player.track?.name ?? tr("Nothing playing")).font(.system(size: 14, weight: .medium))
                 .lineLimit(1)
-              Text(player.track?.artistText ?? tr("Choose a song to get started")).font(
-                .system(size: 12)
-              ).foregroundStyle(.secondary).lineLimit(1)
+              if let track = player.track {
+                ArtistLine(track: track)
+              } else {
+                Text("Choose a song to get started").font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
+              }
             }
             Spacer(minLength: 0)
           }

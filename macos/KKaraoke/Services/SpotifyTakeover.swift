@@ -73,7 +73,9 @@ enum SpotifyApp {
   static func setVolume(_ value: Int) throws { try run("set sound volume to \(min(100, max(0, value)))") }
   static func pause() throws { try run("pause") }
   static func play() throws { try run("play") }
-  static func next() throws { try run("next track") }
+  /// Moves Spotify to its next song and has it start. Whether a paused Spotify starts the song it skips to varies, and
+  /// this must announce the new song either way, so it is asked to play (it is silent: its volume is 0 while held).
+  static func next() throws { try run("next track\nplay") }
   /// Silences Spotify and holds it, in one step, so nothing leaks out between the two.
   static func muteAndPause() throws { try run("set sound volume to 0\npause") }
 

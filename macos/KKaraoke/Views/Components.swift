@@ -58,6 +58,25 @@ struct Artwork: View {
   }
 }
 
+/// The artists of a song, led by a "Video" tag when it is a music video (its lyrics are less reliable than a studio song's).
+struct ArtistLine: View {
+  var track: Track
+  var size: CGFloat = 12
+
+  var body: some View {
+    HStack(spacing: 6) {
+      if track.kind == "video" {
+        Text("Video").font(.system(size: size - 2, weight: .medium)).textCase(.uppercase)
+          .padding(.horizontal, 4).padding(.vertical, 1)
+          .overlay { RoundedRectangle(cornerRadius: 4).strokeBorder(.secondary.opacity(0.6)) }
+          .fixedSize()
+      }
+      Text(track.artistText).lineLimit(1)
+    }
+    .font(.system(size: size)).foregroundStyle(.secondary)
+  }
+}
+
 struct TrackRow: View {
   @Environment(RoomModel.self) private var room
   @Environment(PlayerModel.self) private var player
@@ -93,7 +112,7 @@ struct TrackRow: View {
       VStack(alignment: .leading, spacing: 3) {
         Text(track.name).font(.system(size: 14, weight: .medium)).lineLimit(1)
           .foregroundStyle(player.track?.id == track.id ? AppTheme.accent : .primary)
-        Text(track.artistText).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
+        ArtistLine(track: track)
       }
       .frame(maxWidth: .infinity, alignment: .leading)
       if offline.downloading[track.id] != nil { ProgressView().controlSize(.mini) }

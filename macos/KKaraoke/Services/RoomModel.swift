@@ -343,6 +343,46 @@ final class RoomModel {
         return components?.url
     }
 
+    // MARK: Which version of a video
+
+    /// How a music video picked for the queue is treated: ask which to use (the web app's behavior), always take its
+    /// studio audio, or leave it as it is.
+    enum VersionMode: String, CaseIterable { case ask, studio, keep }
+    static let versionModeKey = "videoVersionMode"
+    var versionMode: VersionMode { VersionMode(rawValue: defaults.string(forKey: Self.versionModeKey) ?? "") ?? .ask }
+
+    enum VersionPick { case studio, video }
+    struct VersionChoice: Identifiable { let id = UUID(); var video: Track; var studio: Track }
+    /// The video and its studio recording, while the person is deciding between them.
+    private(set) var versionChoice: VersionChoice?
+    @ObservationIgnored private var versionAnswer: CheckedContinuation<VersionPick?, Never>?
+
+    func answerVersion(_ pick: VersionPick?) {
+        versionAnswer?.resume(returning: pick)
+        versionAnswer = nil
+        versionChoice = nil
+    }
+
+    /// The song to queue for a pick: a video's title and channel are unreliable, so lyrics found by them can be another
+    /// song's; its studio recording is not. nil when the person cancelled.
+    private func chooseVersion(_ picked: Track, client: APIClient) async -> Track? {
+        guard picked.kind == "video", versionMode != .keep, !offline,
+              let studio = try? await client.studioVersion(of: picked), studio.id != picked.id else { return picked }
+        var asOrdered = studio
+        asOrdered.timeAdded = picked.timeAdded
+        if versionMode == .studio { return asOrdered }
+        answerVersion(nil) // a second pick while one is open replaces it
+        let pick = await withCheckedContinuation { (continuation: CheckedContinuation<VersionPick?, Never>) in
+            versionAnswer = continuation
+            versionChoice = VersionChoice(video: picked, studio: studio)
+        }
+        switch pick {
+        case .studio: return asOrdered
+        case .video: return picked
+        case nil: return nil
+        }
+    }
+
     // MARK: Queue actions
 
     func addToQueue(_ track: Track) { Task { await add(track, next: false, thenPlay: false) } }
@@ -351,8 +391,9 @@ final class RoomModel {
     /// Puts the song right after the current one and goes to it.
     func playNow(_ track: Track) { Task { await add(track, next: true, thenPlay: true) } }
 
-    private func add(_ track: Track, next: Bool, thenPlay: Bool) async {
+    private func add(_ picked: Track, next: Bool, thenPlay: Bool) async {
         guard let client = clientProvider?() else { return }
+        guard let track = await chooseVersion(picked, client: client) else { return }
         // the first song into an empty queue starts by itself
         let wasEmpty = queue.isEmpty
         // where the song lands: right after the current one, or at the end

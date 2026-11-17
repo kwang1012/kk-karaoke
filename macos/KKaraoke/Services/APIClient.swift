@@ -151,6 +151,15 @@ extension APIClient {
         _ = try await post(Ignored.self, "lyrics/\(trackId)/report", body: [String: String]())
     }
 
+    /// The studio-audio twin of a music video (its metadata and timed lyrics are reliable), or nil when there is no confident one.
+    func studioVersion(of track: Track) async throws -> Track? {
+        struct Response: Decodable { var track: Track? }
+        let names = track.artists.map(\.name).filter { !$0.isEmpty }.joined(separator: ",")
+        var query = ["video_id": track.videoId ?? track.id, "title": track.name, "artists": names]
+        if let ms = track.durationMs { query["duration_ms"] = String(ms) }
+        return try await get(Response.self, "studio_version", query: query).track
+    }
+
     /// The recording a song heard elsewhere (Spotify) is, whether its karaoke version is ready, and (`process`) start making it.
     func matchSong(title: String, artist: String, process: Bool) async throws -> SongMatch {
         struct Body: Encodable { var title: String; var artist: String; var process: Bool }

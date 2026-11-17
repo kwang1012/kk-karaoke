@@ -1,9 +1,7 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "" : {
-
-    },
+    "" : {},
     "(%@)" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1634,9 +1632,7 @@
         }
       }
     },
-    "Hide lyrics" : {
-
-    },
+    "Hide lyrics" : {},
     "Hide melody" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2424,9 +2420,7 @@
         }
       }
     },
-    "Mix, lyrics timing and output" : {
-
-    },
+    "Mix, lyrics timing and output" : {},
     "More options" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5797,6 +5791,210 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "房間已開啟，分享 QR code 或連結讓朋友加入。"
+          }
+        }
+      }
+    },
+    "Which version?" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選擇哪個版本？"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择哪个版本？"
+          }
+        }
+      }
+    },
+    "This is a video. Its lyrics can come out wrong, because videos have unreliable titles and timing." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這是影片版本。影片的標題與時間軸不可靠，歌詞可能會不正確。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这是视频版本。视频的标题与时间轴不可靠，歌词可能会不正确。"
+          }
+        }
+      }
+    },
+    "Studio audio" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "錄音室音源"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "录音室音源"
+          }
+        }
+      }
+    },
+    "Recommended: the original recording, with accurate lyrics." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "建議：原版錄音，歌詞較準確。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "建议：原版录音，歌词较准确。"
+          }
+        }
+      }
+    },
+    "Lyrics may not match, or may be offset by an intro." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "歌詞可能不符，或因片頭而有時間偏差。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "歌词可能不符，或因片头而有时间偏差。"
+          }
+        }
+      }
+    },
+    "Music videos" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音樂影片"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音乐视频"
+          }
+        }
+      }
+    },
+    "A video's lyrics can come out wrong. Its studio recording has accurate ones." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "影片的歌詞可能不正確，錄音室版本的歌詞較準確。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "视频的歌词可能不正确，录音室版本的歌词较准确。"
+          }
+        }
+      }
+    },
+    "Ask which version" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "詢問使用哪個版本"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "询问使用哪个版本"
+          }
+        }
+      }
+    },
+    "Use the studio audio" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用錄音室音源"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用录音室音源"
+          }
+        }
+      }
+    },
+    "Keep the video" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留影片"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留视频"
+          }
+        }
+      }
+    },
+    "Sing what Spotify plays" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "演唱 Spotify 正在播放的歌曲"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "演唱 Spotify 正在播放的歌曲"
+          }
+        }
+      }
+    },
+    "Waiting for Spotify to play something." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "等待 Spotify 播放歌曲。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "等待 Spotify 播放歌曲。"
           }
         }
       }

@@ -148,6 +148,9 @@ struct RootView: View {
         })
       }
     }
+    .sheet(isPresented: Binding(get: { room.versionChoice != nil }, set: { if !$0 { room.answerVersion(nil) } })) {
+      if let choice = room.versionChoice { VersionChoiceSheet(choice: choice) { room.answerVersion($0) } }
+    }
     .onChange(of: model.auth.showLogin) { _, show in
       if show {
         activeSheet = .login

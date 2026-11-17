@@ -210,7 +210,7 @@ struct QueueRow: View {
       Artwork(url: track.artworkURL, size: 40, radius: 8)
       VStack(alignment: .leading, spacing: 3) {
         Text(track.name).font(.system(size: 14, weight: .medium)).lineLimit(1)
-        Text(track.artistText).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
+        ArtistLine(track: track)
         StageBadge(stage: SongStage(status: track.status, progress: track.progress))
       }
       .frame(maxWidth: .infinity, alignment: .leading)

@@ -83,7 +83,7 @@ struct SpotifyPanel: View {
       } else {
         ForEach(spotify.ahead) { item in
           HStack(spacing: 12) {
-            Artwork(url: item.match?.artworkURL, size: 36, radius: 8)
+            Artwork(url: item.match?.artworkURL ?? item.artwork, size: 36, radius: 8)
             VStack(alignment: .leading, spacing: 2) {
               Text(item.spotify.name).font(.system(size: 13, weight: .medium)).lineLimit(1)
               Text(item.spotify.artist).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
@@ -108,7 +108,7 @@ private struct SpotifyNowRow: View {
 
   var body: some View {
     HStack(spacing: 12) {
-      Artwork(url: now.match?.artworkURL, size: 40, radius: 8)
+      Artwork(url: now.match?.artworkURL ?? now.artwork, size: 40, radius: 8)
       VStack(alignment: .leading, spacing: 3) {
         Text(now.spotify.name).font(.system(size: 14, weight: .medium)).lineLimit(1)
         Text(now.spotify.artist).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)

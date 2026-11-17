@@ -75,13 +75,15 @@ struct SpotifyWebTests {
   @Test func theQueueKeepsOnlyTracks() {
     let json = """
       {"currently_playing": {"uri": "spotify:track:now"}, "queue": [
-        {"type": "track", "uri": "spotify:track:a", "name": "A", "artists": [{"name": "X"}, {"name": "Y"}]},
+        {"type": "track", "uri": "spotify:track:a", "name": "A", "artists": [{"name": "X"}, {"name": "Y"}],
+         "album": {"images": [{"url": "https://i.example/640", "width": 640}, {"url": "https://i.example/64", "width": 64}]}},
         {"type": "episode", "uri": "spotify:episode:e", "name": "Talk", "artists": []},
         {"type": "track", "uri": "spotify:track:b", "name": "B", "artists": [{"name": "Z"}]}]}
       """
     let queue = SpotifyWebAuth.parseQueue(Data(json.utf8))
-    #expect(queue.map(\.id) == ["spotify:track:a", "spotify:track:b"])
-    #expect(queue.first?.artist == "X, Y")
+    #expect(queue.map(\.track.id) == ["spotify:track:a", "spotify:track:b"])
+    #expect(queue.first?.track.artist == "X, Y")
+    #expect(queue.first?.artwork?.absoluteString == "https://i.example/64" && queue.last?.artwork == nil)
   }
 
   @Test func aLinkFromSomewhereElseIsNotTheSignIn() {

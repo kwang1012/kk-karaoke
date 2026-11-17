@@ -192,7 +192,7 @@ final class SpotifyWebAuth {
   // MARK: Reading
 
   /// The songs Spotify will play after the current one, in order.
-  func upcoming() async throws -> [SpotifyTrack] {
+  func upcoming() async throws -> [SpotifyQueued] {
     func fetch(_ token: String) async throws -> (Data, Int) {
       var request = URLRequest(url: URL(string: "https://api.spotify.com/v1/me/player/queue")!, timeoutInterval: 15)
       request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -205,14 +205,27 @@ final class SpotifyWebAuth {
     return Self.parseQueue(data)
   }
 
-  nonisolated static func parseQueue(_ data: Data) -> [SpotifyTrack] {
+  nonisolated static func parseQueue(_ data: Data) -> [SpotifyQueued] {
     struct Artist: Decodable { var name: String }
-    struct Item: Decodable { var uri: String?; var name: String?; var type: String?; var artists: [Artist]? }
+    struct Image: Decodable { var url: String; var width: Int? }
+    struct Album: Decodable { var images: [Image]? }
+    struct Item: Decodable { var uri: String?; var name: String?; var type: String?; var artists: [Artist]?; var album: Album? }
     struct Queue: Decodable { var queue: [Item] }
     guard let parsed = try? JSONDecoder().decode(Queue.self, from: data) else { return [] }
     return parsed.queue.compactMap { item in
-      guard item.type == nil || item.type == "track" else { return nil } // podcasts have no karaoke version
-      return SpotifyTrack(id: item.uri, name: item.name, artist: item.artists?.map(\.name).joined(separator: ", "))
+      guard item.type == nil || item.type == "track", // podcasts have no karaoke version
+        let track = SpotifyTrack(id: item.uri, name: item.name, artist: item.artists?.map(\.name).joined(separator: ", "))
+      else { return nil }
+      // a small cover is plenty for a list row
+      let images = item.album?.images ?? []
+      let cover = images.first { ($0.width ?? 0) <= 300 } ?? images.first
+      return SpotifyQueued(track: track, artwork: cover.flatMap { URL(string: $0.url) })
     }
   }
+}
+
+/// A song in Spotify's queue, with its cover.
+struct SpotifyQueued: Equatable, Sendable {
+  var track: SpotifyTrack
+  var artwork: URL?
 }

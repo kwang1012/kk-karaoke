@@ -22,6 +22,7 @@ enum SpotifyPlayState: String, Sendable { case playing = "Playing", paused = "Pa
 struct SpotifyEvent: Equatable, Sendable {
   var state: SpotifyPlayState
   var track: SpotifyTrack?
+  var artwork: URL?
 
   /// The `userInfo` of Spotify's `com.spotify.client.PlaybackStateChanged` notification.
   init?(userInfo: [AnyHashable: Any]?) {
@@ -30,9 +31,10 @@ struct SpotifyEvent: Equatable, Sendable {
     track = SpotifyTrack(id: userInfo["Track ID"] as? String, name: userInfo["Name"] as? String, artist: userInfo["Artist"] as? String)
   }
 
-  init(state: SpotifyPlayState, track: SpotifyTrack?) {
+  init(state: SpotifyPlayState, track: SpotifyTrack?, artwork: URL? = nil) {
     self.state = state
     self.track = track
+    self.artwork = artwork
   }
 }
 
@@ -86,12 +88,14 @@ enum SpotifyApp {
   static func current() throws -> SpotifyEvent? {
     let answer = try run("""
       if player state is stopped then return {"Stopped"}
-      return {player state as string, id of current track, name of current track, artist of current track}
+      return {player state as string, id of current track, name of current track, artist of current track, artwork url of current track}
       """)
     guard let raw = answer.atIndex(1)?.stringValue else { return nil }
     let state = SpotifyPlayState(rawValue: raw.capitalized) ?? .stopped
-    return SpotifyEvent(state: state, track: SpotifyTrack(
-      id: answer.atIndex(2)?.stringValue, name: answer.atIndex(3)?.stringValue, artist: answer.atIndex(4)?.stringValue))
+    return SpotifyEvent(
+      state: state,
+      track: SpotifyTrack(id: answer.atIndex(2)?.stringValue, name: answer.atIndex(3)?.stringValue, artist: answer.atIndex(4)?.stringValue),
+      artwork: answer.atIndex(5)?.stringValue.flatMap { URL(string: $0) })
   }
 }
 
@@ -118,6 +122,8 @@ final class SpotifyTakeover {
     var spotify: SpotifyTrack
     var match: Track?
     var stage: Stage
+    /// Spotify's cover, for as long as there is no match to take one from.
+    var artwork: URL?
   }
 
   /// A song Spotify has queued, and whether its karaoke version is ready.
@@ -125,6 +131,7 @@ final class SpotifyTakeover {
     var spotify: SpotifyTrack
     var match: Track?
     var stage: Now.Stage
+    var artwork: URL?
     var id: String { spotify.id }
   }
 
@@ -196,7 +203,9 @@ final class SpotifyTakeover {
       let event = SpotifyEvent(userInfo: note.userInfo)
       MainActor.assumeIsolated { if let event { self?.heard(event) } }
     }
-    if SpotifyApp.isRunning, let event = try? SpotifyApp.current() { heard(event) }
+    if SpotifyApp.isRunning, let event = try? SpotifyApp.current() {
+      if event.state == .playing { heard(event) } else if let track = event.track { peek(track, artwork: event.artwork) }
+    }
   }
 
   private func stop() {
@@ -235,9 +244,11 @@ final class SpotifyTakeover {
     // Announcements can arrive late or out of order (the one for the song we just left, say): what Spotify is on now is
     // the truth, and acting on a stale one would send it back to the previous song.
     let track: SpotifyTrack
+    var artwork = event.artwork
     if let actual = try? SpotifyApp.current() {
       guard actual.state == .playing, let current = actual.track else { return }
       track = current
+      artwork = actual.artwork
     } else if let announced = event.track {
       track = announced
     } else { return }
@@ -247,20 +258,36 @@ final class SpotifyTakeover {
       if case .singing = status, Date().timeIntervalSince(beganAt) > 2 { try? SpotifyApp.pause(); player?.toggle() }
       return
     }
-    begin(track)
+    begin(track, artwork: artwork)
   }
 
-  private func begin(_ track: SpotifyTrack) {
+  /// Spotify is on a song but not playing it (paused, or just opened): show it as the song, and start preparing it, so
+  /// pressing play finds it ready. Nothing is played or silenced.
+  private func peek(_ track: SpotifyTrack, artwork: URL?) {
+    guard spotifyTrack == nil else { return }
+    now = Now(spotify: track, match: readyMatches[track.id]?.track, stage: readyMatches[track.id] == nil ? .matching : .singing, artwork: artwork)
+    guard readyMatches[track.id] == nil else { return }
+    matching = Task { [weak self] in
+      guard let self, let client = clientProvider?() else { return }
+      let match = try? await client.matchSong(title: track.name, artist: track.artist, process: true)
+      guard !Task.isCancelled, spotifyTrack == nil, now?.spotify == track else { return }
+      if let match, match.ready { readyMatches[track.id] = match }
+      let stage: Now.Stage = match?.track == nil ? .missing : (match?.ready == true ? .singing : .preparing)
+      now = Now(spotify: track, match: match?.track, stage: stage, artwork: artwork)
+    }
+  }
+
+  private func begin(_ track: SpotifyTrack, artwork: URL? = nil) {
     spotifyTrack = track
     beganAt = Date()
     matching?.cancel()
     readiness?.cancel()
     status = .matching(track.name)
-    now = Now(spotify: track, match: nil, stage: .matching)
+    now = Now(spotify: track, match: nil, stage: .matching, artwork: artwork)
     room?.setSpotifySong(nil) // the last song stops while this one is looked up
     do { try holdSpotify() } catch {
       status = .problem(error.localizedDescription)
-      now = Now(spotify: track, match: nil, stage: .failed)
+      now = Now(spotify: track, match: nil, stage: .failed, artwork: artwork)
       return
     }
     refreshAhead()
@@ -277,16 +304,16 @@ final class SpotifyTakeover {
       guard !Task.isCancelled, spotifyTrack == track else { return } // the person moved on while this was looked up
       if let match = found, let song = match.track, match.ready {
         readyMatches[track.id] = match
-        now = Now(spotify: track, match: song, stage: .singing)
+        now = Now(spotify: track, match: song, stage: .singing, artwork: artwork)
         status = .singing(song.name)
         room?.setSpotifySong(song)
       } else if let song = found?.track {
-        now = Now(spotify: track, match: song, stage: .preparing)
+        now = Now(spotify: track, match: song, stage: .preparing, artwork: artwork)
         status = .spotifyPlays(tr("Preparing the karaoke version of \(track.name). Spotify plays it meanwhile."))
         letSpotifyPlay()
-        watchReadiness(of: track, song: song)
+        watchReadiness(of: track, song: song, artwork: artwork)
       } else {
-        now = Now(spotify: track, match: nil, stage: failure == nil ? .missing : .failed)
+        now = Now(spotify: track, match: nil, stage: failure == nil ? .missing : .failed, artwork: artwork)
         status = .spotifyPlays(failure ?? tr("No karaoke version found for \(track.name)."))
         letSpotifyPlay()
       }
@@ -308,11 +335,12 @@ final class SpotifyTakeover {
         let queued = Array(try await web.upcoming().prefix(5))
         guard !Task.isCancelled else { return }
         ahead = queued.map { item in
-          let known = readyMatches[item.id]
-          return Ahead(spotify: item, match: known?.track, stage: known == nil ? .matching : .singing)
+          let known = readyMatches[item.track.id]
+          return Ahead(spotify: item.track, match: known?.track, stage: known == nil ? .matching : .singing, artwork: item.artwork)
         }
         aheadMessage = nil
-        for item in queued.prefix(Self.lookahead) {
+        for queuedItem in queued.prefix(Self.lookahead) {
+          let item = queuedItem.track
           var match = readyMatches[item.id]
           if match == nil, let client = clientProvider?() {
             match = try? await client.matchSong(title: item.name, artist: item.artist, process: true)
@@ -334,7 +362,7 @@ final class SpotifyTakeover {
 
   /// While Spotify plays a song that is still being prepared, asks now and then whether it is ready; when it is, KKaraoke
   /// takes over from where Spotify has got to.
-  private func watchReadiness(of track: SpotifyTrack, song: Track) {
+  private func watchReadiness(of track: SpotifyTrack, song: Track, artwork: URL?) {
     readiness?.cancel()
     readiness = Task { [weak self] in
       for _ in 0..<120 { // up to about twenty minutes
@@ -346,7 +374,7 @@ final class SpotifyTakeover {
         let position = (try? SpotifyApp.position()) ?? 0
         guard (try? holdSpotify()) != nil else { return }
         beganAt = Date()
-        now = Now(spotify: track, match: ready, stage: .singing)
+        now = Now(spotify: track, match: ready, stage: .singing, artwork: artwork)
         status = .singing(ready.name)
         room?.setSpotifySong(ready, at: position + 0.3)
         return

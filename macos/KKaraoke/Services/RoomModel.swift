@@ -94,6 +94,10 @@ final class RoomModel {
     /// The last duet this Mac left: the room remembers a finished duet, and it must not be joined again.
     @ObservationIgnored private var endedDuet: DuetStart?
 
+    /// Set by whatever else decides what plays next (Spotify). Asked, with the song waiting after this one, when a song
+    /// ends or this Mac skips; true means it has taken that decision, and the queue stays where it is.
+    @ObservationIgnored var nextOverride: ((Track?) -> Bool)?
+
     /// A pitch heard from a phone is good for this long, and singing counts as going on for this long after it.
     static let remotePitchFresh = 0.3
     static let remoteActive = 2.0
@@ -232,6 +236,13 @@ final class RoomModel {
 
     /// The server says which device plays. This Mac stops and follows when it is not the one, and takes over when it is.
     private func applyPlayer(_ id: String?) {
+        // The server frees the player when this Mac's old socket closes, and says so right after the new one joins,
+        // before the claim that follows it lands. Dropping to follower for that moment would stop the song and reload it
+        // from the start: keep playing, and ask for the claim again (it only takes the room while nobody has it).
+        if id == nil, !isGuest, !isFollowing {
+            socket.send(.player(room: activeRoomId, deviceId: deviceId, ifFree: true))
+            return
+        }
         let wasFollowing = isFollowing
         let state = (time: player?.currentTime ?? 0, playing: player?.isPlaying ?? false)
         playerKnown = true
@@ -481,6 +492,8 @@ final class RoomModel {
             guard room == activeRoomId else { return }
         }
         if let started = info.duet, duet == nil, started != endedDuet { join(duet: started) } // joining a room mid-duet
+        // a duet that ended while this Mac was away (its stop never arrived) would leave every control ignored
+        else if info.duet == nil, duet != nil { endDuet() }
         if isFollowing, duet == nil {
             if let index = info.queueIdx, index != queueIdx, queue.indices.contains(index) { queueIdx = index; queueChanged() }
             player?.applyRemote(time: info.currentTime, playing: info.playing, duration: info.duration, volume: info.volume,
@@ -519,7 +532,8 @@ final class RoomModel {
         queueIdx = index
         queueChanged()
         if offline { return }
-        socketSend(.control(announce == .previous ? "previous" : "next", room: activeRoomId), if: announce != nil)
+        // the target index travels with it: a device that hears it lands on that song instead of stepping one more
+        socketSend(.control(announce == .previous ? "previous" : "next", room: activeRoomId, data: .object(["index": .number(Double(index))])), if: announce != nil)
         try? await client.setQueueIndex(room: activeRoomId, index: index)
         publish(force: true, full: true)
     }
@@ -541,6 +555,7 @@ final class RoomModel {
         if duet != nil { endDuet(); return } // a duet is one song; the queue stays where it was
         guard !isFollowing else { return }
         wantsPlay = true
+        if nextOverride?(upcoming.first) == true { return }
         Task { await goNext() }
     }
 
@@ -626,7 +641,9 @@ final class RoomModel {
         switch control {
         case .play: wantsPlay = true; socket.send(.control("play", room: activeRoomId))
         case .pause: wantsPlay = false; socket.send(.control("pause", room: activeRoomId))
-        case .next: wantsPlay = player?.isPlaying ?? wantsPlay; Task { await goNext() }
+        case .next:
+            if nextOverride?(upcoming.first) == true { wantsPlay = true; break }
+            wantsPlay = player?.isPlaying ?? wantsPlay; Task { await goNext() }
         case .previous: Task { await goPrevious() }
         case .volume, .guideLevel: sendToOwnerOrRoom(control); return // sliders: sent (and published) once they settle
         case .seek, .toggleVocal, .increaseSemitone, .decreaseSemitone: sendToOwnerOrRoom(control)
@@ -685,6 +702,10 @@ final class RoomModel {
             if message.data?["autoplay"]?.bool == true, !isFollowing { wantsPlay = true }
             scheduleQueueRefresh()
         case "notify": handleNotify(message)
+        case "lyrics": // someone nudged this song's sync: the server says so to every device
+            if message.data?["action"]?.string == "delay", let id = message.data?["trackId"]?.string, let delay = message.data?["delay"]?.double {
+                player?.applySharedDelay(delay, trackId: id)
+            }
         default: break
         }
     }

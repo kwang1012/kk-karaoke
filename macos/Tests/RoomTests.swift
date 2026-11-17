@@ -161,6 +161,14 @@ struct RoomModelTests {
         #expect(!room.isFollowing && room.isPlayerDevice)
     }
 
+    @Test func aReleaseOfThisMacsOwnClaimDoesNotDemoteIt() {
+        // the server frees the player when the old socket closes, and says so before the new claim lands
+        let (room, _) = makeRoom()
+        room.receive(SocketMessage(type: "jam", action: "player", data: .object(["deviceId": .string(room.deviceId)])))
+        room.receive(SocketMessage(type: "jam", action: "player", data: .object(["deviceId": .null])))
+        #expect(!room.isFollowing && room.isPlayerDevice && !room.nobodyPlays)
+    }
+
     @Test func aFollowingMacAppliesTheRoomsUpdatesButRunsNoControls() {
         let (room, player) = makeRoom()
         room.receive(SocketMessage(type: "jam", action: "player", data: .object(["deviceId": .string("another-device")])))

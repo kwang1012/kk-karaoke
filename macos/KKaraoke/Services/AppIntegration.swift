@@ -11,6 +11,7 @@ final class AppBridge {
   weak var room: RoomModel?
   weak var offline: OfflineLibrary?
   weak var model: AppModel?
+  weak var spotify: SpotifyTakeover?
 
   /// A song by id: a downloaded one, else the server's library.
   func track(id: String) async -> Track? {
@@ -32,6 +33,11 @@ final class AppBridge {
 // MARK: Dock
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+  @MainActor func applicationWillTerminate(_ notification: Notification) {
+    AppBridge.shared.spotify?.shutdown() // Spotify must not stay silent
+    WidgetBridge.clear()
+  }
+
   @MainActor func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
     guard let player = AppBridge.shared.player else { return nil }
     let menu = NSMenu()

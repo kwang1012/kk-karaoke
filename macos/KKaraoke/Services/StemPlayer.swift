@@ -17,6 +17,15 @@ final class StemPlayer {
     /// Bumped whenever playback stops or restarts, so a stale completion callback is ignored.
     private var generation = 0
 
+    /// The last position read from the render clock. When that clock goes quiet (the engine stopped under us) this,
+    /// not the start of the scheduled segment, is where the song still is.
+    private var lastTime: TimeInterval = 0
+    /// Uptime after which a playing engine should be advancing: the start of the scheduled segment, plus a settling moment.
+    private var healthyAfter: TimeInterval = 0
+    private var watched: (time: TimeInterval, uptime: TimeInterval)?
+    private var watchdog: Task<Void, Never>?
+    private var configObserver: NSObjectProtocol?
+
     private(set) var isPlaying = false
     private(set) var duration: TimeInterval = 0
     var onFinish: (() -> Void)?
@@ -26,6 +35,37 @@ final class StemPlayer {
         engine.attach(instrumentalNode)
         engine.attach(vocalPitch)
         engine.attach(instrumentalPitch)
+        // A new output (headphones, Bluetooth, a sample-rate change) or waking from sleep stops the engine and its
+        // nodes without a word: isPlaying stays true, the render clock stops, and the song looks frozen.
+        configObserver = NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.recover() }
+        }
+    }
+
+    /// Starts the song again from where it stopped, after the engine went away. Nothing to do when paused.
+    private func recover() {
+        guard isPlaying else { if isLoaded { engine.prepare() }; return }
+        try? play(from: lastTime, startingIn: 0.1)
+    }
+
+    /// While playing, checks once a second that the position is moving; if the engine has stopped or the clock is
+    /// frozen, restarts from the last known position.
+    private func startWatchdog() {
+        watchdog?.cancel()
+        watched = nil
+        watchdog = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                guard let self, self.isPlaying else { return }
+                let now = ProcessInfo.processInfo.systemUptime
+                guard now > self.healthyAfter else { self.watched = nil; continue }
+                let time = self.currentTime
+                defer { self.watched = (time, now) }
+                guard let before = self.watched, now - before.uptime >= 0.9 else { continue }
+                let stalled = !self.engine.isRunning || (time - before.time) < 0.3
+                if stalled, time < self.duration - 1 { self.recover(); self.watched = nil }
+            }
+        }
     }
 
     var isLoaded: Bool { instrumentalFile != nil }
@@ -74,8 +114,9 @@ final class StemPlayer {
     var currentTime: TimeInterval {
         guard isPlaying else { return base }
         guard let render = instrumentalNode.lastRenderTime, let player = instrumentalNode.playerTime(forNodeTime: render)
-        else { return base }
-        return min(duration, base + max(0, Double(player.sampleTime)) / player.sampleRate)
+        else { return lastTime }
+        lastTime = min(duration, base + max(0, Double(player.sampleTime)) / player.sampleRate)
+        return lastTime
     }
 
     /// How long after the engine renders a sample it reaches the speakers; only known once the engine runs.
@@ -93,6 +134,7 @@ final class StemPlayer {
         let start = min(max(time ?? base, 0), duration)
         halt()
         base = start
+        lastTime = start
         if start >= duration { onFinish?(); return }
         let generation = generation
         schedule(vocalFile, on: vocalNode, from: start, completion: nil)
@@ -108,6 +150,8 @@ final class StemPlayer {
         vocalNode.play(at: at)
         instrumentalNode.play(at: at)
         isPlaying = true
+        healthyAfter = ProcessInfo.processInfo.systemUptime + max(0, lead) + 1.5
+        startWatchdog()
     }
 
     func pause() {
@@ -123,6 +167,7 @@ final class StemPlayer {
     func stop() {
         halt()
         base = 0
+        lastTime = 0
     }
 
     private func finish() {
@@ -134,6 +179,7 @@ final class StemPlayer {
     private func halt() {
         generation += 1
         isPlaying = false
+        watchdog?.cancel()
         vocalNode.stop()
         instrumentalNode.stop()
     }

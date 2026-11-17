@@ -163,12 +163,19 @@ export const Player = () => {
             pauseAudio(true);
             if (isOwner) sendMessage({ type: 'jam', action: 'update', force: true, roomId: activeRoomId, data: { playing: false } });
             break;
-          case 'next':
-            next(true);
+          case 'next': {
+            // a skip that names its song lands there; hearing it again (or after the queue already moved) does nothing
+            const target = typeof data?.index === 'number' ? data.index : undefined;
+            if (target !== undefined && target === usePlayerStore.getState().queueIdx) break;
+            next(true, target);
             break;
-          case 'previous':
-            previous(true);
+          }
+          case 'previous': {
+            const target = typeof data?.index === 'number' ? data.index : undefined;
+            if (target !== undefined && target === usePlayerStore.getState().queueIdx) break;
+            previous(true, target);
             break;
+          }
           case 'seek':
             const seekTime = data.seekTime;
             if (seekTime === undefined) break; // seeking to 0 is valid

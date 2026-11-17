@@ -14,6 +14,7 @@ import {
 } from 'src/apis/player';
 import { Lyrics, Track } from 'src/models/spotify';
 import { useTrackStore } from 'src/store/track';
+import { chooseVersion, VersionMode } from 'src/store/versionChoice';
 import SyncedAudioPlayer from 'src/syncedPlayer';
 import { useActiveRoomId, useJam, useRoomStore } from './room';
 import { useWebSocketStore } from './ws';
@@ -84,8 +85,8 @@ type PlayerStore = {
   setLastSongId: (songId: string | null) => void;
   // apis
   getRandomTracks: () => Promise<void>;
-  addSongToQueue: (track: Track) => Promise<void>;
-  insertSongToQueue: (track: Track) => Promise<void>;
+  addSongToQueue: (track: Track, version?: VersionMode) => Promise<void>;
+  insertSongToQueue: (track: Track, version?: VersionMode) => Promise<void>;
   rmSongFromQueue: (track: Track) => Promise<void>;
   downloadSong: (track: Track) => Promise<void>;
   clearQueue: () => Promise<void>;
@@ -203,10 +204,13 @@ export const usePlayerStore = create<PlayerStore>()(
         // queue only, as this used to do, left songs that were never processed and vanished
         // on reload.
         for (const track of tracks || []) {
-          await get().addSongToQueue(track);
+          await get().addSongToQueue(track, 'studio');
         }
       },
-      addSongToQueue: async (track: Track) => {
+      addSongToQueue: async (picked: Track, version: VersionMode = 'ask') => {
+        // a music video may have a studio recording whose lyrics are reliable: let the person choose
+        const track = await chooseVersion(picked, version);
+        if (!track) return;
         useTrackStore.getState().setSongStatus(track.id, 'submitted');
         const roomId = useRoomStore.getState().roomId;
         const name = useRoomStore.getState().nickname;
@@ -233,7 +237,10 @@ export const usePlayerStore = create<PlayerStore>()(
           ensureQueued(activeRoomId, track.id, countBefore);
         });
       },
-      insertSongToQueue: async (track: Track) => {
+      insertSongToQueue: async (picked: Track, version: VersionMode = 'ask') => {
+        // a music video may have a studio recording whose lyrics are reliable: let the person choose
+        const track = await chooseVersion(picked, version);
+        if (!track) return;
         useTrackStore.getState().setSongStatus(track.id, 'submitted');
         const roomId = useRoomStore.getState().roomId;
         const name = useRoomStore.getState().nickname;
@@ -348,46 +355,52 @@ export const usePlayer = () => {
   const { isOwner } = useJam();
 
   // =============== functions that affect states ===============
-  const next = (isCallback: boolean = false) => {
+  // `toIndex` is the song to land on: a skip that names its target is the same however many times, or
+  // in whatever order, it is heard (a relative step is not, and one tap used to skip two songs).
+  const next = (isCallback: boolean = false, toIndex?: number) => {
     if (queueIdx >= queue.length) {
       console.log('No next track in the queue');
       return;
     }
+    const target = toIndex ?? queueIdx + 1;
 
     if (isOwner) {
-      updateQueueIdx(activeRoomId, queueIdx + 1);
+      updateQueueIdx(activeRoomId, target);
     }
     setLyrics([]);
     setCurrentLine(-1);
     setProgress(0);
-    setQueueIdx(queueIdx + 1);
+    setQueueIdx(target);
     if (isCallback) return;
     sendMessage({
       type: 'jam',
       action: 'control',
       op: 'next',
       roomId: activeRoomId,
+      data: { index: target },
     });
   };
 
-  const previous = (isCallback: boolean = false) => {
+  const previous = (isCallback: boolean = false, toIndex?: number) => {
     if (queueIdx <= 0) {
       console.log('No previous track in the queue');
       return;
     }
+    const target = toIndex ?? queueIdx - 1;
     if (isOwner) {
-      updateQueueIdx(activeRoomId, queueIdx - 1);
+      updateQueueIdx(activeRoomId, target);
     }
     setLyrics([]);
     setCurrentLine(-1);
     setProgress(0);
-    setQueueIdx(queueIdx - 1);
+    setQueueIdx(target);
     if (isCallback) return;
     sendMessage({
       type: 'jam',
       action: 'control',
       op: 'previous',
       roomId: activeRoomId,
+      data: { index: target },
     });
   };
 

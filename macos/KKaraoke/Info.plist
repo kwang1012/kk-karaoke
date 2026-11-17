@@ -18,6 +18,8 @@
   <array>
     <string>_googlecast._tcp</string>
   </array>
+  <key>NSAppleEventsUsageDescription</key>
+  <string>KKaraoke pauses Spotify and asks it for the next song, so it can play the karaoke version of what Spotify is playing.</string>
   <key>NSLocalNetworkUsageDescription</key>
   <string>KKaraoke looks for TVs and speakers on your network that you can play to.</string>
 </dict>

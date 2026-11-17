@@ -159,13 +159,17 @@ struct LyricGap: Equatable, Sendable {
         if index >= 0 {
             let line = lines[index]
             guard !line.text.isEmpty else { return nil }
-            let sung: Double
+            var sung: Double
             if let last = line.words?.last {
                 sung = last.end + delay + wordEndGrace
             } else {
-                // No word timing: a rough guess at how long the line takes to sing.
-                sung = line.time + delay + max(2, Double(line.text.count) * 0.3)
+                // No word timing: a rough guess at how long the line takes to sing. Generous on purpose (it matches the
+                // web app's): a countdown that starts while the line is still sung is worse than one that starts late.
+                sung = line.time + delay + max(3, Double(line.text.count) * 0.5)
             }
+            // The line's own end, when the server has one, says the singing lasts at least that long, whatever the words
+            // say (a long line often has words that stop before it does).
+            if let end = line.end { sung = max(sung, end + delay + wordEndGrace) }
             start = min(sung, next)
         }
         return next - start >= minimum ? LyricGap(start: start, end: next) : nil

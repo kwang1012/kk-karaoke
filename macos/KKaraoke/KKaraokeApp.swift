@@ -17,6 +17,7 @@ struct KKaraokeApp: App {
   @AppStorage("showNotchLyrics") private var showNotchLyrics = false
   @State private var notch: NotchPanelController?
   @State private var widget = WidgetBridge()
+  @State private var spotify = SpotifyTakeover()
 
   var body: some Scene {
     WindowGroup(id: "main") {
@@ -28,6 +29,7 @@ struct KKaraokeApp: App {
         .environment(offline)
         .environment(cast)
         .environment(ready)
+        .environment(spotify)
         .environmentObject(updater)
         .frame(minWidth: 1100, minHeight: 600)
         .modifier(FloatingLyricsOnMinimize())
@@ -41,8 +43,10 @@ struct KKaraokeApp: App {
           singing.room = room
           room.attach(player: player, singing: singing) { model.client }
           media.start(player: player)
+          widget.start(player: player, room: room)
+          spotify.attach(player: player, room: room) { model.client }
           let bridge = AppBridge.shared
-          (bridge.player, bridge.room, bridge.offline, bridge.model) = (player, room, offline, model)
+          (bridge.player, bridge.room, bridge.offline, bridge.model, bridge.spotify) = (player, room, offline, model, spotify)
           room.onProcessing = { AppNotifier.prepare() }
           room.onSongReady = {
             ready.add($0.id)
@@ -55,10 +59,6 @@ struct KKaraokeApp: App {
           if model.connection == .online { room.connect() }
         }
         // without the server the queue is kept here; with it back, pinned songs catch up
-        .onChange(of: player.track?.id) { _, _ in widget.update(player: player, room: room) }
-        .onChange(of: player.isPlaying) { _, _ in widget.update(player: player, room: room) }
-        .onChange(of: room.queue) { _, _ in widget.update(player: player, room: room) }
-        .onChange(of: room.queueIdx) { _, _ in widget.update(player: player, room: room) }
         .onChange(of: room.processingCount) { _, count in AppNotifier.badge(count) }
         .onChange(of: offline.tracks) { _, tracks in SpotlightIndex.index(tracks) }
         .onContinueUserActivity(CSSearchableItemActionType) { activity in

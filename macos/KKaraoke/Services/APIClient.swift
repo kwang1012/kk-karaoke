@@ -151,11 +151,23 @@ extension APIClient {
         _ = try await post(Ignored.self, "lyrics/\(trackId)/report", body: [String: String]())
     }
 
+    /// The recording a song heard elsewhere (Spotify) is, whether its karaoke version is ready, and (`process`) start making it.
+    func matchSong(title: String, artist: String, process: Bool) async throws -> SongMatch {
+        struct Body: Encodable { var title: String; var artist: String; var process: Bool }
+        return try await post(SongMatch.self, "import/match", body: Body(title: title, artist: artist, process: process))
+    }
+
     /// Saves the song's lyrics offset for everyone: seconds added to every line time.
     func setLyricsDelay(trackId: String, delay: Double) async throws {
         struct Body: Encodable { var id: String; var delay: Double }
         _ = try await post(Ignored.self, "lyrics/delay", body: Body(id: trackId, delay: delay))
     }
+}
+
+struct SongMatch: Decodable, Sendable {
+    var track: Track?
+    var ready = false
+    var processing = false
 }
 
 enum MelodyResult: Sendable {

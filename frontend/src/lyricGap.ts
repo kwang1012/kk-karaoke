@@ -1,7 +1,7 @@
 /** A wait between two lines at least this long (seconds) gets a countdown for its last seconds. */
 export const GAP_MIN_S = 5;
 
-type GapLine = { time: number; text: string; words?: { end: number }[] | null };
+type GapLine = { time: number; text: string; end?: number | null; words?: { end: number }[] | null };
 
 /**
  * Seconds a line without word timing is guessed to take to sing. Generous on purpose: a countdown
@@ -27,7 +27,10 @@ export function gapAfter(lines: GapLine[], index: number, delay: number): { star
     const line = lines[index];
     if (!line.text) return null;
     const words = line.words;
-    const sung = words?.length ? words[words.length - 1].end + delay + WORD_END_GRACE_S : line.time + guessedDuration(line.text);
+    let sung = words?.length ? words[words.length - 1].end + delay + WORD_END_GRACE_S : line.time + guessedDuration(line.text);
+    // The line's own end, when there is one, says the singing lasts at least that long, whatever the words say
+    // (a long line often has words that stop before it does).
+    if (typeof line.end === 'number') sung = Math.max(sung, line.end + delay + WORD_END_GRACE_S);
     start = Math.min(sung, next.time);
   }
   return next.time - start >= GAP_MIN_S ? { start, end: next.time } : null;

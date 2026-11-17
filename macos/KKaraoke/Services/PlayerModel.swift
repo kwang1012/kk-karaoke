@@ -324,16 +324,26 @@ final class PlayerModel {
         applyingRemote = false
     }
 
+    /// A new shared sync for `trackId` came from another device. Ignored for a moment after this Mac's own nudge,
+    /// whose echo is older than what was just set.
+    func applySharedDelay(_ delay: Double, trackId: String) {
+        guard track?.id == trackId, delayTask == nil, Date().timeIntervalSince(lastOwnDelayAt) > 1.5 else { return }
+        trackDelay = delay
+    }
+    private var lastOwnDelayAt = Date.distantPast
+
     /// Show the lyrics `seconds` earlier (negative: later), and save it for everyone who sings this song.
     func setAhead(_ seconds: Double) {
         guard let track, let client else { return }
         trackDelay = -LyricsSync.clampedAhead(seconds)
+        lastOwnDelayAt = Date()
         let delay = trackDelay
         delayTask?.cancel()
         delayTask = Task {
             try? await Task.sleep(for: .milliseconds(400))
             guard !Task.isCancelled else { return }
             _ = try? await client.setLyricsDelay(trackId: track.id, delay: delay)
+            delayTask = nil
         }
     }
 

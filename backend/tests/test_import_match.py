@@ -32,7 +32,7 @@ def test_a_differently_titled_song_is_found_by_its_length(monkeypatch):
     track = {"id": "abcdefghijk", "name": "Paper Clouds", "artists": []}
     asked = []
     monkeypatch.setattr(imports.charts, "_resolve", lambda entry: None)
-    monkeypatch.setattr(imports.charts, "resolve_by_length", lambda entry, seconds, cover=None, album=None: asked.append(seconds) or track)
+    monkeypatch.setattr(imports.charts, "resolve_by_length", lambda entry, seconds, cover=None, album=None, track_number=None: asked.append(seconds) or track)
     monkeypatch.setattr(imports.catalog, "is_ready", lambda track_id: True)
     assert imports.match_song(MatchRequest(title="剪雲者", artist="林俊傑", duration=241.5))["track"] == track
     assert asked == [241.5]
@@ -103,3 +103,30 @@ def test_length_match_accepts_the_same_album_name_without_a_cover(monkeypatch):
     entry = {"title": "剪雲者", "artist": "林俊傑"}
     assert charts.resolve_by_length(entry, 216, None, "message in a bottle")["name"] == "Paper Clouds"
     assert charts.resolve_by_length(entry, 216, None, "瓶中信") is None
+
+
+def test_the_song_is_found_inside_the_albums_other_edition_by_number_and_length(monkeypatch):
+    from services import charts
+
+    album = {"title": "Message In A Bottle", "thumbnails": [], "audioPlaylistId": "OLAK",
+             "tracks": [{"videoId": "a" * 11, "title": "Little Big Us", "duration_seconds": 278, "artists": [{"name": "JJ Lin", "id": "CHANNEL"}]},
+                        {"videoId": "b" * 11, "title": "Stay", "duration_seconds": 278, "artists": [{"name": "JJ Lin", "id": "CHANNEL"}]}]}
+
+    class Fake:
+        def search(self, query, filter=None, limit=20):
+            if filter == "artists":
+                return [{"browseId": "CHANNEL"}]
+            return [{"browseId": "MPRE", "title": "Message In A Bottle", "thumbnails": [], "artists": [{"id": "CHANNEL"}]}]
+
+        def get_album(self, browse_id):
+            return album
+
+    monkeypatch.setattr(charts.catalog, "_ytm", lambda: Fake())
+    monkeypatch.setattr(charts.catalog, "_playable", lambda t: True)
+    monkeypatch.setattr(charts.catalog, "_cached", lambda key, ttl, fn: fn())
+    entry = {"title": "穿越", "artist": "JJ Lin"}
+    found = charts.resolve_by_length(entry, 277.7, None, "message in a bottle", 2)
+    assert found["name"] == "Stay"
+    # the same length twice in the album, and no number to tell them apart: no answer
+    assert charts.resolve_by_length(entry, 277.7, None, "message in a bottle", None) is None
+    assert charts.resolve_by_length(entry, 277.7, None, "message in a bottle", 1)["name"] == "Little Big Us"

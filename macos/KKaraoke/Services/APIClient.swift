@@ -161,15 +161,15 @@ extension APIClient {
     }
 
     /// The recording a song heard elsewhere (Spotify) is, whether its karaoke version is ready, and (`process`) start making it.
-    func matchSong(title: String, artist: String, duration: Double? = nil, cover: URL? = nil, album: String? = nil, process: Bool) async throws -> SongMatch {
-        struct Body: Encodable { var title: String; var artist: String; var duration: Double?; var cover: String?; var album: String?; var process: Bool }
-        let body = Body(title: title, artist: artist, duration: duration, cover: cover?.absoluteString, album: album, process: process)
+    func matchSong(title: String, artist: String, duration: Double? = nil, cover: URL? = nil, album: String? = nil, trackNumber: Int? = nil, process: Bool) async throws -> SongMatch {
+        struct Body: Encodable { var title: String; var artist: String; var duration: Double?; var cover: String?; var album: String?; var track_number: Int?; var process: Bool }
+        let body = Body(title: title, artist: artist, duration: duration, cover: cover?.absoluteString, album: album, track_number: trackNumber, process: process)
         return try await post(SongMatch.self, "import/match", body: body)
     }
 
     /// The same, for a song as Spotify names it: when the title finds nothing, its length and cover can.
     func matchSong(for track: SpotifyTrack, artwork: URL?, process: Bool) async throws -> SongMatch {
-        try await matchSong(title: track.name, artist: track.artist, duration: track.duration, cover: artwork, album: track.album, process: process)
+        try await matchSong(title: track.name, artist: track.artist, duration: track.duration, cover: artwork, album: track.album, trackNumber: track.trackNumber, process: process)
     }
 
     /// Saves the song's lyrics offset for everyone: seconds added to every line time.

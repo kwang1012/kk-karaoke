@@ -10,14 +10,17 @@ struct SpotifyTrack: Equatable, Sendable {
   /// Seconds. Another service may call the song something else, and its length is what finds it then.
   var duration: Double?
   var album: String?
+  /// Which song of its album it is.
+  var trackNumber: Int?
 
-  init?(id: String?, name: String?, artist: String?, duration: Double? = nil, album: String? = nil) {
+  init?(id: String?, name: String?, artist: String?, duration: Double? = nil, album: String? = nil, trackNumber: Int? = nil) {
     guard let id, !id.isEmpty, let name, !name.isEmpty else { return nil }
     self.id = id
     self.name = name
     self.artist = artist ?? ""
     self.duration = duration.flatMap { $0 > 0 ? $0 : nil }
     self.album = album?.isEmpty == false ? album : nil
+    self.trackNumber = trackNumber.flatMap { $0 > 0 ? $0 : nil }
   }
 
   /// The same song, however much of it is known: the length may come from one source and not another.
@@ -39,7 +42,8 @@ struct SpotifyEvent: Equatable, Sendable {
     // Spotify reports the length in milliseconds
     let milliseconds = (userInfo["Duration"] as? NSNumber)?.doubleValue
     track = SpotifyTrack(id: userInfo["Track ID"] as? String, name: userInfo["Name"] as? String, artist: userInfo["Artist"] as? String,
-                         duration: milliseconds.map { $0 / 1000 }, album: userInfo["Album"] as? String)
+                         duration: milliseconds.map { $0 / 1000 }, album: userInfo["Album"] as? String,
+                         trackNumber: (userInfo["Track Number"] as? NSNumber)?.intValue)
   }
 
   init(state: SpotifyPlayState, track: SpotifyTrack?, artwork: URL? = nil) {
@@ -100,14 +104,15 @@ enum SpotifyApp {
   static func current() throws -> SpotifyEvent? {
     let answer = try run("""
       if player state is stopped then return {"Stopped"}
-      return {player state as string, id of current track, name of current track, artist of current track, artwork url of current track, duration of current track, album of current track}
+      return {player state as string, id of current track, name of current track, artist of current track, artwork url of current track, duration of current track, album of current track, track number of current track}
       """)
     guard let raw = answer.atIndex(1)?.stringValue else { return nil }
     let state = SpotifyPlayState(rawValue: raw.capitalized) ?? .stopped
     return SpotifyEvent(
       state: state,
       track: SpotifyTrack(id: answer.atIndex(2)?.stringValue, name: answer.atIndex(3)?.stringValue, artist: answer.atIndex(4)?.stringValue,
-                         duration: answer.atIndex(6).map { Double($0.int32Value) / 1000 }, album: answer.atIndex(7)?.stringValue),
+                         duration: answer.atIndex(6).map { Double($0.int32Value) / 1000 }, album: answer.atIndex(7)?.stringValue,
+                         trackNumber: answer.atIndex(8).map { Int($0.int32Value) }),
       artwork: answer.atIndex(5)?.stringValue.flatMap { URL(string: $0) })
   }
 }

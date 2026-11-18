@@ -274,18 +274,65 @@ def same_release(track: dict[str, Any], album: Optional[str], cover: Optional[st
     return same_cover(cover, track)
 
 
-def resolve_by_length(entry: Entry, seconds: float, cover: Optional[str] = None,
-                      album: Optional[str] = None) -> Optional[dict[str, Any]]:
-    """The artist's recording that is `seconds` long, for a song the title does not find: services often carry another
-    language's title for the same song (Spotify's 剪雲者 is Paper Clouds on YouTube Music). A guess, so it is careful:
-    the recording must be the artist's, within the tolerance, the only one of the artist's that close, and on the same
-    album or cover art (without that, a song that YouTube Music lacks would be taken for whichever of the artist's songs
-    happens to be as long); any doubt is no match."""
+def _album_matches(name: str, thumbnails: list, album: Optional[str], cover: Optional[str]) -> bool:
+    return same_release({"album": {"name": name, "images": catalog._image(thumbnails)}}, album, cover)
+
+
+def _in_release(entry: Entry, seconds: float, track_number: Optional[int], cover: Optional[str],
+                album: Optional[str], channel: set[str]) -> Optional[dict[str, Any]]:
+    """The song inside the YouTube Music edition of the album Spotify shows (the same cover or album name). Within one
+    album the track's number and length pick it out, however it is titled."""
+    ytm = catalog._ytm()
+    found: dict[str, dict[str, Any]] = {}
+    for query in (f"{album or ''} {entry['artist']}".strip(), entry["artist"]):
+        try:
+            hits = ytm.search(query, filter="albums", limit=10)
+        except Exception as e:  # noqa: BLE001
+            log.warning("Album lookup failed for %r: %r", query, e)
+            continue
+        for hit in hits:
+            if hit.get("browseId") and (not channel or {a.get("id") for a in hit.get("artists") or []} & channel):
+                found.setdefault(hit["browseId"], hit)
+    editions = []
+    for hit in list(found.values())[:10]:
+        if _album_matches(hit.get("title", ""), hit.get("thumbnails") or [], album, cover):
+            try:
+                editions.append(ytm.get_album(hit["browseId"]))
+            except Exception as e:  # noqa: BLE001
+                log.warning("Album %s not read: %r", hit["browseId"], e)
+    # the full album, not a single from it
+    for edition in sorted(editions, key=lambda e: -len(e.get("tracks") or [])):
+        tracks = edition.get("tracks") or []
+        fits = [(i + 1, t) for i, t in enumerate(tracks)
+                if t.get("videoId") and t.get("duration_seconds") and abs(t["duration_seconds"] - seconds) <= LENGTH_TOLERANCE_S]
+        if track_number:
+            fits = [pair for pair in fits if pair[0] == track_number]
+        if len(fits) != 1:
+            continue
+        hit = {**fits[0][1], "album": {"name": edition.get("title"), "id": edition.get("audioPlaylistId")},
+               "thumbnails": edition.get("thumbnails") or []}
+        track = catalog.to_track(hit, "song")
+        if track and catalog._playable(track) and not _is_version(entry["title"], track["name"]):
+            return track
+    return None
+
+
+def resolve_by_length(entry: Entry, seconds: float, cover: Optional[str] = None, album: Optional[str] = None,
+                      track_number: Optional[int] = None) -> Optional[dict[str, Any]]:
+    """The artist's recording for a song the title does not find: services often carry another language's title for the
+    same song (Spotify's 穿越 is Stay on YouTube Music). A guess, so it is careful. First, the album Spotify shows is
+    found on YouTube Music (same cover or name) and the song is the one there with this track number and length. Failing
+    that, the recording must be the artist's, within the tolerance, the only one of the artist's that close, and on the
+    same album or cover art. Any doubt is no match."""
     if not entry.get("artist") or seconds < 30:
         return None
 
     def find():
         channel = _artist_ids(entry["artist"].split(",")[0].strip())
+        track = _in_release(entry, seconds, track_number, cover, album, channel)
+        if track:
+            log.info("Matched %r to %r by its album and length (%.1fs)", entry["title"], track["name"], seconds)
+            return track
         pool: dict[str, dict[str, Any]] = {}
         for query in (f"{entry['title']} {entry['artist']}", entry["artist"]):
             try:
@@ -294,27 +341,30 @@ def resolve_by_length(entry: Entry, seconds: float, cover: Optional[str] = None,
                 log.warning("Length lookup failed for %r: %r", query, e)
                 continue
             for hit in hits:
-                track = catalog.to_track(hit, "song")
-                if track and track.get("duration_ms"):
-                    pool.setdefault(track["id"], track)
+                candidate = catalog.to_track(hit, "song")
+                if candidate and candidate.get("duration_ms"):
+                    pool.setdefault(candidate["id"], candidate)
 
-        def theirs(track):
-            names = [a["name"] for a in track["artists"] if a["name"]]
-            return bool({a["id"] for a in track["artists"]} & channel) or _artist_matches(entry["artist"], names)
+        def theirs(t):
+            names = [a["name"] for a in t["artists"] if a["name"]]
+            return bool({a["id"] for a in t["artists"]} & channel) or _artist_matches(entry["artist"], names)
 
         close = sorted(
             ((abs(t["duration_ms"] / 1000 - seconds), t) for t in pool.values() if theirs(t)),
             key=lambda pair: pair[0])
         close = [pair for pair in close if pair[0] <= LENGTH_TOLERANCE_S]
         if len(close) != 1:  # none, or two of the artist's songs are this long: cannot tell which
+            log.info("No length match for %r (%.1fs): %d candidates", entry["title"], seconds, len(close))
             return None
-        track = close[0][1]
-        if not catalog._playable(track) or _is_version(entry["title"], track["name"]) or not same_release(track, album, cover):
+        candidate = close[0][1]
+        if not catalog._playable(candidate) or _is_version(entry["title"], candidate["name"]) \
+                or not same_release(candidate, album, cover):
+            log.info("Length match for %r rejected: %r", entry["title"], candidate["name"])
             return None
-        log.info("Matched %r to %r by length (%.1fs)", entry["title"], track["name"], seconds)
-        return track
+        log.info("Matched %r to %r by length (%.1fs)", entry["title"], candidate["name"], seconds)
+        return candidate
 
-    key = f"chart-length:{entry['title']}:{entry['artist']}:{round(seconds)}:{cover}:{album}"
+    key = f"chart-length:{entry['title']}:{entry['artist']}:{round(seconds)}:{track_number}:{cover}:{album}"
     return catalog._cached(key, RESOLVE_TTL_S, find)
 
 

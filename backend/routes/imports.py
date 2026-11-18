@@ -44,6 +44,8 @@ class MatchRequest(BaseModel):
     # The cover Spotify shows for it: a recording is only taken for the song when it has the same artwork.
     cover: str | None = Field(default=None, max_length=300)
     album: str | None = Field(default=None, max_length=200)
+    # Which song of its album it is: with the album's cover, it finds the song whatever the title.
+    track_number: int | None = Field(default=None, ge=1, le=999)
 
 
 # A song just sent for processing is not sent again for a while: Spotify plays the same song often.
@@ -67,7 +69,7 @@ def match_song(body: MatchRequest) -> dict:
     entry = {"title": body.title, "artist": body.artist}
     found = charts._resolve(entry)
     if not found and body.duration:
-        found = charts.resolve_by_length(entry, body.duration, body.cover, body.album)
+        found = charts.resolve_by_length(entry, body.duration, body.cover, body.album, body.track_number)
     if not found:
         return {"track": None, "ready": False, "processing": False}
     ready = catalog.is_ready(found["id"])

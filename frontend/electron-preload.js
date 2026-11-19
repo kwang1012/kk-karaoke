@@ -41,4 +41,16 @@ contextBridge.exposeInMainWorld('kkaraoke', {
   notify: (title, body) => ipcRenderer.send('notify', { title, body }),
   setProgress: (fraction, playing) => ipcRenderer.send('taskbar-progress', { fraction, playing: !!playing }),
   version: () => ipcRenderer.invoke('app-version'),
+  // the Spotify desktop app (Windows): what it plays, and holding it silent while KKaraoke sings the song
+  spotify: {
+    available: process.platform === 'win32',
+    start: () => ipcRenderer.invoke('spotify-start'),
+    stop: () => ipcRenderer.invoke('spotify-stop'),
+    command: (name) => ipcRenderer.invoke('spotify-command', name),
+    onState: (callback) => {
+      const listener = (_event, state) => callback(state);
+      ipcRenderer.on('spotify-state', listener);
+      return () => ipcRenderer.removeListener('spotify-state', listener);
+    },
+  },
 });

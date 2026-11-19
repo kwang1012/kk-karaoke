@@ -118,6 +118,16 @@ final class RoomModel {
     @ObservationIgnored private var tick = 0
     /// Where in the song to start once its audio is ready, when this Mac took over from another device.
     @ObservationIgnored private var resumeAt: TimeInterval?
+    /// The song may load more than once while the app settles (first following, then taking over the room): each load goes
+    /// back to where the last run left it, until the person does something or a little time has passed.
+    @ObservationIgnored private let launchedAt = Date()
+    private static let positionKey = "lastPosition"
+
+    /// Remembers where the song is, so a restart or a reinstall picks up there.
+    private func savePosition() {
+        guard let player, let id = player.track?.id, player.status == .ready, player.currentTime > 1 else { return }
+        UserDefaults.standard.set(["id": id, "time": player.currentTime], forKey: Self.positionKey)
+    }
     /// Where this Mac's clock stands against the server's, learned from pings; a duet starts on the server's clock.
     @ObservationIgnored private(set) var clock = ClockSync()
     @ObservationIgnored private var clockPings: [String: Double] = [:]
@@ -161,9 +171,16 @@ final class RoomModel {
         clientProvider = client
         player.onControl = { [weak self] in self?.playerControl($0) }
         player.onEnded = { [weak self] in self?.songEnded() }
+        player.onKeyChange = { [weak self] in self?.publish(force: true, full: true) }
         player.onAudioReady = { [weak self] in
             self?.preloadNeighbors()
             if let self, let time = self.resumeAt, !self.isFollowing { self.player?.perform(.seek(time), fromRemote: true) }
+            else if let self, Date().timeIntervalSince(self.launchedAt) < 30, self.lastControlAt < self.launchedAt, !self.isFollowing, !self.followsSpotify, let player = self.player,
+                    let saved = UserDefaults.standard.dictionary(forKey: Self.positionKey),
+                    saved["id"] as? String == player.track?.id, let time = saved["time"] as? Double,
+                    time > 1, time < player.duration - 3 {
+                player.perform(.seek(time), fromRemote: true)
+            }
             self?.resumeAt = nil
         }
         socket.onMessage = { [weak self] in self?.handle($0) }
@@ -264,12 +281,14 @@ final class RoomModel {
 
     /// Asks the server to make this Mac the device that plays. The answer (to everyone in the room) is `applyPlayer`.
     func playHere() {
+        DebugLog.write("playHere")
         guard !isGuest else { return }
         socket.send(.player(room: activeRoomId, deviceId: deviceId, ifFree: false))
     }
 
     /// The server says which device plays. This Mac stops and follows when it is not the one, and takes over when it is.
     private func applyPlayer(_ id: String?) {
+        DebugLog.write("applyPlayer(\(id ?? "nil")) mine=\(id == deviceId) following=\(isFollowing)")
         // The server frees the player when this Mac's old socket closes, and says so right after the new one joins,
         // before the claim that follows it lands. Dropping to follower for that moment would stop the song and reload it
         // from the start: keep playing, and ask for the claim again (it only takes the room while nobody has it).
@@ -721,6 +740,7 @@ final class RoomModel {
 
     private func playerControl(_ control: PlayerModel.Control) {
         lastControlAt = Date()
+        defer { savePosition() } // a pause or a seek leaves the song somewhere new
         if isFollowing {
             sendToOwner(control)
             return
@@ -898,7 +918,7 @@ final class RoomModel {
                 guard let self else { return }
                 self.tick += 1
                 guard !self.isFollowing, self.socketState == .connected, self.player?.isPlaying == true else { continue }
-                if self.tick % 5 == 0 { self.publish(force: false, full: self.tick % 25 == 0) } // each second, the whole state every five
+                if self.tick % 5 == 0 { self.publish(force: false, full: self.tick % 25 == 0); self.savePosition() } // each second, the whole state every five
             }
         }
     }

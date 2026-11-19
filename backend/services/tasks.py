@@ -97,6 +97,7 @@ def dispatch_job(job, client=celery, options=None):
         Celery.send_task(client, job["kind"], args=json.loads(job["args"]), retry=False, **options)
     except Exception as exc:
         catalog.update_job(job["id"], "queued", error=f"Dispatch pending: {type(exc).__name__}")
+        catalog.release_dispatch(job["id"])  # the message never left: send it on the next pass, not in an hour
 
 
 def recover_jobs():

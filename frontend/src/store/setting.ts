@@ -14,6 +14,8 @@ export interface SettingState {
   refresh: () => void; // Function to refresh the settings
   lyricsLead: number; // Seconds the lyrics show before they are sung: a karaoke singer needs to read ahead
   setLyricsLead: (lyricsLead: number) => void;
+  followSpotify: boolean; // Sing what the Spotify desktop app plays (Windows app only)
+  setFollowSpotify: (followSpotify: boolean) => void;
   wordHighlight: boolean; // Fill the current line word by word when word timing exists
   setWordHighlight: (wordHighlight: boolean) => void;
   outputDeviceId: string; // Chosen audio output device; '' follows the system default
@@ -71,6 +73,8 @@ export const useSettingStore = create<SettingState>()(
       refresh: () => set((state) => ({ refreshKey: state.refreshKey + 1 })), // Function to refresh the settings
       lyricsLead: DEFAULT_LYRICS_LEAD_S,
       setLyricsLead: (lyricsLead: number) => set({ lyricsLead: Math.min(Math.max(lyricsLead, 0), 1.5) }),
+      followSpotify: false,
+      setFollowSpotify: (followSpotify: boolean) => set({ followSpotify }),
       wordHighlight: true,
       setWordHighlight: (wordHighlight: boolean) => set({ wordHighlight }),
       outputDeviceId: '',
@@ -140,6 +144,7 @@ export const useSettingStore = create<SettingState>()(
         theme: state.theme,
         queueOpen: state.queueOpen,
         wordHighlight: state.wordHighlight,
+        followSpotify: state.followSpotify,
         lyricsLead: state.lyricsLead,
         outputDeviceId: state.outputDeviceId,
         duetEarlyMs: state.duetEarlyMs,

@@ -82,10 +82,10 @@ const fetchTopCategories = async (): Promise<Categories> => {
     });
 };
 
-const fetchCharts = async (): Promise<ChartSource[]> =>
+export const fetchCharts = async (): Promise<ChartSource[]> =>
   api.get('/charts').then(({ data }) => data.sources || []);
 
-function ProviderMark({ source, className }: { source: string; className?: string }) {
+export function ProviderMark({ source, className }: { source: string; className?: string }) {
   const logo = PROVIDER_LOGO[source];
   return logo ? (
     <img src={publicUrl(logo)} alt="" className={cn('size-6 shrink-0', className)} />

@@ -181,7 +181,7 @@ struct PlayerBar: View {
         height: 16)
     default:
       let _ = player.seekCount
-      TimelineView(.animation(minimumInterval: 0.2, paused: !player.isPlaying && scrubbing == nil))
+      TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !player.isPlaying && scrubbing == nil))
       { _ in
         let duration = max(player.duration, 0.1)
         let time = scrubbing ?? player.currentTime

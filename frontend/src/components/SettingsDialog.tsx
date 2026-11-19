@@ -6,6 +6,8 @@ import { Input } from 'src/components/ui/input';
 import AppSelect from 'src/components/Select';
 import AvatarPicker from 'src/components/AvatarPicker';
 import AppSwitch from 'src/components/Switch';
+import { canFollowSpotify } from 'src/hooks/spotifyFollow';
+import { useSpotifyFollowStore } from 'src/store/spotifyFollow';
 import AppScrollbar from 'src/components/Scrollbar';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from 'src/components/ui/dialog';
 import { usePlayerStore } from 'src/store/player';
@@ -55,6 +57,9 @@ export default function SettingsDialog() {
   const showTranslatinon = useSettingStore((state) => state.showTranslatinon);
   const lyricsLead = useSettingStore((state) => state.lyricsLead);
   const setLyricsLead = useSettingStore((state) => state.setLyricsLead);
+  const followSpotify = useSettingStore((state) => state.followSpotify);
+  const setFollowSpotify = useSettingStore((state) => state.setFollowSpotify);
+  const spotifyNow = useSpotifyFollowStore((state) => state.now);
   const wordHighlight = useSettingStore((state) => state.wordHighlight);
   const setWordHighlight = useSettingStore((state) => state.setWordHighlight);
   const setShowTranslatinon = useSettingStore((state) => state.setShowTranslatinon);
@@ -150,6 +155,21 @@ export default function SettingsDialog() {
             />
           </Row>
         </Section>
+
+        {canFollowSpotify() && (
+          <Section title="Spotify">
+            <Row title={t('settings.followSpotify')} description={t('settings.followSpotifyHint')}>
+              <AppSwitch checked={followSpotify} onCheckedChange={setFollowSpotify} />
+            </Row>
+            {followSpotify && (
+              <p className="mt-2 text-sm text-muted-foreground">
+                {spotifyNow
+                  ? t(`spotify.follow.${spotifyNow.stage}`, { title: spotifyNow.song.title })
+                  : t('spotify.follow.waiting')}
+              </p>
+            )}
+          </Section>
+        )}
 
         <Section title={t('settings.audio')}>
           <Row title="AirPlay" description={t('airplay.description')}>

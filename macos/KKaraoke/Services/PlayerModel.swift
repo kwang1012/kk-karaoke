@@ -45,32 +45,49 @@ final class PlayerModel {
     var vocalVolume: Double {
         didSet {
             applyVolumes()
+            // Saved whoever changed it (a phone in the room too), unless this Mac only mirrors another device.
+            if !isFollower { UserDefaults.standard.set(vocalVolume, forKey: Keys.vocal) }
             guard !applyingRemote else { return }
-            UserDefaults.standard.set(vocalVolume, forKey: Keys.vocal)
             onControl?(.guideLevel(vocalVolume))
         }
     }
     var instrumentalVolume: Double { didSet { applyVolumes(); UserDefaults.standard.set(instrumentalVolume, forKey: Keys.instrumental) } }
     /// Both stems' level, the room's volume.
     var masterVolume: Double = 1 {
-        didSet { applyVolumes(); if !applyingRemote { onControl?(.volume(masterVolume)) } }
+        didSet {
+            applyVolumes()
+            if !isFollower { UserDefaults.standard.set(masterVolume, forKey: Keys.master) }
+            if !applyingRemote { onControl?(.volume(masterVolume)) }
+        }
     }
     /// The original singer at full level, whatever the guide level says.
-    var vocalOn = false { didSet { applyVolumes() } }
+    var vocalOn = false {
+        didSet {
+            applyVolumes()
+            if !isFollower { UserDefaults.standard.set(vocalOn, forKey: Keys.vocalOn) }
+        }
+    }
     /// Includes a full guide mix, which is audibly identical to original-vocal mode.
     var fullVocal: Bool { vocalOn || vocalVolume >= 1 }
     /// The key change in semitones (-12...12), for the song and the melody that follows it.
-    private(set) var semitone = 0 { didSet { stems.setSemitone(semitone) } }
+    private(set) var semitone = 0 {
+        didSet {
+            stems.setSemitone(semitone)
+            if semitone != oldValue { onKeyChange?() }
+        }
+    }
     static let semitoneRange = -12...12
     /// Seconds the lyrics show before the singing, for this Mac's speakers and screen. Not shared with other devices.
     var lyricsLead: Double { didSet { UserDefaults.standard.set(lyricsLead, forKey: Keys.lead) } }
 
     private enum Keys {
-        static let vocal = "vocalVolume", instrumental = "instrumentalVolume", lead = "lyricsLead"
+        static let songKeys = "songKeys", songDelays = "songDelays", master = "masterVolume", vocalOn = "vocalOn", vocal = "vocalVolume", instrumental = "instrumentalVolume", lead = "lyricsLead"
     }
 
     /// Told when the song changes, so what follows the song (the melody) can follow.
     var onTrackChange: (() -> Void)?
+    /// Told when the key changes by itself (a song starts with the key it was last sung in), so remotes show it at once.
+    var onKeyChange: (() -> Void)?
     /// The current audio is ready; adjacent songs can now download without delaying it.
     var onAudioReady: (() -> Void)?
     /// Told of everything done to the player: the room passes it on (a guest's controls go to the room's owner).
@@ -115,6 +132,9 @@ final class PlayerModel {
         vocalVolume = defaults.object(forKey: Keys.vocal) as? Double ?? 0
         instrumentalVolume = defaults.object(forKey: Keys.instrumental) as? Double ?? 1
         lyricsLead = defaults.object(forKey: Keys.lead) as? Double ?? 0
+        // The mix is how the singer left it, not reset to the defaults by a relaunch.
+        masterVolume = defaults.object(forKey: Keys.master) as? Double ?? 1
+        vocalOn = defaults.bool(forKey: Keys.vocalOn)
         cast.onReady = { [weak self] in self?.pushToCast() }
         cast.onPlayerState = { [weak self] state, time, _ in self?.castReported(state, time) }
         cast.onClosed = { [weak self] in self?.castClosed() }
@@ -122,6 +142,20 @@ final class PlayerModel {
             self?.isPlaying = false
             self?.onEnded?()
         }
+        stems.onStartFailure = { [weak self] message in
+            self?.isPlaying = false
+            self?.status = .failed(message)
+        }
+    }
+
+    /// What was set for each song, kept on this Mac: its key and its lyric timing belong to the song, not to the session.
+    private func remembered(_ key: String, _ id: String) -> Double? {
+        (UserDefaults.standard.dictionary(forKey: key) as? [String: Double])?[id]
+    }
+    private func remember(_ key: String, _ id: String, _ value: Double?) {
+        var all = (UserDefaults.standard.dictionary(forKey: key) as? [String: Double]) ?? [:]
+        all[id] = value
+        UserDefaults.standard.set(all, forKey: key)
     }
 
     /// Where the lyrics are, relative to the audio: the song's own offset and the lead before the singing.
@@ -157,6 +191,7 @@ final class PlayerModel {
         isPlaying = false
         duration = 0
         trackDelay = 0
+        semitone = remembered(Keys.songKeys, track.id).map { Int($0) } ?? 0
         confidence = nil
         lyrics = .loading
         status = .loading(nil)
@@ -214,6 +249,7 @@ final class PlayerModel {
 
     /// Does `control` here, or (following a room) asks the room's owner to. Nothing is passed on when it came from the room.
     func perform(_ control: Control, fromRemote: Bool = false) {
+        DebugLog.write("perform \(control) fromRemote=\(fromRemote) follower=\(isFollower) status=\(status) playing=\(isPlaying)")
         if isFollower && !fromRemote { onControl?(control); return }
         switch control {
         case .play: resume()
@@ -241,6 +277,7 @@ final class PlayerModel {
     /// Sets the key here; a follower only mirrors the room's, which changes on the owner's word.
     func setSemitone(_ value: Int) {
         semitone = min(Self.semitoneRange.upperBound, max(Self.semitoneRange.lowerBound, value))
+        if !isFollower, let id = track?.id { remember(Keys.songKeys, id, semitone == 0 ? nil : Double(semitone)) }
     }
 
     private func resume() {
@@ -271,6 +308,7 @@ final class PlayerModel {
     /// Turns following on or off. Following has no audio of its own.
     func setFollower(_ on: Bool) {
         guard on != isFollower else { return }
+        DebugLog.write("setFollower(\(on))")
         isFollower = on
         waitingForProcessing = false
         processingFinishedDuringLoad = false
@@ -327,6 +365,7 @@ final class PlayerModel {
     /// A new shared sync for `trackId` came from another device. Ignored for a moment after this Mac's own nudge,
     /// whose echo is older than what was just set.
     func applySharedDelay(_ delay: Double, trackId: String) {
+        remember(Keys.songDelays, trackId, delay)
         guard track?.id == trackId, delayTask == nil, Date().timeIntervalSince(lastOwnDelayAt) > 1.5 else { return }
         trackDelay = delay
     }
@@ -336,6 +375,7 @@ final class PlayerModel {
     func setAhead(_ seconds: Double) {
         guard let track, let client else { return }
         trackDelay = -LyricsSync.clampedAhead(seconds)
+        remember(Keys.songDelays, track.id, trackDelay)
         lastOwnDelayAt = Date()
         let delay = trackDelay
         delayTask?.cancel()
@@ -495,7 +535,7 @@ final class PlayerModel {
                 if attempt == 0, let kept = await prefetched?.value { response = kept }
                 else { response = try await client.lyrics(trackId: track.id) }
                 guard !Task.isCancelled, self.track?.id == track.id else { return }
-                trackDelay = response.delay ?? 0
+                trackDelay = remembered(Keys.songDelays, track.id) ?? response.delay ?? 0
                 confidence = response.confidence
                 if !response.lyrics.isEmpty { lyrics = .synced(response.lyrics) }
                 else if let plain = response.plain, !plain.isEmpty { lyrics = .plain(plain) }
@@ -507,7 +547,7 @@ final class PlayerModel {
                 guard self.track?.id == track.id else { return }
                 // no server: a pinned song brings its own
                 if let kept = OfflineStore.shared.song(track.id)?.lyrics {
-                    trackDelay = kept.delay ?? 0
+                    trackDelay = remembered(Keys.songDelays, track.id) ?? kept.delay ?? 0
                     confidence = kept.confidence
                     if !kept.lyrics.isEmpty { lyrics = .synced(kept.lyrics) }
                     else if let plain = kept.plain, !plain.isEmpty { lyrics = .plain(plain) }

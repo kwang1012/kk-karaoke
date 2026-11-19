@@ -102,3 +102,21 @@ def test_a_stage_that_raises_is_reported_as_an_error_and_fails_the_song(run, mon
     monkeypatch.setattr(pr, "download_audio", boom)
     with pytest.raises(RuntimeError):
         run()
+
+
+def test_a_song_that_is_already_finished_is_not_processed_again(run, monkeypatch, tmp_path):
+    for prefix in ("vocal", "instrumental", "lyrics", "midi"):
+        (tmp_path / f"{prefix}-{VID}").write_text("x")
+    monkeypatch.setattr(pr, "read_meta", lambda tid: {"audio_check": "confirmed"})
+    log = run()
+    names = {what.split(":")[0] for what, _ in log["events"]}
+    assert not names & {"lyrics", "audio", "vocals", "verify", "melody", "upload"}
+    assert log["published"][-1][0] == "ready"
+
+
+def test_a_song_without_its_melody_still_gets_the_finishing_steps(run, monkeypatch, tmp_path):
+    for prefix in ("vocal", "instrumental", "lyrics"):  # no midi yet
+        (tmp_path / f"{prefix}-{VID}").write_text("x")
+    monkeypatch.setattr(pr, "read_meta", lambda tid: {"audio_check": "confirmed"})
+    log = run()
+    assert {"verify", "melody"} <= {what.split(":")[0] for what, _ in log["events"]}

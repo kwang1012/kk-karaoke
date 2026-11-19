@@ -286,12 +286,21 @@ final class SpotifyTakeover {
     now = Now(spotify: track, match: readyMatches[track.id]?.track, stage: readyMatches[track.id] == nil ? .matching : .singing, artwork: artwork)
     guard readyMatches[track.id] == nil else { return }
     matching = Task { [weak self] in
-      guard let self, let client = clientProvider?() else { return }
-      let match = try? await client.matchSong(for: track, artwork: artwork, process: true)
-      guard !Task.isCancelled, spotifyTrack == nil, now?.spotify == track else { return }
-      if let match, match.ready { readyMatches[track.id] = match }
-      let stage: Now.Stage = match?.track == nil ? .missing : (match?.ready == true ? .singing : .preparing)
-      now = Now(spotify: track, match: match?.track, stage: stage, artwork: artwork)
+      // A lookup that could not be made (signed out, offline, server busy) is not "no karaoke version": it is tried
+      // again, quick at first, then every minute for a while.
+      for delay in [0.0] + Self.retryDelays {
+        try? await Task.sleep(for: .seconds(delay))
+        guard let self, !Task.isCancelled, spotifyTrack == nil, now?.spotify == track else { return }
+        guard let client = clientProvider?(),
+              let match = try? await client.matchSong(for: track, artwork: artwork, process: true) else {
+          now = Now(spotify: track, match: nil, stage: .failed, artwork: artwork)
+          continue
+        }
+        if match.ready { readyMatches[track.id] = match }
+        let stage: Now.Stage = match.track == nil ? .missing : (match.ready ? .singing : .preparing)
+        now = Now(spotify: track, match: match.track, stage: stage, artwork: artwork)
+        return
+      }
     }
   }
 

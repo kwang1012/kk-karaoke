@@ -13,13 +13,20 @@ struct TVView: View {
   @State private var window: NSWindow?
   @State private var isFullscreen = false
   @State private var collectionObserver: NSKeyValueObservation?
+  @State private var change: ChangeNotice?
+  @AppStorage("showVideo") private var showVideo = false
+  @State private var trackChangedAt = Date.distantPast
+  @AppStorage(PlayerModel.duetEarlyKey) private var duetEarlyMs = 0.0
 
   var body: some View {
     GeometryReader { geometry in
       let unit = geometry.size.width / 100
       ZStack {
         palette.background.ignoresSafeArea()
-        if let url = player.track?.artworkURL {
+        if showVideo, let track = player.track {
+          // The recording's own video takes the place of the lyrics, as in the normal view and on the web.
+          VideoBackdrop(videoId: track.videoId ?? track.id).ignoresSafeArea()
+        } else if let url = player.track?.artworkURL {
           AsyncImage(url: url) { image in
             image.resizable().scaledToFill().frame(
               width: geometry.size.width, height: geometry.size.height
@@ -31,7 +38,9 @@ struct TVView: View {
           .allowsHitTesting(false)
         }
         LinearGradient(
-          colors: [.black.opacity(0.3), .clear, .black.opacity(0.6)], startPoint: .top,
+          colors: showVideo && player.track != nil
+            ? [.black.opacity(0.55), .black.opacity(0.1), .black.opacity(0.8)]
+            : [.black.opacity(0.3), .clear, .black.opacity(0.6)], startPoint: .top,
           endPoint: .bottom
         )
         .ignoresSafeArea()
@@ -55,7 +64,7 @@ struct TVView: View {
               if singing.showMelody, singing.melodyState == .ready {
                 PitchRollView().frame(height: min(120, geometry.size.height * 0.18))
               }
-              lyrics(unit: unit)
+              lyrics(unit: unit).opacity(showVideo ? 0 : 1).accessibilityHidden(showVideo)
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
             footer(unit: unit)
           }.padding(.horizontal, unit * 5).padding(.top, unit * 3).padding(.bottom, unit * 2.5)
@@ -116,6 +125,14 @@ struct TVView: View {
               } label: {
                 LucideIcon("skip-forward", size: 24)
               }.help("Next song")
+              Button {
+                showVideo.toggle()
+              } label: {
+                LucideIcon(showVideo ? "video" : "video-off", size: 22)
+              }
+              .background(.white.opacity(showVideo ? 0.2 : 0), in: Circle())
+              .help(showVideo ? "Hide video (V)" : "Show video (V)")
+              .accessibilityLabel(showVideo ? "Hide video" : "Show video")
               StageControls()
             }.buttonStyle(WebIconButtonStyle()).padding(8).background(
               .black.opacity(0.65), in: Capsule()
@@ -123,6 +140,13 @@ struct TVView: View {
             .opacity(controlsVisible ? 1 : 0).allowsHitTesting(controlsVisible)
           }
         }.padding(12)
+        if let change {
+          VStack {
+            ChangeNoticeView(notice: change, unit: unit).id(change.id)
+              .transition(.opacity.combined(with: .scale(scale: 0.96)))
+            Spacer()
+          }.padding(.top, unit * 3).allowsHitTesting(false)
+        }
       }.foregroundStyle(.white).clipped()
         .onContinuousHover { phase in
           if case .active = phase {
@@ -130,6 +154,36 @@ struct TVView: View {
             controlsVisible = true
           }
         }
+    }
+    .onChange(of: player.masterVolume) { _, value in
+      show(.init(icon: value <= 0 ? "volume-x" : "volume-2", title: "Volume", value: value, text: "\(Int((value * 100).rounded()))%"))
+    }
+    .onChange(of: player.vocalVolume) { _, value in
+      show(.init(icon: "mic-vocal", title: "Guide vocal", value: value, text: "\(Int((value * 100).rounded()))%"))
+    }
+    .onChange(of: player.vocalOn) { _, on in
+      show(.init(icon: "mic-vocal", title: "Original vocal", value: nil, text: on ? "On" : "Off"))
+    }
+    .onChange(of: player.semitone) { _, key in
+      show(.init(icon: "music", title: "Key", value: nil, text: key > 0 ? "+\(key)" : "\(key)"))
+    }
+    .onChange(of: player.lyricsLead) { _, lead in
+      show(.init(icon: "timer", title: "Lyrics lead", value: lead / 1.5, text: String(format: "%.2f s", lead)))
+    }
+    .onChange(of: player.track?.id) { trackChangedAt = .now }
+    .onChange(of: player.trackDelay) { _, _ in
+      // A new song brings its own saved timing: that is not something the singer changed.
+      guard Date().timeIntervalSince(trackChangedAt) > 2 else { return }
+      show(.init(icon: "timer", title: "Sync", value: nil, text: LyricsSync.label(player.ahead)))
+    }
+    .onChange(of: duetEarlyMs) { _, ms in
+      show(.init(icon: "timer", title: "Duet sync", value: nil, text: "\(Int(ms)) ms"))
+    }
+    .onChange(of: showVideo) { _, on in
+      show(.init(icon: on ? "video" : "video-off", title: "Video", value: nil, text: on ? "On" : "Off"))
+    }
+    .onChange(of: singing.showMelody) { _, on in
+      show(.init(icon: "music", title: "Melody", value: nil, text: on ? "On" : "Off"))
     }
     .preferredColorScheme(.dark).frame(minWidth: 800, minHeight: 480)
     .exclusiveWindow("tv")
@@ -212,6 +266,10 @@ struct TVView: View {
       player.perform(.previous)
       return .handled
     }
+    .onKeyPress("v") {
+      showVideo.toggle()
+      return .handled
+    }
     .onKeyPress("m") {
       singing.showMelody.toggle()
       return .handled
@@ -227,6 +285,17 @@ struct TVView: View {
     .onKeyPress("-") {
       player.perform(.decreaseSemitone)
       return .handled
+    }
+  }
+
+  /// Shows what just changed for a moment, whatever changed it (the controls, a key, the room).
+  private func show(_ notice: ChangeNotice) {
+    withAnimation(.easeOut(duration: 0.15)) { change = notice }
+    let id = notice.id
+    Task {
+      try? await Task.sleep(for: .seconds(1.4))
+      guard change?.id == id else { return }
+      withAnimation(.easeOut(duration: 0.3)) { change = nil }
     }
   }
 
@@ -269,23 +338,7 @@ struct TVView: View {
   private func footer(unit: CGFloat) -> some View {
     VStack(spacing: unit * 1.6) {
       let _ = player.seekCount
-      TimelineView(.animation(minimumInterval: 0.2, paused: !player.isPlaying)) { _ in
-        VStack(spacing: unit * 0.5) {
-          HStack {
-            Text(TrackRow.format(player.currentTime))
-            Spacer()
-            Text(TrackRow.format(player.duration))
-          }.font(.system(size: unit * 1.4).monospacedDigit()).opacity(0.7)
-          GeometryReader { proxy in
-            Capsule().fill(.white.opacity(0.2)).overlay(alignment: .leading) {
-              Capsule().fill(.white.opacity(0.9))
-                .frame(
-                  width: proxy.size.width
-                    * min(1, max(0, player.currentTime / max(1, player.duration))))
-            }
-          }.frame(height: max(3, unit * 0.45))
-        }
-      }
+      SongProgress(unit: unit)
       HStack(alignment: .bottom, spacing: unit * 3) {
         VStack(alignment: .leading, spacing: unit * 0.7) {
           if !room.upcoming.isEmpty {
@@ -458,6 +511,76 @@ struct TVLyricsPlacement {
     return -(index..<current).reduce(0) { result, next in
       result + height(for: next) / 2 + gap + height(for: next + 1) / 2
     }
+  }
+}
+
+/// The song's position as a bar that fills itself: each half second it is told where the song will be a half second
+/// from now and slides there linearly, so it moves steadily even when the screen is busy drawing lyrics.
+private struct SongProgress: View {
+  @Environment(PlayerModel.self) private var player
+  var unit: CGFloat
+  @State private var fraction = 0.0
+  @State private var time = 0.0
+
+  private struct Key: Equatable { var playing: Bool; var seeks: Int; var track: String? }
+
+  var body: some View {
+    VStack(spacing: unit * 0.5) {
+      HStack {
+        Text(TrackRow.format(time))
+        Spacer()
+        Text(TrackRow.format(player.duration))
+      }.font(.system(size: unit * 1.4).monospacedDigit()).opacity(0.7)
+      GeometryReader { proxy in
+        Capsule().fill(.white.opacity(0.2)).overlay(alignment: .leading) {
+          Capsule().fill(.white.opacity(0.9)).frame(width: proxy.size.width * fraction)
+        }
+      }.frame(height: max(3, unit * 0.45))
+    }
+    .task(id: Key(playing: player.isPlaying, seeks: player.seekCount, track: player.track?.id)) {
+      var first = true
+      while !Task.isCancelled {
+        let now = player.currentTime
+        let step = player.isPlaying && !first ? 0.5 : 0
+        let target = min(1, max(0, (now + step) / max(1, player.duration)))
+        time = now
+        if step > 0 { withAnimation(.linear(duration: step)) { fraction = target } }
+        else { withAnimation(nil) { fraction = target } }
+        first = false
+        try? await Task.sleep(for: .seconds(0.5))
+      }
+    }
+  }
+}
+
+/// A setting that just changed: shown briefly at the top of the TV display.
+struct ChangeNotice: Equatable {
+  let id = UUID()
+  var icon: String
+  var title: String
+  /// 0...1 draws a level bar; nil shows only the text.
+  var value: Double?
+  var text: String
+}
+
+private struct ChangeNoticeView: View {
+  var notice: ChangeNotice
+  var unit: CGFloat
+
+  var body: some View {
+    HStack(spacing: unit * 0.9) {
+      LucideIcon(notice.icon, size: unit * 2)
+      Text(LocalizedStringKey(notice.title)).font(.system(size: unit * 1.6, weight: .semibold))
+      if let value = notice.value {
+        ZStack(alignment: .leading) {
+          Capsule().fill(.white.opacity(0.25))
+          Capsule().fill(.white).frame(width: unit * 12 * min(1, max(0, value)))
+        }.frame(width: unit * 12, height: unit * 0.6)
+      }
+      Text(notice.text).font(.system(size: unit * 1.6, weight: .bold)).monospacedDigit()
+    }
+    .padding(.horizontal, unit * 1.6).padding(.vertical, unit * 0.9)
+    .background(.black.opacity(0.7), in: Capsule())
   }
 }
 

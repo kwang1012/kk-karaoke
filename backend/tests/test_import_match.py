@@ -130,3 +130,21 @@ def test_the_song_is_found_inside_the_albums_other_edition_by_number_and_length(
     # the same length twice in the album, and no number to tell them apart: no answer
     assert charts.resolve_by_length(entry, 277.7, None, "message in a bottle", None) is None
     assert charts.resolve_by_length(entry, 277.7, None, "message in a bottle", 1)["name"] == "Little Big Us"
+
+
+def test_a_guest_may_import_only_inside_a_room_a_host_opened(monkeypatch):
+    import asyncio
+
+    class Jam:
+        def __init__(self, redis): pass
+        def is_hosted(self, room_id): return room_id == "open-room"
+
+    monkeypatch.setattr(imports, "RedisJamInterface", Jam)
+    monkeypatch.setattr(imports, "get_db", lambda: None)
+    monkeypatch.setattr(imports.charts, "resolve_entries", lambda name, owner, entries: ({"id": "c"}, []))
+    entries = [imports.ImportEntry(title="A")]
+    refused = asyncio.run(imports.resolve(imports.ImportRequest(entries=entries), None))
+    elsewhere = asyncio.run(imports.resolve(imports.ImportRequest(entries=entries, room_id="other"), None))
+    allowed = asyncio.run(imports.resolve(imports.ImportRequest(entries=entries, room_id="open-room"), None))
+    host = asyncio.run(imports.resolve(imports.ImportRequest(entries=entries), {"sub": "u"}))
+    assert (refused.status_code, elsewhere.status_code, allowed.status_code, host.status_code) == (401, 401, 200, 200)

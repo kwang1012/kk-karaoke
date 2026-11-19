@@ -147,7 +147,8 @@ const AppRouters = () => {
         <Route path="tv" element={<TvView />} />
         {/* a link a friend sends: opens for anyone, without signing up first */}
         <Route path="duet/:id" element={<DuetView />} />
-        <Route path="remote" element={isLoggedIn ? <RemoteView /> : <Navigate to="/join" replace />} />
+        {/* no login gate: with no room (a home-screen shortcut opens it cold) the page asks for the room code itself */}
+        <Route path="remote" element={<RemoteView />} />
       </Routes>
       </Suspense>
       <RoomPlayer />

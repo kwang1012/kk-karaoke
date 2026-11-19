@@ -92,8 +92,9 @@ struct KKaraokeApp: App {
     }
 
     Window("TV Display", id: "tv") {
-      TVView().environment(model).environment(player).environment(singing).environment(room)
-        .menuHost().thinScrollbars()
+      // The menu host draws dropdowns (the mixer) above the window: it must sit inside the environment they read.
+      TVView().menuHost().thinScrollbars()
+        .environment(model).environment(player).environment(singing).environment(room)
     }
     .defaultSize(width: 1280, height: 720)
 

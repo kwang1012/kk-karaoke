@@ -1,3 +1,4 @@
+import { spotifyFollowRuntime } from 'src/spotifyFollow';
 import { hasFullVocal, toggledVocalMode } from '../vocalMode';
 import { create } from 'zustand';
 import { seekSync } from 'src/seekSync';
@@ -85,8 +86,9 @@ type PlayerStore = {
   setLastSongId: (songId: string | null) => void;
   // apis
   getRandomTracks: () => Promise<void>;
-  addSongToQueue: (track: Track, version?: VersionMode) => Promise<void>;
-  insertSongToQueue: (track: Track, version?: VersionMode) => Promise<void>;
+  /** Resolves to the track that was queued (a video may become its studio version), or null when it was not (cancelled, refused, failed). */
+  addSongToQueue: (track: Track, version?: VersionMode) => Promise<Track | null>;
+  insertSongToQueue: (track: Track, version?: VersionMode) => Promise<Track | null>;
   rmSongFromQueue: (track: Track) => Promise<void>;
   downloadSong: (track: Track) => Promise<void>;
   clearQueue: () => Promise<void>;
@@ -210,7 +212,7 @@ export const usePlayerStore = create<PlayerStore>()(
       addSongToQueue: async (picked: Track, version: VersionMode = 'ask') => {
         // a music video may have a studio recording whose lyrics are reliable: let the person choose
         const track = await chooseVersion(picked, version);
-        if (!track) return;
+        if (!track) return null;
         useTrackStore.getState().setSongStatus(track.id, 'submitted');
         const roomId = useRoomStore.getState().roomId;
         const name = useRoomStore.getState().nickname;
@@ -231,16 +233,17 @@ export const usePlayerStore = create<PlayerStore>()(
           // refused (sign-in needed) or failed: the song is not on its way
           if (!data) {
             useTrackStore.getState().removeSongStatus(track.id);
-            return;
+            return null;
           }
           if (data.isReady) useTrackStore.getState().setSongStatus(track.id, 'ready');
           ensureQueued(activeRoomId, track.id, countBefore);
+          return track;
         });
       },
       insertSongToQueue: async (picked: Track, version: VersionMode = 'ask') => {
         // a music video may have a studio recording whose lyrics are reliable: let the person choose
         const track = await chooseVersion(picked, version);
-        if (!track) return;
+        if (!track) return null;
         useTrackStore.getState().setSongStatus(track.id, 'submitted');
         const roomId = useRoomStore.getState().roomId;
         const name = useRoomStore.getState().nickname;
@@ -248,7 +251,7 @@ export const usePlayerStore = create<PlayerStore>()(
         const joinedRoomId = useRoomStore.getState().joinedRoom;
         const activeRoomId = joinedRoomId || roomId || 'default';
         const countBefore = get().queue.filter((t) => t.id === track.id).length;
-        insertToQueue(activeRoomId, {
+        return insertToQueue(activeRoomId, {
           ...track,
           // camelCase on purpose: tracks from the library carry `orderedBy: null`, which the server
           // would prefer over a snake_case `ordered_by` and so drop who added the song
@@ -261,10 +264,11 @@ export const usePlayerStore = create<PlayerStore>()(
           // refused (sign-in needed) or failed: the song is not on its way
           if (!data) {
             useTrackStore.getState().removeSongStatus(track.id);
-            return;
+            return null;
           }
           if (data.isReady) useTrackStore.getState().setSongStatus(track.id, 'ready');
           ensureQueued(activeRoomId, track.id, countBefore);
+          return track;
         });
       },
       rmSongFromQueue: async (track: Track) => {
@@ -358,6 +362,8 @@ export const usePlayer = () => {
   // `toIndex` is the song to land on: a skip that names its target is the same however many times, or
   // in whatever order, it is heard (a relative step is not, and one tap used to skip two songs).
   const next = (isCallback: boolean = false, toIndex?: number) => {
+    // Spotify chooses the songs while it is followed: moving on means asking it for its next one
+    if (toIndex === undefined && !isCallback && spotifyFollowRuntime.current?.advance()) return;
     if (queueIdx >= queue.length) {
       console.log('No next track in the queue');
       return;

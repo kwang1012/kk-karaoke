@@ -75,6 +75,7 @@ function fixture(secondStatus = 'submitted', isOwner = true, duet: { trackId: st
     'react/jsx-runtime': { jsx: () => null, Fragment: 'fragment' },
     '@tanstack/react-query': { useQuery: () => ({ data: { index: 0, tracks }, refetch() {} }) },
     'src/apis/player': { fetchQueue: async () => ({}), fetchLyrics: async (id: string) => [{ time: 1, text: id }], prefetchLyrics: (id: string) => prefetched.push(id) },
+    'src/hooks/spotifyFollow': { useSpotifyFollow() {} },
     'src/hooks/queue': { useRemoteMessageQueue(type: string, handler: any) { handlers[type] = handler; } },
     'src/remotePitch': { setRemotePitch: (hz: number) => pitches.push(hz) },
     'src/party': { applyPartyMessage: () => false, party: {} },

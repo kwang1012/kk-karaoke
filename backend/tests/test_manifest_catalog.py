@@ -110,3 +110,22 @@ def test_worker_base_persists_task_result_without_losing_request_context(monkeyp
         assert catalog.job(job["id"])["state"] == "completed"
     finally:
         task.pop_request()
+
+
+def test_a_job_waiting_its_turn_is_not_sent_again_but_a_lost_one_is():
+    job = catalog.create_job("song", "extract_melody", ["song"])
+    assert catalog.claim_dispatch(job["id"])  # its message is in the broker
+    catalog.execute("UPDATE jobs SET dispatched=? WHERE id=?", (time.time() - 20 * 60, job["id"]))  # waiting 20 minutes
+    assert catalog.recoverable_jobs() == []
+    assert not catalog.claim_dispatch(job["id"])  # so no second copy is queued
+    catalog.execute("UPDATE jobs SET dispatched=? WHERE id=?", (time.time() - catalog.REDISPATCH_AFTER_S - 1, job["id"]))
+    assert [j["id"] for j in catalog.recoverable_jobs()] == [job["id"]]  # unless it must have been lost
+
+
+def test_a_job_whose_message_did_not_get_out_is_retried_at_once(monkeypatch):
+    def offline(*args, **kwargs):
+        raise ConnectionError("broker down")
+
+    monkeypatch.setattr(tasks.Celery, "send_task", offline)
+    result = tasks.celery.send_task("extract_melody", args=["song"])
+    assert [j["id"] for j in catalog.recoverable_jobs()] == [result.id]

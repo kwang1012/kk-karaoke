@@ -53,7 +53,8 @@ const VirtuosoTableComponents: TableComponents<Track> = {
                 <span className="line-clamp-2 text-2xl font-extrabold leading-tight tracking-tight md:text-5xl">{collection.name}</span>
                 <div className="mt-2 line-clamp-1 text-sm opacity-80">
                   {collection.importStats
-                    ? t('spotify.matched', { matched: collection.importStats.matched, requested: collection.importStats.requested })
+                    ? t('spotify.matched', { matched: collection.importStats.matched, requested: collection.importStats.requested }) +
+                      (collection.importStats.total > collection.importStats.requested ? ` · ${t('spotify.truncated', { requested: collection.importStats.requested, total: collection.importStats.total })}` : '')
                     : collection.description}
                 </div>
                 {trackCount > 0 && (

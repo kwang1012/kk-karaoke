@@ -9,6 +9,7 @@ const indexHtml = path.join(__dirname, 'build', 'index.html');
 const iconPath = path.join(__dirname, isWindows ? 'icon.ico' : 'build/icon-512.png');
 
 const fs = require('fs');
+const { createSpotifyBridge } = require('./spotify-windows');
 
 // A tiny settings file: only "floatingLyricsOnMinimize" so far (on by default, like the Mac app).
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
@@ -26,6 +27,16 @@ function writeSettings(patch) {
     // not saved: the choice only lasts until the app quits
   }
 }
+
+// Reads and controls the Spotify desktop app, so KKaraoke can sing what Spotify plays (Windows).
+const spotify = createSpotifyBridge({
+  app,
+  readSettings,
+  writeSettings,
+  send: (state) => {
+    if (win && !win.isDestroyed()) win.webContents.send('spotify-state', state);
+  },
+});
 
 // Started by Windows at sign-in ("Start with Windows"): stay in the tray until the user opens the window.
 let startHidden = process.argv.includes('--hidden');
@@ -306,7 +317,10 @@ if (!app.requestSingleInstanceLock()) {
   app.on('before-quit', () => {
     quitting = true;
   });
-  app.on('will-quit', () => globalShortcut.unregisterAll());
+  app.on('will-quit', () => {
+    globalShortcut.unregisterAll();
+    spotify.stop(); // gives Spotify its sound back
+  });
   app.on('activate', showWindow);
   app.on('window-all-closed', () => {
     if (!isMac) app.quit();
@@ -386,6 +400,10 @@ ipcMain.handle('window-is-maximized', () => !!win && !win.isDestroyed() && win.i
 ipcMain.on('media-key-request', (_event, action) => {
   if (action in { toggle: 1, next: 1, previous: 1 }) sendMediaKey(action);
 });
+
+ipcMain.handle('spotify-start', () => spotify.start());
+ipcMain.handle('spotify-stop', () => spotify.stop());
+ipcMain.handle('spotify-command', (_event, name) => spotify.command(String(name)));
 
 ipcMain.handle('update-state', () => updateState);
 ipcMain.on('update-install', () => {

@@ -38,6 +38,14 @@ interface Window {
     windowDrag: (start: boolean) => void;
     windowControl: (action: 'minimize' | 'maximize' | 'close') => void;
     isMaximized: () => Promise<boolean>;
+    /** The Spotify desktop app (Windows only; `available` is false elsewhere). */
+    spotify?: {
+      available: boolean;
+      start: () => Promise<boolean>;
+      stop: () => Promise<void>;
+      command: (name: 'mute' | 'unmute' | 'pause' | 'play' | 'next' | 'position') => Promise<unknown>;
+      onState: (callback: (state: import('src/spotifyFollow').SpotifyState) => void) => () => void;
+    };
     onMaximizeChange: (callback: (maximized: boolean) => void) => () => void;
   };
 }

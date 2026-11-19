@@ -29,6 +29,11 @@ final class StemPlayer {
     private(set) var isPlaying = false
     private(set) var duration: TimeInterval = 0
     var onFinish: (() -> Void)?
+    /// Called when the engine could not start; playback has been stopped.
+    var onStartFailure: ((String) -> Void)?
+    private let starter = DispatchQueue(label: "stem-player.start", qos: .userInitiated)
+    /// A start is waiting on the output (it can take a while on AirPlay): the song cannot be moving yet.
+    private var starting = false
 
     init() {
         engine.attach(vocalNode)
@@ -44,6 +49,7 @@ final class StemPlayer {
 
     /// Starts the song again from where it stopped, after the engine went away. Nothing to do when paused.
     private func recover() {
+        DebugLog.write("recover (watchdog or engine change) isPlaying=\(isPlaying)")
         guard isPlaying else { if isLoaded { engine.prepare() }; return }
         try? play(from: lastTime, startingIn: 0.1)
     }
@@ -58,7 +64,7 @@ final class StemPlayer {
                 try? await Task.sleep(for: .seconds(1))
                 guard let self, self.isPlaying else { return }
                 let now = ProcessInfo.processInfo.systemUptime
-                guard now > self.healthyAfter else { self.watched = nil; continue }
+                guard now > self.healthyAfter, !self.starting else { self.watched = nil; continue }
                 let time = self.currentTime
                 defer { self.watched = (time, now) }
                 guard let before = self.watched, now - before.uptime >= 0.9 else { continue }
@@ -132,6 +138,7 @@ final class StemPlayer {
     func play(from time: TimeInterval? = nil, startingIn lead: TimeInterval = 0.1) throws {
         guard let vocalFile, let instrumentalFile else { return }
         let start = min(max(time ?? base, 0), duration)
+        DebugLog.write("play(from: \(start), lead: \(lead)) engineRunning=\(engine.isRunning)")
         halt()
         base = start
         lastTime = start
@@ -144,11 +151,35 @@ final class StemPlayer {
                 self.finish()
             }
         }
-        if !engine.isRunning { try engine.start() }
         // A shared start time in the near future, so neither stem gets a head start.
         let at = AVAudioTime(hostTime: mach_absolute_time() + AVAudioTime.hostTime(forSeconds: max(0, lead)))
-        vocalNode.play(at: at)
-        instrumentalNode.play(at: at)
+        // Starting the engine and the nodes waits on the output's next cycle, which an AirPlay or Bluetooth output can
+        // take a long time to give. Wait for it off the main thread, so the window never freezes while it does.
+        let engine = engine, vocalNode = vocalNode, instrumentalNode = instrumentalNode
+        starting = true
+        starter.async { [weak self] in
+            do {
+                let began = ProcessInfo.processInfo.systemUptime
+                DebugLog.write("start begin")
+                if !engine.isRunning { try engine.start() }
+                vocalNode.play(at: at)
+                instrumentalNode.play(at: at)
+                DebugLog.write("start end after \(ProcessInfo.processInfo.systemUptime - began)s")
+                Task { @MainActor in
+                    guard let self, self.generation == generation else { return }
+                    self.starting = false
+                    self.healthyAfter = ProcessInfo.processInfo.systemUptime + 1.5
+                    self.watched = nil
+                }
+            } catch {
+                let message = error.localizedDescription
+                Task { @MainActor in
+                    guard let self, self.generation == generation else { return }
+                    self.halt()
+                    self.onStartFailure?(message)
+                }
+            }
+        }
         isPlaying = true
         healthyAfter = ProcessInfo.processInfo.systemUptime + max(0, lead) + 1.5
         startWatchdog()
@@ -177,6 +208,8 @@ final class StemPlayer {
     }
 
     private func halt() {
+        DebugLog.write("halt")
+        starting = false
         generation += 1
         isPlaying = false
         watchdog?.cancel()

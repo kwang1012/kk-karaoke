@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 import { fetchQueue, fetchLyrics, prefetchLyrics } from 'src/apis/player';
 import { useRemoteMessageQueue } from 'src/hooks/queue';
+import { useSpotifyFollow } from 'src/hooks/spotifyFollow';
 import { Track } from 'src/models/spotify';
 import ShiftedAudioPlayer from 'src/shiftedPlayer';
 import { useTrackStore } from 'src/store';
@@ -330,6 +331,9 @@ export const Player = () => {
     }
   }, [index, tracks]);
 
+  // Windows app: sing what the Spotify desktop app plays
+  useSpotifyFollow({ next, playAudio, pauseAudio, seek, isOwner });
+
   // Media keys and the tray menu of the desktop app (see electron.js)
   const mediaKeyActions = useRef({ playAudio, pauseAudio, next, previous });
   mediaKeyActions.current = { playAudio, pauseAudio, next, previous };
@@ -382,7 +386,7 @@ export const Player = () => {
         }
         if (currentTime >= duration) {
           syncedPlayer?.stop();
-          next();
+          next(); // while Spotify is followed, this asks Spotify for its next song
         }
       }
     }, 200);
@@ -413,7 +417,7 @@ export const Player = () => {
         semitone,
         duration,
         pitchShift: enabledPitchShift,
-      } : { playing: false },
+      } : { playing: false, queueIdx, semitone }, // while a song loads: which one it is and its key, so a remote does not show the last song's
     });
   }, [duration, enabledPitchShift, showVideo, showMelody, isOwner, activeRoomId, playing, volume, vocalOn, guideLevel, semitone, queueIdx, connected, playbackReady, loading]);
 

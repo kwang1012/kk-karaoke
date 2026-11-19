@@ -19,7 +19,7 @@ from typing import Any, Callable, Optional
 import httpx
 import zhconv
 
-from services import catalog
+from services import catalog, song_map
 
 log = logging.getLogger(__name__)
 
@@ -182,40 +182,89 @@ def _artist_matches(wanted: str, got: list[str]) -> bool:
     return any(w in h or h in w for w in want for h in have)
 
 
-def _resolve(entry: Entry) -> Optional[dict[str, Any]]:
-    """The studio recording this entry is, or None."""
-    def find():
-        # A chart of music videos: the audio version a video points to is the same song.
-        if entry.get("track"):
-            return entry["track"]
-        if entry.get("video_id"):
-            try:
-                watch = catalog._ytm().get_watch_playlist(entry["video_id"], limit=1)
-                counterpart = (watch.get("tracks") or [{}])[0].get("counterpart")
-                if counterpart:
-                    track = catalog.to_track(counterpart, "song")
-                    if catalog._playable(track):
-                        return track
-            except Exception as e:  # noqa: BLE001
-                log.info("No audio version of %s: %r", entry["video_id"], e)
+# A recording this much longer or shorter than the song listed is another version (live, remix, radio edit).
+DURATION_OK_S = 10
+
+
+def _find(entry: Entry) -> Optional[dict[str, Any]]:
+    """Search for the studio recording this entry is, or None. Slow: ask `resolve_many` instead.
+
+    A title and artist alone can name several recordings, so what the service also says is used: the album (or its
+    cover) and the length. A recording on the wrong album or of a very different length is not the song."""
+    # A chart of music videos: the audio version a video points to is the same song.
+    if entry.get("track"):
+        return entry["track"]
+    if entry.get("video_id"):
         try:
-            hits = catalog._ytm().search(f"{entry['title']} {entry['artist']}", filter="songs", limit=6)
+            watch = catalog._ytm().get_watch_playlist(entry["video_id"], limit=1)
+            counterpart = (watch.get("tracks") or [{}])[0].get("counterpart")
+            if counterpart:
+                track = catalog.to_track(counterpart, "song")
+                if catalog._playable(track):
+                    return track
+        except Exception as e:  # noqa: BLE001
+            log.info("No audio version of %s: %r", entry["video_id"], e)
+    seconds = entry.get("duration")
+    album, cover = entry.get("album"), entry.get("cover")
+
+    def fits(track: dict[str, Any]) -> bool:
+        if not seconds or not track.get("duration_ms"):
+            return True  # nothing to compare
+        return abs(track["duration_ms"] / 1000 - seconds) <= DURATION_OK_S
+
+    def choose(candidates: list[dict[str, Any]]) -> Optional[dict[str, Any]]:
+        exact = [t for t in candidates if _title_matches(entry["title"], t["name"])
+                 and _artist_matches(entry["artist"], [a["name"] for a in t["artists"] if a["name"]])]
+        # The same artist is often spelled another way (李佳薇 / Li Jiawei): the search already ranked by
+        # the artist we gave, so a recording with exactly this title is the one.
+        pool = [t for t in (exact or [t for t in candidates if _same_title(entry["title"], t["name"])]) if fits(t)]
+        if not pool:
+            return None
+        # The one on the album shown wins, then the closest in length; ties keep the order the search ranked them.
+        pool.sort(key=lambda t: (
+            not same_release(t, album, cover) if (album or cover) else False,
+            round(abs((t.get("duration_ms") or 0) / 1000 - seconds)) if seconds and t.get("duration_ms") else 0))
+        return pool[0]
+
+    seen: dict[str, dict[str, Any]] = {}
+    for query in [f"{entry['title']} {entry['artist']}"] + ([f"{entry['title']} {entry['artist']} {album}"] if album else []):
+        try:
+            hits = catalog._ytm().search(query, filter="songs", limit=6)
         except Exception as e:  # noqa: BLE001
             log.warning("Chart lookup failed for %r: %r", entry["title"], e)
             return None
-        candidates = [t for t in (catalog.to_track(h, "song") for h in hits[:6])
-                      if t and catalog._playable(t) and not _is_version(entry["title"], t["name"])]
-        for track in candidates:
-            artists = [a["name"] for a in track["artists"] if a["name"]]
-            if _title_matches(entry["title"], track["name"]) and _artist_matches(entry["artist"], artists):
-                return track
-        # The same artist is often spelled another way (李佳薇 / Li Jiawei): the search already ranked by
-        # the artist we gave, so a recording with exactly this title is the one.
-        return next((t for t in candidates if _same_title(entry["title"], t["name"])), None)
+        for hit in hits[:6]:
+            track = catalog.to_track(hit, "song")
+            if track and catalog._playable(track) and not _is_version(entry["title"], track["name"]):
+                seen.setdefault(track["id"], track)
+        found = choose(list(seen.values()))
+        if found:
+            return found
+    return None
 
-    # Only a hit is remembered: a miss is asked again next time.
-    key = f"chart-entry:{entry.get('video_id') or ''}:{entry['title']}:{entry['artist']}"
-    return catalog._cached(key, RESOLVE_TTL_S, find)
+
+def resolve_many(entries: list[Entry]) -> list[Optional[dict[str, Any]]]:
+    """The recording for each entry (None when there is none), matching only the songs not matched before.
+
+    Entries the service already names a recording for need no matching; the rest are read from the song mapping,
+    and what had to be searched for is saved there, so no song is ever matched twice.
+    """
+    answers: list[Any] = [entry["track"] if entry.get("track") else song_map.UNKNOWN for entry in entries]
+    ask = [i for i, answer in enumerate(answers) if answer is song_map.UNKNOWN]
+    for i, answer in zip(ask, song_map.lookup([entries[i] for i in ask])):
+        answers[i] = answer
+    todo = [i for i, answer in enumerate(answers) if answer is song_map.UNKNOWN]
+    found = list(_resolve_pool.map(_find, [entries[i] for i in todo]))
+    for i, track in zip(todo, found):
+        answers[i] = track
+    song_map.save([(entries[i], track) for i, track in zip(todo, found)])
+    return answers
+
+
+def _resolve(entry: Entry) -> Optional[dict[str, Any]]:
+    """The studio recording this entry is, or None."""
+    return resolve_many([entry])[0]
+
 
 
 # How far a recording's length may be from the song's and still be the same one (YouTube Music rounds to seconds).
@@ -365,7 +414,10 @@ def resolve_by_length(entry: Entry, seconds: float, cover: Optional[str] = None,
         return candidate
 
     key = f"chart-length:{entry['title']}:{entry['artist']}:{round(seconds)}:{track_number}:{cover}:{album}"
-    return catalog._cached(key, RESOLVE_TTL_S, find)
+    track = catalog._cached(key, RESOLVE_TTL_S, find)
+    if track:
+        song_map.save([(entry, track)])  # the next time this song is listed, no search is needed at all
+    return track
 
 
 def chart_tracks(chart_id: str):
@@ -383,7 +435,7 @@ def chart_tracks(chart_id: str):
         except Exception as e:  # noqa: BLE001 - another service's page: it can change or be down
             log.warning("Chart %s failed: %r", chart_id, e)
             return None
-        resolved = list(_resolve_pool.map(_resolve, entries))
+        resolved = resolve_many(entries)
         tracks, seen = [], set()
         for entry, track in zip(entries, resolved):
             if track and track["id"] not in seen:
@@ -403,7 +455,7 @@ def chart_tracks(chart_id: str):
 
 def resolve_entries(name: str, owner: str, entries: list[Entry]):
     """(collection, tracks) for a list of {"title", "artist"} from another service, e.g. a Spotify playlist."""
-    resolved = list(_resolve_pool.map(_resolve, entries))
+    resolved = resolve_many(entries)
     tracks, seen = [], set()
     for track in resolved:
         if track and track["id"] not in seen:

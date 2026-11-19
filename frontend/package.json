@@ -1,6 +1,6 @@
 {
   "name": "v1-react",
-  "version": "0.2.30",
+  "version": "0.2.33",
   "private": true,
   "dependencies": {
     "electron-updater": "^6"
@@ -66,6 +66,8 @@
     "files": [
       "electron.js",
       "electron-preload.js",
+    "spotify-windows.js",
+    "spotify-windows.ps1",
       "build/**/*",
       "icon.ico",
       "taskbar/*.png",

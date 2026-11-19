@@ -243,9 +243,21 @@ def queued_job(song_id: str, kind: str) -> dict | None:
     return rows[0] if rows else None
 
 
-def claim_dispatch(job_id: str, stale_s: float = 300) -> bool:
+# A queued job already has its message in the broker; it is sent again only when it must have been lost (the broker
+# was wiped), not merely because it is waiting its turn. Sending it again every few minutes put many copies of the
+# same song in the queue. Jobs that never reached the broker, or whose worker died, are re-sent at once (see
+# `release_dispatch` and `recoverable_jobs`).
+REDISPATCH_AFTER_S = 3600
+
+
+def claim_dispatch(job_id: str, stale_s: float = REDISPATCH_AFTER_S) -> bool:
     return bool(execute("""UPDATE jobs SET dispatched=? WHERE id=? AND state IN ('queued','retry')
         AND (dispatched IS NULL OR dispatched<?) RETURNING id""", (time.time(), job_id, time.time() - stale_s)))
+
+
+def release_dispatch(job_id: str) -> None:
+    """The job's message did not get out: let the next recovery pass send it."""
+    execute("UPDATE jobs SET dispatched=NULL WHERE id=? AND state IN ('queued','retry')", (job_id,))
 
 
 def start_job(job_id: str) -> bool:
@@ -263,7 +275,7 @@ def update_job(job_id: str, state: str, *, stage=None, progress=None, result=Non
 def recoverable_jobs() -> list[dict]:
     # A worker updates this lease from progress events. Long stages also get a heartbeat.
     execute("""UPDATE jobs SET state='queued', dispatched=NULL WHERE state='running' AND updated<?""", (time.time() - 180,))
-    return execute("SELECT * FROM jobs WHERE state IN ('queued','retry') AND (dispatched IS NULL OR dispatched<?)", (time.time() - 300,))
+    return execute("SELECT * FROM jobs WHERE state IN ('queued','retry') AND (dispatched IS NULL OR dispatched<?)", (time.time() - REDISPATCH_AFTER_S,))
 
 
 def heartbeat(job_id: str):

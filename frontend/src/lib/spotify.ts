@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { api } from 'src/utils/api';
+import { useRoomStore } from 'src/store/room';
 import type { Collection, Track } from 'src/models/spotify';
 
 /**
@@ -218,6 +219,14 @@ export async function spotifyPlaylists(): Promise<{ playlists: Collection[]; hid
 export const useImportProgress = create<{ done: number; total: number }>(() => ({ done: 0, total: 0 }));
 
 const BATCH = 20;
+/** The most songs one import reads. Matching is remembered by the server, so only a first import of a long list is slow. */
+const MAX_PLAYLIST = 1000;
+const MAX_LIKED = 2000;
+/** Batches asked of the server at once: the server matches each song with its own search, so they overlap well. */
+const PARALLEL_BATCHES = 3;
+
+/** The room this device is in, so the server lets a guest in a host's room import too. */
+const activeRoom = () => useRoomStore.getState().joinedRoom || useRoomStore.getState().roomId || undefined;
 
 /** The id the Liked Songs library goes by in place of a playlist id. */
 export const LIKED = 'liked';
@@ -230,47 +239,69 @@ export async function importSpotifyPlaylist(id: string): Promise<{ collection: C
   const meta = liked
     ? { name: 'Liked Songs', description: '', images: [], owner: { display_name: (await spotifyProfile()).name } }
     : await spotifyGet(`/playlists/${encodeURIComponent(id)}?fields=name,images,description,owner(display_name)`);
-  const entries: { title: string; artist: string }[] = [];
+  // what Spotify knows besides the name: the server uses it to tell recordings that share a title apart
+  const entries: { id?: string; title: string; artist: string; album?: string; cover?: string; duration_ms?: number }[] = [];
   let next: string | null = liked ? '/me/tracks?limit=50' : `/playlists/${encodeURIComponent(id)}/items?limit=100`;
-  while (next && entries.length < (liked ? 300 : 200)) {
+  const limit = liked ? MAX_LIKED : MAX_PLAYLIST;
+  let inSpotify = 0; // how many songs Spotify says the playlist has
+  while (next && entries.length < limit) {
     const page: any = await spotifyGet(next);
+    inSpotify = Math.max(inSpotify, page.total ?? 0);
     for (const row of page.items ?? []) {
       const song = row?.item ?? row?.track; // `track` is the pre-2026 field name
       if (!song || song.type === 'episode' || !song.name) continue;
-      entries.push({ title: song.name, artist: (song.artists ?? []).map((a: { name: string }) => a.name).join(', ') });
+      entries.push({
+        id: song.id || undefined,
+        title: song.name,
+        artist: (song.artists ?? []).map((a: { name: string }) => a.name).join(', '),
+        album: song.album?.name || undefined,
+        cover: song.album?.images?.[0]?.url || undefined,
+        duration_ms: song.duration_ms || undefined,
+      });
     }
     next = page.next;
   }
   useImportProgress.setState({ done: 0, total: entries.length });
+  // The server keeps the song-to-recording mapping, so asking again is quick; a few batches go at once.
+  const found: { collection: Collection | null; tracks: Track[][] } = { collection: null, tracks: [] };
+  const batches: { entries: typeof entries; index: number }[] = [];
+  for (let i = 0; i < entries.length; i += BATCH) batches.push({ entries: entries.slice(i, i + BATCH), index: i / BATCH });
+  let nextBatch = 0;
+  let done = 0;
+  const worker = async () => {
+    while (nextBatch < batches.length) {
+      const batch = batches[nextBatch++];
+      const { data } = await api.post(
+        '/import/resolve',
+        { name: meta.name ?? 'Spotify', owner: meta.owner?.display_name || 'Spotify', entries: batch.entries, room_id: activeRoom() },
+        { timeout: 90_000 }
+      );
+      found.collection ??= data.collection;
+      found.tracks[batch.index] = data.tracks as Track[];
+      done += batch.entries.length;
+      useImportProgress.setState({ done });
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(PARALLEL_BATCHES, batches.length) }, worker));
   const tracks: Track[] = [];
   const seen = new Set<string>();
-  let collection: Collection | null = null;
-  for (let i = 0; i < entries.length; i += BATCH) {
-    const { data } = await api.post(
-      '/import/resolve',
-      { name: meta.name ?? 'Spotify', owner: meta.owner?.display_name || 'Spotify', entries: entries.slice(i, i + BATCH) },
-      { timeout: 90_000 }
-    );
-    collection ??= data.collection;
-    for (const track of data.tracks as Track[]) {
-      if (!seen.has(track.id)) {
-        seen.add(track.id);
-        tracks.push(track);
-      }
+  for (const track of found.tracks.flat()) { // in playlist order: the batches were read in order, whenever they finished
+    if (!seen.has(track.id)) {
+      seen.add(track.id);
+      tracks.push(track);
     }
-    useImportProgress.setState({ done: Math.min(i + BATCH, entries.length) });
   }
   const cover = meta.images?.[0]?.url;
   return {
     collection: {
-      ...(collection ?? ({} as Collection)),
+      ...(found.collection ?? ({} as Collection)),
       id,
       name: meta.name ?? 'Spotify',
       description: meta.description ?? '',
       owner: { displayName: meta.owner?.display_name ?? 'Spotify' },
-      images: cover ? [{ url: cover }] : (collection?.images ?? []),
+      images: cover ? [{ url: cover }] : (found.collection?.images ?? []),
       tracks: { total: tracks.length },
-      importStats: { matched: tracks.length, requested: entries.length },
+      importStats: { matched: tracks.length, requested: entries.length, total: Math.max(inSpotify, entries.length) },
     } as Collection,
     tracks,
   };

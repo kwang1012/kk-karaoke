@@ -265,6 +265,17 @@ def _process_track(track: Track):
     non_vocals_exist = r2.local("instrumental", track.id).exists()
     need_audio = not vocals_exist or not non_vocals_exist
 
+    # A song that is already finished (stems, timed lyrics that were checked against the singing, melody) has nothing
+    # left to do. A job runs again for such a song when it was interrupted (a worker restart puts every running job back
+    # in the queue) or asked twice; redoing the melody and the lyrics check took minutes of CPU and held a worker slot
+    # that songs still waiting needed.
+    if (not need_audio and lyrics_exist and r2.local("midi", track.id).exists()
+            and "audio_check" in read_meta(track.id)):
+        print(f"{track.id} is already processed; nothing to do")
+        save_track(track)
+        _publish_status(track, "ready", stages={name: "done" for name in PIPELINE_STAGES})
+        return
+
     who = _identify(track)
     wanted = tuple(name for name, needed in (("lyrics", not lyrics_exist), ("audio", need_audio),
                                              ("vocals", need_audio), ("saving", True), ("polishing", True)) if needed)

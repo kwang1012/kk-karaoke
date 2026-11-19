@@ -14,6 +14,9 @@ import Jam from './Jam';
 import { getUniqueId } from 'src/utils';
 import { useActiveRoomId, useRoomStore } from 'src/store/room';
 import { useT } from 'src/i18n';
+import { canFollowSpotify } from 'src/hooks/spotifyFollow';
+import { useSettingStore } from 'src/store/setting';
+import { useSpotifyFollowStore } from 'src/store/spotifyFollow';
 
 /** Always mounted (even when hidden) because it owns the websocket queue listener. */
 export default function Queue({ hidden }: { hidden?: boolean }) {
@@ -22,6 +25,9 @@ export default function Queue({ hidden }: { hidden?: boolean }) {
   const setSongStatus = useTrackStore((state) => state.setSongStatus);
 
   const { currentTrack, queue, queueIdx } = usePlayer();
+  // While Spotify is followed it chooses every song: the room's own queue is not shown, only the song Spotify is on
+  const following = useSettingStore((state) => state.followSpotify) && canFollowSpotify();
+  const spotifyNow = useSpotifyFollowStore((state) => state.now);
   const { addToQueue, insertToQueue, getRandomTracks, rmFromQueue, clearQueue, setQueue } = usePlayer();
   const roomId = useRoomStore((state) => state.roomId);
   const activeRoomId = useActiveRoomId();
@@ -74,7 +80,7 @@ export default function Queue({ hidden }: { hidden?: boolean }) {
     >
       <div className="flex items-center justify-between px-5 pt-5 pb-3">
         <h2 className="text-lg font-semibold">{t('queue.title')}</h2>
-        {tracks.length > 0 && (
+        {!following && tracks.length > 0 && (
           <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={clearQueue}>
             {t('common.clear')}
           </Button>
@@ -82,12 +88,24 @@ export default function Queue({ hidden }: { hidden?: boolean }) {
       </div>
       <AppScrollbar className="min-h-0 flex-1 px-3 pb-4" ref={scrollbarRef}>
         <div className="px-2 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">{t('queue.nowPlaying')}</div>
-        <SongCard disableHover className="rounded-xl bg-accent/60" track={currentTrack} />
+        {following && spotifyNow && !spotifyNow.track ? (
+          <div className="rounded-xl bg-accent/60 px-3 py-3">
+            <div className="truncate text-sm font-medium">{spotifyNow.song.title}</div>
+            <div className="truncate text-xs text-muted-foreground">{spotifyNow.song.artist}</div>
+            <div className="mt-1 text-xs text-muted-foreground">{t(`spotify.follow.${spotifyNow.stage}`, { title: spotifyNow.song.title })}</div>
+          </div>
+        ) : (
+          <SongCard disableHover className="rounded-xl bg-accent/60" track={following && spotifyNow?.track ? spotifyNow.track : currentTrack} />
+        )}
 
         <div className="mt-4">
           <Jam />
         </div>
 
+        {following ? (
+          <p className="mt-6 rounded-xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">{t('spotify.follow.upNext')}</p>
+        ) : (
+        <>
         <div className="mt-6 flex items-center justify-between gap-2 px-2 pb-1">
           <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{t(tracks.length > 0 && tracks.every((track) => track.recommended) ? 'queue.suggested' : 'queue.nextUp')}</span>
           {tracks.length > 0 && <QueueOrderControls />}
@@ -101,6 +119,8 @@ export default function Queue({ hidden }: { hidden?: boolean }) {
               <Shuffle /> {t('home.surprise')}
             </Button>
           </div>
+        )}
+        </>
         )}
       </AppScrollbar>
     </aside>

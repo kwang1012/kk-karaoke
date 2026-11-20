@@ -320,11 +320,11 @@ struct MixerView: View {
         }
       }
       Divider()
-      LabeledContent("Lyrics lead") {
-        Slider(value: $player.lyricsLead, in: 0...1.5).stableCursor(.link)
+      LabeledContent("Lyrics timing") {
+        Slider(value: $player.lyricsLead, in: -1.5...1.5).stableCursor(.link)
       }
       Text(
-        "Shows the lyrics earlier on this Mac only, to make up for how long it takes to read and sing."
+        "On this Mac only. Positive shows the lyrics earlier: to read ahead, or when the screen is slower than the sound. Negative shows them later: Bluetooth and AirPlay speakers play late, so lyrics look early."
       )
       .font(.caption).foregroundStyle(.secondary)
       LabeledContent("Duet sync") {

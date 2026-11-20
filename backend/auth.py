@@ -7,6 +7,8 @@ import jwt
 from fastapi import Depends, Header, HTTPException
 
 from config import ADMIN_EMAILS, AUTH_REQUIRED, SUPABASE_JWT_SECRET, SUPABASE_URL
+from managers.db import get_redis
+from services import device_auth
 
 _jwks = (
     jwt.PyJWKClient(f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json", cache_keys=True, lifespan=600)
@@ -15,7 +17,10 @@ _jwks = (
 
 
 def _claims(token: str) -> dict | None:
-    """The token's claims, or None when it is not a valid, unexpired Supabase user token."""
+    """The token's claims, or None when it is not a valid, unexpired Supabase user token or paired-TV token."""
+    if device_auth.is_device_token(token):
+        claims = device_auth.verify(get_redis(), token)
+        return {**claims, "device": True} if claims else None
     try:
         alg = jwt.get_unverified_header(token).get("alg", "")
         if alg == "HS256":
@@ -51,7 +56,14 @@ def require_host(authorization: str | None = Header(None)) -> dict:
     return host
 
 
-def require_admin(host: dict = Depends(require_host)) -> dict:
+def require_person(host: dict = Depends(require_host)) -> dict:
+    """A host who signed in themselves: a paired TV acts for its account but may not do what needs the person."""
+    if host.get("device"):
+        raise HTTPException(status_code=403, detail="Sign in on your own device to do that")
+    return host
+
+
+def require_admin(host: dict = Depends(require_person)) -> dict:
     """A signed-in host who may use /admin: anyone when ADMIN_EMAILS is unset, else only the listed emails."""
     if not AUTH_REQUIRED or not ADMIN_EMAILS:
         return host

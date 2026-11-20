@@ -1,0 +1,7 @@
+<resources>
+    <color name="bg">#0E0F14</color>
+    <style name="Theme.KKaraoke" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:colorBackground">@color/bg</item>
+    </style>
+</resources>

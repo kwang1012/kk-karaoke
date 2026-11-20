@@ -168,7 +168,7 @@ struct TVView: View {
       show(.init(icon: "music", title: "Key", value: nil, text: key > 0 ? "+\(key)" : "\(key)"))
     }
     .onChange(of: player.lyricsLead) { _, lead in
-      show(.init(icon: "timer", title: "Lyrics lead", value: lead / 1.5, text: String(format: "%.2f s", lead)))
+      show(.init(icon: "timer", title: "Lyrics timing", value: (lead + 1.5) / 3, text: String(format: "%+.2f s", lead)))
     }
     .onChange(of: player.track?.id) { trackChangedAt = .now }
     .onChange(of: player.trackDelay) { _, _ in

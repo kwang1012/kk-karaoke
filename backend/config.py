@@ -40,6 +40,8 @@ SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "").strip()
 # Server only: used to email account invitations after an access request is approved.
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
 PUBLIC_APP_URL = os.getenv("PUBLIC_APP_URL", "").strip().rstrip("/")
+# Signs the tokens of TVs that were paired with a phone. Unset: derived from the server's own Supabase secret.
+DEVICE_TOKEN_SECRET = os.getenv("DEVICE_TOKEN_SECRET", "").strip()
 # Comma-separated emails allowed into /admin. Unset: any signed-in account is an admin (invite-only setups).
 # Set it before enabling public sign-ups in Supabase, or every new account becomes an admin.
 ADMIN_EMAILS = {e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "").split(",") if e.strip()}

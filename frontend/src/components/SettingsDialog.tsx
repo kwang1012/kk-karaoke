@@ -11,7 +11,7 @@ import { useSpotifyFollowStore } from 'src/store/spotifyFollow';
 import AppScrollbar from 'src/components/Scrollbar';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from 'src/components/ui/dialog';
 import { usePlayerStore } from 'src/store/player';
-import { DUET_EARLY_RANGE_MS, useSettingStore } from 'src/store/setting';
+import { DUET_EARLY_RANGE_MS, LYRICS_LEAD_LIMIT_S, useSettingStore } from 'src/store/setting';
 import { useRoomStore } from 'src/store/room';
 import { asDetail } from 'src/melodyDetail';
 import { PRESET_AVATARS } from 'src/utils';
@@ -270,11 +270,11 @@ export default function SettingsDialog() {
             <div className="flex w-[200px] items-center gap-3 text-xs text-muted-foreground">
               <AppSlider
                 className="flex-1"
-                value={(lyricsLead / 1.5) * 100}
+                value={((lyricsLead + LYRICS_LEAD_LIMIT_S) / (2 * LYRICS_LEAD_LIMIT_S)) * 100}
                 aria-label={t('settings.lyricsLead')}
-                onChange={(_, value) => setLyricsLead(Math.round(((value as number) / 100) * 1.5 * 20) / 20)}
+                onChange={(_, value) => setLyricsLead(Math.round((((value as number) / 100) * 2 * LYRICS_LEAD_LIMIT_S - LYRICS_LEAD_LIMIT_S) * 20) / 20)}
               />
-              <span className="w-9 text-right tabular-nums">{lyricsLead.toFixed(2)}s</span>
+              <span className="w-11 text-right tabular-nums">{`${lyricsLead > 0 ? '+' : ''}${lyricsLead.toFixed(2)}s`}</span>
             </div>
           </Row>
           <Row title={t('settings.wordHighlight')} description={t('settings.wordHighlightHint')}>

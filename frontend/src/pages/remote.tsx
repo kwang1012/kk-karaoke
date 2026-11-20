@@ -962,9 +962,17 @@ export default function RemoteView() {
   const roomId = useRoomStore((state) => state.roomId);
   const joinedRoom = useRoomStore((state) => state.joinedRoom);
   const connected = useWebSocketStore((state) => state.connected);
-  // not connected yet is just the page starting; "reconnecting" means it was, and dropped
-  const wasConnected = useRef(false);
-  if (connected) wasConnected.current = true;
+  // not connected yet is just the page starting; "reconnecting" means it was, and stayed dropped: the socket moves to
+  // this page's room as it opens, which is a blink and not worth a red banner
+  const [dropped, setDropped] = useState(false);
+  useEffect(() => {
+    if (connected) {
+      setDropped(false);
+      return;
+    }
+    const timer = setTimeout(() => setDropped(true), 4000);
+    return () => clearTimeout(timer);
+  }, [connected]);
   const queueLength = usePlayerStore((state) => state.queue.slice(state.queueIdx + 1).filter((track) => !track.recommended).length);
   const [tab, setTab] = useState<Tab>('now');
   const [profileOpen, setProfileOpen] = useState(false);
@@ -1003,7 +1011,7 @@ export default function RemoteView() {
   ];
   return (
     <div className="flex h-full w-full flex-col bg-background text-foreground">
-      {!connected && wasConnected.current && (
+      {!connected && dropped && (
         <div role="status" className="shrink-0 bg-destructive px-4 py-1 text-center text-xs font-medium text-white">{t('remote.reconnecting')}</div>
       )}
 

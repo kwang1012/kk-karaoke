@@ -24,6 +24,7 @@ from routes.queue import resume_pending_tracks, router as queue_router
 from routes.room import router as room_router
 from routes.admin import router as admin_router
 from routes.registration import router as registration_router, admin_router as registration_admin_router
+from routes.device_auth import router as device_auth_router
 from routes.imports import router as import_router
 from routes.scores import router as scores_router
 from routes.recordings import router as recordings_router
@@ -117,6 +118,7 @@ app.include_router(scores_router, prefix="/scores", tags=["scores"])
 app.include_router(recordings_router, prefix="/recordings", tags=["recordings"])
 app.include_router(admin_router, prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 app.include_router(registration_router, prefix="/auth", tags=["registration"])
+app.include_router(device_auth_router, prefix="/auth/device", tags=["device-auth"])
 app.include_router(registration_admin_router, prefix="/admin", tags=["registration"])
 app.include_router(import_router, prefix="/import", tags=["import"])
 

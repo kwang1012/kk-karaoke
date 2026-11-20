@@ -5,6 +5,9 @@ import { DEFAULT_MELODY_DETAIL } from 'src/melodyDetail';
 /** No automatic lyrics lead by default; users can adjust it for their setup. */
 export const DEFAULT_LYRICS_LEAD_S = 0;
 
+/** How far the lyrics can be moved either way (earlier is positive). */
+export const LYRICS_LEAD_LIMIT_S = 1.5;
+
 /** The most a device can be told to start a duet early (or, negative, late). Past this the fault is elsewhere. */
 export const DUET_EARLY_RANGE_MS = 300;
 
@@ -12,7 +15,7 @@ export interface SettingState {
   // settings
   refreshKey: number; // Key to refresh the settings
   refresh: () => void; // Function to refresh the settings
-  lyricsLead: number; // Seconds the lyrics show before they are sung: a karaoke singer needs to read ahead
+  lyricsLead: number; // Seconds the lyrics show before they are sung (to read ahead, or when the screen lags the sound); negative shows them later (a Bluetooth or AirPlay speaker plays late)
   setLyricsLead: (lyricsLead: number) => void;
   followSpotify: boolean; // Sing what the Spotify desktop app plays (Windows app only)
   setFollowSpotify: (followSpotify: boolean) => void;
@@ -72,7 +75,7 @@ export const useSettingStore = create<SettingState>()(
       refreshKey: 0, // Key to refresh the settings
       refresh: () => set((state) => ({ refreshKey: state.refreshKey + 1 })), // Function to refresh the settings
       lyricsLead: DEFAULT_LYRICS_LEAD_S,
-      setLyricsLead: (lyricsLead: number) => set({ lyricsLead: Math.min(Math.max(lyricsLead, 0), 1.5) }),
+      setLyricsLead: (lyricsLead: number) => set({ lyricsLead: Math.min(Math.max(lyricsLead, -LYRICS_LEAD_LIMIT_S), LYRICS_LEAD_LIMIT_S) }),
       followSpotify: false,
       setFollowSpotify: (followSpotify: boolean) => set({ followSpotify }),
       wordHighlight: true,

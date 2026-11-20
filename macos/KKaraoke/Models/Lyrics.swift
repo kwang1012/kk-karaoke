@@ -145,6 +145,10 @@ struct LyricGap: Equatable, Sendable {
     static let countdownSeconds = 3.0
     /// Aligned word ends run early (the last word is often held): the wait starts this long after it.
     static let wordEndGrace = 1.8
+    /// How long a line without word timing is guessed to take to sing: this long per character, at least this long (seconds).
+    /// The web app's `GUESS_S_PER_CHAR` and `GUESS_MIN_S` are the same.
+    static let guessPerCharacter = 0.75
+    static let guessMinimum = 4.0
 
     var start: Double
     var end: Double
@@ -165,7 +169,7 @@ struct LyricGap: Equatable, Sendable {
             } else {
                 // No word timing: a rough guess at how long the line takes to sing. Generous on purpose (it matches the
                 // web app's): a countdown that starts while the line is still sung is worse than one that starts late.
-                sung = line.time + delay + max(3, Double(line.text.count) * 0.5)
+                sung = line.time + delay + max(Self.guessMinimum, Double(line.text.count) * Self.guessPerCharacter)
             }
             // The line's own end, when the server has one, says the singing lasts at least that long, whatever the words
             // say (a long line often has words that stop before it does).

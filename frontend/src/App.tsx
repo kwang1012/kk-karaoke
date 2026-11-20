@@ -48,6 +48,7 @@ const RecordView = lazy(() => import('./pages/record'));
 const RecordingsView = lazy(() => import('./pages/recordings'));
 const DuetView = lazy(() => import('./pages/duet'));
 const JoinView = lazy(() => import('./pages/join'));
+const LinkTvView = lazy(() => import('./pages/link'));
 const RemoteView = lazy(() => import('./pages/remote'));
 const TvView = lazy(() => import('./pages/tv'));
 const DownloadView = lazy(() => import('./pages/download'));
@@ -143,6 +144,7 @@ const AppRouters = () => {
           <Route path="requests" element={<AdminRequests />} />
         </Route>
         <Route path="join" element={<JoinView />} />
+        <Route path="link" element={<LinkTvView />} />
         <Route path="download" element={<DownloadView />} />
         <Route path="tv" element={<TvView />} />
         {/* a link a friend sends: opens for anyone, without signing up first */}

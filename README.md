@@ -75,6 +75,16 @@ One-time server setup (daily approvals require no Supabase dashboard):
 4. Run `cd backend && uv run python scripts/catalog_db.py init` to apply the registration table migration, then restart the API
    and rebuild the frontend. Existing host accounts continue to work.
 
+### Signing in a TV (Google TV app)
+
+A TV has no good way to type a password, so it pairs with a signed-in phone instead: the TV shows a code and a QR code, you
+open `/link` on your phone (signed in), check that the code matches and approve it. The TV then gets a token of its own from
+the API (`/auth/device/*`): it names the same account, so the TV shares your room, and it can host rooms and add songs, but it
+cannot open `/admin` or link other devices, it expires after 30 days (renewed while the TV is in use), and **Sign out of this
+TV** revokes it at once. Tokens are kept in Redis, so a Redis reset signs every TV out. Nothing needs configuring: the signing
+key is derived from `SUPABASE_SERVICE_ROLE_KEY` unless you set `DEVICE_TOKEN_SECRET`. Deploy the API and the web app together
+(`./deploy.sh`), since the TV links people to the web app's `/link` page.
+
 ### Open sign-up, email codes, Google and Spotify (optional)
 
 With `VITE_OPEN_SIGNUP=1` the sign-in dialog is email-first: enter an email, get a 6-digit code, and a new address gets an

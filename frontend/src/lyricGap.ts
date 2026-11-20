@@ -3,12 +3,16 @@ export const GAP_MIN_S = 5;
 
 type GapLine = { time: number; text: string; end?: number | null; words?: { end: number }[] | null };
 
+/** The guess for a line without word timing: this long for every character, and at least this long (seconds). Keep the Mac app's (Lyrics.swift) the same. */
+export const GUESS_S_PER_CHAR = 0.75;
+export const GUESS_MIN_S = 4;
+
 /**
  * Seconds a line without word timing is guessed to take to sing. Generous on purpose: a countdown
  * that starts while the line is still being sung is worse than one that starts a little late.
  */
 function guessedDuration(text: string): number {
-  return Math.max(3, text.length * 0.5);
+  return Math.max(GUESS_MIN_S, text.length * GUESS_S_PER_CHAR);
 }
 
 /** Aligned word ends run early (the last word is often held), so the wait starts a moment after it (better to show the countdown late than while the word is still held). */
